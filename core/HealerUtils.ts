@@ -34,29 +34,66 @@ export function generateId(prefix: string): string {
 /**
  * Universal Link Extractor for Dataview (Handles Proxy Arrays).
  */
+/**
+ * Extracts a single link name from a value.
+ * Handles: Link objects, raw wikilink strings, plain names.
+ */
+function processSingleLink(v: unknown): string[] {
+    // 1. Handle Link objects (Dataview/Datacore)
+    if (v && typeof v === 'object' && 'path' in v) {
+        const link = v as { display?: string; path: string };
+        const name = link.display || link.path.split('/').pop()?.replace(/\.md$/, '') || '';
+        return name ? [name] : [];
+    }
+
+    // 2. Handle strings (raw YAML values)
+    const str = String(v).trim();
+    if (!str || str === '?') return [];
+
+    // 3. FIX: Check if string contains multiple [[wikilinks]]
+    const wikiLinkRegex = /\[\[([^\]]+)\]\]/g;
+    const matches: string[] = [];
+    let match;
+    while ((match = wikiLinkRegex.exec(str)) !== null) {
+        const linkTarget = match[1].split('|')[0].trim(); // Handle [[Note|Alias]]
+        if (linkTarget) matches.push(linkTarget);
+    }
+
+    // If we found wikilinks, return them
+    if (matches.length > 0) return matches;
+
+    // 4. Fallback: treat as plain text (strip any remaining brackets)
+    const cleaned = str.replace(/[[\]]/g, '').trim();
+    return cleaned ? [cleaned] : [];
+}
+
+/**
+ * Universal Link Extractor for Dataview/Datacore.
+ * Handles: Link objects, Proxy arrays, raw strings, comma-separated wikilinks.
+ *
+ * FIX: Now correctly extracts multiple links from:
+ *   - YAML arrays: next: [[[A]], [[B]]]
+ *   - Comma strings: next: "[[A]], [[B]]"
+ *   - Dataview DataArrays (Proxy objects with forEach)
+ */
 export function extractLinks(page: Record<string, unknown>, keys: string[]): string[] {
     const results: string[] = [];
 
     keys.forEach((key) => {
         const value = page[key];
-        if (!value) return;
+        if (value == null) return; // null or undefined
 
-        const processSingle = (v: unknown): string => {
-            if (v && typeof v === 'object' && 'path' in v) {
-                const link = v as { display?: string; path: string };
-                return link.display || link.path.split('/').pop()?.replace(/\.md$/, '') || '';
-            }
-            return String(v).replace(/[[\]]/g, '').trim();
-        };
+        // Check if iterable (Array, DataArray proxy, or any array-like)
+        const isIterable =
+            Array.isArray(value) ||
+            (value && typeof value === 'object' && typeof (value as Record<string, unknown>).forEach === 'function');
 
-        if (Array.isArray(value) || (value && typeof (value as { forEach?: unknown }).forEach === 'function')) {
+        if (isIterable) {
             (value as { forEach: (cb: (v: unknown) => void) => void }).forEach((val: unknown) => {
-                const name = processSingle(val);
-                if (name && name !== '?') results.push(name);
+                results.push(...processSingleLink(val));
             });
         } else {
-            const name = processSingle(value);
-            if (name && name !== '?') results.push(name);
+            results.push(...processSingleLink(value));
         }
     });
 
