@@ -36,7 +36,8 @@ export class SuggestionExecutor {
                             existing.push(newLink);
                         }
                     } else if (existing) {
-                        if (!String(existing).includes(source)) {
+                        const existingStr = JSON.stringify(existing);
+                        if (!existingStr.includes(source)) {
                             fm[prop] = [existing, newLink];
                         }
                     } else {

@@ -1,5 +1,5 @@
 import { requestUrl } from 'obsidian';
-import { SemanticGraphHealerSettings } from '../types';
+import { SemanticGraphHealerSettings, ReasoningResult } from '../types';
 import { HealerLogger } from './HealerUtils';
 
 /**
@@ -140,11 +140,9 @@ export class LlmService {
      * Intelligent model detection for local/cloud endpoints.
      */
     public async runModelDetection(endpoint: string, apiKey: string): Promise<string[]> {
-        HealerLogger.info(`Probing endpoint: ${endpoint}`);
         const tryEndpoints = [
             endpoint.endsWith('/') ? `${endpoint}models` : `${endpoint}/models`,
             endpoint.endsWith('/') ? `${endpoint}v1/models` : `${endpoint}/v1/models`,
-            endpoint.endsWith('/') ? `${endpoint}api/tags` : `${endpoint}/api/tags`,
         ];
 
         for (const url of tryEndpoints) {
@@ -153,21 +151,22 @@ export class LlmService {
                     url,
                     method: 'GET',
                     headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
-                    throw: false,
                 });
 
                 if (response.status === 200) {
-                    const json = response.json;
-                    if (json && Array.isArray(json.data)) {
-                        return (json.data as Array<{ id?: string; name?: string }>)
-                            .map((m) => m.id || m.name)
-                            .filter((m): m is string => Boolean(m));
+                    interface ModelResponse {
+                        data?: { id: string }[];
+                        models?: { name: string }[];
                     }
-                    if (json && Array.isArray(json.models)) {
-                        return (json.models as Array<{ id?: string; name?: string }>)
-                            .map((m) => m.name || m.id)
-                            .filter((m): m is string => Boolean(m));
+                    const data = response.json as ModelResponse;
+                    const models: string[] = [];
+
+                    if (data.data && Array.isArray(data.data)) {
+                        data.data.forEach((m) => models.push(m.id));
+                    } else if (data.models && Array.isArray(data.models)) {
+                        data.models.forEach((m) => models.push(m.name));
                     }
+                    if (models.length > 0) return models;
                 }
             } catch {
                 HealerLogger.warn(`Endpoint path ${url} failed, trying fallback...`);
@@ -179,51 +178,50 @@ export class LlmService {
     /**
      * Parses the LLM reasoning response into structured data.
      */
-    public parseReasoningResult(raw: string): {
-        winner: string | null;
-        winnerScore: number;
-        winnerWhy: string;
-        runnerUp: string | null;
-        runnerUpScore: number;
-        runnerUpWhy: string;
-    } {
-        const result = {
-            winner: null as string | null,
+    public parseReasoningResult(raw: string): Omit<ReasoningResult, 'rawResponse'> {
+        const result: Omit<ReasoningResult, 'rawResponse'> = {
+            winner: '',
             winnerScore: 0,
             winnerWhy: '',
-            runnerUp: null as string | null,
+            runnerUp: '',
             runnerUpScore: 0,
             runnerUpWhy: '',
         };
 
-        const winnerMatch = raw.match(/WINNER:\s*(?:\[\[)?(.*?)(?:\]\])?\s*\|\s*SCORE:\s*(\d+)%?\s*\|\s*WHY:\s*(.*)/i);
-        if (winnerMatch) {
-            result.winner = winnerMatch[1].trim();
-            result.winnerScore = parseInt(winnerMatch[2]);
-            result.winnerWhy = winnerMatch[3].split('|')[0].trim();
-        }
+        try {
+            const winnerMatch = raw.match(
+                /WINNER:\s*(?:\[\[)?(.*?)(?:\]\])?\s*\|\s*SCORE:\s*(\d+)%?\s*\|\s*WHY:\s*(.*)/i,
+            );
+            if (winnerMatch) {
+                result.winner = winnerMatch[1].trim();
+                result.winnerScore = parseInt(winnerMatch[2]);
+                result.winnerWhy = winnerMatch[3].split('|')[0].trim();
+            }
 
-        const runnerUpMatch = raw.match(
-            /RUNNERUP:\s*(?:\[\[)?(.*?)(?:\]\])?\s*\|\s*SCORE:\s*(\d+)%?\s*\|\s*WHY:\s*(.*)/i,
-        );
-        if (runnerUpMatch) {
-            result.runnerUp = runnerUpMatch[1].trim();
-            result.runnerUpScore = parseInt(runnerUpMatch[2]);
-            result.runnerUpWhy = runnerUpMatch[3].split('|')[0].trim();
-        }
+            const runnerUpMatch = raw.match(
+                /RUNNERUP:\s*(?:\[\[)?(.*?)(?:\]\])?\s*\|\s*SCORE:\s*(\d+)%?\s*\|\s*WHY:\s*(.*)/i,
+            );
+            if (runnerUpMatch) {
+                result.runnerUp = runnerUpMatch[1].trim();
+                result.runnerUpScore = parseInt(runnerUpMatch[2]);
+                result.runnerUpWhy = runnerUpMatch[3].split('|')[0].trim();
+            }
 
-        if (!result.winner) {
-            const lines = raw.split('\n');
-            for (const line of lines) {
-                if (line.toUpperCase().includes('WINNER:')) {
-                    const clean = line
-                        .replace(/WINNER:/i, '')
-                        .replace(/[[\]]/g, '')
-                        .trim();
-                    result.winner = clean.split('|')[0].trim();
-                    break;
+            if (!result.winner) {
+                const lines = raw.split('\n');
+                for (const line of lines) {
+                    if (line.toUpperCase().includes('WINNER:')) {
+                        const clean = line
+                            .replace(/WINNER:/i, '')
+                            .replace(/[[\]]/g, '')
+                            .trim();
+                        result.winner = clean.split('|')[0].trim();
+                        break;
+                    }
                 }
             }
+        } catch (e) {
+            HealerLogger.error('Failed to parse reasoning result', e);
         }
 
         return result;

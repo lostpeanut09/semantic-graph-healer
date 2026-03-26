@@ -7,9 +7,9 @@ import { HealerLogger, isObsidianInternalApp } from './HealerUtils';
  * Hybrid engine: Datacore (Primary) -> Dataview (Fallback).
  */
 export interface VaultQueryEngine {
-    getPage(path: string): Promise<DataviewPage | null>;
-    getPagesWithTag(tag: string): Promise<DataviewPage[]>;
-    getBacklinks(path: string): Promise<string[]>;
+    getPage(path: string): DataviewPage | null;
+    getPagesWithTag(tag: string): DataviewPage[];
+    getBacklinks(path: string): string[];
 }
 
 export class VaultDataAdapter implements VaultQueryEngine {
@@ -31,7 +31,7 @@ export class VaultDataAdapter implements VaultQueryEngine {
     }
 
     // --- VaultQueryEngine Implementation ---
-    async getPage(path: string): Promise<DataviewPage | null> {
+    getPage(path: string): DataviewPage | null {
         // Priority: Datacore → Dataview → null
         const dc = this.getDatacoreApi();
         if (dc) {
@@ -51,7 +51,7 @@ export class VaultDataAdapter implements VaultQueryEngine {
      * - Folder query: wrapped in quotes → Datacore uses `@page and path("folder")`
      * - Empty query: returns all pages
      */
-    async getPagesWithTag(query: string): Promise<DataviewPage[]> {
+    getPagesWithTag(query: string): DataviewPage[] {
         const dc = this.getDatacoreApi();
         if (dc) {
             let dcQuery: string;
@@ -86,14 +86,14 @@ export class VaultDataAdapter implements VaultQueryEngine {
         if (dv) {
             const results = dv.pages(query);
             HealerLogger.info(`Dataview query "${query}" returned ${results.length} pages.`);
-            return results;
+            return results as unknown as DataviewPage[];
         }
 
         HealerLogger.warn('No query engine available. Returning empty page set.');
         return [];
     }
 
-    async getBacklinks(path: string): Promise<string[]> {
+    getBacklinks(path: string): string[] {
         const dc = this.getDatacoreApi();
         if (dc) {
             try {

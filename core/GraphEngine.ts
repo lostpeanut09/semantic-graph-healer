@@ -1,4 +1,4 @@
-import { App } from 'obsidian';
+import { App, TFile } from 'obsidian';
 import { MultiDirectedGraph } from 'graphology';
 import pagerank from 'graphology-metrics/centrality/pagerank';
 import louvain from 'graphology-communities-louvain';
@@ -6,9 +6,13 @@ import betweennessCentrality from 'graphology-metrics/centrality/betweenness';
 import { Suggestion } from '../types';
 import { HealerLogger, generateId } from './HealerUtils';
 
+interface GraphNodeAttributes {
+    label: string;
+    size: number;
+}
+
 export class GraphEngine {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    private graph: any; // Using any for CI robustness; functionality guaranteed by local build verification
+    private graph: MultiDirectedGraph;
 
     constructor(private app: App) {
         this.graph = new MultiDirectedGraph();
@@ -24,11 +28,11 @@ export class GraphEngine {
 
         // 1. Add Nodes
         const files = this.app.vault.getMarkdownFiles();
-        files.forEach((f) => {
+        files.forEach((f: TFile) => {
             this.graph.addNode(f.path, {
                 label: f.basename,
                 size: f.stat.size,
-            });
+            } as GraphNodeAttributes);
         });
 
         // 2. Add Edges
@@ -68,7 +72,9 @@ export class GraphEngine {
     private runDegreeCentralityFallback(): Suggestion[] {
         const scores: Record<string, number> = {};
         this.graph.forEachNode((node: string) => {
-            scores[node] = this.graph.degree(node);
+            const g = this.graph as unknown as { neighbors: (id: string) => string[] };
+            const neighbors = g.neighbors(node);
+            scores[node] = neighbors.length; // Assuming degree is number of neighbors
         });
         return this.processScores(scores, 'degree_fallback', 'Degree centrality fallback');
     }
@@ -82,7 +88,7 @@ export class GraphEngine {
         const topNodes = sorted.slice(0, topCount);
 
         topNodes.forEach(([path, score]) => {
-            const node = this.graph.getNodeAttributes(path);
+            const node = this.graph.getNodeAttributes(path) as GraphNodeAttributes;
             suggestions.push({
                 id: generateId(`${idPrefix}:${path}`),
                 type: 'quality',
@@ -106,7 +112,7 @@ export class GraphEngine {
      */
     public runCommunityDetection(): Suggestion[] {
         HealerLogger.info('Running Louvain Community Detection...');
-        const communities = louvain(this.graph);
+        const communities = (louvain as (g: unknown) => Record<string, number>)(this.graph);
         const suggestions: Suggestion[] = [];
 
         const clusters: Record<string, string[]> = {};
@@ -119,7 +125,8 @@ export class GraphEngine {
         Object.entries(clusters).forEach(([commId, paths]) => {
             if (paths.length < 5) return;
 
-            const representative = this.graph.getNodeAttributes(paths[0]).label;
+            const nodeAttr = this.graph.getNodeAttributes(paths[0]) as GraphNodeAttributes;
+            const representative = nodeAttr.label;
 
             suggestions.push({
                 id: generateId(`community_louvain:${commId}`),
@@ -158,7 +165,7 @@ export class GraphEngine {
         const topBrokers = sorted.slice(0, 10);
 
         topBrokers.forEach(([path, score]) => {
-            const node = this.graph.getNodeAttributes(path);
+            const node = this.graph.getNodeAttributes(path) as GraphNodeAttributes;
             if (score > 0) {
                 suggestions.push({
                     id: generateId(`betweenness_bridge:${path}`),
