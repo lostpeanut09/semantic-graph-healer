@@ -1,0 +1,6 @@
+# Mark build artifacts as vendored so they don't count towards language statistics
+main.js linguist-vendored
+styles.css linguist-vendored
+
+# Ensure TypeScript is recognized as the primary language
+*.ts linguist-language=TypeScript

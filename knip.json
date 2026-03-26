@@ -1,0 +1,23 @@
+{
+    "$schema": "https://unpkg.com/knip@5/schema.json",
+    "entry": ["main.ts", "esbuild.config.mjs", "eslint.config.js"],
+    "project": ["**/*.ts"],
+    "ignore": ["node_modules/**", "dist/**"],
+    "ignoreDependencies": [
+        "tslib",
+        "@vitest/ui",
+        "vitest",
+        "builtin-modules",
+        "esbuild",
+        "@typescript-eslint/eslint-plugin",
+        "@typescript-eslint/parser",
+        "@eslint/js"
+    ],
+    "rules": {
+        "files": "warn",
+        "dependencies": "warn",
+        "unlisted": "off",
+        "exports": "off",
+        "types": "off"
+    }
+}

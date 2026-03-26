@@ -1,0 +1,26 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build artifacts
+main.js
+
+# Obsidian local files
+.obsidian/
+data.json
+
+# Backups and temporary files
+*.bak
+*.tmp
+*.final_stage_bak
+*.perfect_bak
+plugin_audit_archive.md
+
+# Environment variables
+.env
