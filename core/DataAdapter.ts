@@ -97,9 +97,10 @@ export class VaultDataAdapter implements VaultQueryEngine {
         const dc = this.getDatacoreApi();
         if (dc) {
             try {
-                const safePath = path.replace(/"/g, '\\"');
-                // FIX: Use linkedto() for better compatibility
-                const results = dc.query<MarkdownPage>(`@page and linkedto("[[${safePath}]]")`);
+                // Extract basename for wikilink syntax
+                const basename = path.split('/').pop()?.replace(/\.md$/, '') || '';
+                // FIX: linkedto() requires [[wikilink]] syntax, not quoted string paths
+                const results = dc.query<MarkdownPage>(`@page and linkedto([[${basename}]])`);
                 return results.map((p) => p.$path.split('/').pop()?.replace(/\.md$/, '') || '');
             } catch (e) {
                 HealerLogger.warn('Datacore backlink query failed, falling back to cache.', e);
