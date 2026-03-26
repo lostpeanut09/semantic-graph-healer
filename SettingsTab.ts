@@ -178,8 +178,12 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
                 );
                 text.onChange(async (v) => {
                     try {
-                        const parsed = JSON.parse(v);
-                        // Validation logic would go here if needed, or let Zod handle it on load
+                        const parsed = JSON.parse(v) as {
+                            pattern: string;
+                            property: string;
+                            maxCount: number;
+                            severity: 'info' | 'error' | 'suggestion';
+                        }[];
                         this.plugin.settings.customTopologyRules = parsed;
                         await this.plugin.saveSettings();
                         await this.plugin.analyzeGraph();
@@ -300,8 +304,7 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
             .setName('Primary model selection')
             .setDesc('Select the target model from the detected choices on your primary endpoint.')
             .addDropdown((dropdown) => {
-                const models = this.plugin.settings.detectedModels || [];
-                models.forEach((m: string) => {
+                (this.plugin.settings.detectedModels || []).forEach((m: string) => {
                     dropdown.addOption(m, m);
                 });
                 dropdown.setValue(this.plugin.settings.llmModelName).onChange((value) => {
@@ -346,7 +349,7 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
 
             if (isRedundant) {
                 containerEl.createEl('div', {
-                    text: '⚠️ warning: primary and secondary providers are identical. The tribunal will be bypassed to save tokens.',
+                    text: 'Primary and secondary providers are identical. The tribunal will be bypassed to save tokens.',
                     cls: 'healer-warning-banner',
                 });
             }

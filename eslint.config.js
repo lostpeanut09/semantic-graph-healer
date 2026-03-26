@@ -4,18 +4,20 @@ import tseslint from 'typescript-eslint';
 import obsidianmd from 'eslint-plugin-obsidianmd';
 import prettierConfig from 'eslint-config-prettier';
 
-export default defineConfig(
+export default tseslint.config(
     eslint.configs.recommended,
-    tseslint.configs.recommended,
+    ...tseslint.configs.recommendedTypeChecked,
+    {
+        languageOptions: {
+            parserOptions: {
+                projectService: true,
+                tsconfigRootDir: import.meta.dirname,
+            },
+        },
+    },
     {
         plugins: {
             obsidianmd: obsidianmd,
-        },
-        languageOptions: {
-            parserOptions: {
-                project: ['./tsconfig.json'],
-                tsconfigRootDir: import.meta.dirname,
-            },
         },
         rules: {
             'obsidianmd/ui/sentence-case': 'error',
@@ -23,22 +25,19 @@ export default defineConfig(
             'obsidianmd/hardcoded-config-path': 'warn',
             'obsidianmd/no-forbidden-elements': 'error',
             'obsidianmd/no-sample-code': 'error',
+
             '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true, allowBoolean: true }],
             '@typescript-eslint/no-floating-promises': 'error',
             '@typescript-eslint/no-misused-promises': 'error',
             '@typescript-eslint/no-unnecessary-type-assertion': 'error',
+            '@typescript-eslint/require-await': 'error',
+            '@typescript-eslint/no-explicit-any': 'error',
+
+            'no-console': ['error', { allow: ['warn', 'error', 'debug'] }],
         },
     },
     {
-        ignores: [
-            'main.js',
-            'esbuild.config.mjs',
-            'eslint.config.js',
-            'node_modules/',
-            'main.ts.final_stage_bak',
-            'main.ts.perfect_bak',
-            'HealerLogic.test.ts',
-        ],
+        ignores: ['main.js', 'esbuild.config.mjs', 'eslint.config.js', 'node_modules/', '**/*.test.ts', '**/*.bak'],
     },
     prettierConfig,
 );

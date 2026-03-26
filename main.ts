@@ -442,7 +442,7 @@ export default class SemanticGraphHealer extends Plugin {
             const cycleIssues = await this.topology.runCycleAnalysis();
             await sleep(10);
 
-            const sinkIssues = await this.topology.runFlowStagnationAnalysis();
+            const sinkIssues = this.topology.runFlowStagnationAnalysis();
             await sleep(10);
 
             const qualityIssues = await this.quality.runQualityAnalysis();
@@ -569,7 +569,9 @@ export default class SemanticGraphHealer extends Plugin {
             });
 
             if (response.status === 200) {
-                const data = response.json;
+                const data = response.json as {
+                    gaps?: { cluster_a: string; cluster_b: string; advice: string | Record<string, unknown> }[];
+                };
                 const gaps = data.gaps || [];
                 let newCount = 0;
 
@@ -578,7 +580,7 @@ export default class SemanticGraphHealer extends Plugin {
                         const adviceText =
                             typeof gap.advice === 'string'
                                 ? gap.advice
-                                : JSON.stringify(gap.advice || 'Missing connection');
+                                : JSON.stringify(gap.advice ?? 'Missing connection');
                         this.settings.pendingSuggestions.push({
                             id: generateId('infra'),
                             type: 'infra',
@@ -609,8 +611,8 @@ export default class SemanticGraphHealer extends Plugin {
     }
 
     async loadSettings() {
-        const loadedData = await this.loadData();
-        const baseSettings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
+        const loadedData = (await this.loadData()) as Partial<SemanticGraphHealerSettings>;
+        const baseSettings = Object.assign({}, DEFAULT_SETTINGS, loadedData) as SemanticGraphHealerSettings;
 
         // --- MIGRATION: Ensure all suggestions have a type field ---
         interface LegacySuggestion {
@@ -620,32 +622,34 @@ export default class SemanticGraphHealer extends Plugin {
         }
 
         if (baseSettings.pendingSuggestions && Array.isArray(baseSettings.pendingSuggestions)) {
-            baseSettings.pendingSuggestions = baseSettings.pendingSuggestions.map((s: LegacySuggestion) => {
-                let type: SuggestionType = s.type || 'ai';
-                const id = s.id || '';
-                if (
-                    id.startsWith('deter_') ||
-                    id.startsWith('asymmetry') ||
-                    id.startsWith('tag_sync') ||
-                    id.startsWith('bridge_gap')
-                ) {
-                    type = 'deterministic';
-                } else if (
-                    id.startsWith('orphan_') ||
-                    id.startsWith('dangly_') ||
-                    id.startsWith('moc_sat_') ||
-                    id.startsWith('quality_')
-                ) {
-                    type = 'quality';
-                } else if (id.startsWith('incongruence')) {
-                    type = 'incongruence';
-                } else if (id.startsWith('infra_')) {
-                    type = 'infra';
-                } else if (id.startsWith('suggest_') || id.startsWith('smart_')) {
-                    type = 'ai';
-                }
-                return { ...s, type };
-            });
+            baseSettings.pendingSuggestions = (baseSettings.pendingSuggestions as unknown as LegacySuggestion[]).map(
+                (s) => {
+                    let type: SuggestionType = s.type || 'ai';
+                    const id = s.id || '';
+                    if (
+                        id.startsWith('deter_') ||
+                        id.startsWith('asymmetry') ||
+                        id.startsWith('tag_sync') ||
+                        id.startsWith('bridge_gap')
+                    ) {
+                        type = 'deterministic';
+                    } else if (
+                        id.startsWith('orphan_') ||
+                        id.startsWith('dangly_') ||
+                        id.startsWith('moc_sat_') ||
+                        id.startsWith('quality_')
+                    ) {
+                        type = 'quality';
+                    } else if (id.startsWith('incongruence')) {
+                        type = 'incongruence';
+                    } else if (id.startsWith('infra_')) {
+                        type = 'infra';
+                    } else if (id.startsWith('suggest_') || id.startsWith('smart_')) {
+                        type = 'ai';
+                    }
+                    return { ...s, type } as unknown as Suggestion;
+                },
+            );
         }
 
         // --- ZOD VALIDATION ---
@@ -654,17 +658,18 @@ export default class SemanticGraphHealer extends Plugin {
             const result = SettingsSchema.safeParse(baseSettings);
 
             if (result.success) {
-                this.settings = result.data as unknown as SemanticGraphHealerSettings;
+                this.settings = baseSettings;
             } else {
+                const { z } = await import('zod');
                 HealerLogger.warn(
                     'Settings validation failed. Some keys may be corrupted. Using safe fallbacks.',
-                    result.error.format(),
+                    z.treeifyError(result.error),
                 );
-                this.settings = baseSettings as unknown as SemanticGraphHealerSettings;
+                this.settings = baseSettings;
             }
         } catch (e) {
             HealerLogger.error('Failed to load Zod schema for validation', e);
-            this.settings = baseSettings as SemanticGraphHealerSettings;
+            this.settings = baseSettings;
         }
     }
 
@@ -678,9 +683,12 @@ export default class SemanticGraphHealer extends Plugin {
             let found = false;
             const bcPath = `${this.app.vault.configDir}/plugins/breadcrumbs/data.json`;
             if (await this.app.vault.adapter.exists(bcPath)) {
-                const bcData = JSON.parse(await this.app.vault.adapter.read(bcPath));
+                const bcFileContent = await this.app.vault.adapter.read(bcPath);
+                const bcData = JSON.parse(bcFileContent) as {
+                    hierarchies?: { up?: string[]; down?: string[]; same?: string[] }[];
+                };
                 if (bcData?.hierarchies?.[0]) {
-                    const bcH = bcData.hierarchies[0] as { up: string[]; down: string[]; same: string[] };
+                    const bcH = bcData.hierarchies[0];
                     if (this.settings.hierarchies[0]) {
                         this.settings.hierarchies[0].up = [
                             ...new Set([...this.settings.hierarchies[0].up, ...(bcH.up || [])]),

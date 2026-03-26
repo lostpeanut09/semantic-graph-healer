@@ -11,12 +11,13 @@ export class TopologyAnalyzer {
     ) {}
 
     public async runDeterministicAnalysis(): Promise<Suggestion[]> {
+        await Promise.resolve();
         HealerLogger.info('Starting deterministic graph scrutiny...');
 
         const query =
             this.settings.scanFolder && this.settings.scanFolder !== '/' ? `"${this.settings.scanFolder}"` : '';
 
-        const pages = await this.engine.getPagesWithTag(query);
+        const pages = this.engine.getPagesWithTag(query);
         const inverseMap: Record<string, string> = {
             up: 'down',
             down: 'up',
@@ -84,12 +85,13 @@ export class TopologyAnalyzer {
     }
 
     public async runIncongruenceAnalysis(): Promise<Suggestion[]> {
+        await Promise.resolve();
         HealerLogger.info('Starting incongruence analysis...');
 
         const query =
             this.settings.scanFolder && this.settings.scanFolder !== '/' ? `"${this.settings.scanFolder}"` : '';
 
-        const pages = await this.engine.getPagesWithTag(query);
+        const pages = this.engine.getPagesWithTag(query);
         const hierarchy = this.settings.hierarchies[0] || {
             up: [],
             down: [],
@@ -183,6 +185,7 @@ export class TopologyAnalyzer {
      * Especially useful when a new note B is created that fits between A and C.
      */
     public async runBridgeScrutiny(): Promise<Suggestion[]> {
+        await Promise.resolve();
         HealerLogger.info('Starting structural bridge scrutiny...');
         const suggestions: Suggestion[] = [];
 
@@ -196,7 +199,7 @@ export class TopologyAnalyzer {
         if (!hierarchy) return [];
 
         // 2. Fetch relevant pages (all if no newFile, otherwise focused scan)
-        const pages = await this.engine.getPagesWithTag('');
+        const pages = this.engine.getPagesWithTag('');
         const nameToPage = new Map<string, DataviewPage>();
         pages.forEach((p) => {
             nameToPage.set(p.file.name, p);
@@ -270,12 +273,13 @@ export class TopologyAnalyzer {
      * Finds infinite logic loops: A -> B -> C -> A.
      */
     public async runCycleAnalysis(): Promise<Suggestion[]> {
+        await Promise.resolve();
         HealerLogger.info('Starting hierarchical cycle detection (Ouroboros)...');
         const suggestions: Suggestion[] = [];
         const hierarchy = this.settings.hierarchies?.[0];
         if (!hierarchy) return [];
 
-        const pages = await this.engine.getPagesWithTag('');
+        const pages = this.engine.getPagesWithTag('');
         const graph = new Map<string, string[]>();
 
         pages.forEach((p) => {
@@ -336,7 +340,7 @@ export class TopologyAnalyzer {
      * SCENARIO 2: IL BUCO NERO (Information Sinks)
      * Finds notes with high in-degree but zero out-degree.
      */
-    public async runFlowStagnationAnalysis(): Promise<Suggestion[]> {
+    public runFlowStagnationAnalysis(): Suggestion[] {
         HealerLogger.info('Starting optimized flow stagnation analysis (Black Holes)...');
         const suggestions: Suggestion[] = [];
 

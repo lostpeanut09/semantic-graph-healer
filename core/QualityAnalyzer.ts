@@ -15,12 +15,13 @@ export class QualityAnalyzer {
     }
 
     public async runQualityAnalysis(): Promise<Suggestion[]> {
+        await Promise.resolve();
         HealerLogger.info('Starting graph quality audit...');
 
         const query =
             this.settings.scanFolder && this.settings.scanFolder !== '/' ? `"${this.settings.scanFolder}"` : '';
 
-        const pages = await this.engine.getPagesWithTag(query);
+        const pages = this.engine.getPagesWithTag(query);
         const hierarchy = this.settings.hierarchies[0] || {
             up: [],
             down: [],

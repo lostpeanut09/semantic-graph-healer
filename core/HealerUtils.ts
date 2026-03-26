@@ -5,14 +5,34 @@ import { ObsidianInternalApp } from '../types';
  * HealerLogger: Centralized logging for SOTA compliance.
  */
 export class HealerLogger {
-    static info(msg: string, ...args: unknown[]) {
-        console.log(`[Healer][INFO] ${msg}`, ...args);
+    public static info(message: string, ...args: unknown[]) {
+        HealerLogger.log('info', message, ...args);
     }
-    static warn(msg: string, ...args: unknown[]) {
-        console.warn(`[Healer][WARN] ${msg}`, ...args);
+
+    public static warn(message: string, ...args: unknown[]) {
+        HealerLogger.log('warn', message, ...args);
     }
-    static error(msg: string, ...args: unknown[]) {
-        console.error(`[Healer][ERROR] ${msg}`, ...args);
+
+    public static error(message: string, ...args: unknown[]) {
+        HealerLogger.log('error', message, ...args);
+    }
+
+    public static debug(message: string, ...args: unknown[]) {
+        HealerLogger.log('debug', message, ...args);
+    }
+
+    private static log(level: 'info' | 'warn' | 'error' | 'debug', message: string, ...args: unknown[]) {
+        const prefix = `[SemanticHealer][${level.toUpperCase()}]`;
+        if (level === 'error') {
+            console.error(prefix, message, ...args);
+        } else if (level === 'warn') {
+            console.warn(prefix, message, ...args);
+        } else if (level === 'debug') {
+            console.debug(prefix, message, ...args);
+        } else {
+            // Obsidian recommends warn/error for general visibility in dev console for info messages
+            console.warn(prefix, message, ...args);
+        }
     }
 }
 
