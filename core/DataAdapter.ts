@@ -45,39 +45,67 @@ export class VaultDataAdapter implements VaultQueryEngine {
         return null;
     }
 
-    async getPagesWithTag(tag: string): Promise<DataviewPage[]> {
-        // Priority: Datacore → Dataview → empty
+    /**
+     * FIX: Correctly distinguishes between tag queries and folder/source queries.
+     * - Tag query: starts with '#' → Datacore uses `@page and #tag`
+     * - Folder query: wrapped in quotes → Datacore uses `@page and path("folder")`
+     * - Empty query: returns all pages
+     */
+    async getPagesWithTag(query: string): Promise<DataviewPage[]> {
         const dc = this.getDatacoreApi();
         if (dc) {
-            // FIX: Normalize tag and escape
-            const cleanTag = tag.startsWith('#') ? tag : `#${tag}`;
-            const safeTag = cleanTag.replace(/"/g, '\\"');
+            let dcQuery: string;
 
-            // Query logic
-            const query = tag ? `@page and ${safeTag}` : '@page';
-            const results = dc.query<MarkdownPage>(query);
-            return results.map((p) => this.mapMarkdownToDataview(p));
+            if (!query) {
+                // Empty: return all pages
+                dcQuery = '@page';
+            } else if (query.startsWith('#')) {
+                // Tag query: pass directly
+                const safeTag = query.replace(/"/g, '\\"');
+                dcQuery = `@page and ${safeTag}`;
+            } else if (query.startsWith('"') && query.endsWith('"')) {
+                // Folder/source query: extract folder name and use path()
+                const folderName = query.slice(1, -1).replace(/"/g, '\\"');
+                dcQuery = `@page and path("${folderName}")`;
+            } else {
+                // Fallback: treat as generic filter
+                dcQuery = `@page and ${query}`;
+            }
+
+            try {
+                const results = dc.query<MarkdownPage>(dcQuery);
+                HealerLogger.info(`Datacore query "${dcQuery}" returned ${results.length} pages.`);
+                return results.map((p) => this.mapMarkdownToDataview(p));
+            } catch (e) {
+                HealerLogger.warn(`Datacore query failed: "${dcQuery}". Falling back to Dataview.`, e);
+                // Fall through to Dataview
+            }
         }
+
         const dv = this.getDataviewApi();
-        if (dv) return dv.pages(tag);
+        if (dv) {
+            const results = dv.pages(query);
+            HealerLogger.info(`Dataview query "${query}" returned ${results.length} pages.`);
+            return results;
+        }
+
+        HealerLogger.warn('No query engine available. Returning empty page set.');
         return [];
     }
 
     async getBacklinks(path: string): Promise<string[]> {
-        // Priority: Datacore (Indexed) → MetadataCache (Manual)
         const dc = this.getDatacoreApi();
         if (dc) {
             try {
                 const safePath = path.replace(/"/g, '\\"');
-                // Leverage Datacore's reverse index
-                const results = dc.query<MarkdownPage>(`@page and links("${safePath}")`);
+                // FIX: Use linkedto() for better compatibility
+                const results = dc.query<MarkdownPage>(`@page and linkedto("[[${safePath}]]")`);
                 return results.map((p) => p.$path.split('/').pop()?.replace(/\.md$/, '') || '');
             } catch (e) {
                 HealerLogger.warn('Datacore backlink query failed, falling back to cache.', e);
             }
         }
 
-        // Fallback: MetadataCache
         const cache = this.app.metadataCache.resolvedLinks;
         const backlinks: string[] = [];
         for (const [source, targets] of Object.entries(cache)) {
@@ -93,17 +121,36 @@ export class VaultDataAdapter implements VaultQueryEngine {
 
     /**
      * CRITICAL ADAPTER: Maps Datacore schema to Legacy Dataview schema.
-     * Generates a synthetic 'file.link' object to prevent crashes in legacy code.
+     *
+     * FIX: $frontmatter is now spread FIRST (as base), then Datacore's processed
+     * root-level fields overwrite them. This ensures that processed Link objects
+     * from Datacore take priority over raw YAML strings from $frontmatter.
+     * Also fixes file.name to exclude .md extension.
      */
     private mapMarkdownToDataview(page: MarkdownPage): DataviewPage {
-        const name = page.$path.split('/').pop() || '';
-        const basename = name.replace(/\.md$/, '');
+        const filename = page.$path.split('/').pop() || '';
+        const basename = filename.replace(/\.md$/, '');
+
+        // Extract raw frontmatter as a safe base layer
+        const rawFrontmatter = page.$frontmatter || {};
+
+        // Build user fields from page root (excluding $ system keys)
+        const userFields: Record<string, unknown> = {};
+        for (const key of Object.keys(page)) {
+            if (!key.startsWith('$')) {
+                userFields[key] = page[key];
+            }
+        }
 
         return {
-            ...page, // Spread user fields (frontmatter/inline fields)
+            // Layer 1: Raw frontmatter (lowest priority — raw YAML strings)
+            ...rawFrontmatter,
+            // Layer 2: Datacore processed fields (higher priority — Link objects, parsed arrays)
+            ...userFields,
+            // Layer 3: Synthetic 'file' object (highest priority — structural)
             file: {
                 path: page.$path,
-                name: name,
+                name: basename, // FIX: exclude .md extension
                 basename: basename,
                 ctime: page.$ctime,
                 mtime: page.$mtime,
@@ -122,10 +169,8 @@ export class VaultDataAdapter implements VaultQueryEngine {
                           .filter((l) => l.type === 'file')
                           .map((l) => l.path)
                     : [],
-                frontmatter: page.$frontmatter || {}, // Legacy direct access
+                frontmatter: rawFrontmatter,
             },
-            // Datacore puts fields at root, but legacy Dataview often looks directly
-            ...page.$frontmatter,
         } as unknown as DataviewPage;
     }
 }

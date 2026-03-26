@@ -31,6 +31,18 @@ Integration with the [InfraNodus](https://infranodus.com) API enables the detect
 
 The engine performs deterministic alignment of Map of Content (MOC) structures by analyzing Dataview-powered tag hierarchies. It automatically recognizes fields from Breadcrumbs and ExcaliBrain to maintain cross-plugin consistency, proposing hierarchical links that mirror your existing taxonomy without requiring AI inference.
 
+### Graphology Topology Stack
+
+Integration with the **Graphology library** enables advanced network science metrics within your vault. The engine utilizes **Louvain Community Detection** for automated clustering and **Bridge Scrutiny (Betweenness Centrality)** to identify critical knowledge bottlenecks and structural gaps that require manual bridging.
+
+### Headless Analysis (Obsidian CLI)
+
+For power users and automated environments, the plugin supports headless execution via the **Obsidian CLI**. Use the `analyze-silent` command to trigger background graph audits and suggest resolutions without opening the Obsidian workspace UI.
+
+### Semantic Resilience and .ajson Fallback
+
+The engine features high-availability semantic search. If the primary [Smart Connections](https://github.com/brianpetro/obsidian-smart-connections) v4 API is unreachable, the plugin automatically switches to a **.ajson fallback mode**, reading persistent vector indices directly from the `.smart-env` directory to ensure continuity of service.
+
 ### Secure Credential Management
 
 API credentials for all providers are managed via the native **Obsidian Keychain API**. Secrets are never stored in plain text within the plugin configuration files, ensuring vault security across synchronized devices.
