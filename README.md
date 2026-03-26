@@ -1,61 +1,72 @@
 ![Banner](banner.png)
 
-# Semantic Graph Healer
+# Semantic Graph Healer: Platinum Edition
+
+**Gold Master v1.1.0-endpoint**
 
 [![Obsidian Plugin](https://img.shields.io/badge/Obsidian-Plugin-purple.svg)](https://obsidian.md/)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
-**Semantic Graph Healer** is a topological restoration engine for Obsidian that utilizes [Dataview](https://github.com/blacksmithgu/obsidian-dataview), [Breadcrumbs](https://github.com/Sirenko/obsidian-breadcrumbs), and [ExcaliBrain](https://github.com/zsviczian/excalibrain) metadata to identify and resolve structural inconsistencies in the knowledge graph. It's designed for researchers and curators managing large-scale digital gardens where manual link auditing is no longer feasible.
+**Semantic Graph Healer** is a topological restoration and reasoning engine for Obsidian. It provides a state-of-the-art framework to identify, analyze, and repair structural inconsistencies in your digital garden using advanced graph theory and semantic intelligence.
 
 ---
 
-## Technical Features
+## 🏗️ Core Topological Intelligence
 
-### AI Tribunal and Epistemic Stability
+The engine utilizes the **Graphology Stack** to perform deep structural analysis of your vault:
 
-The plugin implements a dual-LLM verification system known as the **AI Tribunal**. Every suggestion is processed by a Primary and a Secondary model to ensure consensus and prevent hallucinations. If models disagree, the suggestion is quarantined for manual review. This system supports independent and diverse model providers (e.g., local Ollama vs. Cloud GPT) to ensure unbiased structural reasoning.
-
-### Semantic Vector Discovery
-
-Direct integration with the [Smart Connections](https://github.com/brianpetro/obsidian-smart-connections) environment unlocks vector-similarity scores for every link suggestion. The engine analyzes AI embeddings to propose candidates with the highest semantic proximity, ensuring that your graph architecture mirrors the conceptual depth of your notes.
-
-### Note Exhaustion and State Tracking
-
-To optimize compute resources, the engine tracks the epistemic state of each file. Notes where all AI-suggested links have been blacklisted are marked as "exhausted" and skipped in subsequent scans. This persistent tracking ensures the curation process remains focused on new, high-value semantic discoveries.
-
-### Structural Gap Analysis
-
-Integration with the [InfraNodus](https://infranodus.com) API enables the detection of structural holes within the graph topology. The plugin identifies isolated clusters and suggests bridging links to enhance the semantic density of the vault, transforming fragmented notes into a unified knowledge network.
-
-### Deterministic Topology Alignment
-
-The engine performs deterministic alignment of Map of Content (MOC) structures by analyzing Dataview-powered tag hierarchies. It automatically recognizes fields from Breadcrumbs and ExcaliBrain to maintain cross-plugin consistency, proposing hierarchical links that mirror your existing taxonomy without requiring AI inference.
-
-### Secure Credential Management
-
-API credentials for all providers are managed via the native **Obsidian Keychain API**. Secrets are never stored in plain text within the plugin configuration files, ensuring vault security across synchronized devices.
+- **Louvain Community Detection**: Automatically identifies thematic clusters and tightly-knit note groups, suggesting candidates for new Map of Content (MOC) structures.
+- **Bridge Scrutiny (Betweenness Centrality)**: Detects "bottleneck" notes that act as critical bridges between disparate topics. Perfect for identifying high-leverage conceptual nodes.
+- **PageRank Authority Mapping**: Ranks notes by their structural authority within the graph, highlighting the central pillars of your knowledge network.
+- **Flow Stagnation Analysis**: Identifies isolated nodes and dead-ends, proposing restorative links to re-integrate fragmented information into the global semantic flow.
 
 ---
 
-## Requirements
+## 🧠 Semantic Resilience & Reasoning
 
-- Obsidian v1.12.0 or higher.
-- [Dataview](https://github.com/blacksmithgu/obsidian-dataview) plugin (active).
-- [Ollama](https://ollama.com) or a valid Cloud LLM API key.
-- [Smart Connections](https://github.com/brianpetro/obsidian-smart-connections) (optional, for vector discovery).
+- **AI Tribunal**: A dual-LLM verification system that ensures suggestion accuracy through consensus. Supports local (Ollama) and Cloud (GPT/Claude) providers simultaneously.
+- **Smart Connections v4 Integration**: Native support for the global `smart_env` API, enabling high-precision vector similarity discovery.
+- **Robust Semantic Fallback**: When the Smart Connections API is unreachable, the engine automatically falls back to an **`.ajson` parsing logic**, maintaining semantic search capabilities even in restricted environments.
 
 ---
 
-## Developer Quality
+## 🤖 Automation & Headless CLI
 
-This project adheres to the highest engineering standards as of March 2026:
+Designed for power users and automated workflows, Semantic Graph Healer integrates directly with **Obsidian CLI**:
 
-- **Prettier** for deterministic code formatting.
-- **Stylelint** (Standard Config) for CSS vertical alignment.
-- **Husky & lint-staged** for automated pre-commit quality enforcement.
+- **`analyze-silent`**: Dedicated command for headless automation. Run full vault scans and generate topological health reports directly from the terminal without manual interaction.
+
+---
+
+## ⚡ High-Performance Architecture
+
+Built for scale, the plugin handles vaults with thousands of nodes with ease:
+
+- **O(N+M) Logic**: Core algorithms are optimized for linear performance, ensuring that graph construction and metrics calculation remain fast even on 2000+ note vaults.
+- **Partial UI Re-rendering**: The Dashboard utilizes a frame-based partial updates system, ensuring a smooth user experience even during high-frequency analysis updates.
+
+---
+
+## 🛠️ Requirements
+
+- **Obsidian v1.12.0** or higher.
+- **Dataview** plugin (required for metadata engine).
+- **Smart Connections v4** (optional, recommended for semantic discovery).
+- **Ollama** or a valid AI API Key for the Reasoning Service.
+
+---
+
+## 💎 Engineering Standards
+
+This project is a **Platinum Gold Master**, adhering to the highest standards of the 2026 Obsidian ecosystem:
+
+- **Husky & lint-staged**: Pre-commit CI for zero-defect delivery.
+- **ESLint & Prettier**: Strict deterministic formatting and code hygiene.
+- **Knip**: Zero dead code or unused dependencies.
+- **SOTA 2026 Compliance**: Built with modern TypeScript and ESM interop.
 
 ---
 
 ## License
 
-Since this plugin was fully vibe coded, it is distributed under the **GNU GPL v3 License**. See the `LICENSE` file for the full text.
+Distributed under the **GNU GPL v3 License**. Project reached **Endpoint** state on March 2026.
