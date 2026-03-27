@@ -25,13 +25,11 @@ export class HealerLogger {
         const prefix = `[SemanticHealer][${level.toUpperCase()}]`;
         if (level === 'error') {
             console.error(prefix, message, ...args);
-        } else if (level === 'warn') {
+        } else if (level === 'warn' || level === 'info') {
+            // Obsidian community recommends warn for general visibility in dev console
             console.warn(prefix, message, ...args);
         } else if (level === 'debug') {
             console.debug(prefix, message, ...args);
-        } else {
-            // Obsidian recommends warn/error for general visibility in dev console for info messages
-            console.warn(prefix, message, ...args);
         }
     }
 }
@@ -41,90 +39,128 @@ export class HealerLogger {
  */
 export function isObsidianInternalApp(app: App): app is App & ObsidianInternalApp {
     const internal = app as unknown as ObsidianInternalApp;
-    return !!(internal && internal.plugins && typeof internal.plugins.getPlugin === 'function');
+    return !!(
+        internal &&
+        internal.plugins &&
+        typeof internal.plugins.getPlugin === 'function' &&
+        'enabledPlugins' in internal.plugins
+    );
 }
 
 /**
- * SOTA ID Generator (RFC 4122 UUID).
+ * UUID Fallback for non-secure contexts (MDN Compliance).
+ */
+function uuidFallbackV4(): string {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    bytes[6] = (bytes[6] & 0x0f) | 0x40; // v4
+    bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 10
+    const hex = [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+/**
+ * SOTA ID Generator (RFC 4122 UUID) with fallback.
  */
 export function generateId(prefix: string): string {
-    return `${prefix}_${crypto.randomUUID()}`;
+    const cryptoObj = globalThis.crypto as unknown as { randomUUID?: () => string };
+    const uuid = cryptoObj?.randomUUID?.() || uuidFallbackV4();
+    return `${prefix}_${uuid}`;
+}
+
+/**
+ * Universal Link Processing Logic (v2026.3)
+ */
+type DVLinkLike = { path: string; display?: string; subpath?: string; type?: string; embed?: boolean };
+
+function isDvLinkLike(v: unknown): v is DVLinkLike {
+    const candidate = v as DVLinkLike;
+    return !!candidate && typeof candidate === 'object' && typeof candidate.path === 'string';
+}
+
+/**
+ * Normalizes a raw string or path to a clean note basename.
+ * Handles: wikilinks, subpaths (#), aliases (|), quotes, extensions.
+ */
+function normalizeTargetToBasename(raw: string): string {
+    // 1. trim + remove external quotes (Obsidian Properties standard)
+    const s = raw.trim().replace(/^["']|["']$/g, '');
+
+    // 2. remove alias: [[Note|Alias]] => Note
+    const noAlias = s.split('|')[0].trim();
+
+    // 3. remove subpath: [[Note#Heading]] / [[Note#^block]] => Note
+    const noSubpath = noAlias.split('#')[0].trim();
+
+    // 4. keep only basename + remove extension
+    const base = (noSubpath.split('/').pop() ?? '').replace(/\.md$/i, '').trim();
+
+    return base;
 }
 
 /**
  * Universal Link Extractor for Dataview (Handles Proxy Arrays).
  */
-/**
- * Extracts a single link name from a value.
- * Handles: Link objects, raw wikilink strings, plain names.
- */
 function processSingleLink(v: unknown): string[] {
-    // 1. Handle Link objects (Dataview/Datacore)
-    if (v && typeof v === 'object' && 'path' in v) {
-        const link = v as { display?: string; path: string };
-        const name = link.display || link.path.split('/').pop()?.replace(/\.md$/, '') || '';
-        return name ? [name] : [];
+    if (v == null) return [];
+
+    // Flatten: handle nested arrays from complex templates or YAML
+    if (Array.isArray(v)) return v.flatMap(processSingleLink);
+
+    // Dataview/Datacore link object: extract target path, ignoring display alias
+    if (isDvLinkLike(v)) {
+        const base = normalizeTargetToBasename(v.path);
+        return base ? [base] : [];
     }
 
-    // 2. Handle strings (raw YAML values)
-    const str = String(v).trim();
+    // Only process strings to avoid [object Object] contamination
+    if (typeof v !== 'string') return [];
+
+    const str = v.trim();
     if (!str || str === '?') return [];
 
-    // 3. FIX: Check if string contains multiple [[wikilinks]]
-    // We use a global regex to find ALL occurrences
-    const wikiLinkRegex = /\[\[([^\]]+)\]\]/g;
-    const matches: string[] = [];
-    let match;
+    // Extract ALL wikilinks from the string (including quoted ones in Properties)
+    const wikiLinkRegex = /!?\[\[([^\]]+)\]\]/g;
+    const out: string[] = [];
+
+    let match: RegExpExecArray | null;
     while ((match = wikiLinkRegex.exec(str)) !== null) {
-        // Extract target, handle aliases [[Note|Alias]]
-        const linkTarget = match[1].split('|')[0].trim();
-        if (linkTarget) {
-            // Clean paths (remove .md if present)
-            const cleanTarget = linkTarget.split('/').pop()?.replace(/\.md$/, '') || linkTarget;
-            matches.push(cleanTarget);
-        }
+        const base = normalizeTargetToBasename(match[1]);
+        if (base) out.push(base);
     }
+    if (out.length > 0) return out;
 
-    // If we found wikilinks, return them
-    if (matches.length > 0) return matches;
-
-    // 4. Fallback: treat as plain text if no wikilinks found
-    // (Only if it's not a comma-separated list of things that aren't links)
-    const cleaned = str.replace(/[[]]/g, '').trim();
+    // Fallback: treat as plain text name if no wikilinks found, but clean up brackets
+    const cleaned = normalizeTargetToBasename(str.replace(/[[]]/g, ''));
     return cleaned ? [cleaned] : [];
 }
 
 /**
  * Universal Link Extractor for Dataview/Datacore.
  * Handles: Link objects, Proxy arrays, raw strings, comma-separated wikilinks.
- *
- * FIX: Now correctly extracts multiple links from:
- *   - YAML arrays: next: [[[A]], [[B]]]
- *   - Comma strings: next: "[[A]], [[B]]"
- *   - Dataview DataArrays (Proxy objects with forEach)
  */
 export function extractLinks(page: Record<string, unknown>, keys: string[]): string[] {
-    const results: string[] = [];
+    const seen = new Set<string>();
 
     keys.forEach((key) => {
         const value = page[key];
-        if (value == null) return; // null or undefined
+        if (value == null) return;
 
-        // Check if iterable (Array, DataArray proxy, or any array-like)
+        // Support both standard Arrays and Dataview DataArray proxies
         const isIterable =
             Array.isArray(value) ||
             (value && typeof value === 'object' && typeof (value as Record<string, unknown>).forEach === 'function');
 
         if (isIterable) {
             (value as { forEach: (cb: (v: unknown) => void) => void }).forEach((val: unknown) => {
-                results.push(...processSingleLink(val));
+                processSingleLink(val).forEach((name) => seen.add(name));
             });
         } else {
-            results.push(...processSingleLink(value));
+            processSingleLink(value).forEach((name) => seen.add(name));
         }
     });
 
-    return [...new Set(results)];
+    return [...seen];
 }
 
 /**
@@ -186,9 +222,11 @@ RUNNERUP: [[Note Name]] | SCORE: % | WHY: reason
  * Formula: (0.6 * VectorSim + 0.4 * TopologyDepth)
  */
 export function calculateHtrScore(vectorSim: number, folderDepth: number): number {
-    const depthScore = Math.min(folderDepth * 10, 100);
-    const combined = vectorSim * 0.6 + depthScore * 0.4;
-    return Math.round(Math.min(combined, 100));
+    // Explicit normalization for scale safety
+    const vs = vectorSim <= 1 ? vectorSim * 100 : vectorSim;
+    const depthScore = Math.min(Math.max(folderDepth, 0) * 10, 100);
+    const combined = vs * 0.6 + depthScore * 0.4;
+    return Math.round(Math.min(Math.max(combined, 0), 100));
 }
 
 /**
