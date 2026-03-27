@@ -23,8 +23,9 @@ export class SuggestionExecutor {
                     new Notice(`File not found: ${targetName}`);
                     return false;
                 }
-            } else if (suggestion.meta?.property && suggestion.meta?.sourceNote) {
-                const prop = suggestion.meta.property;
+            } else if (suggestion.meta?.sourceNote && (suggestion.meta?.propertyKey || suggestion.meta?.property)) {
+                // FIX: Use propertyKey (actual YAML key) if available, fallback to property (logical type)
+                const prop = suggestion.meta.propertyKey || suggestion.meta.property!;
                 const source = suggestion.meta.sourceNote;
 
                 await this.app.fileManager.processFrontMatter(targetFile, (fm: Record<string, unknown>) => {

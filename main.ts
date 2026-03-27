@@ -349,17 +349,36 @@ export default class SemanticGraphHealer extends Plugin {
             callback: async () => {
                 const activeFile = this.app.workspace.getActiveFile();
                 if (!activeFile || !this.settings.enableTagHierarchySync) return;
-
                 try {
                     const cache = this.app.metadataCache.getFileCache(activeFile);
                     const tags = cache?.tags?.map((t) => t.tag) || [];
-                    const suggestions = this.topology.deriveTagSuggestions(tags, activeFile.path);
 
-                    if (suggestions.length > 0) {
-                        this.settings.pendingSuggestions.push(...suggestions);
-                        await this.saveSettings();
-                        void this.refreshDashboard();
-                        new Notice(`Derived ${suggestions.length} mapping(s).`);
+                    // 1. Parent suggestions (per-file)
+                    const parentSuggestions = this.topology.deriveTagSuggestions(tags, activeFile.path);
+
+                    // 2. Sibling suggestions (vault-wide, filtered to active file)
+                    const allSiblings = this.topology.deriveTagSiblings();
+                    const relevantSiblings = allSiblings.filter(
+                        (s) => s.meta?.sourceNote === activeFile.basename || s.meta?.targetNote === activeFile.basename,
+                    );
+
+                    const combined = [...parentSuggestions, ...relevantSiblings];
+
+                    if (combined.length > 0) {
+                        // Deduplicate against existing
+                        const newOnes = combined.filter(
+                            (s) => !this.settings.pendingSuggestions.some((p) => p.id === s.id),
+                        );
+                        if (newOnes.length > 0) {
+                            this.settings.pendingSuggestions.push(...newOnes);
+                            await this.saveSettings();
+                            void this.refreshDashboard();
+                            new Notice(`Derived ${newOnes.length} mapping(s).`);
+                        } else {
+                            new Notice('All tag relationships already tracked.');
+                        }
+                    } else {
+                        new Notice('No tag-based relationships found.');
                     }
                 } catch (e) {
                     HealerLogger.error('Tag Sync Error', e);
@@ -369,14 +388,93 @@ export default class SemanticGraphHealer extends Plugin {
 
         this.addCommand({
             id: 'build-lasso-hierarchy',
-            name: 'Build lasso hierarchy (multi-select)',
-            callback: () => {
-                const files = this.app.workspace.getLastOpenFiles();
-                if (files.length < 2) {
-                    new Notice('Select at least 2 notes.');
+            name: 'Build lasso hierarchy (recent notes)',
+            callback: async () => {
+                const recentPaths = this.app.workspace.getLastOpenFiles();
+
+                // Filter to only valid markdown files
+                const recentFiles = recentPaths
+                    .map((p) => this.app.vault.getAbstractFileByPath(p))
+                    .filter((f): f is TFile => f instanceof TFile && f.extension === 'md')
+                    .slice(0, 10); // Cap at 10 for safety
+
+                if (recentFiles.length < 2) {
+                    new Notice('Need at least 2 recently opened notes.');
                     return;
                 }
-                new Notice('Lasso captured: mapping will begin soon');
+
+                const hierarchy = this.settings.hierarchies?.[0];
+                if (!hierarchy) {
+                    new Notice('No hierarchy configured.');
+                    return;
+                }
+
+                new Notice(`Lasso: analyzing ${recentFiles.length} recent notes...`);
+
+                let suggestions = 0;
+
+                // 1. Suggest the first note as parent (MOC) for the rest
+                const parentNote = recentFiles[0];
+                const childNotes = recentFiles.slice(1);
+
+                for (const child of childNotes) {
+                    const stableId = `lasso_down:${parentNote.basename}:${child.basename}`;
+
+                    // Check if relationship already exists
+                    if (this.settings.pendingSuggestions.some((s) => s.id === stableId)) continue;
+
+                    this.settings.pendingSuggestions.push({
+                        id: stableId,
+                        type: 'deterministic',
+                        link: `[[${child.basename}]]`,
+                        source: `Lasso Hierarchy: [[${parentNote.basename}]] proposed as parent of [[${child.basename}]] (based on recent activity).`,
+                        timestamp: Date.now(),
+                        category: 'suggestion',
+                        meta: {
+                            property: 'down',
+                            propertyKey: hierarchy.down[0] || 'down',
+                            sourceNote: parentNote.basename,
+                            targetNote: child.basename,
+                            description: `Parent-child from lasso selection`,
+                        },
+                    });
+                    suggestions++;
+                }
+
+                // 2. Suggest sequential (next/prev) chain among children
+                for (let i = 0; i < childNotes.length - 1; i++) {
+                    const current = childNotes[i];
+                    const next = childNotes[i + 1];
+
+                    const stableId = `lasso_seq:${current.basename}:${next.basename}`;
+                    if (this.settings.pendingSuggestions.some((s) => s.id === stableId)) continue;
+
+                    this.settings.pendingSuggestions.push({
+                        id: stableId,
+                        type: 'deterministic',
+                        link: `[[${current.basename}]] → [[${next.basename}]]`,
+                        source: `Lasso Sequence: [[${current.basename}]] → [[${next.basename}]] based on opening order.`,
+                        timestamp: Date.now(),
+                        category: 'suggestion',
+                        meta: {
+                            property: 'next',
+                            propertyKey: hierarchy.next[0] || 'next',
+                            sourceNote: current.basename,
+                            targetNote: next.basename,
+                            description: `Sequential link from lasso order`,
+                        },
+                    });
+                    suggestions++;
+                }
+
+                if (suggestions > 0) {
+                    await this.saveSettings();
+                    void this.refreshDashboard();
+                    new Notice(`Lasso: ${suggestions} relationships proposed. Review in dashboard.`);
+                } else {
+                    new Notice('Lasso: all relationships already exist.');
+                }
+
                 void this.activateDashboard();
             },
         });
@@ -451,6 +549,13 @@ export default class SemanticGraphHealer extends Plugin {
             const incongruenceIssues = await this.topology.runIncongruenceAnalysis();
             await sleep(10);
 
+            // NEW: Tag Sibling Detection (integrated into global scan)
+            let tagSiblings: Suggestion[] = [];
+            if (this.settings.enableTagHierarchySync) {
+                tagSiblings = this.topology.deriveTagSiblings();
+                await sleep(10);
+            }
+
             const advancedSuggestions: Suggestion[] = [];
             if (this.settings.enableDeepGraphAnalysis) {
                 advancedSuggestions.push(...(await this.analyzeDeepGraph()));
@@ -462,6 +567,7 @@ export default class SemanticGraphHealer extends Plugin {
                 ...sinkIssues,
                 ...qualityIssues,
                 ...incongruenceIssues,
+                ...tagSiblings, // ← NEW
                 ...advancedSuggestions,
             ];
             this.settings.pendingSuggestions = this.pruneStaleSuggestions(newTopologicalIssues);
