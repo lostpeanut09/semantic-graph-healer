@@ -1,5 +1,4 @@
 import eslint from '@eslint/js';
-import { defineConfig } from 'eslint/config';
 import tseslint from 'typescript-eslint';
 import obsidianmd from 'eslint-plugin-obsidianmd';
 import prettierConfig from 'eslint-config-prettier';
