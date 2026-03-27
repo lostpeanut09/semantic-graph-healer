@@ -624,10 +624,10 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
             );
 
         new Setting(containerEl)
-            .setName('InfraNodus API token')
-            .setDesc('Enter your secure token for the InfraNodus network analysis service.')
+            .setName('Token')
+            .setDesc('Enter your secure token for the infranodus network analysis service.')
             .addText((text) => {
-                text.setPlaceholder('Enter InfraNodus token...').setValue(this.plugin.settings.infraNodusApiKey);
+                text.setPlaceholder('Enter infranodus token...').setValue(this.plugin.settings.infraNodusApiKey);
                 text.inputEl.type = 'password';
                 text.onChange(async (v) => {
                     const internalApp = this.plugin.app;
