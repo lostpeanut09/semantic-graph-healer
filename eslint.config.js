@@ -2,8 +2,9 @@ import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import obsidianmd from 'eslint-plugin-obsidianmd';
 import prettierConfig from 'eslint-config-prettier';
+import { defineConfig } from 'eslint/config';
 
-export default tseslint.config(
+export default defineConfig([
     eslint.configs.recommended,
     ...tseslint.configs.recommendedTypeChecked,
     {
@@ -39,4 +40,4 @@ export default tseslint.config(
         ignores: ['main.js', 'esbuild.config.mjs', 'eslint.config.js', 'node_modules/', '**/*.test.ts', '**/*.bak'],
     },
     prettierConfig,
-);
+]);
