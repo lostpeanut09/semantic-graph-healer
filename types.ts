@@ -80,7 +80,8 @@ export interface MarkdownPage {
 export type SuggestionType = 'ai' | 'deterministic' | 'quality' | 'incongruence' | 'infra' | 'semantic' | 'hybrid';
 
 export interface SuggestionMeta {
-    property?: string;
+    property?: string; // Logical type: 'up', 'down', 'next', 'prev', 'same'
+    propertyKey?: string; // Actual YAML key: 'parent', 'right', 'procedural-next', etc.
     sourceNote?: string;
     targetNote?: string;
     description?: string;

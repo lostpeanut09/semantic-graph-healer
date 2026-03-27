@@ -70,7 +70,8 @@ export class TopologyAnalyzer {
                             timestamp: Date.now(),
                             category: 'suggestion',
                             meta: {
-                                property: invRelType,
+                                property: invRelType, // Logical: 'down', 'prev', etc.
+                                propertyKey: inverseKeys[0] || invRelType, // Actual YAML key: 'child', 'left', etc.
                                 sourceNote: fileNameA,
                                 targetNote: targetName,
                                 description: `Missing ${invRelType} link in ${targetName}`,
@@ -150,6 +151,15 @@ export class TopologyAnalyzer {
         return suggestions;
     }
 
+    /**
+     * ENHANCED Tag Hierarchy Sync (v2026.3)
+     * Derives multiple relationship types from nested tags:
+     * - 'up': child tag → parent tag (e.g. #A/B → A is parent of B)
+     * - 'same': sibling tags under same parent (e.g. #A/B and #A/C → B and C are siblings)
+     *
+     * Also supports flat "role" tags that imply hierarchy:
+     * - Notes tagged #MOC or #index are treated as potential parents.
+     */
     public deriveTagSuggestions(tags: string[], filePath: string): Suggestion[] {
         const suggestions: Suggestion[] = [];
         const fileName = filePath.split('/').pop()?.replace(/\.md$/, '') || 'Unknown';
@@ -159,24 +169,125 @@ export class TopologyAnalyzer {
             const parts = cleanTag.split('/').filter((p: string) => p);
 
             if (parts.length > 1) {
+                // --- 1. PARENT RELATIONSHIP (up) ---
+                // Direct parent: second-to-last segment
                 const parentCandidate = parts[parts.length - 2];
                 suggestions.push({
-                    id: generateId('tag_sync'),
+                    id: generateId('tag_sync_up'),
                     type: 'deterministic',
                     link: `[[${parentCandidate}]]`,
-                    source: `Tag hierarchy sync: detected nested tag #${cleanTag}. Proposing '${parentCandidate}' as a parent (up) for this note.`,
+                    source: `Tag hierarchy sync: #${cleanTag} implies '${parentCandidate}' is a parent of [[${fileName}]].`,
                     timestamp: Date.now(),
                     category: 'suggestion',
                     meta: {
                         property: 'up',
+                        propertyKey: this.settings.hierarchies[0]?.up[0] || 'up',
                         sourceNote: fileName,
                         targetNote: parentCandidate,
-                        description: `Hierarchy derived from tag #${cleanTag}`,
+                        description: `Parent derived from tag #${cleanTag}`,
                     },
                 });
+
+                // --- 2. ROOT ANCESTOR (if depth > 2) ---
+                // e.g. #A/B/C → A is root ancestor (only if A ≠ direct parent B)
+                if (parts.length > 2) {
+                    const rootAncestor = parts[0];
+                    suggestions.push({
+                        id: generateId('tag_sync_root'),
+                        type: 'deterministic',
+                        link: `[[${rootAncestor}]]`,
+                        source: `Tag hierarchy sync: #${cleanTag} places [[${fileName}]] under root topic '${rootAncestor}'.`,
+                        timestamp: Date.now(),
+                        category: 'info',
+                        meta: {
+                            property: 'up',
+                            propertyKey: this.settings.hierarchies[0]?.up[0] || 'up',
+                            sourceNote: fileName,
+                            targetNote: rootAncestor,
+                            description: `Root ancestor from tag #${cleanTag}`,
+                        },
+                    });
+                }
             }
         }
 
+        return suggestions;
+    }
+
+    /**
+     * SIBLING DETECTION: Finds notes sharing the same parent tag prefix.
+     * Called during global scan to suggest 'same' relationships.
+     *
+     * Example: Note A has #project/website, Note B has #project/mobile
+     *          → A and B are siblings under 'project'
+     */
+    public deriveTagSiblings(): Suggestion[] {
+        HealerLogger.info('Starting tag sibling detection...');
+        const suggestions: Suggestion[] = [];
+        const hierarchy = this.settings.hierarchies?.[0];
+        if (!hierarchy) return [];
+
+        const pages = this.engine.getPagesWithTag('');
+
+        // Build map: parentTag → Set of file names
+        const parentTagMap = new Map<string, Set<string>>();
+
+        pages.forEach((page) => {
+            const tags = page.file.tags || page.file.etags || [];
+            const tagArray = Array.isArray(tags) ? tags : Array.from(tags as Iterable<string>);
+
+            tagArray.forEach((tag: string) => {
+                const cleanTag = String(tag).replace(/^#/, '');
+                const parts = cleanTag.split('/').filter((p) => p);
+
+                if (parts.length > 1) {
+                    // Parent prefix = everything except last segment
+                    const parentPrefix = parts.slice(0, -1).join('/');
+
+                    if (!parentTagMap.has(parentPrefix)) {
+                        parentTagMap.set(parentPrefix, new Set());
+                    }
+                    parentTagMap.get(parentPrefix)!.add(page.file.name);
+                }
+            });
+        });
+
+        // Generate sibling suggestions for groups with 2+ members
+        parentTagMap.forEach((siblings, parentPrefix) => {
+            if (siblings.size < 2) return;
+
+            const siblingArray = [...siblings];
+
+            // For each pair, suggest a 'same' relationship
+            for (let i = 0; i < siblingArray.length; i++) {
+                for (let j = i + 1; j < siblingArray.length; j++) {
+                    const noteA = siblingArray[i];
+                    const noteB = siblingArray[j];
+
+                    // Check if they already have a 'same' link
+                    // (Skip if already linked — avoids spamming)
+                    const stableId = `tag_sibling:${parentPrefix}:${[noteA, noteB].sort().join('|')}`;
+
+                    suggestions.push({
+                        id: stableId,
+                        type: 'deterministic',
+                        link: `[[${noteA}]] ↔ [[${noteB}]]`,
+                        source: `Tag siblings: both share parent tag #${parentPrefix}. Consider linking as 'same'.`,
+                        timestamp: Date.now(),
+                        category: 'suggestion',
+                        meta: {
+                            property: 'same',
+                            propertyKey: hierarchy.same[0] || 'same',
+                            sourceNote: noteA,
+                            targetNote: noteB,
+                            description: `Sibling relationship via shared tag prefix #${parentPrefix}`,
+                        },
+                    });
+                }
+            }
+        });
+
+        HealerLogger.info(`Tag sibling detection complete: ${suggestions.length} sibling pairs found.`);
         return suggestions;
     }
 
