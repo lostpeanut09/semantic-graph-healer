@@ -121,27 +121,37 @@ export class TopologyAnalyzer {
             for (const dir of directionalTypes) {
                 if (dir.type === 'down' && !this.settings.strictDownCheck) continue;
 
+                // FIX: extractLinks already handles the array of keys
                 const uniqueLinks = extractLinks(page, dir.keys);
 
                 let maxThreshold = 1;
+                // 'same' type isn't usually restricted to 1, but up/next/prev are
+                if (dir.type === 'up' || dir.type === 'next' || dir.type === 'prev') {
+                    maxThreshold = 1;
+                }
+
+                // Override with custom rules if present
                 for (const key of dir.keys) {
                     const customRule = compiledRules.find((r) => r.regex.test(file.path) && r.property === key);
                     if (customRule) maxThreshold = Math.max(maxThreshold, customRule.maxCount);
                 }
 
                 if (uniqueLinks.length > maxThreshold) {
+                    HealerLogger.warn(
+                        `Incongruence found in [[${file.name}]]: ${uniqueLinks.length} links for type '${dir.type}' (max ${maxThreshold})`,
+                    );
                     suggestions.push({
                         id: generateId('incongruence'),
                         type: 'incongruence',
                         link: `[[${file.name}]]`,
-                        source: `Incongruence: [[${file.name}]] has multiple values for '${dir.type}'. COMPETING: ${uniqueLinks.join(', ')}. Max ${maxThreshold} allowed.`,
+                        source: `Incongruence: [[${file.name}]] has multiple values for '${dir.type}'. COMPETING: ${uniqueLinks.map((l) => `[[${l}]]`).join(', ')}. Max ${maxThreshold} allowed.`,
                         timestamp: Date.now(),
                         category: 'error',
                         meta: {
                             property: dir.type,
                             targetNote: file.name,
                             losers: uniqueLinks,
-                            competingValues: uniqueLinks, // ← structured data for ReasoningService
+                            competingValues: uniqueLinks,
                         },
                     });
                 }

@@ -71,19 +71,26 @@ function processSingleLink(v: unknown): string[] {
     if (!str || str === '?') return [];
 
     // 3. FIX: Check if string contains multiple [[wikilinks]]
+    // We use a global regex to find ALL occurrences
     const wikiLinkRegex = /\[\[([^\]]+)\]\]/g;
     const matches: string[] = [];
     let match;
     while ((match = wikiLinkRegex.exec(str)) !== null) {
-        const linkTarget = match[1].split('|')[0].trim(); // Handle [[Note|Alias]]
-        if (linkTarget) matches.push(linkTarget);
+        // Extract target, handle aliases [[Note|Alias]]
+        const linkTarget = match[1].split('|')[0].trim();
+        if (linkTarget) {
+            // Clean paths (remove .md if present)
+            const cleanTarget = linkTarget.split('/').pop()?.replace(/\.md$/, '') || linkTarget;
+            matches.push(cleanTarget);
+        }
     }
 
     // If we found wikilinks, return them
     if (matches.length > 0) return matches;
 
-    // 4. Fallback: treat as plain text (strip any remaining brackets)
-    const cleaned = str.replace(/[[\]]/g, '').trim();
+    // 4. Fallback: treat as plain text if no wikilinks found
+    // (Only if it's not a comma-separated list of things that aren't links)
+    const cleaned = str.replace(/[[]]/g, '').trim();
     return cleaned ? [cleaned] : [];
 }
 
