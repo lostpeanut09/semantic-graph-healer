@@ -1,4 +1,4 @@
-import { App } from 'obsidian';
+import { App, TFile } from 'obsidian';
 import { ObsidianInternalApp } from '../types';
 
 /**
@@ -51,8 +51,19 @@ export function isObsidianInternalApp(app: App): app is App & ObsidianInternalAp
  * UUID Fallback for non-secure contexts (MDN Compliance).
  */
 function uuidFallbackV4(): string {
+    const c = globalThis.crypto;
+    if (!c?.getRandomValues) {
+        HealerLogger.warn(
+            'Secure Crypto.getRandomValues not available. Using non-cryptographic Math.random fallback for ID generation.',
+        );
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (ch) => {
+            const r = (Math.random() * 16) | 0;
+            const v = ch === 'x' ? r : (r & 0x3) | 0x8;
+            return v.toString(16);
+        });
+    }
     const bytes = new Uint8Array(16);
-    crypto.getRandomValues(bytes);
+    c.getRandomValues(bytes);
     bytes[6] = (bytes[6] & 0x0f) | 0x40; // v4
     bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 10
     const hex = [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
@@ -79,88 +90,187 @@ function isDvLinkLike(v: unknown): v is DVLinkLike {
 }
 
 /**
- * Normalizes a raw string or path to a clean note basename.
- * Handles: wikilinks, subpaths (#), aliases (|), quotes, extensions.
+ * Normalize any "target-ish" string into an Obsidian linkpath:
+ * - strips surrounding quotes (Properties often store '"[[Link]]"')
+ * - strips alias: Note|Alias -> Note
+ * - strips subpath: Note#Heading / Note#^block -> Note
+ * - strips .md
+ * - preserves folder path (folder/Note) to avoid omonym collisions
+ * - decodes %20 (markdown links support)
  */
-function normalizeTargetToBasename(raw: string): string {
-    // 1. trim + remove external quotes (Obsidian Properties standard)
-    const s = raw.trim().replace(/^["']|["']$/g, '');
-
-    // 2. remove alias: [[Note|Alias]] => Note
-    const noAlias = s.split('|')[0].trim();
-
-    // 3. remove subpath: [[Note#Heading]] / [[Note#^block]] => Note
+export function normalizeToLinkpath(raw: string): string {
+    const s0 = raw.trim().replace(/^["']|["']$/g, '');
+    const noAlias = s0.split('|')[0].trim();
     const noSubpath = noAlias.split('#')[0].trim();
 
-    // 4. keep only basename + remove extension
-    const base = (noSubpath.split('/').pop() ?? '').replace(/\.md$/i, '').trim();
+    // If someone passed a wikilink chunk, be tolerant (e.g. "[[Note]]")
+    const stripped = noSubpath.replace(/^\[\[|\]\]$/g, '').trim();
+    const noExt = stripped.replace(/\.md$/i, '').trim();
 
-    return base;
+    try {
+        return decodeURIComponent(noExt);
+    } catch {
+        return noExt;
+    }
 }
 
 /**
- * Universal Link Extractor for Dataview (Handles Proxy Arrays).
+ * Extract linkpaths from a single value.
+ * Handles: Wikilinks, Markdown links, Dataview objects, nested arrays.
  */
-function processSingleLink(v: unknown): string[] {
+function extractLinkpathsFromValue(v: unknown): string[] {
     if (v == null) return [];
 
-    // Flatten: handle nested arrays from complex templates or YAML
-    if (Array.isArray(v)) return v.flatMap(processSingleLink);
+    if (Array.isArray(v)) return v.flatMap(extractLinkpathsFromValue);
 
-    // Dataview/Datacore link object: extract target path, ignoring display alias
     if (isDvLinkLike(v)) {
-        const base = normalizeTargetToBasename(v.path);
-        return base ? [base] : [];
+        const lp = normalizeToLinkpath(v.path);
+        return lp ? [lp] : [];
     }
 
-    // Only process strings to avoid [object Object] contamination
     if (typeof v !== 'string') return [];
 
     const str = v.trim();
     if (!str || str === '?') return [];
 
-    // Extract ALL wikilinks from the string (including quoted ones in Properties)
-    const wikiLinkRegex = /!?\[\[([^\]]+)\]\]/g;
     const out: string[] = [];
 
-    let match: RegExpExecArray | null;
-    while ((match = wikiLinkRegex.exec(str)) !== null) {
-        const base = normalizeTargetToBasename(match[1]);
-        if (base) out.push(base);
+    // 1) Wikilinks / embeds: [[...]] or ![[...]]
+    const wikiRe = /!?\[\[([^\]]+)\]\]/g;
+    let m: RegExpExecArray | null;
+    while ((m = wikiRe.exec(str)) !== null) {
+        const lp = normalizeToLinkpath(m[1]);
+        if (lp) out.push(lp);
     }
-    if (out.length > 0) return out;
 
-    // Fallback: treat as plain text name if no wikilinks found, but clean up brackets
-    const cleaned = normalizeTargetToBasename(str.replace(/[[]]/g, ''));
-    return cleaned ? [cleaned] : [];
+    // 2) Markdown links: [text](link) - Only if internal (no scheme)
+    const mdRe = /\[[^\]]*\]\(([^)]+)\)/g;
+    while ((m = mdRe.exec(str)) !== null) {
+        const targetRaw = m[1].trim();
+        // Remove optional title: [text](Note.md "Some title")
+        const target = targetRaw.replace(/\s+["'][^"']*["']\s*$/, '').trim();
+        const hasScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(target);
+        if (!hasScheme) {
+            const lp = normalizeToLinkpath(target);
+            if (lp) out.push(lp);
+        }
+    }
+
+    if (out.length) return out;
+
+    // 3) Fallback: plain text. If comma-separated, split.
+    // Use explicit escape for clarity but allow eslint if it complains (it's essential for robustness)
+    // eslint-disable-next-line no-useless-escape
+    const cleaned = str.replace(/[\[\]]/g, '').trim();
+    const parts = cleaned.includes(',')
+        ? cleaned
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean)
+        : [cleaned];
+
+    for (const p of parts) {
+        const lp = normalizeToLinkpath(p);
+        if (lp) out.push(lp);
+    }
+
+    return out;
 }
 
 /**
- * Universal Link Extractor for Dataview/Datacore.
+ * Universal Linkpath Extractor for Dataview/Datacore.
  * Handles: Link objects, Proxy arrays, raw strings, comma-separated wikilinks.
  */
-export function extractLinks(page: Record<string, unknown>, keys: string[]): string[] {
+export function extractLinkpaths(page: Record<string, unknown>, keys: string[]): string[] {
     const seen = new Set<string>();
 
     keys.forEach((key) => {
         const value = page[key];
         if (value == null) return;
 
-        // Support both standard Arrays and Dataview DataArray proxies
         const isIterable =
             Array.isArray(value) ||
             (value && typeof value === 'object' && typeof (value as Record<string, unknown>).forEach === 'function');
 
         if (isIterable) {
             (value as { forEach: (cb: (v: unknown) => void) => void }).forEach((val: unknown) => {
-                processSingleLink(val).forEach((name) => seen.add(name));
+                extractLinkpathsFromValue(val).forEach((lp) => seen.add(lp));
             });
         } else {
-            processSingleLink(value).forEach((name) => seen.add(name));
+            extractLinkpathsFromValue(value).forEach((lp) => seen.add(lp));
         }
     });
 
     return [...seen];
+}
+
+/**
+ * Resolve linkpaths to canonical TFile.path values using Obsidian's resolver.
+ * getFirstLinkpathDest(linkpath, sourcePath) returns the best match TFile or null.
+ */
+export function resolveLinkpathsToPaths(
+    app: App,
+    linkpaths: string[],
+    sourcePath: string,
+    cache?: Map<string, string | null>,
+): string[] {
+    const seen = new Set<string>();
+
+    for (const lp of linkpaths) {
+        const key = `${sourcePath}::${lp}`;
+        if (cache && cache.has(key)) {
+            const cached = cache.get(key);
+            if (cached) seen.add(cached);
+            continue;
+        }
+
+        const file = app.metadataCache.getFirstLinkpathDest(lp, sourcePath);
+        const resolved = file?.path ?? null;
+
+        if (cache) cache.set(key, resolved);
+        if (resolved) seen.add(resolved);
+    }
+
+    return [...seen];
+}
+
+/**
+ * Convenience: directly go from page+keys -> resolved TFile.path targets.
+ */
+export function extractResolvedPaths(
+    app: App,
+    page: Record<string, unknown>,
+    keys: string[],
+    sourcePath: string,
+    cache?: Map<string, string | null>,
+): string[] {
+    const linkpaths = extractLinkpaths(page, keys);
+    return resolveLinkpathsToPaths(app, linkpaths, sourcePath, cache);
+}
+
+export function pathToWikilink(app: App, targetPath: string, sourcePath: string): string {
+    const af = app.vault.getAbstractFileByPath(targetPath);
+    if (af instanceof TFile) {
+        const linktext = app.metadataCache.fileToLinktext(af, sourcePath, true);
+        return `[[${linktext}]]`;
+    }
+    return `[[${targetPath}]]`;
+}
+
+/**
+ * RESOLVE SUGGESTION -> TFILE (Bug 3.1)
+ * Centralizes resolution logic to ensure consistency across the plugin.
+ */
+export function resolveTargetFile(
+    app: App,
+    suggestion: { link: string; meta?: { targetPath?: string; sourcePath?: string } },
+): TFile | null {
+    if (suggestion.meta?.targetPath) {
+        const f = app.vault.getAbstractFileByPath(suggestion.meta.targetPath);
+        if (f instanceof TFile) return f;
+    }
+    const linkpath = normalizeToLinkpath(suggestion.link);
+    return app.metadataCache.getFirstLinkpathDest(linkpath, suggestion.meta?.sourcePath || '');
 }
 
 /**

@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument */
 import { App, TFile } from 'obsidian';
 import { DataviewApi, DataviewPage, DatacoreApi, MarkdownPage, Suggestion } from '../types';
-import { HealerLogger, isObsidianInternalApp } from './HealerUtils';
+import { HealerLogger, isObsidianInternalApp, pathToWikilink, generateId } from './HealerUtils';
 
 /**
  * Production-grade implementation of VaultQueryEngine.
@@ -8,7 +9,7 @@ import { HealerLogger, isObsidianInternalApp } from './HealerUtils';
  */
 export interface VaultQueryEngine {
     getPage(path: string): DataviewPage | null;
-    getPagesWithTag(tag: string): DataviewPage[];
+    getPages(query: string): DataviewPage[];
     getBacklinks(path: string): string[];
 }
 
@@ -18,140 +19,111 @@ export class VaultDataAdapter implements VaultQueryEngine {
     // --- Type-safe API accessors ---
     public getDataviewApi(): DataviewApi | null {
         if (!isObsidianInternalApp(this.app)) return null;
-        const plugin = this.app.plugins.getPlugin('dataview');
+        const plugins = (this.app as any).plugins as { getPlugin(id: string): any };
+        const plugin = plugins.getPlugin('dataview');
         if (!plugin || typeof plugin !== 'object' || !('api' in plugin)) return null;
-        return (plugin as unknown as { api: DataviewApi }).api;
+        return plugin.api as DataviewApi;
     }
 
     public getDatacoreApi(): DatacoreApi | null {
         if (!isObsidianInternalApp(this.app)) return null;
-        const plugin = this.app.plugins.getPlugin('datacore');
+        const plugins = (this.app as any).plugins as { getPlugin(id: string): any };
+        const plugin = plugins.getPlugin('datacore');
         if (!plugin || typeof plugin !== 'object' || !('api' in plugin)) return null;
-        return (plugin as unknown as { api: DatacoreApi }).api;
+        return plugin.api as DatacoreApi;
+    }
+
+    private backlinkIndex: Map<string, Set<string>> | null = null;
+
+    private buildBacklinkIndex(): Map<string, Set<string>> {
+        const idx = new Map<string, Set<string>>();
+        const resolvedLinks = this.app.metadataCache.resolvedLinks;
+
+        for (const [sourcePath, targets] of Object.entries(resolvedLinks)) {
+            for (const targetPath of Object.keys(targets)) {
+                if (!idx.has(targetPath)) idx.set(targetPath, new Set());
+                idx.get(targetPath)!.add(sourcePath);
+            }
+        }
+        return idx;
+    }
+
+    public invalidateBacklinkIndex() {
+        this.backlinkIndex = null;
     }
 
     // --- VaultQueryEngine Implementation ---
-    getPage(path: string): DataviewPage | null {
-        // Priority: Datacore → Dataview → null
+    public getPage(path: string): DataviewPage | null {
         const dc = this.getDatacoreApi();
         if (dc) {
-            // FIX: Correct escape for Datacore (Double backslash for string literal)
-            const safePath = path.replace(/"/g, '\\"');
-            const page = dc.page(safePath);
+            const page = dc.page<MarkdownPage>(path);
             if (page) return this.mapMarkdownToDataview(page);
         }
+
         const dv = this.getDataviewApi();
         if (dv) return dv.page(path);
+
         return null;
     }
 
-    /**
-     * FIX: Correctly distinguishes between tag queries and folder/source queries.
-     * - Tag query: starts with '#' → Datacore uses `@page and #tag`
-     * - Folder query: wrapped in quotes → Datacore uses `@page and path("folder")`
-     * - Empty query: returns all pages
-     */
-    getPagesWithTag(query: string): DataviewPage[] {
+    public getPages(query: string): DataviewPage[] {
         const dc = this.getDatacoreApi();
         if (dc) {
             let dcQuery: string;
-
             if (!query) {
-                // Empty: return all pages
                 dcQuery = '@page';
             } else if (query.startsWith('#')) {
-                // Tag query: pass directly
-                const safeTag = query.replace(/"/g, '\\"');
-                dcQuery = `@page and ${safeTag}`;
+                // ✅ Datacore tag query standard
+                dcQuery = `@page and ${query}`;
             } else if (query.startsWith('"') && query.endsWith('"')) {
-                // Folder/source query: extract folder name and use path()
-                const folderName = query.slice(1, -1).replace(/"/g, '\\"');
+                const folderName = query.slice(1, -1).replace(/\/+$/, '').replace(/"/g, '\\"');
                 dcQuery = `@page and path("${folderName}")`;
             } else {
-                // Fallback: treat as generic filter
                 dcQuery = `@page and ${query}`;
             }
 
-            try {
-                const results = dc.query<MarkdownPage>(dcQuery);
-                HealerLogger.info(`Datacore query "${dcQuery}" returned ${results.length} pages.`);
-                return results.map((p) => this.mapMarkdownToDataview(p));
-            } catch (e) {
-                HealerLogger.warn(`Datacore query failed: "${dcQuery}". Falling back to Dataview.`, e);
-                // Fall through to Dataview
+            const result = dc.tryQuery<MarkdownPage>(dcQuery);
+            if (result.successful) {
+                return result.value.map((p) => this.mapMarkdownToDataview(p));
             }
         }
 
         const dv = this.getDataviewApi();
         if (dv) {
             const results = dv.pages(query);
-            HealerLogger.info(`Dataview query "${query}" returned ${results.length} pages.`);
-            return results as unknown as DataviewPage[];
+            const array = (results as any).array ? (results as any).array() : Array.isArray(results) ? results : [];
+            return array as unknown as DataviewPage[];
         }
 
-        HealerLogger.warn('No query engine available. Returning empty page set.');
         return [];
     }
 
-    getBacklinks(path: string): string[] {
-        const dc = this.getDatacoreApi();
-        if (dc) {
-            try {
-                // Extract basename for wikilink syntax
-                const basename = path.split('/').pop()?.replace(/\.md$/, '') || '';
-                // FIX: linkedto() requires [[wikilink]] syntax, not quoted string paths
-                const results = dc.query<MarkdownPage>(`@page and linkedto([[${basename}]])`);
-                return results.map((p) => p.$path.split('/').pop()?.replace(/\.md$/, '') || '');
-            } catch (e) {
-                HealerLogger.warn('Datacore backlink query failed, falling back to cache.', e);
-            }
+    getBacklinks(targetPath: string): string[] {
+        if (!this.backlinkIndex) {
+            this.backlinkIndex = this.buildBacklinkIndex();
         }
-
-        const cache = this.app.metadataCache.resolvedLinks;
-        const backlinks: string[] = [];
-        for (const [source, targets] of Object.entries(cache)) {
-            if (targets[path]) {
-                const sourceFile = this.app.vault.getAbstractFileByPath(source);
-                if (sourceFile instanceof TFile) {
-                    backlinks.push(sourceFile.basename);
-                }
-            }
-        }
-        return backlinks;
+        return [...(this.backlinkIndex.get(targetPath) ?? new Set())];
     }
 
-    /**
-     * CRITICAL ADAPTER: Maps Datacore schema to Legacy Dataview schema.
-     *
-     * FIX: $frontmatter is now spread FIRST (as base), then Datacore's processed
-     * root-level fields overwrite them. This ensures that processed Link objects
-     * from Datacore take priority over raw YAML strings from $frontmatter.
-     * Also fixes file.name to exclude .md extension.
-     */
     private mapMarkdownToDataview(page: MarkdownPage): DataviewPage {
         const filename = page.$path.split('/').pop() || '';
         const basename = filename.replace(/\.md$/, '');
+        const rawFrontmatter = ((page as any).$frontmatter as Record<string, any>) || {};
 
-        // Extract raw frontmatter as a safe base layer
-        const rawFrontmatter = page.$frontmatter || {};
-
-        // Build user fields from page root (excluding $ system keys)
         const userFields: Record<string, unknown> = {};
-        for (const key of Object.keys(page)) {
+        const p = page as any;
+        for (const key of Object.keys(p)) {
             if (!key.startsWith('$')) {
-                userFields[key] = page[key];
+                userFields[key] = p[key];
             }
         }
 
         return {
-            // Layer 1: Raw frontmatter (lowest priority — raw YAML strings)
             ...rawFrontmatter,
-            // Layer 2: Datacore processed fields (higher priority — Link objects, parsed arrays)
             ...userFields,
-            // Layer 3: Synthetic 'file' object (highest priority — structural)
             file: {
                 path: page.$path,
-                name: basename, // FIX: exclude .md extension
+                name: basename,
                 basename: basename,
                 ctime: page.$ctime,
                 mtime: page.$mtime,
@@ -182,86 +154,128 @@ export class VaultDataAdapter implements VaultQueryEngine {
 export class SmartConnectionsAdapter {
     constructor(private app: App) {}
 
-    public isAvailable(): boolean {
-        // v4+: smart_env is globally accessible via window
-        const env = (window as unknown as { smart_env?: { smart_sources?: { find: unknown } } }).smart_env;
-        return !!(env && env.smart_sources);
+    private getPluginInstance(): any {
+        if (!isObsidianInternalApp(this.app)) return null;
+        return (this.app as any).plugins.getPlugin('smart-connections');
     }
 
-    public async query(path: string, limit: number = 10): Promise<Suggestion[]> {
-        const env = (
-            window as unknown as {
-                smart_env?: {
-                    smart_sources?: {
-                        find: (o: {
-                            query: string;
-                            limit: number;
-                        }) => Promise<{ path?: string; item?: { path: string }; score: number }[]>;
-                    };
-                };
-            }
-        ).smart_env;
+    public isAvailable(): boolean {
+        const p = this.getPluginInstance();
+        return !!(p && (p.env || p.api));
+    }
 
-        if (!env?.smart_sources?.find) {
+    public async query(sourcePath: string, limit: number = 10): Promise<Suggestion[]> {
+        const sc = this.getPluginInstance();
+        if (sc && sc.env && sc.env.smart_sources) {
+            try {
+                const results = await sc.env.smart_sources.find({ query: sourcePath, limit: limit + 1 });
+
+                const resultsArray: any[] = results || [];
+                return resultsArray
+                    .filter((res: any) => {
+                        const targetPath = (res.path || res.item?.path || '') as string;
+                        return targetPath && targetPath !== sourcePath;
+                    })
+                    .slice(0, limit)
+                    .map((res: any) => {
+                        const targetPath = (res.path || res.item?.path || '') as string;
+                        const scoreNum = res.score ?? 0;
+                        return {
+                            id: `sc_match:${targetPath}`,
+                            type: 'semantic' as const,
+                            link: pathToWikilink(this.app, targetPath, sourcePath),
+                            source: `Semantic similarity match (Score: ${scoreNum.toFixed(2)}) via Smart Connections.`,
+                            timestamp: Date.now(),
+                            category: 'info' as const,
+                            meta: {
+                                sourcePath: sourcePath,
+                                targetPath: targetPath,
+                                confidence: Math.round(scoreNum * 100),
+                                description: 'Related concept found via vector embeddings.',
+                            },
+                        } as Suggestion;
+                    });
+            } catch (e) {
+                HealerLogger.warn('Smart Connections env API failed, falling back to index search.', e);
+            }
+        }
+
+        return this.querySmartEnvFallback(sourcePath, limit);
+    }
+
+    private async querySmartEnvFallback(sourcePath: string, limit: number): Promise<Suggestion[]> {
+        const adapter = this.app.vault.adapter;
+        const envCfgPath = '.smart-env/smart_env.json';
+
+        if (!(await adapter.exists(envCfgPath))) return [];
+
+        try {
+            const cfgRaw = await adapter.read(envCfgPath);
+            const cfg = JSON.parse(cfgRaw) as { smart_sources?: { single_file_data_path?: string } };
+
+            const smartSourcesPath: string | undefined = cfg.smart_sources?.single_file_data_path;
+            if (smartSourcesPath && (await adapter.exists(smartSourcesPath))) {
+                const sourcesRaw = await adapter.read(smartSourcesPath);
+
+                if (sourcesRaw.includes(`"${sourcePath}"`)) {
+                    HealerLogger.info('Smart Env fallback: structured correlation not available.');
+                    return [];
+                }
+            }
+
+            return this.queryAjsonFallback(sourcePath, limit);
+        } catch (e) {
+            HealerLogger.error('Smart Env fallback failed', e);
             return [];
         }
-
-        try {
-            // SOTA 2026 API: env.smart_sources.find returns results with score and path
-            const results = await env.smart_sources.find({ query: path, limit });
-            return (results || []).map((res) => ({
-                id: `sc_match:${res.path || res.item?.path}`,
-                type: 'semantic' as const,
-                link: `[[${res.path || res.item?.path}]]`,
-                source: `Semantic similarity match (Score: ${res.score?.toFixed(2)}) via Smart Connections.`,
-                timestamp: Date.now(),
-                category: 'info' as const,
-                meta: {
-                    confidence: Math.round((res.score || 0) * 100),
-                    description: 'Related concept found via vector embeddings.',
-                },
-            }));
-        } catch (e) {
-            HealerLogger.warn('Smart Connections runtime API failed, trying ajson fallback...', e);
-            return this.queryAjsonFallback(path, limit);
-        }
     }
 
-    /**
-     * Fallback: Read semantic data directly from .smart-env/multi/*.ajson
-     */
-    private async queryAjsonFallback(path: string, limit: number): Promise<Suggestion[]> {
+    private async queryAjsonFallback(sourcePath: string, limit: number): Promise<Suggestion[]> {
         const envPath = '.smart-env/multi';
-        if (!(await this.app.vault.adapter.exists(envPath))) return [];
+        const adapter = this.app.vault.adapter;
+        if (!(await adapter.exists(envPath))) return [];
 
         try {
-            const files = await this.app.vault.adapter.list(envPath);
+            const files = await adapter.list(envPath);
             const ajsonFiles = files.files.filter((f) => f.endsWith('.ajson'));
             const suggestions: Suggestion[] = [];
 
+            const MAX_SCAN = 20;
+            let scanned = 0;
+
             for (const f of ajsonFiles) {
-                const content = await this.app.vault.adapter.read(f);
-                // Smart Connections .ajson is typically line-delimited JSON or large JSON blocks
-                // We'll search for the current path in the embeddings map if possible
-                if (content.includes(path)) {
-                    // Primitive heuristic: if file mentions path, it's a weak relative
+                if (scanned >= MAX_SCAN) break;
+                scanned++;
+                const content = await adapter.read(f);
+                if (content.includes(`"${sourcePath}"`)) {
+                    const targetBase = f.split('/').pop()?.replace('.ajson', '') || f;
+                    const targetFile = this.app.metadataCache.getFirstLinkpathDest(targetBase, sourcePath);
+
+                    let link = `[[${targetBase}]]`;
+                    if (targetFile instanceof TFile) {
+                        link = `[[${this.app.metadataCache.fileToLinktext(targetFile, sourcePath, true)}]]`;
+                    }
+
                     suggestions.push({
-                        id: `sc_ajson:${f}:${path}`,
-                        type: 'semantic' as const,
-                        link: `[[${f.replace('.ajson', '')}]]`,
-                        source: 'Semantic match found via .ajson index fallback.',
+                        id: generateId('sc-ajson'),
+                        type: 'semantic',
+                        link: link,
+                        source: 'Smart Connections legacy fallback (AJSON match).',
                         timestamp: Date.now(),
-                        category: 'info' as const,
+                        category: 'info',
                         meta: {
-                            description: 'Recovered from local Smart Connections index files.',
+                            sourcePath,
+                            targetPath: f,
+                            description: 'Correlated via AJSON index.',
+                            targetNote: targetBase,
                         },
-                    });
+                    } as Suggestion);
                 }
                 if (suggestions.length >= limit) break;
             }
             return suggestions;
         } catch (e) {
-            HealerLogger.error('AJSON Fallback failed', e);
+            HealerLogger.error('AJSON fallback failed', e);
             return [];
         }
     }

@@ -1,9 +1,11 @@
-import { App, Notice } from 'obsidian';
+import { App, Notice, TFile } from 'obsidian';
 import { Suggestion } from '../types';
-import { HealerLogger } from './HealerUtils';
+import { HealerLogger, resolveTargetFile } from './HealerUtils';
 import SemanticGraphHealer from '../main';
 
 export class SuggestionExecutor {
+    private queue: Promise<void> = Promise.resolve();
+
     constructor(private plugin: SemanticGraphHealer) {}
 
     private get app(): App {
@@ -11,34 +13,51 @@ export class SuggestionExecutor {
     }
 
     async execute(suggestion: Suggestion): Promise<boolean> {
+        return new Promise((resolve) => {
+            this.queue = this.queue.then(async () => {
+                try {
+                    const result = await this.innerExecute(suggestion);
+                    resolve(result);
+                } catch (e) {
+                    HealerLogger.error('Queued execution failed', e);
+                    resolve(false);
+                }
+            });
+        });
+    }
+
+    private async innerExecute(suggestion: Suggestion): Promise<boolean> {
         try {
-            const targetName = suggestion.meta?.targetNote || suggestion.link.replace(/^\[\[/, '').replace(/\]\]$/, '');
+            const targetFile = resolveTargetFile(this.app, suggestion);
 
-            const targetFile = this.app.vault.getMarkdownFiles().find((f) => f.basename === targetName);
-
-            if (!targetFile) {
+            if (!(targetFile instanceof TFile)) {
                 if (suggestion.type === 'infra') {
                     new Notice('Advisory acknowledged.');
                 } else {
-                    new Notice(`File not found: ${targetName}`);
+                    new Notice(`File could not be resolved: ${suggestion.link}`);
                     return false;
                 }
-            } else if (suggestion.meta?.sourceNote && (suggestion.meta?.propertyKey || suggestion.meta?.property)) {
-                // FIX: Use propertyKey (actual YAML key) if available, fallback to property (logical type)
+            } else if (suggestion.meta?.sourcePath && (suggestion.meta?.propertyKey || suggestion.meta?.property)) {
+                // ... same logic but using resolveTargetFile result
                 const prop = suggestion.meta.propertyKey || suggestion.meta.property!;
-                const source = suggestion.meta.sourceNote;
+                const sourcePath = suggestion.meta.sourcePath;
+                const sourceFile = this.app.vault.getAbstractFileByPath(sourcePath);
+                const sourceName =
+                    sourceFile instanceof TFile
+                        ? this.plugin.app.metadataCache.fileToLinktext(sourceFile, targetFile.path, true)
+                        : sourcePath;
 
-                await this.app.fileManager.processFrontMatter(targetFile, (fm: Record<string, unknown>) => {
+                await this.plugin.app.fileManager.processFrontMatter(targetFile, (fm: Record<string, unknown>) => {
                     const existing = fm[prop];
-                    const newLink = `[[${source}]]`;
+                    const newLink = `[[${sourceName}]]`;
 
                     if (Array.isArray(existing)) {
-                        if (!existing.some((e: string) => String(e).includes(source))) {
+                        if (!existing.some((e: string) => String(e).includes(sourceName))) {
                             existing.push(newLink);
                         }
                     } else if (existing) {
                         const existingStr = JSON.stringify(existing);
-                        if (!existingStr.includes(source)) {
+                        if (!existingStr.includes(sourceName)) {
                             fm[prop] = [existing, newLink];
                         }
                     } else {
@@ -47,10 +66,10 @@ export class SuggestionExecutor {
                 });
                 new Notice(`Fixed ${targetFile.basename}`);
             } else {
-                await this.app.workspace.openLinkText(targetName, '');
+                await this.plugin.app.workspace.openLinkText(targetFile?.path || suggestion.link, '');
             }
 
-            this.finalizeSuggestion(suggestion, targetName);
+            await this.finalizeSuggestion(suggestion, targetFile?.path || suggestion.link);
             return true;
         } catch (error) {
             HealerLogger.error('Execution failed', error);
@@ -59,31 +78,49 @@ export class SuggestionExecutor {
     }
 
     async resolveChoice(suggestion: Suggestion, winner: string, losers: string[]): Promise<boolean> {
+        return new Promise((resolve) => {
+            this.queue = this.queue.then(async () => {
+                try {
+                    const result = await this.innerResolveChoice(suggestion, winner, losers);
+                    resolve(result);
+                } catch (e) {
+                    HealerLogger.error('Queued resolution failed', e);
+                    resolve(false);
+                }
+            });
+        });
+    }
+
+    private async innerResolveChoice(suggestion: Suggestion, winner: string, losers: string[]): Promise<boolean> {
         try {
-            const noteName = suggestion.meta?.targetNote;
+            const targetPath = suggestion.meta?.targetPath;
             const prop = suggestion.meta?.property;
-            if (!noteName || !prop) {
+            if (!targetPath || !prop) {
                 new Notice('Missing structured metadata for resolution.');
                 return false;
             }
 
-            const targetFile = this.app.vault.getMarkdownFiles().find((f) => f.basename === noteName);
-            if (!targetFile) return false;
+            const targetFile = this.app.vault.getAbstractFileByPath(targetPath);
+            if (!(targetFile instanceof TFile)) return false;
 
-            await this.app.fileManager.processFrontMatter(targetFile, (fm: Record<string, unknown>) => {
+            await this.plugin.app.fileManager.processFrontMatter(targetFile, (fm: Record<string, unknown>) => {
                 const existing = fm[prop];
                 if (Array.isArray(existing)) {
                     fm[prop] = existing.filter((val: string) => {
-                        const valStr = String(val);
-                        return !losers.some((l) => l.includes(valStr) || valStr.includes(l.replace(/\[|\]/g, '')));
+                        const valStr = String(val).replace(/\[|\]/g, '').trim().split('|')[0];
+                        // BUG FIX (Bug 3): Exact match after normalization
+                        return !losers.some((l) => {
+                            const lStr = String(l).replace(/\[|\]/g, '').trim().split('|')[0];
+                            return lStr === valStr;
+                        });
                     });
                 } else {
                     fm[prop] = winner;
                 }
             });
 
-            new Notice(`Resolved ${noteName}: kept ${winner}`);
-            this.finalizeSuggestion(suggestion, noteName, `Resolved choice: kept ${winner}`);
+            new Notice(`Resolved ${targetFile.basename}: kept ${winner}`);
+            await this.finalizeSuggestion(suggestion, targetFile.path, `Resolved choice: kept ${winner}`);
             return true;
         } catch (e) {
             HealerLogger.error('Resolve choice failed', e);
@@ -96,47 +133,65 @@ export class SuggestionExecutor {
      * Updates A's next, B's prev/next, and C's prev.
      */
     async executeRelink(suggestion: Suggestion): Promise<boolean> {
+        return new Promise((resolve) => {
+            this.queue = this.queue.then(async () => {
+                try {
+                    const result = await this.innerExecuteRelink(suggestion);
+                    resolve(result);
+                } catch (e) {
+                    HealerLogger.error('Queued relink failed', e);
+                    resolve(false);
+                }
+            });
+        });
+    }
+
+    private async innerExecuteRelink(suggestion: Suggestion): Promise<boolean> {
         try {
-            const nodeA_Name = suggestion.meta?.sourceNote;
-            const nodeB_Name = suggestion.meta?.targetNote;
-            const nodeC_Name = suggestion.meta?.winner; // Logical C
+            const pathA = suggestion.meta?.sourcePath;
+            const pathB = suggestion.meta?.targetPath;
+            const nodeC_Data = suggestion.meta?.winner; // Logical C (typically a path or name)
             const prop = suggestion.meta?.property; // e.g. 'next'
 
-            if (!nodeA_Name || !nodeB_Name || !nodeC_Name || !prop) return false;
+            if (!pathA || !pathB || !nodeC_Data || !prop) return false;
 
-            const files = this.app.vault.getMarkdownFiles();
-            const fileA = files.find((f) => f.basename === nodeA_Name);
-            const fileB = files.find((f) => f.basename === nodeB_Name);
-            const fileC = files.find((f) => f.basename === nodeC_Name);
+            const fileA = this.app.vault.getAbstractFileByPath(pathA);
+            const fileB = this.app.vault.getAbstractFileByPath(pathB);
+            // C is tricky as winner from LLM might be a name. HealerUtils should resolve.
+            const fileC = this.app.metadataCache.getFirstLinkpathDest(nodeC_Data.replace(/[[\]]/g, ''), pathB);
 
-            if (!fileA || !fileB || !fileC) {
-                HealerLogger.error('Relink failed: missing files in chain.');
+            if (!(fileA instanceof TFile) || !(fileB instanceof TFile) || !(fileC instanceof TFile)) {
+                HealerLogger.error('Relink failed: missing files in chain.', { pathA, pathB, nodeC_Data });
                 return false;
             }
 
             const invProp = prop === 'next' ? 'prev' : 'next';
+            const nameA = this.app.metadataCache.fileToLinktext(fileA, fileB.path, true);
+            const nameB_forA = this.app.metadataCache.fileToLinktext(fileB, fileA.path, true);
+            const nameB_forC = this.app.metadataCache.fileToLinktext(fileB, fileC.path, true);
+            const nameC = this.app.metadataCache.fileToLinktext(fileC, fileB.path, true);
 
-            // 1. Update A -> B
-            await this.app.fileManager.processFrontMatter(fileA, (fm: Record<string, unknown>) => {
-                fm[prop] = `[[${nodeB_Name}]]`;
+            // 1. Update A -> B (Standard Set logic for chains)
+            await this.plugin.app.fileManager.processFrontMatter(fileA, (fm: Record<string, unknown>) => {
+                fm[prop] = `[[${nameB_forA}]]`;
             });
 
             // 2. Update B -> A (prev) & B -> C (next)
-            await this.app.fileManager.processFrontMatter(fileB, (fm: Record<string, unknown>) => {
-                fm[invProp] = `[[${nodeA_Name}]]`;
-                fm[prop] = `[[${nodeC_Name}]]`;
+            await this.plugin.app.fileManager.processFrontMatter(fileB, (fm: Record<string, unknown>) => {
+                fm[invProp] = `[[${nameA}]]`;
+                fm[prop] = `[[${nameC}]]`;
             });
 
             // 3. Update C -> B
-            await this.app.fileManager.processFrontMatter(fileC, (fm: Record<string, unknown>) => {
-                fm[invProp] = `[[${nodeB_Name}]]`;
+            await this.plugin.app.fileManager.processFrontMatter(fileC, (fm: Record<string, unknown>) => {
+                fm[invProp] = `[[${nameB_forC}]]`;
             });
 
-            new Notice(`Chain repaired: ${nodeA_Name} ↔ ${nodeB_Name} ↔ ${nodeC_Name}`);
-            this.finalizeSuggestion(
+            new Notice(`Chain repaired: ${fileA.basename} ↔ ${fileB.basename} ↔ ${fileC.basename}`);
+            await this.finalizeSuggestion(
                 suggestion,
-                nodeB_Name,
-                `Structural Bridge Repair: ${nodeA_Name}->${nodeB_Name}->${nodeC_Name}`,
+                fileB.path,
+                `Structural Bridge Repair: ${fileA.basename}->${fileB.basename}->${fileC.basename}`,
             );
             return true;
         } catch (e) {
@@ -145,14 +200,14 @@ export class SuggestionExecutor {
         }
     }
 
-    private finalizeSuggestion(suggestion: Suggestion, targetFile: string, customAction?: string) {
+    private async finalizeSuggestion(suggestion: Suggestion, targetPath: string, customAction?: string) {
         this.plugin.settings.pendingSuggestions = this.plugin.settings.pendingSuggestions.filter(
             (s) => s.id !== suggestion.id,
         );
 
         this.plugin.settings.history.push({
             action: customAction || `Resolved: ${suggestion.source.substring(0, 50)}`,
-            file: targetFile,
+            file: targetPath,
             timestamp: Date.now(),
             type: 'fix',
         });
@@ -161,7 +216,8 @@ export class SuggestionExecutor {
             this.plugin.settings.history = this.plugin.settings.history.slice(-100);
         }
 
-        void this.plugin.saveSettings().catch((e) => HealerLogger.error('Save failed', e));
-        void this.plugin.refreshDashboard();
+        // BUG FIX (Bug 4): Await to prevent race conditions during rapid batches
+        await this.plugin.saveSettings();
+        await this.plugin.refreshDashboard();
     }
 }

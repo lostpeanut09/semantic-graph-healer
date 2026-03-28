@@ -92,7 +92,7 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
             new Setting(containerEl)
                 .setName('Smart connections limit')
                 .setDesc('Number of semantic neighbors to retrieve.')
-                .addSlider((slider) =>
+                .addSlider((slider) => {
                     slider
                         .setLimits(1, 20, 1)
                         .setValue(this.plugin.settings.smartConnectionsLimit)
@@ -100,8 +100,10 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
                         .onChange((value) => {
                             this.plugin.settings.smartConnectionsLimit = value;
                             void this.plugin.saveSettings();
-                        }),
-                );
+                        });
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+                    if ('setInstant' in slider) (slider as any).setInstant(true);
+                });
         }
 
         // --- 3. HIERARCHIES ---
@@ -169,6 +171,7 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
                     'Define specific constraints for certain folders or properties using JSON and regex. Overrides global strictness.',
                 );
             customRulesSetting.settingEl.addClass('healer-block-setting');
+            let rulesDebounce: NodeJS.Timeout;
             customRulesSetting.addTextArea((text) => {
                 text.setValue(JSON.stringify(this.plugin.settings.customTopologyRules, null, 2));
                 text.inputEl.rows = 6;
@@ -176,21 +179,26 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
                 text.setPlaceholder(
                     '[\n  { "pattern": "^Projects/", "property": "up", "maxCount": 2, "severity": "info" }\n]',
                 );
-                text.onChange(async (v) => {
-                    try {
-                        const parsed = JSON.parse(v) as {
-                            pattern: string;
-                            property: string;
-                            maxCount: number;
-                            severity: 'info' | 'error' | 'suggestion';
-                        }[];
-                        this.plugin.settings.customTopologyRules = parsed;
-                        await this.plugin.saveSettings();
-                        await this.plugin.analyzeGraph();
-                        text.inputEl.removeClass('healer-border-error');
-                    } catch {
-                        text.inputEl.addClass('healer-border-error');
-                    }
+                text.onChange((v) => {
+                    if (rulesDebounce) clearTimeout(rulesDebounce);
+                    rulesDebounce = setTimeout(() => {
+                        void (async () => {
+                            try {
+                                const parsed = JSON.parse(v) as {
+                                    pattern: string;
+                                    property: string;
+                                    maxCount: number;
+                                    severity: 'info' | 'error' | 'suggestion';
+                                }[];
+                                this.plugin.settings.customTopologyRules = parsed;
+                                await this.plugin.saveSettings();
+                                await this.plugin.analyzeGraph();
+                                text.inputEl.removeClass('healer-border-error');
+                            } catch {
+                                text.inputEl.addClass('healer-border-error');
+                            }
+                        })();
+                    }, 1000);
                 });
             });
         }
@@ -375,7 +383,8 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
                     void (async () => {
                         const internalApp = this.plugin.app;
                         if (isObsidianInternalApp(internalApp)) {
-                            if (internalApp.keychain && value !== '') {
+                            const isSkLocal = value === 'sk-local';
+                            if (internalApp.keychain && value !== '' && !isSkLocal) {
                                 await internalApp.keychain.set('semantic-healer-secondary', value);
                                 this.plugin.settings.secondaryLlmApiKey = '';
                             } else {
@@ -411,6 +420,19 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
                 btn.setButtonText('Scan secondary').onClick(async () => await this.runModelDetection(btn, false)),
             );
 
+        if (this.plugin.settings.enableAiTribunal) {
+            const isRedundant =
+                this.plugin.settings.llmModelName === this.plugin.settings.secondaryLlmModelName &&
+                this.plugin.settings.llmEndpoint === this.plugin.settings.secondaryLlmEndpoint;
+
+            if (isRedundant) {
+                containerEl.createEl('div', {
+                    text: 'Primary and secondary providers are identical. The tribunal will be bypassed to save tokens.',
+                    cls: 'healer-warning-banner',
+                });
+            }
+        }
+
         // --- 6. SHARED AI PARAMETERS ---
         createHeader(
             'Shared parameters',
@@ -426,7 +448,7 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
         confidenceValue.addClass('healer-font-weight-bold');
         confidenceValue.addClass('healer-text-accent');
 
-        confidenceSetting.addSlider((slider) =>
+        confidenceSetting.addSlider((slider) => {
             slider
                 .setLimits(50, 100, 1)
                 .setValue(this.plugin.settings.aiConfidenceThreshold)
@@ -435,8 +457,12 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
                     this.plugin.settings.aiConfidenceThreshold = value;
                     confidenceValue.setText(`${String(value)}%`);
                     void this.plugin.saveSettings();
-                }),
-        );
+                });
+            if ('setInstant' in slider) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+                (slider as any).setInstant(true);
+            }
+        });
 
         const tokensSetting = new Setting(containerEl)
             .setName('Max output tokens')
@@ -446,7 +472,7 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
         tokensValue.addClass('healer-ml-20');
         tokensValue.addClass('healer-font-weight-bold');
 
-        tokensSetting.addSlider((slider) =>
+        tokensSetting.addSlider((slider) => {
             slider
                 .setLimits(100, 4000, 100)
                 .setValue(this.plugin.settings.aiMaxTokens)
@@ -455,8 +481,12 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
                     this.plugin.settings.aiMaxTokens = value;
                     tokensValue.setText(`${String(value)}`);
                     void this.plugin.saveSettings();
-                }),
-        );
+                });
+            if ('setInstant' in slider) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+                (slider as any).setInstant(true);
+            }
+        });
 
         // --- 7. INTELLIGENT EVOLUTION ---
         createHeader('Intelligent evolution', 'Dynamic MOC management and aesthetics for complex vaults.');
@@ -493,7 +523,7 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
             mocValue.addClass('healer-ml-20');
             mocValue.addClass('healer-font-weight-bold');
 
-            mocSetting.addSlider((slider) =>
+            mocSetting.addSlider((slider) => {
                 slider
                     .setLimits(5, 100, 1)
                     .setValue(this.plugin.settings.mocSaturationThreshold)
@@ -502,8 +532,12 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
                         this.plugin.settings.mocSaturationThreshold = value;
                         mocValue.setText(`${String(value)}`);
                         void this.plugin.saveSettings();
-                    }),
-            );
+                    });
+                if ('setInstant' in slider) {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+                    (slider as any).setInstant(true);
+                }
+            });
         }
 
         new Setting(containerEl)
@@ -520,19 +554,25 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
             .setName('Aesthetic rules (JSON)')
             .setDesc('Define node colors and stickers based on metadata properties. Must be valid JSON.');
         aestheticSetting.settingEl.addClass('healer-block-setting'); // Let's add this to CSS
+        let aestheticDebounce: NodeJS.Timeout;
         aestheticSetting.addTextArea((text) => {
             text.setValue(this.plugin.settings.aestheticPresetRules);
             text.inputEl.rows = 8;
             text.inputEl.addClass('healer-json-textarea');
             text.onChange((value) => {
-                try {
-                    JSON.parse(value);
-                    this.plugin.settings.aestheticPresetRules = value;
-                    void this.plugin.saveSettings();
-                    text.inputEl.removeClass('healer-border-error');
-                } catch {
-                    text.inputEl.addClass('healer-border-error');
-                }
+                if (aestheticDebounce) clearTimeout(aestheticDebounce);
+                aestheticDebounce = setTimeout(() => {
+                    void (async () => {
+                        try {
+                            JSON.parse(value);
+                            this.plugin.settings.aestheticPresetRules = value;
+                            await this.plugin.saveSettings();
+                            text.inputEl.removeClass('healer-border-error');
+                        } catch {
+                            text.inputEl.addClass('healer-border-error');
+                        }
+                    })();
+                }, 1000);
             });
         });
 
@@ -653,7 +693,7 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
                     if (count > 0) {
                         new Notice(`System identified ${count} structural gaps! Review actions.`);
                     } else if (count === 0) {
-                        new Notice('No structural gaps detected the active note.');
+                        new Notice('No structural gaps detected in the active note.');
                     } else {
                         new Notice('Service error. Check token.');
                     }

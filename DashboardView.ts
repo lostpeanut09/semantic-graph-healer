@@ -34,10 +34,10 @@ export class QuarantineDashboardView extends ItemView {
 
     async onOpen() {
         await Promise.resolve();
-        const { containerEl } = this;
-        containerEl.empty();
+        const { contentEl } = this;
+        contentEl.empty();
         this.displayLimit = PAGE_SIZE;
-        const mainWrapper = containerEl.createDiv({ cls: 'healer-dashboard-container' });
+        const mainWrapper = contentEl.createDiv({ cls: 'healer-dashboard-container' });
 
         // 1. Render Static Frame (Header, Banner)
         this.renderFrame(mainWrapper);
@@ -88,6 +88,7 @@ export class QuarantineDashboardView extends ItemView {
             { value: 'all', text: 'All issues' },
             { value: 'orphan', text: 'Orphan notes' },
             { value: 'incongruence', text: 'Semantic conflicts' },
+            { value: 'semantic', text: 'Semantic similarity' },
             { value: 'deter_asymmetry', text: 'Missing reciprocals' },
             { value: 'bridge_gap', text: 'Structural gaps' },
             { value: 'cycle_ouroboros', text: 'Logic loops (Ouroboros)' },
@@ -202,6 +203,10 @@ export class QuarantineDashboardView extends ItemView {
                                 !s.id.startsWith('tag_sync') &&
                                 !s.id.startsWith('bridge_gap'))
                         );
+                    case 'incongruence':
+                        return s.type === 'incongruence';
+                    case 'semantic':
+                        return s.type === 'semantic';
                     default:
                         return s.type === (this.filterType as SuggestionType);
                 }
@@ -387,9 +392,11 @@ export class QuarantineDashboardView extends ItemView {
             leaf = rightLeaf;
             await leaf.setViewState({ type: REASONING_VIEW_TYPE, active: true });
         }
-        const view = leaf.view as unknown as ReasoningView;
-        await view.setSuggestion(suggestion);
-        await this.app.workspace.revealLeaf(leaf);
+        const view = leaf.view;
+        if (view instanceof ReasoningView) {
+            await view.setSuggestion(suggestion);
+            await this.app.workspace.revealLeaf(leaf);
+        }
     }
 
     async onClose() {
