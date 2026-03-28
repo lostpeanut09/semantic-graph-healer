@@ -1,0 +1,42 @@
+{
+  "llmApiKey": "",
+  "secondaryLlmApiKey": "",
+  "infraNodusApiKey": "",
+  "llmModelName": "gpt-4o",
+  "secondaryLlmModelName": "gpt-4o",
+  "llmEndpoint": "https://api.openai.com/v1",
+  "secondaryLlmEndpoint": "https://api.openai.com/v1",
+  "primaryTimeout": 30,
+  "secondaryTimeout": 30,
+  "aiMaxTokens": 1000,
+  "aiConfidenceThreshold": 70,
+  "enableAiTribunal": false,
+  "enableSmartConnections": false,
+  "smartConnectionsLimit": 10,
+  "enableTagHierarchySync": true,
+  "strictDownCheck": true,
+  "scanFolder": "",
+  "autoFixMundaneLinks": false,
+  "ignoreOrphanNotes": false,
+  "proximityIgnoreList": [],
+  "fullyScannedNotes": [],
+  "detectedModels": [],
+  "secondaryDetectedModels": [],
+  "hierarchies": [
+    {
+      "up": ["up", "parent"],
+      "down": ["down", "child"],
+      "next": ["next"],
+      "prev": ["prev"],
+      "same": ["same", "sibling"],
+      "related": ["related"]
+    }
+  ],
+  "customTopologyRules": [],
+  "pendingSuggestions": [],
+  "history": [],
+  "enableDeepGraphAnalysis": false,
+  "includeNonMarkdownHubs": true,
+  "proximityAnalysisLimit": 5,
+  "communityDetectionSensitivity": 0.5
+}

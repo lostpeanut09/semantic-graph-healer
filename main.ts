@@ -27,7 +27,7 @@ export default class SemanticGraphHealer extends Plugin {
     public reasoner: ReasoningService;
 
     private isAnalyzing = false;
-    private analysisDebounce = new Map<string, NodeJS.Timeout>();
+    private analysisDebounce = new Map<string, ReturnType<typeof setTimeout>>();
 
     async onload() {
         await this.loadSettings();
@@ -129,12 +129,28 @@ export default class SemanticGraphHealer extends Plugin {
         this.registerEvent(
             this.app.metadataCache.on('changed', (file) => {
                 if (!(file instanceof TFile)) return;
+
+                // CRUCIAL: Invalidate the adjacency index when metadata changes
+                this.engine.invalidateBacklinkIndex();
+
                 const isMd = file.extension === 'md';
                 const isCanvas = file.extension === 'canvas' && this.settings.includeNonMarkdownHubs;
 
                 if (isMd || isCanvas) {
                     // triggerAnalysis(file); // [Performance Fix] Disabling vault-wide bridge scan on save
                 }
+            }),
+        );
+
+        // 4. Cleanup/Refactoring integrity events
+        this.registerEvent(
+            this.app.vault.on('rename', () => {
+                this.engine.invalidateBacklinkIndex();
+            }),
+        );
+        this.registerEvent(
+            this.app.vault.on('delete', () => {
+                this.engine.invalidateBacklinkIndex();
             }),
         );
 
@@ -154,6 +170,7 @@ export default class SemanticGraphHealer extends Plugin {
 
     private async analyzeFileContext(file: TFile) {
         if (this.isAnalyzing) return;
+        this.isAnalyzing = true;
         try {
             const bridgeIssues = await this.topology.runBridgeScrutiny();
             if (bridgeIssues.length > 0) {
@@ -171,6 +188,8 @@ export default class SemanticGraphHealer extends Plugin {
             }
         } catch (e) {
             HealerLogger.error('Bridge audit failed', e);
+        } finally {
+            this.isAnalyzing = false;
         }
     }
 
@@ -526,7 +545,7 @@ export default class SemanticGraphHealer extends Plugin {
         // --- SMART PRUNING (v3.3.8) ---
         // We keep AI suggestions and Manual Bridge Gaps
         // but REPLACE all other topological issues with the fresh audit.
-        const persistentTypes: SuggestionType[] = ['ai', 'infra', 'semantic'];
+        const persistentTypes: SuggestionType[] = ['ai', 'infra', 'semantic', 'hybrid'];
         const persistentSuggestions = this.settings.pendingSuggestions.filter((suggestion) => {
             return persistentTypes.includes(suggestion.type);
         });
@@ -730,6 +749,14 @@ export default class SemanticGraphHealer extends Plugin {
         const loadedData = (await this.loadData()) as Partial<SemanticGraphHealerSettings>;
         const baseSettings = Object.assign({}, DEFAULT_SETTINGS, loadedData) as SemanticGraphHealerSettings;
 
+        // --- MIGRATION: Ensure all hierarchies have all keys (related, next, prev) ---
+        if (baseSettings.hierarchies && Array.isArray(baseSettings.hierarchies)) {
+            baseSettings.hierarchies = baseSettings.hierarchies.map((h) => ({
+                ...DEFAULT_SETTINGS.hierarchies[0],
+                ...h,
+            }));
+        }
+
         // --- MIGRATION: Ensure all suggestions have a type field ---
         interface LegacySuggestion {
             id?: string;
@@ -772,12 +799,12 @@ export default class SemanticGraphHealer extends Plugin {
             const result = SettingsSchema.safeParse(baseSettings);
 
             if (result.success) {
-                this.settings = baseSettings;
+                this.settings = result.data as SemanticGraphHealerSettings;
             } else {
-                const { z } = await import('zod');
+                const errorMessage = JSON.stringify(result.error.issues, null, 2);
                 HealerLogger.warn(
                     'Settings validation failed. Some keys may be corrupted. Using safe fallbacks.',
-                    z.treeifyError(result.error),
+                    errorMessage,
                 );
                 this.settings = baseSettings;
             }
@@ -795,32 +822,81 @@ export default class SemanticGraphHealer extends Plugin {
         HealerLogger.info('Scanning for external topological engine settings...');
         try {
             let found = false;
+
+            // 1. BREADCRUMBS (V3 & V4)
             const bcPath = `${this.app.vault.configDir}/plugins/breadcrumbs/data.json`;
             if (await this.app.vault.adapter.exists(bcPath)) {
                 const bcFileContent = await this.app.vault.adapter.read(bcPath);
-                const bcData = JSON.parse(bcFileContent) as {
-                    hierarchies?: { up?: string[]; down?: string[]; same?: string[] }[];
-                };
-                if (bcData?.hierarchies?.[0]) {
-                    const bcH = bcData.hierarchies[0];
-                    if (this.settings.hierarchies[0]) {
-                        this.settings.hierarchies[0].up = [
-                            ...new Set([...this.settings.hierarchies[0].up, ...(bcH.up || [])]),
-                        ];
-                        this.settings.hierarchies[0].down = [
-                            ...new Set([...this.settings.hierarchies[0].down, ...(bcH.down || [])]),
-                        ];
-                        this.settings.hierarchies[0].same = [
-                            ...new Set([...this.settings.hierarchies[0].same, ...(bcH.same || [])]),
-                        ];
+
+                interface BreadcrumbsData {
+                    hierarchies?: {
+                        up?: string[];
+                        down?: string[];
+                        same?: string[];
+                        next?: string[];
+                        prev?: string[];
+                    }[];
+                    edge_fields?: { label: string; dir: string }[];
+                }
+                const bcData = JSON.parse(bcFileContent) as BreadcrumbsData;
+
+                if (this.settings.hierarchies[0]) {
+                    const h = this.settings.hierarchies[0];
+
+                    // Support V3 (hierarchies array)
+                    const bcH = bcData?.hierarchies?.[0];
+                    if (bcH) {
+                        h.up = [...new Set([...h.up, ...(bcH.up || [])])];
+                        h.down = [...new Set([...h.down, ...(bcH.down || [])])];
+                        h.same = [...new Set([...h.same, ...(bcH.same || [])])];
+                        h.next = [...new Set([...h.next, ...(bcH.next || [])])];
+                        h.prev = [...new Set([...h.prev, ...(bcH.prev || [])])];
+                        found = true;
+                    }
+
+                    // Support V4 (edge_fields array)
+                    if (bcData?.edge_fields && Array.isArray(bcData.edge_fields)) {
+                        interface EdgeField {
+                            label: string;
+                            dir: string;
+                        }
+                        (bcData.edge_fields as EdgeField[]).forEach((ef) => {
+                            if (ef.dir === 'up') h.up = [...new Set([...h.up, ef.label])];
+                            if (ef.dir === 'down') h.down = [...new Set([...h.down, ef.label])];
+                            if (ef.dir === 'same') h.same = [...new Set([...h.same, ef.label])];
+                            if (ef.dir === 'next') h.next = [...new Set([...h.next, ef.label])];
+                            if (ef.dir === 'prev') h.prev = [...new Set([...h.prev, ef.label])];
+                        });
                         found = true;
                     }
                 }
             }
 
+            // 2. EXCALIBRAIN
             const ebPath = `${this.app.vault.configDir}/plugins/excalibrain/data.json`;
             if (await this.app.vault.adapter.exists(ebPath)) {
-                found = true;
+                const ebFileContent = await this.app.vault.adapter.read(ebPath);
+
+                interface ExcaliBrainData {
+                    ontology?: { parent?: string[]; child?: string[]; friend?: string[] };
+                    hierarchy?: { parent?: string[]; child?: string[]; friend?: string[] };
+                }
+                const ebData = JSON.parse(ebFileContent) as ExcaliBrainData;
+                const ebOntology = ebData?.ontology || ebData?.hierarchy;
+
+                if (ebOntology && this.settings.hierarchies[0]) {
+                    const h = this.settings.hierarchies[0];
+                    if (ebOntology.parent && Array.isArray(ebOntology.parent)) {
+                        h.up = [...new Set([...h.up, ...ebOntology.parent])];
+                    }
+                    if (ebOntology.child && Array.isArray(ebOntology.child)) {
+                        h.down = [...new Set([...h.down, ...ebOntology.child])];
+                    }
+                    if (ebOntology.friend && Array.isArray(ebOntology.friend)) {
+                        h.same = [...new Set([...h.same, ...ebOntology.friend])];
+                    }
+                    found = true;
+                }
             }
 
             if (found) {
@@ -829,7 +905,7 @@ export default class SemanticGraphHealer extends Plugin {
             }
             return false;
         } catch (e) {
-            HealerLogger.error('Sync failed', e);
+            HealerLogger.error('External Sync failed', e);
             return false;
         }
     }
