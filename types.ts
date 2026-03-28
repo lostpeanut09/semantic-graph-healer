@@ -15,8 +15,17 @@ export interface ObsidianInternalApp {
 }
 
 // --- Dataview / Datacore API interfaces ---
+export interface DataArray<T> {
+    array(): T[];
+    forEach(cb: (v: T) => void): void;
+    filter(cb: (v: T) => boolean): DataArray<T>;
+    where(cb: (v: T) => boolean): DataArray<T>;
+    length: number;
+    [index: number]: T;
+}
+
 export interface DataviewApi {
-    pages(query: string): DataviewPage[];
+    pages(query?: string): DataArray<DataviewPage>;
     page(path: string): DataviewPage | null;
 }
 
@@ -49,6 +58,7 @@ export interface DataviewPage {
 export interface DatacoreApi {
     page<T extends MarkdownPage = MarkdownPage>(path: string): T | undefined;
     query<T = unknown>(query: string): T[];
+    tryQuery<T = unknown>(query: string): { successful: true; value: T[] } | { successful: false; error: string };
     resolvePath(path: string, sourcePath?: string): string;
 }
 
@@ -82,8 +92,10 @@ export type SuggestionType = 'ai' | 'deterministic' | 'quality' | 'incongruence'
 export interface SuggestionMeta {
     property?: string; // Logical type: 'up', 'down', 'next', 'prev', 'same'
     propertyKey?: string; // Actual YAML key: 'parent', 'right', 'procedural-next', etc.
-    sourceNote?: string;
-    targetNote?: string;
+    sourcePath?: string; // Canonical TFile.path for logic
+    targetPath?: string; // Canonical TFile.path for logic
+    sourceNote?: string; // Basename for display
+    targetNote?: string; // Basename for display
     description?: string;
     confidence?: number;
     winner?: string;

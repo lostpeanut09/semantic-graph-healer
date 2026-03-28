@@ -1,6 +1,6 @@
-import { App } from 'obsidian';
+import { App, TFile } from 'obsidian';
 import { Suggestion, DataviewApi, ReasoningResult, SemanticGraphHealerSettings } from '../types';
-import { HealerLogger, formatIncongruencePrompt, calculateHtrScore } from './HealerUtils';
+import { HealerLogger, resolveTargetFile, formatIncongruencePrompt, calculateHtrScore } from './HealerUtils';
 import { SmartConnectionsAdapter } from './DataAdapter';
 
 /**
@@ -36,57 +36,65 @@ export class ReasoningService {
             return null;
         }
 
-        const targetFile = this.app.vault.getMarkdownFiles().find((f) => f.basename === noteName);
-        if (!targetFile) {
-            HealerLogger.warn(`Target file not found: ${noteName}`);
+        try {
+            const targetFile = resolveTargetFile(this.app, suggestion);
+
+            if (!(targetFile instanceof TFile)) {
+                HealerLogger.warn(`Target file not found or invalid for suggestion ${suggestion.id}`);
+                return null;
+            }
+
+            const content = await this.app.vault.read(targetFile);
+
+            // 1. Gather candidate metadata
+            const candidateData = await this.gatherCandidateData(suggestion, values, targetFile.path);
+
+            // 2. Build prompt
+            const isInfraNodus = suggestion.source.toLowerCase().includes('infranodus');
+            const prompt = formatIncongruencePrompt(
+                noteName,
+                prop,
+                values,
+                content.substring(0, 1000),
+                candidateData,
+                isInfraNodus,
+            );
+
+            // 3. Call LLM
+            const response = await this.llm.callLlm(prompt, this.settings.enableAiTribunal);
+            const parsed = this.llm.parseReasoningResult(response);
+
+            // 4. Return result (no side-effects on input suggestion)
+            return {
+                ...parsed,
+                rawResponse: response,
+            };
+        } catch (error) {
+            HealerLogger.error(`Error during analysis for suggestion ${suggestion.id}:`, error);
             return null;
         }
-
-        const content = await this.app.vault.read(targetFile);
-
-        // 1. Gather candidate metadata
-        const candidateData = await this.gatherCandidateData(noteName, values);
-
-        // 2. Build prompt
-        const isInfraNodus = suggestion.source.toLowerCase().includes('infranodus');
-        const prompt = formatIncongruencePrompt(
-            noteName,
-            prop,
-            values,
-            content.substring(0, 1000),
-            candidateData,
-            isInfraNodus,
-        );
-
-        // 3. Call LLM
-        const response = await this.llm.callLlm(prompt, this.settings.enableAiTribunal);
-        const parsed = this.llm.parseReasoningResult(response);
-
-        // 4. Return result (no side-effects on input suggestion)
-        return {
-            ...parsed,
-            rawResponse: response,
-        };
     }
 
     /**
      * Gather structural + semantic metadata for each competing value.
      */
     private async gatherCandidateData(
-        noteName: string,
-        values: string[],
+        _suggestion: Suggestion,
+        targets: string[],
+        notePath: string,
     ): Promise<Record<string, Record<string, unknown>>> {
         const candidateData: Record<string, Record<string, unknown>> = {};
 
         // PERFORMANCE: Fetch SC results once per analysis
         let scResults: Suggestion[] = [];
         if (this.settings.enableSmartConnections && this.scAdapter.isAvailable()) {
-            scResults = await this.scAdapter.query(noteName, 20);
+            scResults = await this.scAdapter.query(notePath, 20);
         }
 
-        for (const val of values) {
+        for (const val of targets) {
             const cleanVal = val.replace(/^\[\[/, '').replace(/\]\]$/, '');
-            const cFile = this.app.vault.getMarkdownFiles().find((f) => f.basename === cleanVal);
+            // Use getFirstLinkpathDest to resolve safely from source context
+            const cFile = this.app.metadataCache.getFirstLinkpathDest(cleanVal, notePath);
 
             if (!cFile) continue;
 
@@ -94,7 +102,7 @@ export class ReasoningService {
             let scScore = 0;
 
             // Use cached SC results
-            const match = scResults.find((r) => r.link.includes(cleanVal));
+            const match = scResults.find((r) => r.meta?.targetPath === cFile.path);
             if (match?.meta?.confidence) {
                 scScore = match.meta.confidence;
             }

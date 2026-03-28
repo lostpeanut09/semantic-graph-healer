@@ -53,15 +53,7 @@ export class LlmService {
         ): Promise<string> => {
             try {
                 const timeoutMs = (timeoutSec || 30) * 1000;
-                // NOTE: AbortController is used for flow control, but Obsidian's requestUrl
-                // doesn't natively support AbortSignal. This is a semantic cancellation only.
-                const controller = new AbortController();
-                const timeoutSignal = new Promise((_, reject) => {
-                    setTimeout(() => {
-                        controller.abort();
-                        reject(new Error('Timeout'));
-                    }, timeoutMs);
-                });
+                let timer: ReturnType<typeof setTimeout> | null = null;
 
                 const fetchPromise = requestUrl({
                     url: endpoint.endsWith('/') ? `${endpoint}chat/completions` : `${endpoint}/chat/completions`,
@@ -78,25 +70,37 @@ export class LlmService {
                     throw: false,
                 });
 
-                const response = (await Promise.race([fetchPromise, timeoutSignal])) as {
-                    status: number;
-                    json: LlmResponse;
-                };
+                const timeoutSignal = new Promise<never>((_, reject) => {
+                    timer = setTimeout(() => {
+                        reject(new Error('Timeout'));
+                    }, timeoutMs);
+                });
 
-                if (response.status !== 200) {
-                    throw new LlmError(model, response.status, 'Endpoint rejected request');
+                try {
+                    const response = (await Promise.race([fetchPromise, timeoutSignal])) as {
+                        status: number;
+                        json: LlmResponse;
+                    };
+                    if (timer) clearTimeout(timer);
+
+                    if (response.status !== 200) {
+                        throw new LlmError(model, response.status, 'Endpoint rejected request');
+                    }
+
+                    const json = response.json;
+                    if (json?.choices?.[0]?.message?.content) {
+                        return json.choices[0].message.content;
+                    }
+
+                    // Fallback for some local servers
+                    if (json?.message?.content) return json.message.content;
+                    if (json?.response) return json.response;
+
+                    return '';
+                } catch (innerError) {
+                    if (timer) clearTimeout(timer);
+                    throw innerError;
                 }
-
-                const json = response.json;
-                if (json?.choices?.[0]?.message?.content) {
-                    return json.choices[0].message.content;
-                }
-
-                // Fallback for some local servers
-                if (json?.message?.content) return json.message.content;
-                if (json?.response) return json.response;
-
-                return '';
             } catch (e) {
                 HealerLogger.error(`LLM error [${model}]:`, e);
                 return `Error: ${e instanceof Error ? e.message : 'Unknown communication failure'}`;
@@ -195,7 +199,7 @@ export class LlmService {
             if (winnerMatch) {
                 result.winner = winnerMatch[1].trim();
                 result.winnerScore = parseInt(winnerMatch[2]);
-                result.winnerWhy = winnerMatch[3].split('|')[0].trim();
+                result.winnerWhy = winnerMatch[3].trim();
             }
 
             const runnerUpMatch = raw.match(
@@ -204,7 +208,7 @@ export class LlmService {
             if (runnerUpMatch) {
                 result.runnerUp = runnerUpMatch[1].trim();
                 result.runnerUpScore = parseInt(runnerUpMatch[2]);
-                result.runnerUpWhy = runnerUpMatch[3].split('|')[0].trim();
+                result.runnerUpWhy = runnerUpMatch[3].trim();
             }
 
             if (!result.winner) {
