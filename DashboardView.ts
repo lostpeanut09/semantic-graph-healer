@@ -52,7 +52,8 @@ export class QuarantineDashboardView extends ItemView {
      */
     private renderFrame(container: HTMLElement) {
         // --- BANNER ---
-        const bannerPath = this.plugin.app.vault.adapter.getResourcePath(this.plugin.manifest.dir + '/banner.png');
+        const dir = (this.plugin.manifest as { dir?: string }).dir ?? '';
+        const bannerPath = this.plugin.app.vault.adapter.getResourcePath(`${dir}/banner.png`);
         const bannerEl = container.createEl('img');
         bannerEl.src = bannerPath;
         bannerEl.addClass('healer-dashboard-banner');
@@ -100,11 +101,11 @@ export class QuarantineDashboardView extends ItemView {
             const el = filterSelect.createEl('option', { text: opt.text, value: opt.value });
             if (opt.value === this.filterType) el.selected = true;
         });
-        filterSelect.onchange = () => {
+        this.registerDomEvent(filterSelect, 'change', () => {
             this.filterType = filterSelect.value;
             this.displayLimit = PAGE_SIZE;
             this.renderList(); // Partial update
-        };
+        });
     }
 
     /**
@@ -201,7 +202,14 @@ export class QuarantineDashboardView extends ItemView {
                             s.id.startsWith('asymmetry') ||
                             (s.type === 'deterministic' &&
                                 !s.id.startsWith('tag_sync') &&
-                                !s.id.startsWith('bridge_gap'))
+                                !s.id.startsWith('bridge_gap') &&
+                                !s.id.startsWith('orphan') &&
+                                !s.id.startsWith('moc_sat') &&
+                                !s.id.startsWith('lasso_') &&
+                                !s.id.startsWith('cycle_') &&
+                                !s.id.startsWith('sink_') &&
+                                !s.id.startsWith('dangling') &&
+                                !s.id.startsWith('quality'))
                         );
                     case 'incongruence':
                         return s.type === 'incongruence';
@@ -226,7 +234,7 @@ export class QuarantineDashboardView extends ItemView {
         card.createEl('p', { text: suggestion.source, cls: 'healer-card-p' });
 
         const confidence = suggestion.meta?.confidence;
-        if (confidence) {
+        if (confidence != null) {
             const confDiv = card.createDiv({ cls: 'healer-confidence-text' });
             confDiv.createSpan({ text: `Confidence: ${confidence}%`, cls: 'healer-font-bold' });
         }
@@ -318,7 +326,7 @@ export class QuarantineDashboardView extends ItemView {
             const btn = item.createEl('button', { text: val, cls: 'healer-choice-btn' });
             if (isWinner) btn.addClass('is-winner');
             if (isRunnerUp) btn.addClass('is-runner-up');
-            if (score) item.createDiv({ text: `${score}%`, cls: 'healer-confidence-meter' });
+            if (score != null) item.createDiv({ text: `${score}%`, cls: 'healer-confidence-meter' });
 
             btn.onclick = () => {
                 const losers = values.filter((v) => v !== val);
@@ -435,8 +443,8 @@ export class ReasoningView extends ItemView {
         const winnerDiv = contentEl.createDiv({ cls: 'healer-reasoning-winner' });
         winnerDiv.createEl('b', { text: 'Verdict: ' });
         winnerDiv.appendText(reasoning.winner || 'Unknown');
-        winnerDiv.createSpan({ text: ` (${reasoning.winnerScore}%)`, cls: 'healer-confidence-badge' });
-        contentEl.createEl('p', { text: reasoning.winnerWhy });
+        winnerDiv.createSpan({ text: ` (${reasoning.winnerScore ?? 0}%)`, cls: 'healer-confidence-badge' });
+        contentEl.createEl('p', { text: reasoning.winnerWhy || '' });
         contentEl.createEl('hr', { cls: 'healer-hr-subtle' });
         contentEl.createEl('h4', { text: 'Full log' });
         const pre = contentEl.createEl('pre', { cls: 'healer-reasoning-pre' });
