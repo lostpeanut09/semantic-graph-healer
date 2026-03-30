@@ -211,6 +211,11 @@ export interface SemanticGraphHealerSettings {
     enableInfraNodus: boolean;
     enableDeepGraphAnalysis: boolean;
     enableRealtimeScanning: boolean;
+    requireRelatedReciprocity: boolean; // Phase 3: AI Inference
+    allowNextBranching: boolean; // Phase 3: AI Inference
+    allowPrevBranching: boolean; // Phase 3: AI Inference
+    requireAIBranchValidation: boolean; // Phase 3: AI Inference
+    requireAITagValidation: boolean; // Phase 3: AI Inference
     // Phase 1: Logging & Performance
     logLevel: 'debug' | 'info' | 'warn' | 'error';
     enableFileLogging: boolean;
@@ -278,6 +283,11 @@ export const DEFAULT_SETTINGS: SemanticGraphHealerSettings = {
     enableInfraNodus: false,
     enableDeepGraphAnalysis: false,
     enableRealtimeScanning: false,
+    requireRelatedReciprocity: false,
+    allowNextBranching: false,
+    allowPrevBranching: false,
+    requireAIBranchValidation: false,
+    requireAITagValidation: true,
     // Phase 1 Defaults
     logLevel: 'info',
     enableFileLogging: false,
