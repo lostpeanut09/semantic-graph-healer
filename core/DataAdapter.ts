@@ -1,12 +1,19 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument */
 import { App, TFile } from 'obsidian';
 import { DataviewApi, DataviewPage, DatacoreApi, MarkdownPage, Suggestion } from '../types';
 import { HealerLogger, isObsidianInternalApp, pathToWikilink, generateId } from './HealerUtils';
 
-/**
- * Production-grade implementation of VaultQueryEngine.
- * Hybrid engine: Datacore (Primary) -> Dataview (Fallback).
- */
+interface ObsidianPluginRegistry {
+    getPlugin(id: string): unknown;
+    enabledPlugins: Set<string>;
+}
+
+interface SmartConnectionsPlugin {
+    main?: { smart_sources?: unknown };
+    smart_sources?: unknown;
+    env?: { smart_sources?: unknown };
+    api?: unknown;
+}
+
 export interface VaultQueryEngine {
     getPage(path: string): DataviewPage | null;
     getPages(query: string): DataviewPage[];
@@ -16,21 +23,20 @@ export interface VaultQueryEngine {
 export class VaultDataAdapter implements VaultQueryEngine {
     constructor(private app: App) {}
 
-    // --- Type-safe API accessors ---
     public getDataviewApi(): DataviewApi | null {
         if (!isObsidianInternalApp(this.app)) return null;
-        const plugins = (this.app as any).plugins as { getPlugin(id: string): any };
+        const plugins = (this.app as unknown as { plugins: ObsidianPluginRegistry }).plugins;
         const plugin = plugins.getPlugin('dataview');
         if (!plugin || typeof plugin !== 'object' || !('api' in plugin)) return null;
-        return plugin.api as DataviewApi;
+        return (plugin as { api: DataviewApi }).api;
     }
 
     public getDatacoreApi(): DatacoreApi | null {
         if (!isObsidianInternalApp(this.app)) return null;
-        const plugins = (this.app as any).plugins as { getPlugin(id: string): any };
+        const plugins = (this.app as unknown as { plugins: ObsidianPluginRegistry }).plugins;
         const plugin = plugins.getPlugin('datacore');
         if (!plugin || typeof plugin !== 'object' || !('api' in plugin)) return null;
-        return plugin.api as DatacoreApi;
+        return (plugin as { api: DatacoreApi }).api;
     }
 
     private backlinkIndex: Map<string, Set<string>> | null = null;
@@ -52,7 +58,6 @@ export class VaultDataAdapter implements VaultQueryEngine {
         this.backlinkIndex = null;
     }
 
-    // --- VaultQueryEngine Implementation ---
     public getPage(path: string): DataviewPage | null {
         const dc = this.getDatacoreApi();
         if (dc) {
@@ -66,20 +71,33 @@ export class VaultDataAdapter implements VaultQueryEngine {
         return null;
     }
 
+    /**
+     * ✅ UPDATED: Query sanitization for security (2026)
+     */
     public getPages(query: string): DataviewPage[] {
         const dc = this.getDatacoreApi();
         if (dc) {
             let dcQuery: string;
-            if (!query) {
+
+            if (!query || query.trim() === '') {
                 dcQuery = '@page';
             } else if (query.startsWith('#')) {
-                // ✅ Datacore tag query standard
-                dcQuery = `@page and ${query}`;
+                // ✅ Sanitize tag query (allow alphanumeric, slash, hash, underscore, hyphen)
+                const safeTag = query.replace(/[^a-zA-Z0-9/#_-]/g, '');
+                dcQuery = `@page and ${safeTag}`;
             } else if (query.startsWith('"') && query.endsWith('"')) {
-                const folderName = query.slice(1, -1).replace(/\/+$/, '').replace(/"/g, '\\"');
+                // ✅ Double-escaping for special characters in folder names
+                const folderName = query
+                    .slice(1, -1)
+                    .replace(/\/+$/, '')
+                    .replace(/"/g, '\\"')
+                    .replace(/\\/g, '\\\\')
+                    .replace(/[<>]/g, '');
                 dcQuery = `@page and path("${folderName}")`;
             } else {
-                dcQuery = `@page and ${query}`;
+                // ✅ Validate custom query (basic safety stripping)
+                const safeQuery = query.replace(/[<>]/g, '');
+                dcQuery = `@page and ${safeQuery}`;
             }
 
             const result = dc.tryQuery<MarkdownPage>(dcQuery);
@@ -91,8 +109,11 @@ export class VaultDataAdapter implements VaultQueryEngine {
         const dv = this.getDataviewApi();
         if (dv) {
             const results = dv.pages(query);
-            const array = (results as any).array ? (results as any).array() : Array.isArray(results) ? results : [];
-            return array as unknown as DataviewPage[];
+            type DataArrayResult = { array: () => DataviewPage[] };
+            if (results && typeof results === 'object' && 'array' in results) {
+                return (results as DataArrayResult).array();
+            }
+            return (Array.isArray(results) ? results : []) as DataviewPage[];
         }
 
         return [];
@@ -108,13 +129,12 @@ export class VaultDataAdapter implements VaultQueryEngine {
     private mapMarkdownToDataview(page: MarkdownPage): DataviewPage {
         const filename = page.$path.split('/').pop() || '';
         const basename = filename.replace(/\.md$/, '');
-        const rawFrontmatter = ((page as any).$frontmatter as Record<string, any>) || {};
+        const rawFrontmatter = (page.$frontmatter as Record<string, unknown>) || {};
 
         const userFields: Record<string, unknown> = {};
-        const p = page as any;
-        for (const key of Object.keys(p)) {
+        for (const [key, val] of Object.entries(page)) {
             if (!key.startsWith('$')) {
-                userFields[key] = p[key];
+                userFields[key] = val;
             }
         }
 
@@ -154,32 +174,60 @@ export class VaultDataAdapter implements VaultQueryEngine {
 export class SmartConnectionsAdapter {
     constructor(private app: App) {}
 
-    private getPluginInstance(): any {
+    private getPluginInstance(): SmartConnectionsPlugin | null {
         if (!isObsidianInternalApp(this.app)) return null;
-        return (this.app as any).plugins.getPlugin('smart-connections');
+        const plugins = (this.app as unknown as { plugins: ObsidianPluginRegistry }).plugins;
+        return plugins.getPlugin('smart-connections') as SmartConnectionsPlugin;
     }
 
     public isAvailable(): boolean {
         const p = this.getPluginInstance();
-        return !!(p && (p.env || p.api));
+        if (!p) return false;
+        return !!(p.main?.smart_sources || p.smart_sources || p.env?.smart_sources || p.api);
     }
 
     public async query(sourcePath: string, limit: number = 10): Promise<Suggestion[]> {
         const sc = this.getPluginInstance();
-        if (sc && sc.env && sc.env.smart_sources) {
-            try {
-                const results = await sc.env.smart_sources.find({ query: sourcePath, limit: limit + 1 });
+        if (!sc) return [];
 
-                const resultsArray: any[] = results || [];
+        const smartSources = sc.main?.smart_sources ?? sc.smart_sources ?? sc.env?.smart_sources ?? null;
+
+        if (smartSources) {
+            try {
+                let results: unknown[];
+
+                type SearchableSource = {
+                    search: (q: string, opts: unknown) => Promise<unknown[]>;
+                    find: (opts: unknown) => Promise<unknown[]>;
+                };
+                const ss = smartSources as SearchableSource;
+
+                if (typeof ss.search === 'function') {
+                    HealerLogger.info(`Smart Connections v4: Querying .search() for ${sourcePath}`);
+                    results = await ss.search(sourcePath, { limit: limit + 1 });
+                } else if (typeof ss.find === 'function') {
+                    HealerLogger.info(`Smart Connections v3: Querying .find() for ${sourcePath}`);
+                    results = await ss.find({ query: sourcePath, limit: limit + 1 });
+                } else {
+                    const availableKeys = Object.keys(ss);
+                    HealerLogger.warn(
+                        `Smart Connections: API object found but missing .search/.find (Keys: ${availableKeys.join(', ')}). Falling back to AJSON.`,
+                    );
+                    return this.queryAjsonFallback(sourcePath, limit);
+                }
+
+                const resultsArray = (Array.isArray(results) ? results : []) as Record<string, unknown>[];
                 return resultsArray
-                    .filter((res: any) => {
-                        const targetPath = (res.path || res.item?.path || '') as string;
+                    .filter((res) => {
+                        const rawPath = res.path ?? (res.item as Record<string, unknown>)?.path;
+                        const targetPath = typeof rawPath === 'string' ? rawPath : '';
                         return targetPath && targetPath !== sourcePath;
                     })
                     .slice(0, limit)
-                    .map((res: any) => {
-                        const targetPath = (res.path || res.item?.path || '') as string;
-                        const scoreNum = res.score ?? 0;
+                    .map((res) => {
+                        const rawPath = res.path ?? (res.item as Record<string, unknown>)?.path;
+                        const targetPath = typeof rawPath === 'string' ? rawPath : '';
+                        const scoreNum = typeof res.score === 'number' ? res.score : 0;
                         return {
                             id: `sc_match:${targetPath}`,
                             type: 'semantic' as const,
@@ -196,7 +244,8 @@ export class SmartConnectionsAdapter {
                         } as Suggestion;
                     });
             } catch (e) {
-                HealerLogger.warn('Smart Connections env API failed, falling back to index search.', e);
+                const errMsg = e instanceof Error ? e.message : String(e);
+                HealerLogger.error(`Smart Connections API call failed (${errMsg}), falling back to AJSON index.`, e);
             }
         }
 
@@ -206,7 +255,6 @@ export class SmartConnectionsAdapter {
     private async querySmartEnvFallback(sourcePath: string, limit: number): Promise<Suggestion[]> {
         const adapter = this.app.vault.adapter;
         const envCfgPath = '.smart-env/smart_env.json';
-
         if (!(await adapter.exists(envCfgPath))) return [];
 
         try {
@@ -216,7 +264,6 @@ export class SmartConnectionsAdapter {
             const smartSourcesPath: string | undefined = cfg.smart_sources?.single_file_data_path;
             if (smartSourcesPath && (await adapter.exists(smartSourcesPath))) {
                 const sourcesRaw = await adapter.read(smartSourcesPath);
-
                 if (sourcesRaw.includes(`"${sourcePath}"`)) {
                     HealerLogger.info('Smart Env fallback: structured correlation not available.');
                     return [];
@@ -239,13 +286,13 @@ export class SmartConnectionsAdapter {
             const files = await adapter.list(envPath);
             const ajsonFiles = files.files.filter((f) => f.endsWith('.ajson'));
             const suggestions: Suggestion[] = [];
-
             const MAX_SCAN = 20;
             let scanned = 0;
 
             for (const f of ajsonFiles) {
                 if (scanned >= MAX_SCAN) break;
                 scanned++;
+
                 const content = await adapter.read(f);
                 if (content.includes(`"${sourcePath}"`)) {
                     const targetBase = f.split('/').pop()?.replace('.ajson', '') || f;

@@ -6,7 +6,15 @@ export interface ObsidianKeychain {
     set(key: string, value: string): Promise<void>;
 }
 
+export interface ObsidianSecretStorage {
+    getSecret(key: string): Promise<string | null>;
+    setSecret(key: string, value: string): Promise<void>;
+    deleteSecret?(key: string): Promise<void>;
+    listSecrets?(): Promise<string[]>;
+}
+
 export interface ObsidianInternalApp {
+    secretStorage?: ObsidianSecretStorage;
     keychain?: ObsidianKeychain;
     plugins: {
         enabledPlugins: Set<string>;
@@ -131,6 +139,15 @@ export interface HistoryItem {
     type: string;
 }
 
+export interface InfraGap {
+    cluster_a?: string;
+    cluster_b?: string;
+    node1?: string; // v1 alternative field
+    node2?: string; // v1 alternative field
+    advice?: string | Record<string, unknown>;
+    bridging_text?: string; // v1 alternative field
+}
+
 export interface SemanticGraphHealerSettings {
     llmApiKey: string; // Added for new security logic
     secondaryLlmApiKey: string; // Added for new security logic
@@ -142,8 +159,15 @@ export interface SemanticGraphHealerSettings {
     primaryTimeout: number;
     secondaryTimeout: number;
     aiMaxTokens: number;
+    aiTemperature: number;
     aiConfidenceThreshold: number;
     enableAiTribunal: boolean;
+    llmMaxRetries: number;
+    llmRetryableStatuses: number[];
+    enableGraphGuardrails: boolean;
+    maxNodes: number;
+    maxEdges: number;
+    aliasCacheTtl: number;
     enableSmartConnections: boolean;
     smartConnectionsLimit: number;
     enableTagHierarchySync: boolean;
@@ -161,6 +185,7 @@ export interface SemanticGraphHealerSettings {
         next: string[];
         prev: string[];
         same: string[];
+        related: string[];
     }>;
     customTopologyRules: Array<{
         pattern: string;
@@ -185,21 +210,34 @@ export interface SemanticGraphHealerSettings {
     enableKarpathyFilter: boolean;
     enableInfraNodus: boolean;
     enableDeepGraphAnalysis: boolean;
+    enableRealtimeScanning: boolean;
+    // Phase 1: Logging & Performance
+    logLevel: 'debug' | 'info' | 'warn' | 'error';
+    enableFileLogging: boolean;
+    logFilePath: string;
+    enableHighMemoryMode: boolean;
 }
 
 export const DEFAULT_SETTINGS: SemanticGraphHealerSettings = {
     llmApiKey: '',
     secondaryLlmApiKey: '',
     infraNodusApiKey: '',
-    llmModelName: 'gpt-4o',
-    secondaryLlmModelName: 'claude-3-5-sonnet',
+    llmModelName: '',
+    secondaryLlmModelName: '',
     llmEndpoint: 'https://api.openai.com/v1',
     secondaryLlmEndpoint: 'https://api.anthropic.com/v1',
     primaryTimeout: 30,
     secondaryTimeout: 30,
     aiMaxTokens: 1000,
+    aiTemperature: 0.7,
     aiConfidenceThreshold: 70,
     enableAiTribunal: false,
+    llmMaxRetries: 2,
+    llmRetryableStatuses: [429, 408, 503],
+    enableGraphGuardrails: true,
+    maxNodes: 5000,
+    maxEdges: 50000,
+    aliasCacheTtl: 300000,
     enableSmartConnections: false,
     smartConnectionsLimit: 10,
     enableTagHierarchySync: true,
@@ -218,6 +256,7 @@ export const DEFAULT_SETTINGS: SemanticGraphHealerSettings = {
             next: ['next'],
             prev: ['prev'],
             same: ['same', 'sibling'],
+            related: ['related', 'mentions', 'see-also'],
         },
     ],
     customTopologyRules: [],
@@ -238,4 +277,10 @@ export const DEFAULT_SETTINGS: SemanticGraphHealerSettings = {
     enableKarpathyFilter: true,
     enableInfraNodus: false,
     enableDeepGraphAnalysis: false,
+    enableRealtimeScanning: false,
+    // Phase 1 Defaults
+    logLevel: 'info',
+    enableFileLogging: false,
+    logFilePath: 'SemanticGraphHealer/logs',
+    enableHighMemoryMode: false,
 };

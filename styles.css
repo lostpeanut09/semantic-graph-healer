@@ -378,3 +378,29 @@
     font-size: 0.9em;
     line-height: 1.4;
 }
+
+.healer-loading-spinner {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 40px;
+    color: var(--text-accent);
+    font-weight: 600;
+    font-style: italic;
+    animation: healer-pulse 1.5s infinite ease-in-out;
+}
+
+@keyframes healer-pulse {
+    0% {
+        opacity: 0.4;
+        transform: scale(0.98);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    100% {
+        opacity: 0.4;
+        transform: scale(0.98);
+    }
+}

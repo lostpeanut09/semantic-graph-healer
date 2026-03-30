@@ -26,6 +26,7 @@ const HierarchyDefSchema = z.object({
     next: z.array(z.string()).default([]),
     prev: z.array(z.string()).default([]),
     same: z.array(z.string()).default([]),
+    related: z.array(z.string()).default([]),
 });
 
 const CustomRuleSchema = z.object({
@@ -66,6 +67,7 @@ export const SettingsSchema = z.object({
 
     // Deep Analytics (New v1.1)
     enableDeepGraphAnalysis: z.boolean().default(false),
+    enableRealtimeScanning: z.boolean().default(false),
 
     // LLM / AI
     llmEndpoint: z.string().default('https://api.openai.com/v1'),
@@ -82,8 +84,17 @@ export const SettingsSchema = z.object({
 
     aiConfidenceThreshold: z.number().default(70),
     aiMaxTokens: z.number().default(1000),
+    aiTemperature: z.number().default(0.7),
     primaryTimeout: z.number().default(30),
     secondaryTimeout: z.number().default(30),
+    llmMaxRetries: z.number().default(2),
+    llmRetryableStatuses: z.array(z.number()).default([429, 408, 503]),
+
+    // Performance & Guardrails
+    enableGraphGuardrails: z.boolean().default(true),
+    maxNodes: z.number().default(5000),
+    maxEdges: z.number().default(50000),
+    aliasCacheTtl: z.number().default(300000),
 
     // Intelligent Evolution / Persona
     enableTemporalAnalysis: z.boolean().default(true),

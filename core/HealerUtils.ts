@@ -3,33 +3,44 @@ import { ObsidianInternalApp } from '../types';
 
 /**
  * HealerLogger: Centralized logging for SOTA compliance.
+ * Redesigned for Phase 1 as a bridge to the instance-based logger.
  */
 export class HealerLogger {
+    private static instance: any = null;
+
+    public static setInstance(instance: any) {
+        HealerLogger.instance = instance;
+    }
+
     public static info(message: string, ...args: unknown[]) {
-        HealerLogger.log('info', message, ...args);
+        if (HealerLogger.instance) {
+            HealerLogger.instance.info(message, ...args);
+        } else {
+            console.info(`[SemanticHealer][INFO] ${message}`, ...args);
+        }
     }
 
     public static warn(message: string, ...args: unknown[]) {
-        HealerLogger.log('warn', message, ...args);
+        if (HealerLogger.instance) {
+            HealerLogger.instance.warn(message, ...args);
+        } else {
+            console.warn(`[SemanticHealer][WARN] ${message}`, ...args);
+        }
     }
 
     public static error(message: string, ...args: unknown[]) {
-        HealerLogger.log('error', message, ...args);
+        if (HealerLogger.instance) {
+            HealerLogger.instance.error(message, ...args);
+        } else {
+            console.error(`[SemanticHealer][ERROR] ${message}`, ...args);
+        }
     }
 
     public static debug(message: string, ...args: unknown[]) {
-        HealerLogger.log('debug', message, ...args);
-    }
-
-    private static log(level: 'info' | 'warn' | 'error' | 'debug', message: string, ...args: unknown[]) {
-        const prefix = `[SemanticHealer][${level.toUpperCase()}]`;
-        if (level === 'error') {
-            console.error(prefix, message, ...args);
-        } else if (level === 'warn' || level === 'info') {
-            // Obsidian community recommends warn for general visibility in dev console
-            console.warn(prefix, message, ...args);
-        } else if (level === 'debug') {
-            console.debug(prefix, message, ...args);
+        if (HealerLogger.instance) {
+            HealerLogger.instance.debug(message, ...args);
+        } else {
+            console.debug(`[SemanticHealer][DEBUG] ${message}`, ...args);
         }
     }
 }
@@ -90,23 +101,14 @@ function isDvLinkLike(v: unknown): v is DVLinkLike {
 }
 
 /**
- * Normalize any "target-ish" string into an Obsidian linkpath:
- * - strips surrounding quotes (Properties often store '"[[Link]]"')
- * - strips alias: Note|Alias -> Note
- * - strips subpath: Note#Heading / Note#^block -> Note
- * - strips .md
- * - preserves folder path (folder/Note) to avoid omonym collisions
- * - decodes %20 (markdown links support)
+ * Normalize any "target-ish" string into an Obsidian linkpath.
  */
 export function normalizeToLinkpath(raw: string): string {
     const s0 = raw.trim().replace(/^["']|["']$/g, '');
     const noAlias = s0.split('|')[0].trim();
     const noSubpath = noAlias.split('#')[0].trim();
-
-    // If someone passed a wikilink chunk, be tolerant (e.g. "[[Note]]")
     const stripped = noSubpath.replace(/^\[\[|\]\]$/g, '').trim();
     const noExt = stripped.replace(/\.md$/i, '').trim();
-
     try {
         return decodeURIComponent(noExt);
     } catch {
@@ -116,18 +118,14 @@ export function normalizeToLinkpath(raw: string): string {
 
 /**
  * Extract linkpaths from a single value.
- * Handles: Wikilinks, Markdown links, Dataview objects, nested arrays.
  */
 function extractLinkpathsFromValue(v: unknown): string[] {
     if (v == null) return [];
-
     if (Array.isArray(v)) return v.flatMap(extractLinkpathsFromValue);
-
     if (isDvLinkLike(v)) {
         const lp = normalizeToLinkpath(v.path);
         return lp ? [lp] : [];
     }
-
     if (typeof v !== 'string') return [];
 
     const str = v.trim();
@@ -147,7 +145,6 @@ function extractLinkpathsFromValue(v: unknown): string[] {
     const mdRe = /\[[^\]]*\]\(([^)]+)\)/g;
     while ((m = mdRe.exec(str)) !== null) {
         const targetRaw = m[1].trim();
-        // Remove optional title: [text](Note.md "Some title")
         const target = targetRaw.replace(/\s+["'][^"']*["']\s*$/, '').trim();
         const hasScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(target);
         if (!hasScheme) {
@@ -158,10 +155,8 @@ function extractLinkpathsFromValue(v: unknown): string[] {
 
     if (out.length) return out;
 
-    // 3) Fallback: plain text. If comma-separated, split.
-    // Use explicit escape for clarity but allow eslint if it complains (it's essential for robustness)
-    // eslint-disable-next-line no-useless-escape
-    const cleaned = str.replace(/[\[\]]/g, '').trim();
+    // 3) Fallback: plain text
+    const cleaned = str.replace(/\[/g, '').replace(/\]/g, '').trim();
     const parts = cleaned.includes(',')
         ? cleaned
               .split(',')
@@ -179,11 +174,9 @@ function extractLinkpathsFromValue(v: unknown): string[] {
 
 /**
  * Universal Linkpath Extractor for Dataview/Datacore.
- * Handles: Link objects, Proxy arrays, raw strings, comma-separated wikilinks.
  */
 export function extractLinkpaths(page: Record<string, unknown>, keys: string[]): string[] {
     const seen = new Set<string>();
-
     keys.forEach((key) => {
         const value = page[key];
         if (value == null) return;
@@ -200,13 +193,11 @@ export function extractLinkpaths(page: Record<string, unknown>, keys: string[]):
             extractLinkpathsFromValue(value).forEach((lp) => seen.add(lp));
         }
     });
-
     return [...seen];
 }
 
 /**
- * Resolve linkpaths to canonical TFile.path values using Obsidian's resolver.
- * getFirstLinkpathDest(linkpath, sourcePath) returns the best match TFile or null.
+ * Resolve linkpaths to canonical TFile.path values.
  */
 export function resolveLinkpathsToPaths(
     app: App,
@@ -215,7 +206,6 @@ export function resolveLinkpathsToPaths(
     cache?: Map<string, string | null>,
 ): string[] {
     const seen = new Set<string>();
-
     for (const lp of linkpaths) {
         const key = `${sourcePath}::${lp}`;
         if (cache && cache.has(key)) {
@@ -223,14 +213,11 @@ export function resolveLinkpathsToPaths(
             if (cached) seen.add(cached);
             continue;
         }
-
         const file = app.metadataCache.getFirstLinkpathDest(lp, sourcePath);
         const resolved = file?.path ?? null;
-
         if (cache) cache.set(key, resolved);
         if (resolved) seen.add(resolved);
     }
-
     return [...seen];
 }
 
@@ -258,8 +245,7 @@ export function pathToWikilink(app: App, targetPath: string, sourcePath: string)
 }
 
 /**
- * RESOLVE SUGGESTION -> TFILE (Bug 3.1)
- * Centralizes resolution logic to ensure consistency across the plugin.
+ * RESOLVE SUGGESTION -> TFILE
  */
 export function resolveTargetFile(
     app: App,
@@ -329,10 +315,8 @@ RUNNERUP: [[Note Name]] | SCORE: % | WHY: reason
 
 /**
  * Calculates Harmonized Topological Ranking (HTR-2026).
- * Formula: (0.6 * VectorSim + 0.4 * TopologyDepth)
  */
 export function calculateHtrScore(vectorSim: number, folderDepth: number): number {
-    // Explicit normalization for scale safety
     const vs = vectorSim <= 1 ? vectorSim * 100 : vectorSim;
     const depthScore = Math.min(Math.max(folderDepth, 0) * 10, 100);
     const combined = vs * 0.6 + depthScore * 0.4;
@@ -344,4 +328,84 @@ export function calculateHtrScore(vectorSim: number, folderDepth: number): numbe
  */
 export function sleep(ms: number): Promise<void> {
     return new Promise((r) => setTimeout(r, ms));
+}
+
+// ============================================================================
+// ✅ NEW UTILITY FUNCTIONS (SOTA 2026)
+// ============================================================================
+
+/**
+ * ✅ NEW: Safe regex escaping for user-provided patterns.
+ */
+export function escapeRegExp(string: string): string {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * ✅ NEW: Safe regex compilation with error handling.
+ */
+export function safeCompileRegex(pattern: string, flags?: string): RegExp | null {
+    try {
+        if (!pattern) return null;
+        return new RegExp(pattern, flags);
+    } catch (e) {
+        HealerLogger.error(`Invalid regex pattern: "${pattern}"`, e);
+        return null;
+    }
+}
+
+/**
+ * ✅ NEW: Process items in batches with concurrency control & delay.
+ */
+export async function processInBatches<T, R>(
+    items: T[],
+    processor: (item: T, index: number) => Promise<R>,
+    batchSize: number = 10,
+    delayMs: number = 100,
+): Promise<R[]> {
+    const results: R[] = [];
+    for (let i = 0; i < items.length; i += batchSize) {
+        const batch = items.slice(i, i + batchSize);
+        const batchResults = await Promise.all(batch.map((item, idx) => processor(item, i + idx)));
+        results.push(...batchResults);
+        if (i + batchSize < items.length) {
+            await sleep(delayMs);
+        }
+    }
+    return results;
+}
+
+/**
+ * ✅ NEW: Debounce utility for UI/performance throttling.
+ */
+export function debounce<T extends (...args: unknown[]) => void>(
+    func: T,
+    wait: number,
+): (...args: Parameters<T>) => void {
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+    return (...args: Parameters<T>) => {
+        if (timeout) clearTimeout(timeout);
+        timeout = setTimeout(() => func(...args), wait);
+    };
+}
+
+/**
+ * ✅ NEW: Type-safe property access.
+ */
+export function safeGet<T extends Record<string, unknown>, K extends keyof T>(
+    obj: T | null | undefined,
+    key: K,
+    defaultValue: T[K],
+): T[K] {
+    return obj?.[key] ?? defaultValue;
+}
+
+/**
+ * ✅ NEW: Non-null assertion with descriptive error.
+ */
+export function ensure<T>(value: T | null | undefined, message: string): T {
+    if (value === null || value === undefined) {
+        throw new Error(message);
+    }
+    return value;
 }
