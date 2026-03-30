@@ -3,7 +3,7 @@ import { DirectedGraph } from 'graphology';
 import pagerank from 'graphology-metrics/centrality/pagerank';
 import louvain from 'graphology-communities-louvain';
 import betweennessCentrality from 'graphology-metrics/centrality/betweenness';
-import { Suggestion } from '../types';
+import { Suggestion, SemanticGraphHealerSettings } from '../types';
 import { HealerLogger } from './HealerUtils';
 
 interface GraphNodeAttributes {
@@ -16,41 +16,82 @@ export class GraphEngine {
     private graphVersion = 0;
     private lastPagerankResult: Record<string, number> | null = null;
     private lastPagerankVersion = -1;
-    private readonly linkContextPath = ''; // SOTA 2026: Invariant empty context for dashboard stability
+    private readonly linkContextPath = '';
 
-    constructor(private app: App) {
+    constructor(
+        private app: App,
+        private settings: SemanticGraphHealerSettings,
+    ) {
         this.graph = new DirectedGraph();
     }
 
     /**
+     * ✅ NEW: Explicit memory management for large graphs.
+     */
+    public dispose() {
+        this.graph.clear();
+        this.lastPagerankResult = null;
+        this.lastPagerankVersion = -1;
+        HealerLogger.info('GraphEngine disposed, memory released.');
+    }
+
+    /**
+     * ✅ NEW: Cache status reporting for UI synchronization.
+     */
+    public getCacheStatus() {
+        return {
+            valid: this.lastPagerankResult !== null && this.lastPagerankVersion === this.graphVersion,
+            version: this.graphVersion,
+            nodes: this.graph.order,
+            edges: this.graph.size,
+        };
+    }
+
+    /**
      * Builds the graph in memory using Obsidian's cache.
-     * Uses Weighted DirectedGraph for SOTA accuracy.
+     * Uses Weighted DirectedGraph for SOTA accuracy with memory guardrails (2026).
      */
     public buildGraph() {
         this.graph.clear();
         const resolvedLinks = this.app.metadataCache.resolvedLinks;
 
-        // 1. Add Nodes
+        // ✅ MEMORY GUARDRAILS
+        const useGuardrails = this.settings.enableGraphGuardrails ?? true;
+        const maxNodes = this.settings.maxNodes || 5000;
+        const maxEdges = this.settings.maxEdges || 50000;
+
+        // 1. Add Nodes (with guardrails)
         const files = this.app.vault.getMarkdownFiles();
-        files.forEach((f: TFile) => {
+        if (useGuardrails && files.length > maxNodes) {
+            HealerLogger.warn(
+                `Vault size (${files.length} nodes) exceeds guardrail (${maxNodes}). Capping graph construction.`,
+            );
+        }
+
+        let nodeCount = 0;
+        for (const f of files) {
+            if (useGuardrails && nodeCount >= maxNodes) break;
             if (!this.graph.hasNode(f.path)) {
                 this.graph.addNode(f.path, {
                     label: f.basename,
                     size: f.stat.size,
                 } as GraphNodeAttributes);
+                nodeCount++;
             }
-        });
+        }
 
-        // 2. Add Weighted Edges
+        // 2. Add Weighted Edges (with guardrails)
+        let edgeCount = 0;
         for (const [sourcePath, targets] of Object.entries(resolvedLinks)) {
             if (!this.graph.hasNode(sourcePath)) continue;
+            if (useGuardrails && edgeCount >= maxEdges) break;
 
             for (const [targetPath, rawCount] of Object.entries(targets)) {
+                if (useGuardrails && edgeCount >= maxEdges) break;
                 if (!this.graph.hasNode(targetPath)) continue;
                 if (sourcePath === targetPath) continue;
 
                 const count = Number(rawCount ?? 1);
-                // P1: Logarithmic weight transformation to prevent MOC dominance (SOTA 2026)
                 const weight = Math.log1p(count);
 
                 if (this.graph.hasEdge(sourcePath, targetPath)) {
@@ -58,14 +99,20 @@ export class GraphEngine {
                     this.graph.setEdgeAttribute(sourcePath, targetPath, 'weight', prev + weight);
                 } else {
                     this.graph.addEdge(sourcePath, targetPath, { weight });
+                    edgeCount++;
                 }
             }
         }
+
         this.graphVersion++;
         this.lastPagerankResult = null;
         this.lastPagerankVersion = -1;
 
         HealerLogger.info(`Graph built: ${this.graph.order} nodes, ${this.graph.size} edges.`);
+
+        if (useGuardrails && (nodeCount >= maxNodes || edgeCount >= maxEdges)) {
+            HealerLogger.warn('Graph construction hit memory guardrails. Some nodes/edges were omitted.');
+        }
     }
 
     /**
@@ -74,7 +121,6 @@ export class GraphEngine {
     public runPageRankAnalysis(): Suggestion[] {
         HealerLogger.info('Running Weighted PageRank (Log-Transformed)...');
         try {
-            // Optimization: Cache PageRank per graph version
             const scores = pagerank(this.graph, {
                 getEdgeWeight: 'weight',
                 alpha: 0.85,
@@ -94,7 +140,6 @@ export class GraphEngine {
         const scores: Record<string, number> = {};
         this.graph.forEachNode((node) => {
             let totalWeight = 0;
-            // P0: Sum both In and Out edges for true "Centrality"
             this.graph.forEachEdge(node, (edge) => {
                 totalWeight += (this.graph.getEdgeAttribute(edge, 'weight') as number) || 0;
             });
@@ -122,17 +167,13 @@ export class GraphEngine {
                 id: `${idPrefix}:${path}`,
                 type: 'quality',
                 link: link,
-                source: `Graph Analysis (${method}): Recognized as high-influence node (Normalized Score: ${normalized.toFixed(
-                    2,
-                )}).`,
+                source: `Graph Analysis (${method}): Recognized as high-influence node (Normalized Score: ${normalized.toFixed(2)}).`,
                 timestamp: Date.now(),
                 category: 'info',
                 meta: {
                     confidence: Math.round(normalized * 100),
                     sourceNote: file instanceof TFile ? file.basename : path,
-                    description: `This note is a structural ${
-                        idPrefix.includes('pagerank') ? 'authority' : 'hub'
-                    } in your graph.`,
+                    description: `This note is a structural ${idPrefix.includes('pagerank') ? 'authority' : 'hub'} in your graph.`,
                 },
             });
         });
@@ -148,7 +189,6 @@ export class GraphEngine {
         const communities = louvain(this.graph, { getEdgeWeight: 'weight' });
         const suggestions: Suggestion[] = [];
 
-        // Pre-calculate PageRank for representative selection (use valid cache if available)
         const isCacheValid = this.lastPagerankResult && this.lastPagerankVersion === this.graphVersion;
         const prScores = isCacheValid
             ? (this.lastPagerankResult as Record<string, number>)
@@ -159,7 +199,6 @@ export class GraphEngine {
                   tolerance: 1e-6,
               });
 
-        // P1: Store in cache if newly calculated
         if (!isCacheValid) {
             this.lastPagerankResult = prScores;
             this.lastPagerankVersion = this.graphVersion;
@@ -175,7 +214,6 @@ export class GraphEngine {
         Object.entries(clusters).forEach(([commId, paths]) => {
             if (paths.length < 5) return;
 
-            // Sort paths by PageRank within cluster to find the most "authoritative" note
             const sortedPaths = paths.sort((a, b) => (prScores[b] || 0) - (prScores[a] || 0));
             const representativePath = sortedPaths[0];
             const file = this.app.vault.getAbstractFileByPath(representativePath);
@@ -191,9 +229,7 @@ export class GraphEngine {
                 meta: {
                     confidence: 100,
                     sourceNote: file instanceof TFile ? file.basename : representativePath,
-                    description: `Cluster representative: ${
-                        file instanceof TFile ? file.basename : representativePath
-                    }`,
+                    description: `Cluster representative: ${file instanceof TFile ? file.basename : representativePath}`,
                 },
             });
         });
@@ -211,6 +247,7 @@ export class GraphEngine {
             );
             return [];
         }
+
         HealerLogger.info('Running Weighted Betweenness Centrality (Bridges)...');
         const scores = betweennessCentrality(this.graph, {
             getEdgeWeight: 'weight',
@@ -228,7 +265,6 @@ export class GraphEngine {
             const link = this.pathToLink(path);
 
             suggestions.push({
-                // DETERMINISTIC ID
                 id: `betweenness_bridge:${path}`,
                 type: 'quality',
                 link: link,

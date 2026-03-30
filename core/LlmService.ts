@@ -50,23 +50,41 @@ export class LlmService {
             apiKey: string,
             model: string,
             timeoutSec: number,
+            retryCount: number = 0,
         ): Promise<string> => {
-            try {
-                const timeoutMs = (timeoutSec || 30) * 1000;
+            const timeoutMs = (timeoutSec || 30) * 1000;
+            const MAX_RETRIES = this.settings.llmMaxRetries || 2;
+            const RETRYABLE_STATUSES = this.settings.llmRetryableStatuses || [429, 408, 503];
+
+            const makeRequest = async (): Promise<{ status: number; json: LlmResponse }> => {
                 let timer: ReturnType<typeof setTimeout> | null = null;
 
+                const bodyJson = {
+                    model: model,
+                    max_tokens: this.settings.aiMaxTokens || 1000,
+                    temperature: this.settings.aiTemperature ?? 0.7,
+                } as Record<string, unknown>;
+
+                // ✅ FORWARD-COMPATIBILITY: OpenAI Responses API 2026 (/v1/responses)
+                const isResponsesApi = endpoint.includes('/v1/responses');
+                if (isResponsesApi) {
+                    bodyJson['instructions'] = 'You are the Supreme Tribunal of the Knowledge Graph.';
+                    bodyJson['input'] = prompt;
+                } else {
+                    bodyJson['messages'] = [{ role: 'user', content: prompt }];
+                }
+
+                // ✅ FIX: Use correct endpoint for Responses API
+                const apiPath = isResponsesApi ? 'responses' : 'chat/completions';
                 const fetchPromise = requestUrl({
-                    url: endpoint.endsWith('/') ? `${endpoint}chat/completions` : `${endpoint}/chat/completions`,
+                    url: endpoint.endsWith('/') ? `${endpoint}${apiPath}` : `${endpoint}/${apiPath}`,
                     method: 'POST',
                     headers: {
                         Authorization: `Bearer ${apiKey}`,
                         'Content-Type': 'application/json',
+                        'User-Agent': 'SemanticGraphHealer/2026.3',
                     },
-                    body: JSON.stringify({
-                        model: model,
-                        messages: [{ role: 'user', content: prompt }],
-                        max_tokens: this.settings.aiMaxTokens || 1000,
-                    }),
+                    body: JSON.stringify(bodyJson),
                     throw: false,
                 });
 
@@ -82,27 +100,60 @@ export class LlmService {
                         json: LlmResponse;
                     };
                     if (timer) clearTimeout(timer);
-
-                    if (response.status !== 200) {
-                        throw new LlmError(model, response.status, 'Endpoint rejected request');
-                    }
-
-                    const json = response.json;
-                    if (json?.choices?.[0]?.message?.content) {
-                        return json.choices[0].message.content;
-                    }
-
-                    // Fallback for some local servers
-                    if (json?.message?.content) return json.message.content;
-                    if (json?.response) return json.response;
-
-                    return '';
-                } catch (innerError) {
+                    return response;
+                } catch (e) {
                     if (timer) clearTimeout(timer);
-                    throw innerError;
+                    throw e;
                 }
+            };
+
+            try {
+                const response = await makeRequest();
+
+                // ✅ UNIFIED RETRY LOGIC: Single point for all retry reasoning
+                const shouldRetry =
+                    (RETRYABLE_STATUSES.includes(response.status) || response.status >= 500) &&
+                    retryCount < MAX_RETRIES;
+
+                if (shouldRetry) {
+                    const delay = Math.pow(2, retryCount) * 1000;
+                    HealerLogger.warn(
+                        `LLM [${model}] failed (${response.status}). Retry ${retryCount + 1}/${MAX_RETRIES} in ${delay}ms...`,
+                    );
+                    await new Promise((r) => setTimeout(r, delay));
+                    return queryModel(endpoint, apiKey, model, timeoutSec, retryCount + 1);
+                }
+
+                if (response.status !== 200) {
+                    throw new LlmError(model, response.status, 'Endpoint rejected request');
+                }
+
+                const json = response.json;
+
+                // ✅ VALIDATION: Ensure response structure is valid
+                if (!this.validateLlmResponse(json)) {
+                    HealerLogger.warn(`Invalid LLM response structure: ${JSON.stringify(json).slice(0, 200)}`);
+                    return '';
+                }
+
+                return (
+                    json.choices?.[0]?.message?.content?.trim() ||
+                    json.message?.content?.trim() ||
+                    json.response?.trim() ||
+                    ''
+                );
             } catch (e) {
-                HealerLogger.error(`LLM error [${model}]:`, e);
+                // ✅ RETRY ON EXCEPTION (e.g. Timeout)
+                if (retryCount < MAX_RETRIES) {
+                    const delay = Math.pow(2, retryCount) * 1000;
+                    HealerLogger.warn(
+                        `LLM [${model}] exception. Retry ${retryCount + 1}/${MAX_RETRIES} in ${delay}ms...`,
+                    );
+                    await new Promise((r) => setTimeout(r, delay));
+                    return queryModel(endpoint, apiKey, model, timeoutSec, retryCount + 1);
+                }
+
+                HealerLogger.error(`LLM error [${model}] (final attempt ${retryCount + 1}):`, e);
                 return `Error: ${e instanceof Error ? e.message : 'Unknown communication failure'}`;
             }
         };
@@ -126,7 +177,6 @@ export class LlmService {
             this.settings.secondaryTimeout,
         );
 
-        // --- SEMANTIC CONSENSUS VERIFICATION ---
         const firstWinner = this.parseReasoningResult(result).winner?.toLowerCase();
         const secondWinner = this.parseReasoningResult(secondResult).winner?.toLowerCase();
 
@@ -138,6 +188,17 @@ export class LlmService {
         }
 
         return `${result}\n\n[Consensus Report]\nStatus: ${consensusState}\nSecondary Model Output: ${secondResult}`;
+    }
+
+    /**
+     * ✅ NEW: Validation method for LLM responses
+     */
+    private validateLlmResponse(json: LlmResponse): boolean {
+        if (!json) return false;
+        if (json.choices && Array.isArray(json.choices) && json.choices.length > 0) {
+            return !!json.choices[0].message?.content;
+        }
+        return !!(json.message?.content || json.response);
     }
 
     /**

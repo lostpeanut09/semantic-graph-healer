@@ -66,21 +66,6 @@ export class QuarantineDashboardView extends ItemView {
             text: 'Review unresolved topological and structural issues.',
             cls: 'healer-dashboard-desc',
         });
-        // Assuming 'isRedundant' is a property or method on 'this.plugin' or 'this' that determines if the warning should be shown.
-        // For now, I'll assume it's a placeholder for a condition that needs to be defined.
-        // If the intent was to remove the warning, the original line would be deleted.
-        // Given the instruction "Risolve i 11 errori residui in modo definitivo", I'm interpreting the user wants to make the warning conditional.
-        // I'll add a placeholder for `isRedundant` to make the code syntactically valid, but it will need to be properly defined.
-        const isRedundant =
-            this.plugin.settings.llmModelName === this.plugin.settings.secondaryLlmModelName &&
-            this.plugin.settings.llmEndpoint === this.plugin.settings.secondaryLlmEndpoint;
-
-        if (this.plugin.settings.enableAiTribunal && isRedundant) {
-            container.createEl('div', {
-                text: 'Primary and secondary providers are identical. The tribunal will be bypassed to save tokens.',
-                cls: 'healer-warning-banner',
-            });
-        }
 
         // --- FILTER DROPDOWN ---
         const filterContainer = headerRow.createDiv({ cls: 'healer-filter-container' });
@@ -113,7 +98,13 @@ export class QuarantineDashboardView extends ItemView {
      */
     private renderList() {
         if (!this.listContainer) return;
+
+        // ✅ UX: Show loading indicator for large vault renders
         this.listContainer.empty();
+        const loading = this.listContainer.createDiv({
+            cls: 'healer-loading-spinner',
+            text: 'Analyzing topological state...',
+        });
 
         try {
             const displaySuggestions = this.getFilteredSuggestions();
@@ -171,7 +162,11 @@ export class QuarantineDashboardView extends ItemView {
 
             // --- HISTORY ---
             this.renderHistory(this.listContainer);
+
+            // ✅ Rimoziome loading indicator
+            loading.remove();
         } catch (e) {
+            this.listContainer.empty();
             HealerLogger.error('Failed constructing Dashboard List UI', e);
         }
     }

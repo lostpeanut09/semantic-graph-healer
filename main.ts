@@ -5,8 +5,15 @@ import {
     DEFAULT_SETTINGS,
     Suggestion,
     SuggestionType,
+    InfraGap,
 } from './types';
-import { HealerLogger, formatRagPrompt, isObsidianInternalApp, generateId, sleep } from './core/HealerUtils';
+import {
+    formatRagPrompt,
+    isObsidianInternalApp,
+    generateId,
+    sleep,
+    HealerLogger as LegacyLogger,
+} from './core/HealerUtils';
 import { TopologyAnalyzer } from './core/TopologyAnalyzer';
 import { QualityAnalyzer } from './core/QualityAnalyzer';
 import { LlmService } from './core/LlmService';
@@ -15,6 +22,11 @@ import { SuggestionExecutor } from './core/SuggestionExecutor';
 import { ReasoningService } from './core/ReasoningService';
 import { QuarantineDashboardView, ReasoningView, REASONING_VIEW_TYPE } from './DashboardView';
 import { SemanticHealerSettingTab } from './SettingsTab';
+
+// Phase 1 Imports
+import { HealerLogger } from './src/utils/HealerLogger';
+import { KeychainService } from './src/services/KeychainService';
+import { GraphWorkerService } from './src/services/GraphWorkerService';
 
 export default class SemanticGraphHealer extends Plugin {
     settings: SemanticGraphHealerSettings;
@@ -26,6 +38,11 @@ export default class SemanticGraphHealer extends Plugin {
     public executor: SuggestionExecutor;
     public reasoner: ReasoningService;
 
+    // Phase 1 Services
+    public logger: HealerLogger;
+    public keychainService: KeychainService;
+    public graphWorkerService: GraphWorkerService;
+
     private isAnalyzing = false;
     private analysisDebounce = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -33,6 +50,14 @@ export default class SemanticGraphHealer extends Plugin {
         await this.loadSettings();
 
         // 1. Initialize Infrastructure & Services
+        this.logger = new HealerLogger('SemanticGraphHealer', this, this.settings);
+        LegacyLogger.setInstance(this.logger);
+        this.logger.info('🚀 Semantic Graph Healer Phase 1 loading...');
+
+        this.keychainService = new KeychainService(this, this.logger);
+        this.graphWorkerService = new GraphWorkerService(this.logger);
+        await this.graphWorkerService.initialize();
+
         this.engine = new VaultDataAdapter(this.app);
         this.executor = new SuggestionExecutor(this);
         this.llm = new LlmService(this.settings, (primary) => this.getApiKey(primary));
@@ -57,6 +82,7 @@ export default class SemanticGraphHealer extends Plugin {
         });
 
         this.addSettingTab(new SemanticHealerSettingTab(this.app, this));
+        this.logger.info('✅ Semantic Graph Healer Phase 1 ready');
     }
 
     /**
@@ -65,7 +91,7 @@ export default class SemanticGraphHealer extends Plugin {
      */
     async onExternalSettingsChange() {
         try {
-            HealerLogger.info('External settings change detected. Re-initializing engine...');
+            this.logger.info('External settings change detected. Re-initializing engine...');
             await this.loadSettings();
 
             // 1. Hot Reload Infrastructure
@@ -80,10 +106,10 @@ export default class SemanticGraphHealer extends Plugin {
             // 3. Hot Reload Executor (needs plugin reference)
             this.executor = new SuggestionExecutor(this);
 
-            HealerLogger.info('Hot reload complete. UI refresh triggered.');
-            void this.refreshDashboard().catch((e) => HealerLogger.error('Sync Refresh failed', e));
+            this.logger.info('Hot reload complete. UI refresh triggered.');
+            void this.refreshDashboard().catch((e) => this.logger.error('Sync Refresh failed', e));
         } catch (e) {
-            HealerLogger.error('Failed to handle external settings change', e);
+            this.logger.error('Failed to handle external settings change', e);
         }
     }
 
@@ -92,7 +118,7 @@ export default class SemanticGraphHealer extends Plugin {
             // Check if user is currently viewing/editing this file
             const activeFile = this.app.workspace.getActiveFile();
             if (!force && activeFile && activeFile.path === file.path) {
-                HealerLogger.info(`Skipping analysis for active file: ${file.basename}. Will retry on focus change.`);
+                this.logger.info(`Skipping analysis for active file: ${file.basename}. Will retry on focus change.`);
                 return;
             }
 
@@ -104,7 +130,7 @@ export default class SemanticGraphHealer extends Plugin {
                 if (this.isAnalyzing) return;
                 void this.analyzeFileContext(file);
                 this.analysisDebounce.delete(file.path);
-            }, 1000);
+            }, 5000);
 
             this.analysisDebounce.set(file.path, timer);
         };
@@ -137,7 +163,7 @@ export default class SemanticGraphHealer extends Plugin {
                 const isCanvas = file.extension === 'canvas' && this.settings.includeNonMarkdownHubs;
 
                 if (isMd || isCanvas) {
-                    // triggerAnalysis(file); // [Performance Fix] Disabling vault-wide bridge scan on save
+                    triggerAnalysis(file); // Re-enabled with 5s debounce for 2026 Audit
                 }
             }),
         );
@@ -160,7 +186,7 @@ export default class SemanticGraphHealer extends Plugin {
             this.app.workspace.on('active-leaf-change', () => {
                 const currentFile = this.app.workspace.getActiveFile();
                 if (lastFile && (!currentFile || lastFile.path !== currentFile.path)) {
-                    HealerLogger.info(`Context switched from: ${lastFile.basename}. Triggering deferred analysis...`);
+                    this.logger.info(`Context switched from: ${lastFile.basename}. Triggering deferred analysis...`);
                     triggerAnalysis(lastFile, true);
                 }
                 lastFile = currentFile;
@@ -187,17 +213,18 @@ export default class SemanticGraphHealer extends Plugin {
                 }
             }
         } catch (e) {
-            HealerLogger.error('Bridge audit failed', e);
+            this.logger.error('Bridge audit failed', e);
         } finally {
             this.isAnalyzing = false;
         }
     }
 
     private async initializeSecurity() {
-        // Ensure default cloud models are present
-        const cloudFallbacks = ['gpt-4o', 'claude-3-5-sonnet', 'gemini-1.5-pro', 'gpt-4-turbo', 'o1-mini'];
+        // ✅ 2026-era Cloud Safety Net (Used only if detection is never run)
+        const cloudFallbacks = ['gpt-5.4-pro', 'claude-opus-4.6', 'gemini-3.1-pro', 'deepseek-v3'];
 
         let settingsChanged = false;
+        // Option B Logic: Only populate if completely empty (first run)
         if (!this.settings.detectedModels || this.settings.detectedModels.length === 0) {
             this.settings.detectedModels = [...cloudFallbacks];
             settingsChanged = true;
@@ -207,20 +234,41 @@ export default class SemanticGraphHealer extends Plugin {
             settingsChanged = true;
         }
 
-        if (isObsidianInternalApp(this.app)) {
-            const keychain = this.app.keychain;
-            if (keychain) {
-                HealerLogger.debug('Obsidian Keychain detected. Securing API keys...');
-                if (this.settings.llmApiKey && this.settings.llmApiKey !== 'sk-local') {
-                    await keychain.set('semantic-healer-primary', this.settings.llmApiKey);
-                    this.settings.llmApiKey = '';
-                    settingsChanged = true;
-                }
-                if (this.settings.secondaryLlmApiKey) {
-                    await keychain.set('semantic-healer-secondary', this.settings.secondaryLlmApiKey);
-                    this.settings.secondaryLlmApiKey = '';
-                    settingsChanged = true;
-                }
+        const app = this.app as any;
+        if (app.secretStorage || app.keychain) {
+            this.logger.debug('Obsidian Secure Storage detected. Verifying and migrating API keys...');
+
+            // 1. Migrate Primary Key
+            if (this.settings.llmApiKey && this.settings.llmApiKey !== 'sk-local') {
+                await this.keychainService.setApiKey('openai', this.settings.llmApiKey);
+                this.settings.llmApiKey = '';
+                settingsChanged = true;
+            }
+            // Fallback for previous manual naming 'semantic-healer-primary'
+            const legacyKey = await (app.secretStorage
+                ? app.secretStorage.getSecret('semantic-healer-primary')
+                : app.keychain
+                  ? app.keychain.get('semantic-healer-primary')
+                  : null);
+            if (legacyKey) {
+                await this.keychainService.setApiKey('openai', legacyKey);
+                // Clean up legacy key
+                if (app.secretStorage) await app.secretStorage.setSecret('semantic-healer-primary', '');
+                else if (app.keychain) await app.keychain.set('semantic-healer-primary', '');
+            }
+
+            // 2. Migrate Secondary Key
+            if (this.settings.secondaryLlmApiKey) {
+                await this.keychainService.setApiKey('anthropic', this.settings.secondaryLlmApiKey);
+                this.settings.secondaryLlmApiKey = '';
+                settingsChanged = true;
+            }
+
+            // 3. Migrate InfraNodus Key
+            if (this.settings.infraNodusApiKey) {
+                await this.keychainService.setApiKey('infranodus', this.settings.infraNodusApiKey);
+                this.settings.infraNodusApiKey = '';
+                settingsChanged = true;
             }
         }
         if (settingsChanged) await this.saveSettings();
@@ -254,7 +302,7 @@ export default class SemanticGraphHealer extends Plugin {
                 try {
                     await this.activateDashboard();
                 } catch (e) {
-                    HealerLogger.error('Failed to open Graph Healer Dashboard', e);
+                    this.logger.error('Failed to open Graph Healer Dashboard', e);
                     new Notice('Error opening the dashboard.');
                 }
             },
@@ -285,7 +333,7 @@ export default class SemanticGraphHealer extends Plugin {
             id: 'analyze-silent',
             name: 'Run silent graph analysis (CLI)',
             callback: async () => {
-                HealerLogger.info('CLI: Silent analysis triggered.');
+                this.logger.info('CLI: Silent analysis triggered.');
                 await this.analyzeGraph(true); // silent = true
             },
         });
@@ -361,7 +409,7 @@ export default class SemanticGraphHealer extends Plugin {
                         }
                     }
                 } catch (e) {
-                    HealerLogger.error('Proximity Error', e);
+                    this.logger.error('Proximity Error', e);
                 }
             },
         });
@@ -404,7 +452,7 @@ export default class SemanticGraphHealer extends Plugin {
                         new Notice('No tag-based relationships found.');
                     }
                 } catch (e) {
-                    HealerLogger.error('Tag Sync Error', e);
+                    this.logger.error('Tag Sync Error', e);
                 }
             },
         });
@@ -535,7 +583,7 @@ export default class SemanticGraphHealer extends Plugin {
             const plugins = this.app.plugins;
             if (plugins && plugins.enabledPlugins) {
                 if (!plugins.enabledPlugins.has('dataview')) {
-                    HealerLogger.warn('Dataview missing.');
+                    this.logger.warn('Dataview missing.');
                 }
             }
         }
@@ -558,7 +606,7 @@ export default class SemanticGraphHealer extends Plugin {
             return;
         }
         this.isAnalyzing = true;
-        HealerLogger.info('Analyzing graph (Smart Scrutiny)...');
+        this.logger.info('Analyzing graph (Smart Scrutiny)...');
 
         try {
             const deterministicIssues = this.topology.runDeterministicAnalysis();
@@ -605,7 +653,7 @@ export default class SemanticGraphHealer extends Plugin {
                 new Notice('Scrutiny complete: graph is healthy.');
             }
 
-            this.refreshDashboard().catch((err) => HealerLogger.error('Refresh failed', err));
+            this.refreshDashboard().catch((err) => this.logger.error('Refresh failed', err));
             await this.activateDashboard();
 
             this.settings.history.push({
@@ -616,7 +664,7 @@ export default class SemanticGraphHealer extends Plugin {
             });
             await this.saveSettings();
         } catch (e) {
-            HealerLogger.error('Analysis failed', e);
+            this.logger.error('Analysis failed', e);
             new Notice('Analysis failed. Check console for details.');
         } finally {
             this.isAnalyzing = false;
@@ -624,10 +672,10 @@ export default class SemanticGraphHealer extends Plugin {
     }
 
     async analyzeDeepGraph(): Promise<Suggestion[]> {
-        HealerLogger.info('Loading Advanced Graph Engine...');
+        this.logger.info('Loading Advanced Graph Engine...');
         try {
             const { GraphEngine } = await import('./core/GraphEngine');
-            const engine = new GraphEngine(this.app);
+            const engine = new GraphEngine(this.app, this.settings);
 
             engine.buildGraph();
             await sleep(10);
@@ -643,31 +691,26 @@ export default class SemanticGraphHealer extends Plugin {
 
             return suggestions;
         } catch (e) {
-            HealerLogger.error('Deep analysis failed', e);
+            this.logger.error('Deep analysis failed', e);
             new Notice('Deep analysis failed. See console.');
             return [];
         }
     }
 
     async getApiKey(isPrimary: boolean): Promise<string> {
-        if (isObsidianInternalApp(this.app)) {
-            const keychain = this.app.keychain;
-            if (keychain) {
-                const key = await keychain.get(isPrimary ? 'semantic-healer-primary' : 'semantic-healer-secondary');
-                if (key) return key;
-            }
-        }
+        // Use KeychainService (Centralized logic for SecretStorage/Keychain/Settings)
+        const type = isPrimary ? 'openai' : 'anthropic';
+        const key = await this.keychainService.getApiKey(type as any);
+        if (key) return key;
+
+        // Fallback to settings (only for legacy dev mode or pre-keychain versions)
         return isPrimary ? this.settings.llmApiKey : this.settings.secondaryLlmApiKey;
     }
 
     async getInfraNodusApiKey(): Promise<string> {
-        if (isObsidianInternalApp(this.app)) {
-            const keychain = this.app.keychain;
-            if (keychain) {
-                const key = await keychain.get('semantic-healer-infranodus');
-                if (key) return key;
-            }
-        }
+        const key = await this.keychainService.getApiKey('infranodus');
+        if (key) return key;
+
         return this.settings.infraNodusApiKey;
     }
 
@@ -680,16 +723,17 @@ export default class SemanticGraphHealer extends Plugin {
 
         const apiKey = await this.getInfraNodusApiKey();
         if (!apiKey || apiKey === '') {
-            HealerLogger.error('InfraNodus API Key missing.');
+            this.logger.error('InfraNodus API Key missing.');
             return -1;
         }
 
         try {
-            HealerLogger.info(`Querying InfraNodus for structural gaps in ${activeFile.basename}...`);
+            this.logger.info(`Querying InfraNodus for structural gaps in ${activeFile.basename}...`);
             const content = await this.app.vault.read(activeFile);
 
+            // ✅ FIX: URL updated to current v1 API
             const response = await requestUrl({
-                url: 'https://api.infranodus.com/api/texts',
+                url: 'https://infranodus.com/api/v1/graphAndStatements',
                 method: 'POST',
                 headers: {
                     Authorization: `Bearer ${apiKey}`,
@@ -697,44 +741,62 @@ export default class SemanticGraphHealer extends Plugin {
                 },
                 body: JSON.stringify({
                     text: content.substring(0, 4000),
-                    options: ['gaps', 'topics'],
+                    context: activeFile.basename,
+                    options: { calculate: ['gaps', 'topics'] },
                 }),
             });
 
-            if (response.status === 200) {
-                const data = response.json as {
-                    gaps?: { cluster_a: string; cluster_b: string; advice: string | Record<string, unknown> }[];
-                };
-                const gaps = data.gaps || [];
-                let newCount = 0;
-
-                gaps.forEach(
-                    (gap: { cluster_a: string; cluster_b: string; advice: string | Record<string, unknown> }) => {
-                        const adviceText =
-                            typeof gap.advice === 'string'
-                                ? gap.advice
-                                : JSON.stringify(gap.advice ?? 'Missing connection');
-                        this.settings.pendingSuggestions.push({
-                            id: generateId('infra'),
-                            type: 'infra',
-                            link: `[[Bridge: ${String(gap.cluster_a)} & ${String(gap.cluster_b)}]]`,
-                            source: `InfraNodus gap: ${adviceText}`,
-                            timestamp: Date.now(),
-                            category: 'suggestion',
-                        });
-                        newCount++;
-                    },
-                );
-
-                if (newCount > 0) {
-                    await this.saveSettings();
-                    void this.refreshDashboard();
-                }
-                return newCount;
+            if (response.status !== 200) {
+                this.logger.error(`InfraNodus returned HTTP ${response.status}`);
+                return -1;
             }
-            return -1;
+
+            // ✅ FIX: v1 response nests gaps inside graph.graphologyGraph.attributes.gaps
+            const data = response.json as {
+                gaps?: InfraGap[];
+                graph?: {
+                    graphologyGraph?: {
+                        attributes?: { gaps?: InfraGap[] };
+                    };
+                };
+            };
+
+            const gaps: InfraGap[] = data?.graph?.graphologyGraph?.attributes?.gaps ?? data?.gaps ?? [];
+
+            if (gaps.length === 0) {
+                this.logger.info('InfraNodus: no gaps found in response.');
+                return 0;
+            }
+
+            let newCount = 0;
+            for (const gap of gaps) {
+                const termA = String(gap.cluster_a ?? gap.node1 ?? 'unknown');
+                const termB = String(gap.cluster_b ?? gap.node2 ?? 'unknown');
+                const adviceText =
+                    typeof gap.advice === 'string'
+                        ? gap.advice
+                        : typeof gap.bridging_text === 'string'
+                          ? gap.bridging_text
+                          : `Missing conceptual bridge between '${termA}' and '${termB}'.`;
+
+                this.settings.pendingSuggestions.push({
+                    id: generateId('infra'),
+                    type: 'infra',
+                    link: `[[Bridge: ${termA} & ${termB}]]`,
+                    source: `InfraNodus gap: ${adviceText}`,
+                    timestamp: Date.now(),
+                    category: 'suggestion',
+                });
+                newCount++;
+            }
+
+            if (newCount > 0) {
+                await this.saveSettings();
+                void this.refreshDashboard();
+            }
+            return newCount;
         } catch (e) {
-            HealerLogger.error('InfraNodus API Request failed', e);
+            this.logger.error('InfraNodus API Request failed', e);
             return -1;
         }
     }
@@ -742,7 +804,16 @@ export default class SemanticGraphHealer extends Plugin {
     onunload() {
         this.analysisDebounce.forEach((timer) => clearTimeout(timer));
         this.analysisDebounce.clear();
-        HealerLogger.info('Unloading Semantic Graph Healer');
+
+        // Phase 1 Cleanup
+        if (this.graphWorkerService) {
+            void this.graphWorkerService.destroy();
+        }
+        if (this.logger) {
+            this.logger.clearBuffer();
+        }
+
+        this.logger.info('Unloading Semantic Graph Healer');
     }
 
     async loadSettings() {
@@ -802,15 +873,21 @@ export default class SemanticGraphHealer extends Plugin {
                 this.settings = result.data as SemanticGraphHealerSettings;
             } else {
                 const errorMessage = JSON.stringify(result.error.issues, null, 2);
-                HealerLogger.warn(
+                this.logger.warn(
                     'Settings validation failed. Some keys may be corrupted. Using safe fallbacks.',
                     errorMessage,
                 );
                 this.settings = baseSettings;
             }
         } catch (e) {
-            HealerLogger.error('Failed to load Zod schema for validation', e);
+            this.logger.error('Failed to load Zod schema for validation', e);
             this.settings = baseSettings;
+        }
+
+        // ✅ FIX: Ensures that there is always at least one valid hierarchy
+        if (!this.settings.hierarchies || this.settings.hierarchies.length === 0) {
+            this.logger.warn('No valid hierarchy found after load — restoring defaults.');
+            this.settings.hierarchies = [...DEFAULT_SETTINGS.hierarchies];
         }
     }
 
@@ -818,94 +895,133 @@ export default class SemanticGraphHealer extends Plugin {
         await this.saveData(this.settings);
     }
 
-    async syncExternalSettings() {
-        HealerLogger.info('Scanning for external topological engine settings...');
+    /**
+     * 🔄 SCAN EXTERNAL TOPOLOGIES (Breadcrumbs, ExcaliBrain)
+     * Hardened 2026 Sync: supports V4 edge_fields and Related links.
+     */
+    async syncExternalSettings(): Promise<boolean> {
+        this.logger.info('Scanning for external topological engine settings...');
         try {
             let found = false;
+            const h = this.settings.hierarchies[0];
+            if (!h) {
+                this.logger.error('No hierarchy configured for sync.');
+                return false;
+            }
+
+            // ✅ HELPER: Safe array validation
+            const safeArray = (val: unknown): string[] => {
+                if (!Array.isArray(val)) return [];
+                return val.filter((item): item is string => typeof item === 'string' && item.trim() !== '');
+            };
+
+            // ✅ HELPER: Track new properties for notification
+            const newProps: string[] = [];
 
             // 1. BREADCRUMBS (V3 & V4)
             const bcPath = `${this.app.vault.configDir}/plugins/breadcrumbs/data.json`;
             if (await this.app.vault.adapter.exists(bcPath)) {
-                const bcFileContent = await this.app.vault.adapter.read(bcPath);
-
-                interface BreadcrumbsData {
-                    hierarchies?: {
-                        up?: string[];
-                        down?: string[];
-                        same?: string[];
-                        next?: string[];
-                        prev?: string[];
-                    }[];
-                    edge_fields?: { label: string; dir: string }[];
-                }
-                const bcData = JSON.parse(bcFileContent) as BreadcrumbsData;
-
-                if (this.settings.hierarchies[0]) {
-                    const h = this.settings.hierarchies[0];
+                try {
+                    const bcFileContent = await this.app.vault.adapter.read(bcPath);
+                    const bcData = JSON.parse(bcFileContent) as {
+                        hierarchies?: {
+                            up?: string[];
+                            down?: string[];
+                            same?: string[];
+                            next?: string[];
+                            prev?: string[];
+                        }[];
+                        edge_fields?: { label: string; dir: string }[];
+                    };
 
                     // Support V3 (hierarchies array)
                     const bcH = bcData?.hierarchies?.[0];
                     if (bcH) {
-                        h.up = [...new Set([...h.up, ...(bcH.up || [])])];
-                        h.down = [...new Set([...h.down, ...(bcH.down || [])])];
-                        h.same = [...new Set([...h.same, ...(bcH.same || [])])];
-                        h.next = [...new Set([...h.next, ...(bcH.next || [])])];
-                        h.prev = [...new Set([...h.prev, ...(bcH.prev || [])])];
+                        const beforeUp = h.up.length;
+                        h.up = [...new Set([...h.up, ...safeArray(bcH.up)])];
+                        if (h.up.length > beforeUp) newProps.push(...h.up.slice(beforeUp));
+
+                        h.down = [...new Set([...h.down, ...safeArray(bcH.down)])];
+                        h.same = [...new Set([...h.same, ...safeArray(bcH.same)])];
+                        h.next = [...new Set([...h.next, ...safeArray(bcH.next)])];
+                        h.prev = [...new Set([...h.prev, ...safeArray(bcH.prev)])];
                         found = true;
                     }
 
                     // Support V4 (edge_fields array)
                     if (bcData?.edge_fields && Array.isArray(bcData.edge_fields)) {
-                        interface EdgeField {
-                            label: string;
-                            dir: string;
-                        }
-                        (bcData.edge_fields as EdgeField[]).forEach((ef) => {
+                        (bcData.edge_fields as { label: string; dir: string }[]).forEach((ef) => {
                             if (ef.dir === 'up') h.up = [...new Set([...h.up, ef.label])];
                             if (ef.dir === 'down') h.down = [...new Set([...h.down, ef.label])];
                             if (ef.dir === 'same') h.same = [...new Set([...h.same, ef.label])];
                             if (ef.dir === 'next') h.next = [...new Set([...h.next, ef.label])];
                             if (ef.dir === 'prev') h.prev = [...new Set([...h.prev, ef.label])];
+                            if (ef.dir === 'related') {
+                                h.related = [...new Set([...h.related, ef.label])];
+                            }
                         });
                         found = true;
                     }
+                } catch (e) {
+                    this.logger.error('Breadcrumbs sync failed', e);
                 }
             }
 
             // 2. EXCALIBRAIN
             const ebPath = `${this.app.vault.configDir}/plugins/excalibrain/data.json`;
             if (await this.app.vault.adapter.exists(ebPath)) {
-                const ebFileContent = await this.app.vault.adapter.read(ebPath);
+                try {
+                    const ebFileContent = await this.app.vault.adapter.read(ebPath);
+                    const ebData = JSON.parse(ebFileContent) as {
+                        ontology?: { parent?: string[]; child?: string[]; friend?: string[] };
+                        hierarchy?: { parent?: string[]; child?: string[]; friend?: string[] };
+                        propertyMapping?: Record<string, string>;
+                    };
 
-                interface ExcaliBrainData {
-                    ontology?: { parent?: string[]; child?: string[]; friend?: string[] };
-                    hierarchy?: { parent?: string[]; child?: string[]; friend?: string[] };
-                }
-                const ebData = JSON.parse(ebFileContent) as ExcaliBrainData;
-                const ebOntology = ebData?.ontology || ebData?.hierarchy;
+                    const ebOntology = ebData?.ontology || ebData?.hierarchy;
+                    if (ebOntology) {
+                        if (ebOntology.parent && Array.isArray(ebOntology.parent)) {
+                            h.up = [...new Set([...h.up, ...safeArray(ebOntology.parent)])];
+                        }
+                        if (ebOntology.child && Array.isArray(ebOntology.child)) {
+                            h.down = [...new Set([...h.down, ...safeArray(ebOntology.child)])];
+                        }
+                        if (ebOntology.friend && Array.isArray(ebOntology.friend)) {
+                            h.same = [...new Set([...h.same, ...safeArray(ebOntology.friend)])];
+                        }
+                        found = true;
+                    }
 
-                if (ebOntology && this.settings.hierarchies[0]) {
-                    const h = this.settings.hierarchies[0];
-                    if (ebOntology.parent && Array.isArray(ebOntology.parent)) {
-                        h.up = [...new Set([...h.up, ...ebOntology.parent])];
+                    // ✅ NEW: Support ExcaliBrain property mapping for next/prev/related
+                    const ebPropertyMap = ebData?.propertyMapping;
+                    if (ebPropertyMap) {
+                        for (const [prop, direction] of Object.entries(ebPropertyMap)) {
+                            if (direction === 'next') h.next = [...new Set([...h.next, prop])];
+                            if (direction === 'prev') h.prev = [...new Set([...h.prev, prop])];
+                            if (direction === 'related') {
+                                h.related = [...new Set([...h.related, prop])];
+                            }
+                        }
+                        found = true;
                     }
-                    if (ebOntology.child && Array.isArray(ebOntology.child)) {
-                        h.down = [...new Set([...h.down, ...ebOntology.child])];
-                    }
-                    if (ebOntology.friend && Array.isArray(ebOntology.friend)) {
-                        h.same = [...new Set([...h.same, ...ebOntology.friend])];
-                    }
-                    found = true;
+                } catch (e) {
+                    this.logger.error('ExcaliBrain sync failed', e);
                 }
             }
 
             if (found) {
                 await this.saveSettings();
+                // ✅ Notify user
+                if (newProps.length > 0) {
+                    new Notice(`Imported ${newProps.length} new hierarchy properties from external plugins.`);
+                } else {
+                    new Notice('Imported hierarchy properties from external plugins.');
+                }
                 return true;
             }
             return false;
         } catch (e) {
-            HealerLogger.error('External Sync failed', e);
+            this.logger.error('External Sync failed', e);
             return false;
         }
     }

@@ -25,6 +25,7 @@ export class TopologyAnalyzer {
             down: 'up',
             next: 'prev',
             prev: 'next',
+            same: 'same',
         };
         const hierarchy = this.settings.hierarchies[0] || {
             up: [],
@@ -32,6 +33,7 @@ export class TopologyAnalyzer {
             next: [],
             prev: [],
             same: [],
+            related: [],
         };
 
         // 1. PRE-COMPUTE RELATIONSHIP MAPS (O(N) construction, O(1) access)
@@ -41,12 +43,13 @@ export class TopologyAnalyzer {
             next: new Map(),
             prev: new Map(),
             same: new Map(),
+            related: new Map(),
         };
 
         const resolverCache = new Map<string, string | null>();
 
         pages.forEach((page) => {
-            (['up', 'down', 'next', 'prev', 'same'] as const).forEach((relType) => {
+            (['up', 'down', 'next', 'prev', 'same', 'related'] as const).forEach((relType) => {
                 const keys = (hierarchy as unknown as Record<string, string[]>)[relType] || [];
                 const linkpaths = extractLinkpaths(page, keys);
                 const resolvedPaths = resolveLinkpathsToPaths(this.app, linkpaths, page.file.path, resolverCache);
@@ -60,15 +63,41 @@ export class TopologyAnalyzer {
 
         const suggestions: Suggestion[] = [];
 
-        // 2. RECIPROCITY CHECK (Path-based, robust against aliases/omonyms)
+        // 2. RECIPROCITY CHECK & DIRECTIONAL CONFLICTS
         pages.forEach((pageA) => {
             const pathA = pageA.file.path;
 
-            (['up', 'down', 'next', 'prev'] as const).forEach((relType) => {
+            (['up', 'down', 'next', 'prev', 'same'] as const).forEach((relType) => {
                 const invRelType = inverseMap[relType];
                 const targetPaths = relMaps[relType].get(pathA) || new Set();
 
                 targetPaths.forEach((pathB) => {
+                    // 2a. Check for Directional Contradictions (e.g. A next B, B next A)
+                    if (relType === 'next' || relType === 'prev') {
+                        const bTargetsSameType = relMaps[relType].get(pathB) || new Set();
+                        if (bTargetsSameType.has(pathA)) {
+                            // Only report once per pair (pathA < pathB) to avoid duplicate UI entries
+                            if (pathA < pathB) {
+                                suggestions.push({
+                                    id: `direction_conflict:${pathA}:${relType}:${pathB}`,
+                                    type: 'incongruence',
+                                    link: `${pathToWikilink(this.app, pathA, pathB)} ↔ ${pathToWikilink(this.app, pathB, pathA)}`,
+                                    source: `Bidirectional Conflict: ${pathToWikilink(this.app, pathA, pathA)} and ${pathToWikilink(this.app, pathB, pathB)} both claim to be '${relType}' of each other. This breaks sequential linearity.`,
+                                    timestamp: Date.now(),
+                                    category: 'error',
+                                    meta: {
+                                        property: relType,
+                                        description: `Nodes point to each other with identical lateral directions ('${relType}').`,
+                                        sourcePath: pathA,
+                                        targetPath: pathB,
+                                        sourceNote: pageA.file.basename,
+                                    },
+                                });
+                            }
+                        }
+                    }
+
+                    // 2b. Check for Standard Asymmetry
                     const targetsOfB = relMaps[invRelType].get(pathB) || new Set();
 
                     if (!targetsOfB.has(pathA)) {
@@ -125,6 +154,8 @@ export class TopologyAnalyzer {
             { type: 'down', keys: hierarchy.down },
             { type: 'next', keys: hierarchy.next },
             { type: 'prev', keys: hierarchy.prev },
+            { type: 'same', keys: hierarchy.same },
+            { type: 'related', keys: hierarchy.related || [] },
         ];
 
         // 1. REGEXP GUARDRAIL (Avoid crash on invalid user patterns)
@@ -404,9 +435,11 @@ export class TopologyAnalyzer {
 
         // Loop through parent tags and create optimized suggestions
         parentTagMap.forEach((siblingPaths, parentPrefix) => {
-            if (siblingPaths.size < 2 || siblingPaths.size > 50) return;
+            if (siblingPaths.size < 2 || siblingPaths.size > 500) return;
 
             const paths = [...siblingPaths];
+            const tagDepth = parentPrefix.split('/').filter(Boolean).length;
+            const priority = Math.min((paths.length * 2) + (tagDepth * 5), 100);
 
             for (let i = 0; i < paths.length; i++) {
                 for (let j = i + 1; j < paths.length; j++) {
@@ -434,6 +467,7 @@ export class TopologyAnalyzer {
                             sourceNote: fileA.basename,
                             targetNote: fileB.basename,
                             description: `Sibling relationship via shared tag prefix #${parentPrefix}`,
+                            confidence: priority,
                         },
                     });
                 }
@@ -451,61 +485,57 @@ export class TopologyAnalyzer {
         const hierarchy = this.settings.hierarchies?.[0];
         if (!hierarchy) return [];
 
-        // P1: Graph Size Guardrail (Bug 17)
-        // If the workspace is too large, we skip full structural bridge scans to avoid O(N^2) lag.
-        if (pages.length > 2500) {
-            HealerLogger.warn(`Bridge Scrutiny skipped: vault too large (${pages.length} nodes).`);
+        // P1: Dynamic Graph Size Guardrail
+        // If the workspace is too large or Deep Graph is enabled, we adjust the limit to avoid O(N^2) UI freezing.
+        const bridgeLimit = this.settings.enableDeepGraphAnalysis ? 1500 : 2500;
+        if (pages.length > bridgeLimit) {
+            HealerLogger.warn(`Bridge Scrutiny skipped: vault too large (${pages.length} nodes, limit: ${bridgeLimit}).`);
             return [];
         }
 
         // 1. Build Adjacency Maps
-        const nextMap = new Map<string, Set<string>>();
+        const upMap = new Map<string, Set<string>>();
         const resolverCache = new Map<string, string | null>();
 
         pages.forEach((p: DataviewPage) => {
-            const nextLinkpaths = extractLinkpaths(p as unknown as Record<string, unknown>, hierarchy.next);
-            const resolvedNext = resolveLinkpathsToPaths(this.app, nextLinkpaths, p.file.path, resolverCache);
-            nextMap.set(p.file.path, new Set(resolvedNext));
+            const upLinkpaths = extractLinkpaths(p as unknown as Record<string, unknown>, hierarchy.up);
+            const resolvedUp = resolveLinkpathsToPaths(this.app, upLinkpaths, p.file.path, resolverCache);
+            upMap.set(p.file.path, new Set(resolvedUp));
         });
 
         // 2. Identification Logic: GAPS (A -> B, B -> C, but A -X-> C)
-        // This is the INVERSE of a triangle. We want to complete the chain.
+        // This is the INVERSE of a triangle. We want to complete the hierarchy.
         pages.forEach((pageA) => {
             const pathA = pageA.file.path;
-            const targetsOfA = nextMap.get(pathA) || new Set<string>();
+            const targetsOfA = upMap.get(pathA) || new Set<string>();
 
             targetsOfA.forEach((pathB) => {
                 if (pathB === pathA) return;
-                const targetsOfB = nextMap.get(pathB) || new Set<string>();
+                const targetsOfB = upMap.get(pathB) || new Set<string>();
 
                 targetsOfB.forEach((pathC) => {
                     if (pathC === pathA || pathC === pathB) return;
 
-                    // If A points to B, and B points to C, but A does NOT point to C...
-                    // AND C does not point back to A (to avoid cycles)...
-                    // THEN we have a potential missing direct link or a logical gap.
                     if (!targetsOfA.has(pathC)) {
                         const fileB = this.app.vault.getAbstractFileByPath(pathB);
                         const fileC = this.app.vault.getAbstractFileByPath(pathC);
                         if (!(fileB instanceof TFile) || !(fileC instanceof TFile)) return;
 
-                        // Check if C is a triangle (Bug 13): if A points to C directly,
-                        // we DON'T suggest it here as a gap. The current logic already does this check (!targetsOfA.has(pathC)).
-
                         suggestions.push({
                             id: `bridge_gap:${pathA}:${pathB}:${pathC}`,
                             type: 'deterministic',
                             link: pathToWikilink(this.app, pathC, pathA),
-                            source: `Structural Gap: Chain ${pathToWikilink(this.app, pathA, pathA)} → ${pathToWikilink(this.app, pathB, pathB)} → ${pathToWikilink(this.app, pathC, pathC)} is broken. Direct link ${pathToWikilink(this.app, pathA, pathA)} → ${pathToWikilink(this.app, pathC, pathC)} is missing (Transitive relation).`,
+                            source: `Structural Gap: Hierarchy ${pathToWikilink(this.app, pathA, pathA)} → ${pathToWikilink(this.app, pathB, pathB)} → ${pathToWikilink(this.app, pathC, pathC)} is missing a direct link. If A is in B, and B is in C, consider linking ${pathToWikilink(this.app, pathA, pathA)} directly to ${pathToWikilink(this.app, pathC, pathC)}.`,
                             timestamp: Date.now(),
                             category: 'info',
                             meta: {
-                                property: 'next',
+                                property: 'up',
                                 sourcePath: pathA,
                                 targetPath: pathC,
                                 sourceNote: pageA.file.basename,
                                 targetNote: fileC.basename,
                                 description: `Inferred transitive link: ${pageA.file.basename} should probably link to ${fileC.basename} via ${fileB.basename}`,
+                                confidence: 85,
                             },
                         });
                     }
@@ -524,63 +554,75 @@ export class TopologyAnalyzer {
 
         const query = this.getScanQuery();
         const pages = this.engine.getPages(query);
-        const graph = new Map<string, string[]>();
 
-        const resolverCache = new Map<string, string | null>();
+        const performCycleCheck = (propertyKeys: string[], edgeType: string) => {
+            const graph = new Map<string, string[]>();
+            const resolverCache = new Map<string, string | null>();
 
-        pages.forEach((p) => {
-            const linkpaths = extractLinkpaths(p, hierarchy.up || []);
-            const resolved = resolveLinkpathsToPaths(this.app, linkpaths, p.file.path, resolverCache);
-            if (resolved.length > 0) graph.set(p.file.path, resolved);
-        });
+            pages.forEach((p) => {
+                const linkpaths = extractLinkpaths(p as unknown as Record<string, unknown>, propertyKeys);
+                const resolved = resolveLinkpathsToPaths(this.app, linkpaths, p.file.path, resolverCache);
+                if (resolved.length > 0) graph.set(p.file.path, resolved);
+            });
 
-        const visited = new Set<string>();
-        const recursionStack = new Set<string>();
+            const visited = new Set<string>();
+            const recursionStack = new Set<string>();
 
-        const detectCycle = (node: string, path: string[]): string[] | null => {
-            visited.add(node);
-            recursionStack.add(node);
-            path.push(node);
+            const detectCycle = (node: string, path: string[]): string[] | null => {
+                visited.add(node);
+                recursionStack.add(node);
+                path.push(node);
 
-            const parents = graph.get(node) || [];
-            for (const parent of parents) {
-                if (!visited.has(parent)) {
-                    const cycle = detectCycle(parent, path);
-                    if (cycle) return cycle;
-                } else if (recursionStack.has(parent)) {
-                    const cycleStartIndex = path.indexOf(parent);
-                    return [...path.slice(cycleStartIndex), parent];
+                const targets = graph.get(node) || [];
+                for (const target of targets) {
+                    if (!visited.has(target)) {
+                        const cycle = detectCycle(target, path);
+                        if (cycle) return cycle;
+                    } else if (recursionStack.has(target)) {
+                        const cycleStartIndex = path.indexOf(target);
+                        return [...path.slice(cycleStartIndex), target];
+                    }
+                }
+
+                recursionStack.delete(node);
+                path.pop();
+                return null;
+            };
+
+            for (const [nodePath] of graph) {
+                if (!visited.has(nodePath)) {
+                    const cyclePath = detectCycle(nodePath, []);
+                    if (cyclePath) {
+                        const stableKey = [...new Set(cyclePath)].sort().join('|');
+                        const stableId = `cycle_ouroboros:${edgeType}:${stableKey}`;
+
+                        let severity: 'error' | 'suggestion' | 'info' = 'error';
+                        if (edgeType !== 'sequence') {
+                            if (cyclePath.length <= 3) severity = 'error';
+                            else if (cyclePath.length <= 5) severity = 'suggestion';
+                            else severity = 'info';
+                        }
+
+                        suggestions.push({
+                            id: stableId,
+                            type: 'quality',
+                            link: pathToWikilink(this.app, cyclePath[0], cyclePath[0]),
+                            source: `Ouroboros (${edgeType}): Infinite loop detected. Path: ${cyclePath.map((p) => pathToWikilink(this.app, p, p)).join(' → ')}`,
+                            timestamp: Date.now(),
+                            category: severity,
+                            meta: {
+                                description: `Circular dependency in '${edgeType}' flow.`,
+                                sourcePath: cyclePath[0],
+                                losers: cyclePath,
+                            },
+                        });
+                    }
                 }
             }
-
-            recursionStack.delete(node);
-            path.pop();
-            return null;
         };
 
-        for (const [nodePath] of graph) {
-            if (!visited.has(nodePath)) {
-                const cyclePath = detectCycle(nodePath, []);
-                if (cyclePath) {
-                    const stableKey = [...new Set(cyclePath)].sort().join('|');
-                    const stableId = `cycle_ouroboros:${stableKey}`;
-
-                    suggestions.push({
-                        id: stableId,
-                        type: 'quality',
-                        link: pathToWikilink(this.app, cyclePath[0], cyclePath[0]),
-                        source: `Ouroboros: Infinite loop in hierarchy. Path: ${cyclePath.map((p) => pathToWikilink(this.app, p, p)).join(' → ')}`,
-                        timestamp: Date.now(),
-                        category: 'error',
-                        meta: {
-                            description: 'Circular dependency detected.',
-                            sourcePath: cyclePath[0],
-                            losers: cyclePath,
-                        },
-                    });
-                }
-            }
-        }
+        performCycleCheck(hierarchy.up || [], 'hierarchy');
+        performCycleCheck(hierarchy.next || [], 'sequence');
         return suggestions;
     }
 
