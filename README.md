@@ -96,6 +96,15 @@ A dedicated `Run silent graph analysis (CLI)` command enables headless execution
 
 ---
 
+## Experimental Phase 3 (AI Inference)
+
+A new suite of features currently in development leveraging local LLMs (Ollama, LM Studio) to provide profound semantic validation:
+- **Semantic Tag Propagation:** Let the AI analyze parent clusters (MOCs) and suggest pushing relevant tags down to child notes based on content synergy.
+- **AI Branch Validation:** When a sequence splits into parallel paths (multiple `next` or `prev` links), the AI determines if these branches are mutually exclusive (topological error) or valid non-linear continuations.
+- **Related Reciprocity Override:** Force strict bidirectional validation even for weak "related" links using intelligent semantic analysis.
+
+---
+
 ## Dashboard
 
 The dashboard features a **partial re-rendering architecture**: the static frame (banner, header, filters) is rendered once, while only the dynamic suggestion list updates on interactions. This eliminates flicker and preserves scroll position.

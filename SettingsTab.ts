@@ -794,7 +794,60 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
                     }),
             );
 
-        // --- 10. INFRANODUS SYNERGY ---
+        // --- 10. EXPERIMENTAL AI INFERENCE (PHASE 3) ---
+        createHeader('🔮 Phase 3: AI Inference (Experimental)', 'Next-generation semantic reasoning and strict topological validation via local LLMs.');
+
+        new Setting(containerEl)
+            .setName('Require related reciprocity')
+            .setDesc('Force reciprocity even for weak "related" links using AI validation.')
+            .addToggle((toggle) =>
+                toggle.setValue(this.plugin.settings.requireRelatedReciprocity).onChange((value) => {
+                    this.plugin.settings.requireRelatedReciprocity = value;
+                    void this.plugin.saveSettings();
+                }),
+            );
+
+        new Setting(containerEl)
+            .setName('Allow multiple next branches')
+            .setDesc('Permit a note to have multiple sequential continuations without topological errors.')
+            .addToggle((toggle) =>
+                toggle.setValue(this.plugin.settings.allowNextBranching).onChange((value) => {
+                    this.plugin.settings.allowNextBranching = value;
+                    void this.plugin.saveSettings();
+                }),
+            );
+
+        new Setting(containerEl)
+            .setName('Allow multiple prev branches')
+            .setDesc('Permit a note to have multiple sequential predecessors without topological errors.')
+            .addToggle((toggle) =>
+                toggle.setValue(this.plugin.settings.allowPrevBranching).onChange((value) => {
+                    this.plugin.settings.allowPrevBranching = value;
+                    void this.plugin.saveSettings();
+                }),
+            );
+
+        new Setting(containerEl)
+            .setName('AI branch validation')
+            .setDesc('Use the local LLM to semantically validate if multiple branches are logically cohesive or contradictory.')
+            .addToggle((toggle) =>
+                toggle.setValue(this.plugin.settings.requireAIBranchValidation).onChange((value) => {
+                    this.plugin.settings.requireAIBranchValidation = value;
+                    void this.plugin.saveSettings();
+                }),
+            );
+
+        new Setting(containerEl)
+            .setName('Semantic tag propagation')
+            .setDesc('Use AI to suggest propagating tags from parent MOCs to their children based on conceptual fit.')
+            .addToggle((toggle) =>
+                toggle.setValue(this.plugin.settings.requireAITagValidation).onChange((value) => {
+                    this.plugin.settings.requireAITagValidation = value;
+                    void this.plugin.saveSettings();
+                }),
+            );
+
+        // --- 11. INFRANODUS SYNERGY ---
         createHeader('Network synergy', 'Advanced science and structural gap analysis.');
 
         new Setting(containerEl)
