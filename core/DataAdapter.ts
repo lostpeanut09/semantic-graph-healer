@@ -95,8 +95,16 @@ export class VaultDataAdapter implements VaultQueryEngine {
                     .replace(/[<>]/g, '');
                 dcQuery = `@page and path("${folderName}")`;
             } else {
-                // ✅ Validate custom query (basic safety stripping)
-                const safeQuery = query.replace(/[<>]/g, '');
+                // ✅ Validate custom query (basic safety stripping + Keyword Blacklist)
+                const forbidden = ['DROP', 'DELETE', 'UPDATE', 'INSERT', 'ALTER', 'TRUNCATE'];
+                const isSuspicious = forbidden.some((kw) => query.toUpperCase().includes(kw));
+
+                if (isSuspicious) {
+                    HealerLogger.error(`Datacore: Suspicious query blocked: "${query}"`);
+                    return [];
+                }
+
+                const safeQuery = query.replace(/[;]/g, ''); // Relaxed: allow <, >, = for Datacore
                 dcQuery = `@page and ${safeQuery}`;
             }
 

@@ -1,5 +1,5 @@
-import { App, TFile } from 'obsidian';
-import { SemanticGraphHealerSettings, Suggestion, DataviewPage } from '../types';
+import { TFile } from 'obsidian';
+import { SemanticGraphHealerSettings, Suggestion, DataviewPage, ExtendedApp } from '../types';
 import {
     HealerLogger,
     extractLinkpaths,
@@ -10,22 +10,28 @@ import {
 } from './HealerUtils';
 import { VaultQueryEngine, SmartConnectionsAdapter } from './DataAdapter';
 
-interface LinkSuggestion {
-    alias?: string;
-    file?: TFile;
-}
-
 export class QualityAnalyzer {
     private scAdapter: SmartConnectionsAdapter;
     private aliasCache: Map<string, TFile> | null = null;
     private aliasCacheTimestamp: number = 0;
 
     constructor(
-        private app: App,
+        private app: ExtendedApp,
         private settings: SemanticGraphHealerSettings,
         private engine: VaultQueryEngine,
     ) {
         this.scAdapter = new SmartConnectionsAdapter(app);
+
+        // ✅ Gold Master Refinement: Synchronize cache with vault deletions
+        this.app.vault.on('delete', () => {
+            this.invalidateAliasCache();
+        });
+    }
+
+    public invalidateAliasCache(): void {
+        this.aliasCache = null;
+        this.aliasCacheTimestamp = 0;
+        HealerLogger.debug('QualityAnalyzer: Alias cache invalidated due to vault change.');
     }
 
     /**
@@ -63,7 +69,9 @@ export class QualityAnalyzer {
             aliasIndex = this.aliasCache;
         } else {
             aliasIndex = new Map<string, TFile>();
-            const metadataCache = this.app.metadataCache as unknown as { getLinkSuggestions?: () => LinkSuggestion[] };
+            const metadataCache = this.app.metadataCache as unknown as {
+                getLinkSuggestions?(): Array<{ alias?: string; file?: TFile }>;
+            };
             const ls = metadataCache.getLinkSuggestions?.() ?? [];
 
             for (const s of ls) {
@@ -182,20 +190,8 @@ export class QualityAnalyzer {
         return suggestions;
     }
 
-    /**
-     * Proxy to SmartConnectionsAdapter for backward compat.
-     */
     public async querySmartConnections(sourcePath: string, limit: number): Promise<Suggestion[]> {
         HealerLogger.info(`Querying Smart Connections for ${sourcePath}...`);
         return this.scAdapter.query(sourcePath, limit);
-    }
-
-    /**
-     * ✅ NEW: Explicit alias cache invalidation
-     */
-    public invalidateAliasCache(): void {
-        this.aliasCache = null;
-        this.aliasCacheTimestamp = 0;
-        HealerLogger.debug('Alias cache invalidated.');
     }
 }

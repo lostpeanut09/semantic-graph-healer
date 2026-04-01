@@ -10,7 +10,7 @@ const context = await esbuild.context({
     },
     entryPoints: {
         main: 'main.ts',
-        worker: 'src/workers/graph-analysis-worker.ts',
+        worker: 'core/workers/graph-analysis-worker.ts',
     },
     define: {
         'import.meta.url': 'import.meta.url', // Standard ESM path support

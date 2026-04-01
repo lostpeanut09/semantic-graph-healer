@@ -1,6 +1,7 @@
 import { App, PluginSettingTab, Setting, ButtonComponent, Notice, Modal } from 'obsidian';
 import { HealerLogger, isObsidianInternalApp } from './core/HealerUtils';
 import SemanticGraphHealer from './main';
+import { DEFAULT_SETTINGS, SettingsPreset, SemanticGraphHealerSettings } from './types';
 
 export class SemanticHealerSettingTab extends PluginSettingTab {
     plugin: SemanticGraphHealer;
@@ -8,6 +9,15 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
     constructor(app: App, plugin: SemanticGraphHealer) {
         super(app, plugin);
         this.plugin = plugin;
+    }
+
+    /**
+     * Helper to set CSS properties on an element to satisfy ESLint.
+     */
+    private setCssProps(el: HTMLElement, props: Record<string, string>) {
+        for (const [key, value] of Object.entries(props)) {
+            el.style.setProperty(key, value);
+        }
     }
 
     display(): void {
@@ -43,16 +53,6 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
                         this.plugin.settings.scanFolder = value;
                         void this.plugin.saveSettings();
                     }),
-            );
-
-        new Setting(containerEl)
-            .setName('Auto-fix mundane links')
-            .setDesc('Automatically heal exact inverse relationships (a-parent-b -> b-child-a) without prompting.')
-            .addToggle((toggle) =>
-                toggle.setValue(this.plugin.settings.autoFixMundaneLinks).onChange((value) => {
-                    this.plugin.settings.autoFixMundaneLinks = value;
-                    void this.plugin.saveSettings();
-                }),
             );
 
         new Setting(containerEl)
@@ -104,8 +104,9 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
                             this.plugin.settings.smartConnectionsLimit = value;
                             void this.plugin.saveSettings();
                         });
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-                    if ('setInstant' in slider) (slider as any).setInstant(true);
+                    if ('setInstant' in slider) {
+                        (slider as { setInstant(v: boolean): void }).setInstant(true);
+                    }
                 });
         }
 
@@ -249,7 +250,7 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
             });
         }
 
-        // --- 3. RULES ---
+        // --- 3. Rules ---
         createHeader('Rules', 'Advanced graph logic constraints for automated analysis.');
 
         new Setting(containerEl)
@@ -313,7 +314,7 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
                 }),
             );
 
-        // --- 6. MULTI-PROVIDER LLM ---
+        // --- 6. Multi-provider LLM ---
         createHeader(
             'Primary model configuration',
             'Main intelligence engine. Note: only local models (e.g. Ollama) are free — cloud providers charge per token. Check your provider.',
@@ -322,7 +323,7 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
         if (!this.plugin.settings.detectedModels || this.plugin.settings.detectedModels.length === 0) {
             containerEl.createDiv({
                 cls: 'healer-warning-banner',
-                text: '⚠️ First time? Enter your endpoint and key, then click "Detect primary models" to populate the choices.',
+                text: 'First time? Enter your endpoint and key, then click "Detect primary models" to populate the choices.',
             });
         }
 
@@ -341,7 +342,9 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
 
         new Setting(containerEl)
             .setName('Model key')
-            .setDesc('Securely stored key for the primary model.')
+            .setDesc(
+                'Securely stored key for the model. For local models, enter "sk-local". For cloud apis, enter the real key.',
+            )
             .addText((text) => {
                 text.setPlaceholder('Enter key...').setValue(this.plugin.settings.llmApiKey);
                 text.inputEl.type = 'password';
@@ -385,7 +388,7 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
             );
 
         // --- 5. RESILIENCE & RELIABILITY ---
-        createHeader('Resilience & reliability', 'AI reliability and retry logic.');
+        createHeader('Resilience and reliability', 'AI reliability and retry logic.');
 
         new Setting(containerEl)
             .setName('Llm max retries')
@@ -428,71 +431,11 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
                     });
             });
 
-        // --- 6. PERFORMANCE & GUARDRAILS ---
-        createHeader('Performance & guardrails', 'Optimization for large vaults.');
+        // --- 7. The AI tribunal ---
+        createHeader('Verification engine', 'Secondary model for consensus. Uses additional tokens.');
 
         new Setting(containerEl)
-            .setName('Enable graph guardrails')
-            .setDesc('Prevent UI freezes by capping the number of nodes and edges in the analytical graph.')
-            .addToggle((toggle) =>
-                toggle.setValue(this.plugin.settings.enableGraphGuardrails).onChange((value) => {
-                    this.plugin.settings.enableGraphGuardrails = value;
-                    void this.plugin.saveSettings();
-                    this.display(); // Refresh to show/hide limits
-                }),
-            );
-
-        if (this.plugin.settings.enableGraphGuardrails) {
-            new Setting(containerEl)
-                .setName('Max nodes')
-                .setDesc('Maximum number of notes to include in the graph. Recommended: 5000.')
-                .addText((text) =>
-                    text.setValue(String(this.plugin.settings.maxNodes)).onChange((value) => {
-                        this.plugin.settings.maxNodes = parseInt(value, 10) || 5000;
-                        void this.plugin.saveSettings();
-                    }),
-                );
-
-            new Setting(containerEl)
-                .setName('Max edges')
-                .setDesc('Maximum number of links to include in the graph. Recommended: 50000.')
-                .addText((text) =>
-                    text.setValue(String(this.plugin.settings.maxEdges)).onChange((value) => {
-                        this.plugin.settings.maxEdges = parseInt(value, 10) || 50000;
-                        void this.plugin.saveSettings();
-                    }),
-                );
-        }
-
-        new Setting(containerEl)
-            .setName('Alias cache ttl (ms)')
-            .setDesc('Time-to-live for the alias resolution cache. Default: 300,000 (5 min).')
-            .addText((text) =>
-                text.setValue(String(this.plugin.settings.aliasCacheTtl)).onChange((value) => {
-                    this.plugin.settings.aliasCacheTtl = parseInt(value, 10) || 300000;
-                    void this.plugin.saveSettings();
-                }),
-            );
-
-        new Setting(containerEl)
-            .setName('Clear resolution cache')
-            .setDesc('Forced reset of the link and alias resolution index. Useful if graph results feel stale.')
-            .addButton((btn) =>
-                btn.setButtonText('Clear caches').onClick(() => {
-                    this.plugin.quality.invalidateAliasCache();
-                    this.plugin.engine.invalidateBacklinkIndex();
-                    new Notice('Link and alias caches cleared.');
-                }),
-            );
-
-        // --- 7. THE AI TRIBUNAL ---
-        createHeader(
-            'Verification engine',
-            'Secondary model for consensus. Uses additional tokens — local models recommended to avoid extra costs.',
-        );
-
-        new Setting(containerEl)
-            .setName('Enable verification (AI tribunal)')
+            .setName('Enable verification')
             .setDesc('If enabled, all suggestions must be confirmed by a secondary independent model.')
             .addToggle((toggle) =>
                 toggle.setValue(this.plugin.settings.enableAiTribunal).onChange((value) => {
@@ -529,7 +472,9 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
 
         new Setting(containerEl)
             .setName('Secondary model key')
-            .setDesc('Secure key for the verification endpoint.')
+            .setDesc(
+                'Secure key for the verification endpoint. For local models, enter "sk-local". For cloud apis, enter the real key.',
+            )
             .addText((text) => {
                 text.setPlaceholder('Enter key...').setValue(this.plugin.settings.secondaryLlmApiKey);
                 text.inputEl.type = 'password';
@@ -574,7 +519,7 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
                 btn.setButtonText('Scan secondary').onClick(async () => await this.runModelDetection(btn, false)),
             );
 
-        // --- 6. SHARED AI PARAMETERS ---
+        // --- 6. Shared AI parameters ---
         createHeader(
             'Shared parameters',
             'Global generation parameters. Higher token limits increase cloud API costs — local models are unaffected.',
@@ -600,8 +545,7 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
                     void this.plugin.saveSettings();
                 });
             if ('setInstant' in slider) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-                (slider as any).setInstant(true);
+                (slider as { setInstant(v: boolean): void }).setInstant(true);
             }
         });
 
@@ -624,12 +568,11 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
                     void this.plugin.saveSettings();
                 });
             if ('setInstant' in slider) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-                (slider as any).setInstant(true);
+                (slider as { setInstant(v: boolean): void }).setInstant(true);
             }
         });
 
-        // --- 7. INTELLIGENT EVOLUTION ---
+        // --- 7. Intelligent evolution ---
         createHeader('Intelligent evolution', 'Dynamic MOC management and aesthetics for complex vaults.');
 
         new Setting(containerEl)
@@ -657,7 +600,7 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
 
         if (this.plugin.settings.enableDynamicOntologyEvolution) {
             const mocSetting = new Setting(containerEl)
-                .setName('Saturation threshold')
+                .setName('Moc saturation threshold')
                 .setDesc('Number of child links after which sub-categories are suggested.');
             const mocValue = mocSetting.controlEl.createSpan({ cls: 'healer-slider-value' });
             mocValue.setText(`${this.plugin.settings.mocSaturationThreshold}`);
@@ -675,8 +618,7 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
                         void this.plugin.saveSettings();
                     });
                 if ('setInstant' in slider) {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-                    (slider as any).setInstant(true);
+                    (slider as { setInstant(v: boolean): void }).setInstant(true);
                 }
             });
         }
@@ -770,7 +712,7 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
         createHeader('Sync integration', 'Compatibility with external topological engines.');
 
         new Setting(containerEl)
-            .setName('Sync from breadcrumbs / excalibrain')
+            .setName('Sync from external plugins')
             .setDesc('Scan for existing taxonomies in breadcrumbs or excalibrain data folders and import them.')
             .addButton((btn) =>
                 btn
@@ -795,7 +737,10 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
             );
 
         // --- 10. EXPERIMENTAL AI INFERENCE (PHASE 3) ---
-        createHeader('🔮 Phase 3: AI Inference (Experimental)', 'Next-generation semantic reasoning and strict topological validation via local LLMs.');
+        createHeader(
+            'Phase 3: AI Inference (Experimental)',
+            'Advanced semantic reasoning and topological validation using Llms (Local or Cloud).',
+        );
 
         new Setting(containerEl)
             .setName('Require related reciprocity')
@@ -828,8 +773,8 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
             );
 
         new Setting(containerEl)
-            .setName('AI branch validation')
-            .setDesc('Use the local LLM to semantically validate if multiple branches are logically cohesive or contradictory.')
+            .setName('Branch validation')
+            .setDesc('On-demand verification for next and previous branches. Independent from the automated tribunal.')
             .addToggle((toggle) =>
                 toggle.setValue(this.plugin.settings.requireAIBranchValidation).onChange((value) => {
                     this.plugin.settings.requireAIBranchValidation = value;
@@ -838,8 +783,8 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
             );
 
         new Setting(containerEl)
-            .setName('Semantic tag propagation')
-            .setDesc('Use AI to suggest propagating tags from parent MOCs to their children based on conceptual fit.')
+            .setName('Tag propagation')
+            .setDesc('Suggest updates for child tags based on context.')
             .addToggle((toggle) =>
                 toggle.setValue(this.plugin.settings.requireAITagValidation).onChange((value) => {
                     this.plugin.settings.requireAITagValidation = value;
@@ -898,91 +843,8 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
                 }),
             );
 
-        // --- PHASE 1: GUARDRAIL & PERFORMANCE ---
-        createHeader('🛡️ Guardrail & Performance', 'Manage graph complexity and resource usage.');
-
-        new Setting(containerEl)
-            .setName('Max graph nodes')
-            .setDesc('Maximum nodes allowed for graph analysis. Higher values increase memory usage.')
-            .addSlider((slider) => {
-                slider
-                    .setLimits(1000, 20000, 500)
-                    .setValue(this.plugin.settings.maxNodes)
-                    .setDynamicTooltip()
-                    .onChange(async (value) => {
-                        this.plugin.settings.maxNodes = value;
-                        await this.plugin.saveSettings();
-                    });
-            });
-
-        new Setting(containerEl)
-            .setName('Max graph edges')
-            .setDesc('Maximum edges allowed for graph analysis.')
-            .addSlider((slider) => {
-                slider
-                    .setLimits(10000, 200000, 5000)
-                    .setValue(this.plugin.settings.maxEdges)
-                    .setDynamicTooltip()
-                    .onChange(async (value) => {
-                        this.plugin.settings.maxEdges = value;
-                        await this.plugin.saveSettings();
-                    });
-            });
-
-        new Setting(containerEl)
-            .setName('High memory mode')
-            .setDesc('ENABLE AT YOUR OWN RISK. Allows larger graph analysis but may cause UI freezes.')
-            .addToggle((toggle) =>
-                toggle.setValue(this.plugin.settings.enableHighMemoryMode).onChange(async (value) => {
-                    if (value) {
-                        const confirmed = await new Promise<boolean>((resolve) => {
-                            const modal = new Modal(this.app);
-                            modal.titleEl.setText('⚠️ High Memory Mode');
-                            modal.contentEl.createEl('p', {
-                                text: 'Enabling this option allows the plugin to analyze very large graphs but may cause interface freezes or crashes. Proceed?',
-                            });
-
-                            const buttonContainer = modal.contentEl.createDiv({ cls: 'healer-modal-buttons' });
-                            buttonContainer.style.display = 'flex';
-                            buttonContainer.style.justifyContent = 'flex-end';
-                            buttonContainer.style.gap = '10px';
-                            buttonContainer.style.marginTop = '20px';
-
-                            const cancelBtn = new ButtonComponent(buttonContainer)
-                                .setButtonText('Cancel')
-                                .onClick(() => {
-                                    modal.close();
-                                    resolve(false);
-                                });
-
-                            const proceedBtn = new ButtonComponent(buttonContainer)
-                                .setButtonText('Proceed')
-                                .setCta()
-                                .onClick(() => {
-                                    modal.close();
-                                    resolve(true);
-                                });
-
-                            modal.open();
-                        });
-
-                        if (!confirmed) {
-                            toggle.setValue(false);
-                            return;
-                        }
-                    }
-
-                    this.plugin.settings.enableHighMemoryMode = value;
-                    await this.plugin.saveSettings();
-
-                    if (value) {
-                        new Notice('⚠️ High Memory Mode enabled - Monitor performance!');
-                    }
-                }),
-            );
-
         // --- PHASE 1: SECURITY API KEYS ---
-        createHeader('🔐 Security API Keys', 'Secure management of LLM and service credentials.');
+        createHeader('Security API keys', 'Secure management of Llm and service credentials.');
 
         const keychainStatus = this.plugin.keychainService?.isSecure() ?? false;
 
@@ -990,8 +852,8 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
             .setName('Keychain status')
             .setDesc(
                 keychainStatus
-                    ? '✅ Obsidian Keychain active. Your keys are encrypted at the OS level.'
-                    : '⚠️ Keychain NOT detected. Keys are currently saved in plain text data.json.',
+                    ? 'Obsidian Keychain active. Your keys are encrypted at the OS level.'
+                    : 'Keychain NOT detected. Keys are currently saved in plain text data.json.',
             )
             .addButton((button) => {
                 button
@@ -1000,32 +862,32 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
                     .onClick(async () => {
                         if (keychainStatus) {
                             const result = await this.plugin.keychainService.validateKeychain();
-                            new Notice(result.available ? '✅ Keychain validation successful.' : `❌ ${result.error}`);
+                            new Notice(result.available ? 'Keychain validation successful.' : `Error: ${result.error}`);
                         } else {
                             await this.plugin.keychainService.migrateFromSettingsToKeychain('openai');
-                            new Notice('✅ Critical migration complete.');
+                            new Notice('Critical migration complete.');
                             this.display();
                         }
                     });
             });
 
         new Setting(containerEl)
-            .setName('Primary LLM Key')
+            .setName('Primary analysis key')
             .setDesc('Vault-wide API key for analysis. Saved to system keychain if available.')
             .addText((text) =>
                 text
-                    .setPlaceholder('sk-...')
+                    .setPlaceholder('Enter key')
                     .setValue('') // Hide value for security
                     .onChange(async (value) => {
                         if (value) {
                             await this.plugin.keychainService.setApiKey('openai', value);
-                            new Notice('✅ Key secured and synchronized.');
+                            new Notice('Key secured and synchronized.');
                         }
                     }),
             );
 
         // --- PHASE 1: LOGGING & DEBUG ---
-        createHeader('📝 Logging & Debug', 'Fine-grained control over plugin diagnostics.');
+        createHeader('Logging and debug', 'Fine-grained control over plugin diagnostics.');
 
         new Setting(containerEl)
             .setName('Log level')
@@ -1033,7 +895,7 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
             .addDropdown((dropdown) => {
                 dropdown
                     .addOptions({
-                        debug: 'Debug (All noise)',
+                        debug: 'Debug (all noise)',
                         info: 'Info (Standard)',
                         warn: 'Warn (Issues only)',
                         error: 'Error (Critical only)',
@@ -1058,35 +920,18 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
             );
 
         new Setting(containerEl)
-            .setName('Log export')
-            .setDesc('Generate a markdown diagnostic report.')
+            .setName('Archive logs')
+            .setDesc('Generate a Markdown diagnostic report.')
             .addButton((btn) =>
                 btn.setButtonText('Export log').onClick(async () => {
-                    const logs = await this.plugin.logger.exportLogs();
+                    const logs = this.plugin.logger.exportLogs();
                     const stats = this.plugin.logger.getStats();
                     const content = `# Diagnostic Report: Semantic Graph Healer\n- Generated: ${new Date().toISOString()}\n- Total Entries: ${stats.total}\n\n\`\`\`\n${logs}\n\`\`\``;
                     const path = `plugins/${this.plugin.manifest.id}/diagnostic-export.md`;
                     await this.app.vault.create(path, content);
-                    new Notice(`✅ Exported to ${path}`);
+                    new Notice(`Exported to ${path}`);
                 }),
             );
-
-        // --- PHASE 1: ANALYSIS & CACHE ---
-        createHeader('🔍 Analysis & Cache', 'Configure internal processing logic.');
-
-        new Setting(containerEl)
-            .setName('Alias cache TTL')
-            .setDesc('Duration (ms) to cache unresolved link aliases (default: 300,000).')
-            .addSlider((slider) => {
-                slider
-                    .setLimits(60000, 3600000, 60000)
-                    .setValue(this.plugin.settings.aliasCacheTtl)
-                    .setDynamicTooltip()
-                    .onChange(async (value) => {
-                        this.plugin.settings.aliasCacheTtl = value;
-                        await this.plugin.saveSettings();
-                    });
-            });
 
         // --- 11. EXHAUSTED NOTES TRACKING ---
         createHeader('Exhausted notes tracking', 'AI will skip scanning these notes until the list is reset.');
@@ -1137,12 +982,372 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
             s.settingEl.addClass('healer-setting-compact');
             s.infoEl.addClass('healer-setting-info-small');
         });
+
+        // --- 13. SETTINGS PROFILES ---
+        createHeader('Settings profiles', 'Quick-load configuration presets for different use cases.');
+
+        new Setting(containerEl)
+            .setName('Load preset')
+            .setDesc('Quick-load a configuration preset. Current settings will be overridden.')
+            .addDropdown((dropdown) => {
+                dropdown
+                    .addOption('balanced', 'Balanced (default)')
+                    .addOption('privacy', 'Privacy-first (no cloud AI)')
+                    .addOption('ai-maximal', 'Ai-maximal (all features)')
+                    .addOption('performance', 'Performance (large vaults)')
+                    .setValue('balanced')
+                    .onChange(async (value: string) => {
+                        const presetVal = value as SettingsPreset;
+                        const confirmed = await new Promise<boolean>((resolve) => {
+                            const modal = new Modal(this.app);
+                            modal.titleEl.setText('Load preset');
+                            modal.contentEl.createEl('p', {
+                                text: `Load the "${value}" preset? This will override your current settings (API keys preserved).`,
+                            });
+                            const buttonContainer = modal.contentEl.createDiv({ cls: 'healer-modal-buttons' });
+                            this.setCssProps(buttonContainer, {
+                                display: 'flex',
+                                'justify-content': 'flex-end',
+                                gap: '10px',
+                                'margin-top': '20px',
+                            });
+
+                            let resolved = false;
+                            const safeResolve = (val: boolean) => {
+                                if (!resolved) {
+                                    resolved = true;
+                                    resolve(val);
+                                }
+                            };
+                            modal.onClose = () => safeResolve(false);
+
+                            new ButtonComponent(buttonContainer).setButtonText('Cancel').onClick(() => {
+                                modal.close();
+                                safeResolve(false);
+                            });
+
+                            new ButtonComponent(buttonContainer)
+                                .setButtonText('Load')
+                                .setCta()
+                                .onClick(() => {
+                                    modal.close();
+                                    safeResolve(true);
+                                });
+
+                            modal.open();
+                        });
+
+                        if (confirmed) {
+                            const presets: Record<SettingsPreset, Partial<SemanticGraphHealerSettings>> = {
+                                balanced: {
+                                    enableSmartConnections: true,
+                                    enableAiTribunal: false,
+                                    requireAITagValidation: true,
+                                    allowNextBranching: false,
+                                    maxNodes: 5000,
+                                    logLevel: 'info',
+                                },
+                                privacy: {
+                                    enableSmartConnections: false,
+                                    enableAiTribunal: false,
+                                    requireAITagValidation: false,
+                                    llmEndpoint: 'http://localhost:11434/v1',
+                                    logLevel: 'warn',
+                                },
+                                'ai-maximal': {
+                                    enableSmartConnections: true,
+                                    enableAiTribunal: true,
+                                    requireAITagValidation: true,
+                                    requireAIBranchValidation: true,
+                                    requireRelatedReciprocity: true,
+                                    logLevel: 'debug',
+                                },
+                                performance: {
+                                    enableSmartConnections: false,
+                                    enableAiTribunal: false,
+                                    requireAITagValidation: false,
+                                    maxNodes: 2000,
+                                    maxEdges: 20000,
+                                    enableDeepGraphAnalysis: false,
+                                    logLevel: 'error',
+                                },
+                            };
+
+                            this.plugin.settings = { ...this.plugin.settings, ...presets[presetVal] };
+                            await this.plugin.saveSettings();
+                            new Notice(`"${value}" preset loaded.`);
+                            this.display();
+                        }
+                    });
+            });
+
+        // --- 14. ADVANCED MAINTENANCE ---
+        createHeader('Advanced maintenance', 'Plugin maintenance, backup and reset options.');
+
+        new Setting(containerEl)
+            .setName('Export settings')
+            .setDesc('Export current settings to a JSON file for backup or sharing.')
+            .addButton((button) => {
+                button.setButtonText('Export').onClick(async () => {
+                    const settingsExport = { ...this.plugin.settings } as Record<string, unknown>;
+                    // FIX: Aggressive Sanitization (Don't leak even encrypted keys if they guess the salt)
+                    Object.keys(settingsExport).forEach((k) => {
+                        if (k.toLowerCase().includes('apikey') || k.endsWith('Encrypted')) {
+                            delete settingsExport[k];
+                        }
+                    });
+
+                    const content = JSON.stringify(settingsExport, null, 2);
+                    const path = `semantic-graph-healer-backup-${Date.now()}.json`;
+                    await this.app.vault.create(path, content);
+                    new Notice(`Settings exported to root folder as ${path}`);
+                });
+            });
+
+        new Setting(containerEl)
+            .setName('Import settings')
+            .setDesc('Import settings from a JSON file. Overwrites current configuration.')
+            .addButton((button) => {
+                button.setButtonText('Import').onClick(() => {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = '.json';
+                    input.onchange = async (e: Event) => {
+                        const file = (e.target as HTMLInputElement).files?.[0];
+                        if (!file) return;
+                        const content = await file.text();
+                        try {
+                            const imported = JSON.parse(content) as Record<string, unknown>;
+                            const { SettingsSchema } = await import('./types.schema');
+                            const result = SettingsSchema.safeParse(imported);
+                            if (result.success) {
+                                this.plugin.settings = {
+                                    ...this.plugin.settings,
+                                    ...(result.data as Partial<SemanticGraphHealerSettings>),
+                                };
+                                await this.plugin.saveSettings();
+                                new Notice('Settings imported successfully.');
+                                this.display();
+                            } else {
+                                new Notice('Invalid settings file format.');
+                                HealerLogger.error('Schema validation failed during import', result.error);
+                            }
+                        } catch (err: unknown) {
+                            new Notice('Failed to parse settings file.');
+                            HealerLogger.error('Settings parse failed', err);
+                        }
+                    };
+                    input.click();
+                });
+            });
+
+        // --- 11. PERFORMANCE & SYSTEM RESOURCES (SOTA 2026 Audit) ---
+        createHeader('Performance & system resources', 'Optimization for large vaults and execution safety.');
+
+        new Setting(containerEl)
+            .setName('Enable graph guardrails')
+            .setDesc('Prevent UI freezes by capping the number of nodes and edges in the analytical graph.')
+            .addToggle((toggle) =>
+                toggle.setValue(this.plugin.settings.enableGraphGuardrails).onChange((value) => {
+                    this.plugin.settings.enableGraphGuardrails = value;
+                    void (async () => {
+                        await this.plugin.saveSettings();
+                        this.display(); // Refresh to show/hide limits
+                    })();
+                }),
+            );
+
+        if (this.plugin.settings.enableGraphGuardrails) {
+            const nodeSetting = new Setting(containerEl)
+                .setName('Max graph nodes')
+                .setDesc('Maximum number of notes to include in analysis. Recommended: 5000.');
+            const nodeValue = nodeSetting.controlEl.createSpan({ cls: 'healer-slider-value' });
+            nodeValue.setText(`${this.plugin.settings.maxNodes}`);
+            nodeValue.addClass('healer-ml-20');
+            nodeValue.addClass('healer-font-weight-bold');
+
+            nodeSetting.addSlider((slider) => {
+                slider
+                    .setLimits(1000, 20000, 500)
+                    .setValue(this.plugin.settings.maxNodes)
+                    .setDynamicTooltip()
+                    .onChange((value) => {
+                        this.plugin.settings.maxNodes = value;
+                        nodeValue.setText(`${String(value)}`);
+                        void this.plugin.saveSettings();
+                    });
+                if ('setInstant' in slider) {
+                    (slider as { setInstant(v: boolean): void }).setInstant(true);
+                }
+            });
+
+            const edgeSetting = new Setting(containerEl)
+                .setName('Max graph edges')
+                .setDesc('Maximum number of links for analysis. Recommended: 50000.');
+            const edgeValue = edgeSetting.controlEl.createSpan({ cls: 'healer-slider-value' });
+            edgeValue.setText(`${this.plugin.settings.maxEdges}`);
+            edgeValue.addClass('healer-ml-20');
+            edgeValue.addClass('healer-font-weight-bold');
+
+            edgeSetting.addSlider((slider) => {
+                slider
+                    .setLimits(5000, 100000, 5000)
+                    .setValue(this.plugin.settings.maxEdges)
+                    .setDynamicTooltip()
+                    .onChange((value) => {
+                        this.plugin.settings.maxEdges = value;
+                        edgeValue.setText(`${String(value)}`);
+                        void this.plugin.saveSettings();
+                    });
+                if ('setInstant' in slider) {
+                    (slider as { setInstant(v: boolean): void }).setInstant(true);
+                }
+            });
+        }
+
+        const cacheSetting = new Setting(containerEl)
+            .setName('Alias cache ttl')
+            .setDesc('Time-to-live for the alias resolution index (minutes).');
+        const cacheValue = cacheSetting.controlEl.createSpan({ cls: 'healer-slider-value' });
+        // Setting values are in ms, UI in minutes
+        cacheValue.setText(`${Math.round(this.plugin.settings.aliasCacheTtl / 60000)}m`);
+        cacheValue.addClass('healer-ml-20');
+        cacheValue.addClass('healer-font-weight-bold');
+
+        cacheSetting.addSlider((slider) => {
+            slider
+                .setLimits(1, 60, 1)
+                .setValue(Math.round(this.plugin.settings.aliasCacheTtl / 60000))
+                .setDynamicTooltip()
+                .onChange((value) => {
+                    this.plugin.settings.aliasCacheTtl = value * 60000;
+                    cacheValue.setText(`${String(value)}m`);
+                    void this.plugin.saveSettings();
+                });
+            if ('setInstant' in slider) {
+                (slider as { setInstant(v: boolean): void }).setInstant(true);
+            }
+        });
+
+        new Setting(containerEl)
+            .setName('Clear resolution cache')
+            .setDesc('Forced reset of the link and alias resolution index.')
+            .addButton((btn) =>
+                btn.setButtonText('Clear caches').onClick(() => {
+                    this.plugin.quality.invalidateAliasCache();
+                    this.plugin.engine.invalidateBacklinkIndex();
+                    new Notice('Link and alias caches cleared.');
+                }),
+            );
+
+        const bufferSetting = new Setting(containerEl)
+            .setName('Log buffer size')
+            .setDesc('Number of recent log entries kept in memory for export/debugging.');
+        const bufferValue = bufferSetting.controlEl.createSpan({ cls: 'healer-slider-value' });
+        bufferValue.setText(`${this.plugin.settings.logBufferSize}`);
+        bufferValue.addClass('healer-ml-20');
+        bufferValue.addClass('healer-font-weight-bold');
+
+        bufferSetting.addSlider((slider) => {
+            slider
+                .setLimits(500, 5000, 100)
+                .setValue(this.plugin.settings.logBufferSize)
+                .setDynamicTooltip()
+                .onChange((value) => {
+                    this.plugin.settings.logBufferSize = value;
+                    bufferValue.setText(`${String(value)}`);
+                    void this.plugin.saveSettings();
+                });
+            if ('setInstant' in slider) {
+                (slider as { setInstant(v: boolean): void }).setInstant(true);
+            }
+        });
+
+        const timeoutSetting = new Setting(containerEl)
+            .setName('Worker timeout')
+            .setDesc('Seconds to wait for background analytical tasks (pagerank, community).');
+        const timeoutValue = timeoutSetting.controlEl.createSpan({ cls: 'healer-slider-value' });
+        timeoutValue.setText(`${this.plugin.settings.workerTimeout}s`);
+        timeoutValue.addClass('healer-ml-20');
+        timeoutValue.addClass('healer-font-weight-bold');
+
+        timeoutSetting.addSlider((slider) => {
+            slider
+                .setLimits(30, 600, 30)
+                .setValue(this.plugin.settings.workerTimeout)
+                .setDynamicTooltip()
+                .onChange((value) => {
+                    this.plugin.settings.workerTimeout = value;
+                    timeoutValue.setText(`${String(value)}s`);
+                    void this.plugin.saveSettings();
+                });
+            if ('setInstant' in slider) {
+                (slider as { setInstant(v: boolean): void }).setInstant(true);
+            }
+        });
+
+        new Setting(containerEl)
+            .setName('Reset all settings')
+            .setDesc('Restore all settings to default values. This cannot be undone.')
+            .addButton((button) => {
+                button
+                    .setButtonText('Factory reset')
+                    .setWarning()
+                    .onClick(async () => {
+                        const confirmed = await new Promise<boolean>((resolve) => {
+                            const modal = new Modal(this.app);
+                            modal.titleEl.setText('Factory reset settings');
+                            modal.contentEl.createEl('p', {
+                                text: 'Restores all settings to defaults. Proceed?',
+                            });
+                            const buttonContainer = modal.contentEl.createDiv({ cls: 'healer-modal-buttons' });
+                            this.setCssProps(buttonContainer, {
+                                display: 'flex',
+                                'justify-content': 'flex-end',
+                                gap: '10px',
+                                'margin-top': '20px',
+                            });
+
+                            let resolved = false;
+                            const safeResolve = (val: boolean) => {
+                                if (!resolved) {
+                                    resolved = true;
+                                    resolve(val);
+                                }
+                            };
+                            modal.onClose = () => safeResolve(false);
+
+                            new ButtonComponent(buttonContainer).setButtonText('Cancel').onClick(() => {
+                                modal.close();
+                                safeResolve(false);
+                            });
+
+                            new ButtonComponent(buttonContainer)
+                                .setButtonText('Reset')
+                                .setWarning()
+                                .onClick(() => {
+                                    modal.close();
+                                    safeResolve(true);
+                                });
+
+                            modal.open();
+                        });
+
+                        if (confirmed) {
+                            // Shallow merge preserving only core non-serializable info if needed, or simply assign default
+                            this.plugin.settings = Object.assign({}, DEFAULT_SETTINGS);
+                            await this.plugin.saveSettings();
+                            new Notice('Settings reset to factory defaults.');
+                            this.display();
+                        }
+                    });
+            });
     }
 
     async runModelDetection(button: ButtonComponent, isPrimary: boolean) {
         const endpoint = isPrimary ? this.plugin.settings.llmEndpoint : this.plugin.settings.secondaryLlmEndpoint;
-        const apiKey = isPrimary ? await this.plugin.getApiKey(true) : await this.plugin.getApiKey(false);
-        const cloudFallbacks = ['gpt-5.4-pro', 'claude-opus-4.6', 'gemini-3.1-pro', 'deepseek-v3', 'o3-mini'];
+        const apiKey = isPrimary ? await this.plugin.getApiKey('openai') : await this.plugin.getApiKey('anthropic');
+        const cloudFallbacks = ['gpt-4o', 'claude-3-5-sonnet-latest', 'gemini-1.5-pro', 'deepseek-chat', 'o3-mini'];
 
         try {
             button.setButtonText('Scanning...');

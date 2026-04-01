@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf, Notice, DropdownComponent } from 'obsidian';
+import { ItemView, WorkspaceLeaf, Notice, DropdownComponent, Setting } from 'obsidian';
 import { DASHBOARD_VIEW_TYPE, Suggestion, HistoryItem, SuggestionType } from './types';
 import { HealerLogger } from './core/HealerUtils';
 import SemanticGraphHealer from './main';
@@ -33,6 +33,10 @@ export class QuarantineDashboardView extends ItemView {
     }
 
     async onOpen() {
+        await this.refresh();
+    }
+
+    public async refresh() {
         await Promise.resolve();
         const { contentEl } = this;
         contentEl.empty();
@@ -52,7 +56,8 @@ export class QuarantineDashboardView extends ItemView {
      */
     private renderFrame(container: HTMLElement) {
         // --- BANNER ---
-        const dir = (this.plugin.manifest as { dir?: string }).dir ?? '';
+        const manifest = this.plugin.manifest as typeof this.plugin.manifest & { dir?: string };
+        const dir = manifest.dir ?? '';
         const bannerPath = this.plugin.app.vault.adapter.getResourcePath(`${dir}/banner.png`);
         const bannerEl = container.createEl('img');
         bannerEl.src = bannerPath;
@@ -61,11 +66,11 @@ export class QuarantineDashboardView extends ItemView {
         // --- HEADER ROW ---
         const headerRow = container.createDiv({ cls: 'healer-dashboard-header-row' });
         const titleContainer = headerRow.createDiv();
-        titleContainer.createEl('h2', { text: 'Semantic health', cls: 'healer-dashboard-header' });
-        titleContainer.createEl('p', {
-            text: 'Review unresolved topological and structural issues.',
-            cls: 'healer-dashboard-desc',
-        });
+        new Setting(titleContainer)
+            .setName('Semantic health')
+            .setHeading()
+            .setDesc('Review unresolved topological and structural issues.');
+        titleContainer.addClass('healer-dashboard-title-setting'); // Optional: for custom styling
 
         // --- FILTER DROPDOWN ---
         const filterContainer = headerRow.createDiv({ cls: 'healer-filter-container' });
@@ -74,7 +79,7 @@ export class QuarantineDashboardView extends ItemView {
             { value: 'all', text: 'All issues' },
             { value: 'orphan', text: 'Orphan notes' },
             { value: 'incongruence', text: 'Semantic conflicts' },
-            { value: 'semantic', text: 'Semantic similarity' },
+            { value: 'semantic', text: 'Taxonomic inheritance (AI)' },
             { value: 'deter_asymmetry', text: 'Missing reciprocals' },
             { value: 'bridge_gap', text: 'Structural gaps' },
             { value: 'cycle_ouroboros', text: 'Logic loops (Ouroboros)' },
@@ -99,7 +104,7 @@ export class QuarantineDashboardView extends ItemView {
     private renderList() {
         if (!this.listContainer) return;
 
-        // ✅ UX: Show loading indicator for large vault renders
+        // UX: Show loading indicator for large vault renders
         this.listContainer.empty();
         const loading = this.listContainer.createDiv({
             cls: 'healer-loading-spinner',
@@ -117,13 +122,7 @@ export class QuarantineDashboardView extends ItemView {
                 const sectionWrapper = this.listContainer.createDiv({ cls: 'healer-dashboard-section' });
                 sectionWrapper.addClass(`healer-category-${category}`);
 
-                const secHeader = sectionWrapper.createEl('h3', {
-                    text: title,
-                    cls: 'healer-section-header',
-                });
-                if (category === 'error') secHeader.addClass('healer-text-error');
-
-                sectionWrapper.createEl('p', { text: subtitle, cls: 'healer-dashboard-desc' });
+                new Setting(sectionWrapper).setName(title).setHeading().setDesc(subtitle);
 
                 // Paginated rendering
                 const visibleItems = items.slice(0, this.displayLimit);
@@ -148,11 +147,11 @@ export class QuarantineDashboardView extends ItemView {
             if (displaySuggestions.length > 0) {
                 renderCategory(
                     'error',
-                    '⚠️ Errors',
+                    'Errors',
                     'Critical topological inconsistencies that need immediate attention.',
                 );
-                renderCategory('suggestion', '✨ Suggestions', 'Proposed links and structural improvements.');
-                renderCategory('info', 'ℹ️ Info', 'Minor quality observations and architectural notes.');
+                renderCategory('suggestion', 'Suggestions', 'Proposed links and structural improvements.');
+                renderCategory('info', 'Info', 'Minor quality observations and architectural notes.');
             } else {
                 const emptyState = this.listContainer.createDiv({ cls: 'healer-card' });
                 emptyState.createEl('p', {
@@ -163,7 +162,7 @@ export class QuarantineDashboardView extends ItemView {
             // --- HISTORY ---
             this.renderHistory(this.listContainer);
 
-            // ✅ Rimoziome loading indicator
+            // Removal of loading indicator
             loading.remove();
         } catch (e) {
             this.listContainer.empty();
@@ -175,7 +174,7 @@ export class QuarantineDashboardView extends ItemView {
     //  FILTERING (pure logic)
     // ====================================================================
     private getFilteredSuggestions(): Suggestion[] {
-        let results = [...this.plugin.settings.pendingSuggestions];
+        let results = [...this.plugin.cache.suggestions];
         if (this.plugin.settings.ignoreOrphanNotes) {
             results = results.filter((s) => s.id.indexOf('orphan') === -1);
         }
@@ -247,7 +246,127 @@ export class QuarantineDashboardView extends ItemView {
             };
         }
 
-        if (suggestion.type === 'incongruence') {
+        // Phase 3 AI Verification
+        const isVerifiableBranching =
+            suggestion.type === 'incongruence' &&
+            suggestion.category === 'suggestion' &&
+            (suggestion.meta?.property === 'next' || suggestion.meta?.property === 'prev');
+        const isVerifiableTag = suggestion.type === 'semantic' && suggestion.meta?.property === 'tags';
+
+        if (isVerifiableBranching || isVerifiableTag) {
+            const btnAiVerify = btnDiv.createEl('button', {
+                text: 'AI verify',
+                cls: 'healer-btn-reason', // Use reason class for similar styling
+            });
+
+            interface ValidationContext {
+                sourceContent: string;
+                targetContents: string[];
+                existingRelations: string;
+            }
+
+            const getContextWithTimeout = async (
+                topology: {
+                    getContextForAIValidation(source: string, targets: string[]): Promise<ValidationContext>;
+                },
+                sourcePath: string,
+                targetPaths: string[],
+                timeoutMs = 10000,
+            ): Promise<ValidationContext> => {
+                return Promise.race([
+                    topology.getContextForAIValidation(sourcePath, targetPaths),
+                    new Promise<never>((_, reject) =>
+                        setTimeout(() => reject(new Error('Context gathering timeout (10s)')), timeoutMs),
+                    ),
+                ]);
+            };
+            interface ValidationTopology {
+                getContextForAIValidation(source: string, targets: string[]): Promise<ValidationContext>;
+            }
+            const topologyInterface = this.plugin.topology as unknown as ValidationTopology;
+
+            btnAiVerify.onclick = async () => {
+                btnAiVerify.disabled = true;
+                btnAiVerify.setText('Gathering context...');
+
+                try {
+                    let isValid = false;
+
+                    if (isVerifiableBranching) {
+                        const targetPaths = (suggestion.meta?.competingValues || [])
+                            .map((v: string) => {
+                                const file = this.app.metadataCache.getFirstLinkpathDest(v, '');
+                                return file?.path || '';
+                            })
+                            .filter((p) => p !== '');
+
+                        let context: ValidationContext = {
+                            sourceContent: '',
+                            targetContents: [] as string[],
+                            existingRelations: '',
+                        };
+                        if (typeof topologyInterface.getContextForAIValidation === 'function') {
+                            context = await getContextWithTimeout(
+                                topologyInterface,
+                                suggestion.meta?.sourcePath ?? '',
+                                targetPaths,
+                            );
+                        }
+
+                        btnAiVerify.setText('Verifying with AI...');
+
+                        isValid = await this.plugin.llm.validateBranching(
+                            suggestion.meta?.sourceNote ?? '',
+                            suggestion.meta?.competingValues ?? [],
+                            context.sourceContent,
+                            context.targetContents,
+                            context.existingRelations,
+                        );
+                    } else if (isVerifiableTag) {
+                        let context: ValidationContext = {
+                            sourceContent: '',
+                            targetContents: [] as string[],
+                            existingRelations: '',
+                        };
+                        if (typeof topologyInterface.getContextForAIValidation === 'function') {
+                            context = await getContextWithTimeout(
+                                topologyInterface,
+                                suggestion.meta?.sourcePath ?? '',
+                                [suggestion.meta?.targetPath ?? ''],
+                            );
+                        }
+
+                        btnAiVerify.setText('Verifying with AI...');
+
+                        isValid = await this.plugin.llm.validateTagInheritance(
+                            suggestion.meta?.targetNote ?? '',
+                            suggestion.meta?.winner ?? '',
+                            suggestion.meta?.sourceNote ?? '',
+                            context.targetContents[0],
+                            context.sourceContent,
+                        );
+                    }
+
+                    btnAiVerify.disabled = false;
+                    btnAiVerify.setText(isValid ? 'Valid' : 'Contradict');
+
+                    setTimeout(() => {
+                        btnAiVerify.setText('AI verify');
+                    }, 4000);
+                } catch (e) {
+                    btnAiVerify.disabled = false;
+
+                    if (e instanceof Error && e.message.includes('timeout')) {
+                        new Notice('Context gathering timed out. File may be locked or too large.');
+                        btnAiVerify.setText('Timeout');
+                        setTimeout(() => btnAiVerify.setText('AI verify'), 3000);
+                    } else {
+                        btnAiVerify.setText('AI verify');
+                        HealerLogger.error('AI Verification failed', e);
+                    }
+                }
+            };
+        } else if (suggestion.type === 'incongruence') {
             const btnText = suggestion.reasoning ? 'Re-reason' : 'Check results';
             const btnReason = btnDiv.createEl('button', { text: btnText, cls: 'healer-btn-reason' });
             btnReason.onclick = () => {
@@ -261,9 +380,10 @@ export class QuarantineDashboardView extends ItemView {
 
         const btnDismiss = btnDiv.createEl('button', { text: 'Dismiss' });
         btnDismiss.onclick = () => {
-            this.plugin.settings.pendingSuggestions = this.plugin.settings.pendingSuggestions.filter(
+            this.plugin.cache.suggestions = this.plugin.cache.suggestions.filter(
                 (s: Suggestion) => s.id !== suggestion.id,
             );
+            this.plugin.cache.save();
             void (async () => {
                 await this.plugin.saveSettings();
                 this.renderList(); // PARTIAL RE-RENDER
@@ -275,9 +395,10 @@ export class QuarantineDashboardView extends ItemView {
             if (!this.plugin.settings.proximityIgnoreList.includes(suggestion.link)) {
                 this.plugin.settings.proximityIgnoreList.push(suggestion.link);
             }
-            this.plugin.settings.pendingSuggestions = this.plugin.settings.pendingSuggestions.filter(
+            this.plugin.cache.suggestions = this.plugin.cache.suggestions.filter(
                 (s: Suggestion) => s.id !== suggestion.id,
             );
+            this.plugin.cache.save();
             void (async () => {
                 await this.plugin.saveSettings();
                 this.renderList(); // PARTIAL RE-RENDER
@@ -331,20 +452,21 @@ export class QuarantineDashboardView extends ItemView {
             };
         });
 
-        const whyLink = card.createDiv({ text: 'View AI reasoning log', cls: 'healer-reasoning-link' });
+        const whyLink = card.createDiv({ text: 'View Ai reasoning log', cls: 'healer-reasoning-link' });
         whyLink.onclick = () => {
             this.showReasoningSidebar(suggestion).catch((e) => HealerLogger.error('Show sidebar failed', e));
         };
     }
 
     private renderHistory(container: HTMLElement) {
-        container.createEl('h3', { text: 'History', cls: 'healer-history-title' });
+        new Setting(container).setName('History').setHeading();
         const historyList = container.createDiv();
-        if (this.plugin.settings.history.length === 0) {
+        const history = this.plugin.cache.history;
+        if (history.length === 0) {
             historyList.createEl('p', { text: 'No actions performed yet.', cls: 'log-muted' });
             return;
         }
-        this.plugin.settings.history
+        history
             .slice(-5)
             .reverse()
             .forEach((item: HistoryItem) => {
@@ -381,6 +503,7 @@ export class QuarantineDashboardView extends ItemView {
             return;
         }
         suggestion.reasoning = result;
+        this.plugin.cache.save();
         await this.plugin.saveSettings();
         this.renderList();
         new Notice('AI reasoning complete.');
@@ -422,9 +545,12 @@ export class ReasoningView extends ItemView {
     async setSuggestion(suggestion: Suggestion) {
         await Promise.resolve();
         this.suggestion = suggestion;
-        await this.onOpen();
+        await this.refresh();
     }
     async onOpen() {
+        await this.refresh();
+    }
+    public async refresh() {
         await Promise.resolve();
         const { contentEl } = this;
         contentEl.empty();
@@ -434,14 +560,14 @@ export class ReasoningView extends ItemView {
             return;
         }
         const { reasoning, link } = this.suggestion;
-        contentEl.createEl('h3', { text: `Reasoning: ${link}` });
+        new Setting(contentEl).setName(`Reasoning: ${link}`).setHeading();
         const winnerDiv = contentEl.createDiv({ cls: 'healer-reasoning-winner' });
         winnerDiv.createEl('b', { text: 'Verdict: ' });
         winnerDiv.appendText(reasoning.winner || 'Unknown');
         winnerDiv.createSpan({ text: ` (${reasoning.winnerScore ?? 0}%)`, cls: 'healer-confidence-badge' });
         contentEl.createEl('p', { text: reasoning.winnerWhy || '' });
         contentEl.createEl('hr', { cls: 'healer-hr-subtle' });
-        contentEl.createEl('h4', { text: 'Full log' });
+        new Setting(contentEl).setName('Full log').setHeading();
         const pre = contentEl.createEl('pre', { cls: 'healer-reasoning-pre' });
         pre.setText(reasoning.rawResponse);
     }

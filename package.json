@@ -39,7 +39,6 @@
         "vitest": "^4.1.0"
     },
     "dependencies": {
-        "globals": "^17.4.0",
         "graphology": "^0.26.0",
         "graphology-communities-louvain": "^2.0.2",
         "graphology-metrics": "^2.4.0",

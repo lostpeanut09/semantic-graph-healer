@@ -1,4 +1,4 @@
-import { Plugin, TFile, moment } from 'obsidian';
+import { Plugin, TFile } from 'obsidian';
 import { SemanticGraphHealerSettings } from '../../types';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
@@ -32,6 +32,7 @@ export class HealerLogger {
         this.plugin = plugin;
         this.settings = settings;
         if (this.settings) {
+            this.maxBufferSize = this.settings.logBufferSize || 1000;
             this.fileLoggingEnabled = this.settings.enableFileLogging || false;
             this.logFilePath = this.settings.logFilePath || 'SemanticGraphHealer/logs';
         }
@@ -55,8 +56,11 @@ export class HealerLogger {
     }
 
     private formatTimestamp(): string {
-        const m = (window as any).moment;
-        if (m && typeof m === 'function') {
+        interface MomentLike {
+            (): { format(f: string): string };
+        }
+        const m = (window as unknown as { moment: MomentLike }).moment;
+        if (typeof m === 'function') {
             return m().format('YYYY-MM-DD HH:mm:ss.SSS');
         }
         // Native fallback if moment is not available (March 2026 Resilience)
@@ -64,9 +68,11 @@ export class HealerLogger {
     }
 
     private getSafeLogFileName(): string {
-        const m = (window as any).moment;
-        const dateStr =
-            m && typeof m === 'function' ? m().format('YYYY-MM-DD') : new Date().toISOString().split('T')[0];
+        interface MomentLike {
+            (): { format(f: string): string };
+        }
+        const m = (window as unknown as { moment: MomentLike }).moment;
+        const dateStr = typeof m === 'function' ? m().format('YYYY-MM-DD') : new Date().toISOString().split('T')[0];
         return `${this.logFilePath}/healer-${dateStr}.log`;
     }
 
@@ -91,9 +97,14 @@ export class HealerLogger {
                 await this.plugin.app.vault.createFolder(this.logFilePath);
             }
 
-            let file = this.plugin.app.vault.getAbstractFileByPath(fileName) as TFile;
-            if (!file) {
+            const abstractFile = this.plugin.app.vault.getAbstractFileByPath(fileName);
+            let file: TFile;
+            if (abstractFile instanceof TFile) {
+                file = abstractFile;
+            } else if (!abstractFile) {
                 file = await this.plugin.app.vault.create(fileName, '');
+            } else {
+                return; // Not a file
             }
 
             const logLine = this.formatLogLine(entry);
@@ -123,11 +134,12 @@ export class HealerLogger {
         this.addToBuffer(entry);
 
         // Console output (always, for immediate debug)
-        const consoleMethod = level === 'error' ? 'error' : level === 'warn' ? 'warn' : 'log';
-        console[consoleMethod](this.formatLogLine(entry));
+        if (level === 'error') console.error(this.formatLogLine(entry));
+        else if (level === 'warn') console.warn(this.formatLogLine(entry));
+        else console.debug(this.formatLogLine(entry));
 
         // File output (if enabled)
-        this.writeToFile(entry);
+        void this.writeToFile(entry);
     }
 
     debug(message: string, data?: unknown): void {
@@ -149,7 +161,7 @@ export class HealerLogger {
     }
 
     // Utility for log export
-    async exportLogs(): Promise<string> {
+    exportLogs(): string {
         return this.logBuffer.map((entry) => this.formatLogLine(entry)).join('\n');
     }
 
@@ -171,5 +183,3 @@ export class HealerLogger {
         return stats;
     }
 }
-
-export default HealerLogger;

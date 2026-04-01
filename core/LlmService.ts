@@ -34,15 +34,38 @@ interface LlmResponse {
  * SOTA 2026 Modular Architecture.
  */
 export class LlmService {
+    private verificationCache = new Map<string, { result: unknown; timestamp: number }>();
+    private readonly CACHE_TTL = 300000; // 5 minutes
+    private cacheCleanupInterval: ReturnType<typeof setInterval>;
+
     constructor(
         private settings: SemanticGraphHealerSettings,
-        private getApiKey: (isPrimary: boolean) => Promise<string>,
-    ) {}
+        private getKey: (type: 'openai' | 'anthropic' | 'deepseek' | 'infranodus' | 'custom') => Promise<string>,
+    ) {
+        // Run cleanup periodically
+        this.cacheCleanupInterval = setInterval(() => this.cleanupCache(), 600000);
+    }
+
+    public destroy(): void {
+        if (this.cacheCleanupInterval) {
+            clearInterval(this.cacheCleanupInterval);
+        }
+    }
+
+    private cleanupCache(): void {
+        const now = Date.now();
+        for (const [key, value] of this.verificationCache.entries()) {
+            if (now - value.timestamp > this.CACHE_TTL) {
+                this.verificationCache.delete(key);
+            }
+        }
+    }
 
     /**
      * Executes an AI query against the configured provider.
      */
-    public async callLlm(prompt: string, useTribunal: boolean = false): Promise<string> {
+    public async callLlm(prompt: string, useTribunal: boolean = false, signal?: AbortSignal): Promise<string> {
+        if (signal?.aborted) throw new Error('AbortError');
         HealerLogger.info(`AI Call initiated for model: ${this.settings.llmModelName}`);
 
         const queryModel = async (
@@ -99,6 +122,7 @@ export class LlmService {
                         status: number;
                         json: LlmResponse;
                     };
+                    if (signal?.aborted) throw new Error('AbortError');
                     if (timer) clearTimeout(timer);
                     return response;
                 } catch (e) {
@@ -158,7 +182,7 @@ export class LlmService {
             }
         };
 
-        const primaryApiKey = await this.getApiKey(true);
+        const primaryApiKey = await this.getKey('openai');
         const result = await queryModel(
             this.settings.llmEndpoint,
             primaryApiKey,
@@ -169,18 +193,26 @@ export class LlmService {
         if (!useTribunal || !this.settings.enableAiTribunal) return result;
 
         // TRIBUNAL LOGIC (SOTA 2026 Consensus Verification)
-        const secondaryApiKey = await this.getApiKey(false);
-        const secondResult = await queryModel(
-            this.settings.secondaryLlmEndpoint,
-            secondaryApiKey,
-            this.settings.secondaryLlmModelName,
-            this.settings.secondaryTimeout,
-        );
+        const secondaryApiKey = await this.getKey('anthropic');
+        let secondResult = '';
+        let secondWinner = '';
+        let consensusState = 'STABLE';
+
+        try {
+            secondResult = await queryModel(
+                this.settings.secondaryLlmEndpoint,
+                secondaryApiKey,
+                this.settings.secondaryLlmModelName,
+                this.settings.secondaryTimeout,
+            );
+            secondWinner = this.parseReasoningResult(secondResult).winner?.toLowerCase() || '';
+        } catch (e) {
+            HealerLogger.warn('AI Tribunal secondary model failed. Falling back to primary result.', e);
+            return result; // Graceful fallback
+        }
 
         const firstWinner = this.parseReasoningResult(result).winner?.toLowerCase();
-        const secondWinner = this.parseReasoningResult(secondResult).winner?.toLowerCase();
 
-        let consensusState = 'STABLE';
         if (firstWinner && secondWinner && firstWinner !== secondWinner) {
             consensusState = 'CONFLICT';
         } else if (!firstWinner || !secondWinner) {
@@ -191,7 +223,291 @@ export class LlmService {
     }
 
     /**
-     * ✅ NEW: Validation method for LLM responses
+     * ✅ NEW: Phase 3 - Semantic Tag Propagation Validation (Binary YES/NO)
+     */
+    public async validateTagInheritance(
+        childName: string,
+        tag: string,
+        parentName: string,
+        childContent?: string,
+        parentContent?: string,
+    ): Promise<boolean> {
+        if (!this.settings.llmEndpoint || !this.settings.llmModelName) return false;
+
+        const cacheKey = `tag:${childName}:${tag}:${parentName}`;
+        const cached = this.verificationCache.get(cacheKey);
+
+        if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+            HealerLogger.debug(`Tag validation cache hit: ${cacheKey}`);
+            return cached.result as boolean;
+        }
+
+        if (!childContent && !parentContent) {
+            HealerLogger.warn(
+                `Tag validation called without content context for ${childName} -> ${tag} (accuracy may be reduced)`,
+            );
+        }
+
+        const prompt = `
+[CONTEXT: Knowledge Graph Taxonomy Validation]
+
+=== PARENT CONCEPT ===
+Name: ${parentName}
+Content Preview: ${parentContent?.substring(0, 500) || 'Not provided'}
+
+=== CHILD CONCEPT ===
+Name: ${childName}
+Content Preview: ${childContent?.substring(0, 500) || 'Not provided'}
+
+=== VALIDATION TASK ===
+Tag to inherit: ${tag}
+Question: Does "${childName}" logically belong to the taxonomy "${tag}" based on the content of the notes?
+
+Respond ONLY with: YES or NO`.trim();
+
+        try {
+            const response = await this.callLlm(prompt, false);
+            const isValid = response.toUpperCase().includes('YES');
+            this.verificationCache.set(cacheKey, { result: isValid, timestamp: Date.now() });
+            return isValid;
+        } catch (e) {
+            HealerLogger.error(`Tag validation failed for ${childName} -> ${tag}`, e);
+            return false;
+        }
+    }
+
+    /**
+     * ✅ NEW: Phase 3 - Branch Sequence Validation (Binary VALID/CONTRADICTION)
+     */
+    public async validateBranching(
+        sourceName: string,
+        targetNames: string[],
+        sourceContent?: string,
+        targetContents?: string[],
+        existingRelations?: string,
+    ): Promise<boolean> {
+        if (!this.settings.llmEndpoint || !this.settings.llmModelName) return false;
+
+        const cacheKey = `branch:${sourceName}:${targetNames.join(',')}`;
+        const cached = this.verificationCache.get(cacheKey);
+
+        if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+            HealerLogger.debug(`Branch validation cache hit: ${cacheKey}`);
+            return cached.result as boolean;
+        }
+
+        const prompt = `
+[CONTEXT: Knowledge Graph Sequential Flow Validation]
+
+=== SOURCE NOTE ===
+Name: ${sourceName}
+Content Preview: ${sourceContent?.substring(0, 500) || 'Not provided'}
+
+=== POSSIBLE CONTINUATIONS ===
+${targetNames
+    .map(
+        (name, i) => `
+--- Target ${i + 1}: ${name} ---
+Content Preview: ${targetContents?.[i]?.substring(0, 300) || 'Not provided'}
+`,
+    )
+    .join('\n')}
+
+=== EXISTING RELATIONSHIPS ===
+${existingRelations || 'No existing relationships found'}
+
+=== VALIDATION TASK ===
+Question: Is it logically VALID for "${sourceName}" to have multiple sequential 
+continuations (${targetNames.join(', ')}), or is this a CONTRADICTION that breaks 
+temporal/narrative linearity?
+
+Consider:
+1. Do the target notes represent parallel topics or alternative paths?
+2. Do they break chronological/narrative flow?
+3. Is this a choose-your-own-adventure structure (valid) or an error?
+
+Respond ONLY with: VALID or CONTRADICTION
+`.trim();
+
+        try {
+            const response = await this.callLlm(prompt, false);
+            const isValid =
+                response.toUpperCase().includes('VALID') && !response.toUpperCase().includes('CONTRADICTION');
+            this.verificationCache.set(cacheKey, { result: isValid, timestamp: Date.now() });
+            return isValid;
+        } catch (e) {
+            HealerLogger.error(`Branch validation failed for ${sourceName}`, e);
+            // Default to rigorous validation (reject) on failure
+            return false;
+        }
+    }
+
+    /**
+     * ✅ NEW: Phase 3 - Validate Parent-Child Semantic Relationship
+     * Returns: { valid: boolean; reason: string }
+     */
+    public async validateParentChildRelationship(
+        parentName: string,
+        childName: string,
+        parentContent?: string,
+        childContent?: string,
+        mtimeParent: number = 0,
+        mtimeChild: number = 0,
+        signal?: AbortSignal,
+    ): Promise<{ valid: boolean; reason: string }> {
+        if (!this.settings.llmEndpoint || !this.settings.llmModelName) {
+            return { valid: true, reason: 'LLM not configured - skipping validation' };
+        }
+
+        const cacheKey = `relation:${parentName}:${childName}:${mtimeParent}:${mtimeChild}`;
+        const cached = this.verificationCache.get(cacheKey);
+
+        if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+            HealerLogger.debug(`Relation validation cache hit (Content Aware): ${cacheKey}`);
+            return cached.result as { valid: boolean; reason: string };
+        }
+
+        const prompt = `
+[CONTEXT: Knowledge Graph Parent-Child Validation]
+
+=== PARENT CONCEPT ===
+Name: ${parentName}
+Content Preview: ${parentContent?.substring(0, 500) || 'Not provided'}
+
+=== CHILD CONCEPT ===
+Name: ${childName}
+Content Preview: ${childContent?.substring(0, 500) || 'Not provided'}
+
+=== VALIDATION TASK ===
+Question: Is "${childName}" a SEMANTICALLY APPROPRIATE child/subcategory of "${parentName}"?
+
+Consider:
+1. Does the child logically belong under this parent?
+2. Is this a valid subcategory/supertype relationship?
+3. Would this confuse users navigating the hierarchy?
+
+Respond in this exact format:
+VALID: <brief explanation>
+OR
+INVALID: <brief explanation why>
+`.trim();
+
+        try {
+            const response = await this.callLlm(prompt, false);
+            const isInvalid = response.toUpperCase().includes('INVALID');
+            const isValid = response.toUpperCase().includes('VALID') && !isInvalid;
+
+            const reasonParts = response.split(':');
+            const reason = reasonParts.length > 1 ? reasonParts.slice(1).join(':').trim() : 'No explanation provided';
+
+            const result = { valid: isValid, reason };
+            this.verificationCache.set(cacheKey, {
+                result: result,
+                timestamp: Date.now(),
+            });
+
+            return result;
+        } catch (e) {
+            HealerLogger.error(`Parent-child validation failed for ${parentName} → ${childName}`, e);
+            return { valid: true, reason: 'Validation error - assuming valid' };
+        }
+    }
+
+    /**
+     * ✅ NEW: Phase 3 - BATCH Semantic Audit (Cost & Speed Optimization)
+     * Validates multiple children against a single parent in ONE LLM call.
+     */
+    public async validateRelationshipsBatch(
+        parentName: string,
+        children: Array<{ name: string; content: string; mtime: number }>,
+        parentContent: string = '',
+        mtimeParent: number = 0,
+        signal?: AbortSignal,
+    ): Promise<Record<string, { valid: boolean; reason: string }>> {
+        if (!this.settings.llmEndpoint || !this.settings.llmModelName || children.length === 0) {
+            return {};
+        }
+
+        const results: Record<string, { valid: boolean; reason: string }> = {};
+        const toCheck: typeof children = [];
+
+        // 1. Check Cache First
+        for (const child of children) {
+            const cacheKey = `relation:${parentName}:${child.name}:${mtimeParent}:${child.mtime}`;
+            const cached = this.verificationCache.get(cacheKey);
+            if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+                results[child.name] = cached.result as { valid: boolean; reason: string };
+            } else {
+                toCheck.push(child);
+            }
+        }
+
+        if (toCheck.length === 0) return results;
+
+        // 2. Perform Batch AI Call (Surgically Chunked into groups of 10 for rate-limit protection)
+        const CHUNK_SIZE = 10;
+        for (let i = 0; i < toCheck.length; i += CHUNK_SIZE) {
+            if (signal?.aborted) return results;
+
+            const chunk = toCheck.slice(i, i + CHUNK_SIZE);
+            const batchPrompt = `
+[CONTEXT: Knowledge Graph Semantic Integrity Audit]
+
+=== PARENT CONCEPT ===
+Name: ${parentName}
+Context: ${parentContent.substring(0, 1000) || 'None provided'}
+
+=== CHILDREN TO VALIDATE ===
+${chunk
+    .map(
+        (c, idx) => `
+ID: child_${idx}
+Name: ${c.name}
+Preview: ${c.content.substring(0, 500) || 'None provided'}
+`,
+    )
+    .join('\n---\n')}
+
+=== GOAL ===
+Return a JSON array of objects, one for each ID provided.
+Format: { "id": string, "valid": boolean, "reason": "Short explanation why" }
+Only return the JSON. No markdown or meta-talk.
+`;
+
+            try {
+                const response = await this.callLlm(batchPrompt, false, signal);
+                // Extract JSON array
+                const jsonMatch = response.match(/\[[\s\S]*\]/);
+                if (jsonMatch) {
+                    const parsed = JSON.parse(jsonMatch[0]) as Array<{
+                        id: string;
+                        valid: boolean;
+                        reason: string;
+                    }>;
+                    parsed.forEach((item, idx) => {
+                        const child = chunk[idx];
+                        if (child) {
+                            const res = { valid: item.valid, reason: item.reason };
+                            results[child.name] = res;
+                            // Cache result
+                            const cacheKey = `relation:${parentName}:${child.name}:${mtimeParent}:${child.mtime}`;
+                            this.verificationCache.set(cacheKey, {
+                                result: res,
+                                timestamp: Date.now(),
+                            });
+                        }
+                    });
+                }
+            } catch (e) {
+                HealerLogger.error(`Batch validation failed for chunk starting at ${i} of parent ${parentName}`, e);
+            }
+        }
+
+        return results;
+    }
+
+    /**
+     * Validation method for LLM responses
      */
     private validateLlmResponse(json: LlmResponse): boolean {
         if (!json) return false;
