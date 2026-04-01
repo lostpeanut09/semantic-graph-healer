@@ -1,3 +1,4 @@
+import { App, TFile } from 'obsidian';
 export const DASHBOARD_VIEW_TYPE = 'semantic-healer-dashboard';
 
 // --- Internal Obsidian API interfaces ---
@@ -7,20 +8,31 @@ export interface ObsidianKeychain {
 }
 
 export interface ObsidianSecretStorage {
-    getSecret(key: string): Promise<string | null>;
-    setSecret(key: string, value: string): Promise<void>;
-    deleteSecret?(key: string): Promise<void>;
-    listSecrets?(): Promise<string[]>;
+    getSecret(key: string): Promise<string | null> | (string | null);
+    setSecret(key: string, value: string): Promise<void> | void;
+    deleteSecret?(key: string): Promise<void> | void;
+    listSecrets?(): Promise<string[]> | string[];
 }
 
 export interface ObsidianInternalApp {
+    appId?: string;
     secretStorage?: ObsidianSecretStorage;
     keychain?: ObsidianKeychain;
     plugins: {
         enabledPlugins: Set<string>;
-        getPlugin(name: string): unknown;
+        getPlugin(name: string): ObsidianPlugin | null;
+        getPlugin(name: 'datacore'): { api: DatacoreApi } | null;
+        getPlugin(name: 'dataview'): { api: DataviewApi } | null;
+        getPlugin(name: 'breadcrumbs'): { api: BreadcrumbsApi } | null;
     };
 }
+
+export interface ObsidianPlugin {
+    api?: unknown;
+    [key: string]: unknown;
+}
+
+export type ExtendedApp = App & ObsidianInternalApp;
 
 // --- Dataview / Datacore API interfaces ---
 export interface DataArray<T> {
@@ -35,6 +47,21 @@ export interface DataArray<T> {
 export interface DataviewApi {
     pages(query?: string): DataArray<DataviewPage>;
     page(path: string): DataviewPage | null;
+    fileToLinktext(file: TFile, origin: string, omit?: boolean): string;
+}
+
+export interface BreadcrumbsApi {
+    mainG?: unknown; // The graphology graph
+    get_edges?(args: { source: string }): Array<{ field: string; target: string }>;
+    get_hierarchy?(path: string): {
+        up?: string[];
+        down?: string[];
+        next?: string[];
+        prev?: string[];
+        parent?: string[];
+        child?: string[];
+    };
+    getHierarchy?(path: string): Promise<HierarchyNode | null>;
 }
 
 export interface DataviewPage {
@@ -95,7 +122,16 @@ export interface MarkdownPage {
  * - 'semantic': Vector embedding matches (Smart Connections).
  * - 'hybrid': Multi-engine consensus suggestions.
  */
-export type SuggestionType = 'ai' | 'deterministic' | 'quality' | 'incongruence' | 'infra' | 'semantic' | 'hybrid';
+export type SuggestionType =
+    | 'ai'
+    | 'deterministic'
+    | 'quality'
+    | 'incongruence'
+    | 'infra'
+    | 'semantic'
+    | 'hybrid'
+    | 'topology_gap'
+    | 'semantic_inference';
 
 export interface SuggestionMeta {
     property?: string; // Logical type: 'up', 'down', 'next', 'prev', 'same'
@@ -173,7 +209,7 @@ export interface SemanticGraphHealerSettings {
     enableTagHierarchySync: boolean;
     strictDownCheck: boolean;
     scanFolder: string;
-    autoFixMundaneLinks: boolean;
+
     ignoreOrphanNotes: boolean;
     proximityIgnoreList: string[];
     fullyScannedNotes: string[]; // Added for exhausted tracking
@@ -193,8 +229,6 @@ export interface SemanticGraphHealerSettings {
         maxCount: number;
         severity: 'error' | 'suggestion' | 'info';
     }>;
-    pendingSuggestions: Suggestion[];
-    history: HistoryItem[];
     lastScanTimestamp: number;
     includeNonMarkdownHubs: boolean;
     impliedSymmetricEdges: boolean;
@@ -216,11 +250,54 @@ export interface SemanticGraphHealerSettings {
     allowPrevBranching: boolean; // Phase 3: AI Inference
     requireAIBranchValidation: boolean; // Phase 3: AI Inference
     requireAITagValidation: boolean; // Phase 3: AI Inference
+    tagPropagationThreshold?: number;
+    tagPropagationExclusions?: string[];
+    enableSemanticAudit: boolean; // Phase 3: AI Semantic Validation
     // Phase 1: Logging & Performance
     logLevel: 'debug' | 'info' | 'warn' | 'error';
     enableFileLogging: boolean;
     logFilePath: string;
     enableHighMemoryMode: boolean;
+    enableDeepTopology: boolean;
+    allowMultipleParents: boolean;
+    enableVastBridgeScrutiny: boolean;
+    bridgeScrutinyMaxDepth: number; // Max chain length A→B→C for bridge gap detection (default: 1 = only direct gaps)
+    linkPredictionWeights: {
+        jaccard: number; // Default 0.35 — breadth of shared neighborhood
+        adamicAdar: number; // Default 0.35 — quality/depth, penalizes large hubs logarithmically
+        resourceAllocation: number; // Default 0.30 — hub-aware, linear penalty (better for MOC-heavy vaults)
+    };
+    cloudModelFallbacks: string[];
+    logBufferSize: number; // Circular buffer size
+    workerTimeout: number; // Seconds for analytical workers
+
+    // Encrypted Keys (Sync-Resilient)
+    openaiLlmApiKeyEncrypted?: string;
+    anthropicLlmApiKeyEncrypted?: string;
+    deepseekLlmApiKeyEncrypted?: string;
+    infranodusLlmApiKeyEncrypted?: string;
+    customLlmApiKeyEncrypted?: string;
+}
+
+export type SettingsPreset = 'balanced' | 'privacy' | 'ai-maximal' | 'performance';
+
+export interface SettingsProfile {
+    name: string;
+    preset: SettingsPreset;
+    settings: Partial<SemanticGraphHealerSettings>;
+}
+
+export interface RelatedNote {
+    path: string;
+    score: number;
+    link: string;
+}
+
+export interface HierarchyNode {
+    parents: string[];
+    children: string[];
+    next: string[];
+    prev: string[];
 }
 
 export const DEFAULT_SETTINGS: SemanticGraphHealerSettings = {
@@ -248,7 +325,6 @@ export const DEFAULT_SETTINGS: SemanticGraphHealerSettings = {
     enableTagHierarchySync: true,
     strictDownCheck: true,
     scanFolder: '',
-    autoFixMundaneLinks: false,
     ignoreOrphanNotes: false,
     proximityIgnoreList: [],
     fullyScannedNotes: [],
@@ -265,8 +341,6 @@ export const DEFAULT_SETTINGS: SemanticGraphHealerSettings = {
         },
     ],
     customTopologyRules: [],
-    pendingSuggestions: [],
-    history: [],
     lastScanTimestamp: 0,
     includeNonMarkdownHubs: false,
     impliedSymmetricEdges: true,
@@ -288,9 +362,24 @@ export const DEFAULT_SETTINGS: SemanticGraphHealerSettings = {
     allowPrevBranching: false,
     requireAIBranchValidation: false,
     requireAITagValidation: true,
+    tagPropagationThreshold: 0.5,
+    tagPropagationExclusions: ['MOC', 'Index', 'Dashboard'],
+    enableSemanticAudit: false,
     // Phase 1 Defaults
     logLevel: 'info',
     enableFileLogging: false,
     logFilePath: 'SemanticGraphHealer/logs',
     enableHighMemoryMode: false,
+    enableDeepTopology: false,
+    allowMultipleParents: false,
+    enableVastBridgeScrutiny: false,
+    bridgeScrutinyMaxDepth: 1,
+    linkPredictionWeights: {
+        jaccard: 0.35,
+        adamicAdar: 0.35,
+        resourceAllocation: 0.3,
+    },
+    cloudModelFallbacks: ['gpt-4o', 'claude-3-5-sonnet-latest', 'gemini-1.5-pro', 'deepseek-chat'],
+    logBufferSize: 1000,
+    workerTimeout: 120,
 };

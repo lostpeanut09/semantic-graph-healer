@@ -5,10 +5,17 @@ import { ObsidianInternalApp } from '../types';
  * HealerLogger: Centralized logging for SOTA compliance.
  * Redesigned for Phase 1 as a bridge to the instance-based logger.
  */
-export class HealerLogger {
-    private static instance: any = null;
+interface HealerLoggerInstance {
+    info(message: string, ...args: unknown[]): void;
+    warn(message: string, ...args: unknown[]): void;
+    error(message: string, ...args: unknown[]): void;
+    debug(message: string, ...args: unknown[]): void;
+}
 
-    public static setInstance(instance: any) {
+export class HealerLogger {
+    private static instance: HealerLoggerInstance | null = null;
+
+    public static setInstance(instance: HealerLoggerInstance) {
         HealerLogger.instance = instance;
     }
 
@@ -16,7 +23,7 @@ export class HealerLogger {
         if (HealerLogger.instance) {
             HealerLogger.instance.info(message, ...args);
         } else {
-            console.info(`[SemanticHealer][INFO] ${message}`, ...args);
+            console.debug(`[SemanticHealer][INFO] ${message}`, ...args);
         }
     }
 
@@ -51,10 +58,9 @@ export class HealerLogger {
 export function isObsidianInternalApp(app: App): app is App & ObsidianInternalApp {
     const internal = app as unknown as ObsidianInternalApp;
     return !!(
-        internal &&
         internal.plugins &&
-        typeof internal.plugins.getPlugin === 'function' &&
-        'enabledPlugins' in internal.plugins
+        typeof internal.plugins.enabledPlugins !== 'undefined' &&
+        typeof internal.plugins.getPlugin === 'function'
     );
 }
 
@@ -221,9 +227,6 @@ export function resolveLinkpathsToPaths(
     return [...seen];
 }
 
-/**
- * Convenience: directly go from page+keys -> resolved TFile.path targets.
- */
 export function extractResolvedPaths(
     app: App,
     page: Record<string, unknown>,
@@ -401,11 +404,52 @@ export function safeGet<T extends Record<string, unknown>, K extends keyof T>(
 }
 
 /**
- * ✅ NEW: Non-null assertion with descriptive error.
+ * ✅ NEW: Type guard for Promises / Thenables.
  */
-export function ensure<T>(value: T | null | undefined, message: string): T {
-    if (value === null || value === undefined) {
-        throw new Error(message);
+export function isThenable<T>(val: unknown): val is Promise<T> {
+    return (
+        val !== null &&
+        (typeof val === 'object' || typeof val === 'function') &&
+        typeof (val as Record<string, unknown>).then === 'function'
+    );
+}
+
+/**
+ * ✅ NEW: Safe stringification for template literals.
+ */
+export function safeString(val: unknown): string {
+    if (val === null || val === undefined) return 'none';
+    if (typeof val === 'string') return val;
+    if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+    if (typeof val === 'object' && 'path' in (val as Record<string, unknown>)) {
+        return (val as { path: string }).path;
     }
-    return value;
+    return JSON.stringify(val);
+}
+
+/**
+ * ✅ Gold Master Fix: Luxon-Aware Timestamp Normalizer
+ * Converts potential Luxon DateTime objects, Date objects, or numbers into Unix Milliseconds.
+ * Essential for 2026 metadata providers (Dataview/Datacore).
+ */
+export function normalizeTimestamp(val: unknown): number {
+    if (typeof val === 'number') return val;
+    if (!val) return Date.now();
+
+    // Luxon Detection (Dataview/Datacore standard 2026)
+    if (
+        val &&
+        typeof val === 'object' &&
+        'toMillis' in val &&
+        typeof (val as { toMillis: unknown }).toMillis === 'function'
+    ) {
+        return (val as { toMillis: () => number }).toMillis();
+    }
+
+    // Native JS Date
+    if (val instanceof Date) return val.getTime();
+
+    // Fallback: Attempt parsing
+    const parsed = Number(val);
+    return isNaN(parsed) ? Date.now() : parsed;
 }

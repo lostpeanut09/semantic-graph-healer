@@ -16,10 +16,17 @@ export class SuggestionExecutor {
         return new Promise((resolve) => {
             this.queue = this.queue.then(async () => {
                 try {
-                    const result = await this.innerExecute(suggestion);
+                    // IMPLEMENTATION: Safety timeout (10s) to prevent HoL blocking
+                    let timerId: ReturnType<typeof setTimeout> | undefined;
+                    const timeout = new Promise<boolean>((_, reject) => {
+                        timerId = setTimeout(() => reject(new Error('Execution Timeout')), 10000);
+                    });
+
+                    const result = await Promise.race([this.innerExecute(suggestion), timeout]);
+                    clearTimeout(timerId); // FIX: Spegni il timer non appena l'operazione ha successo
                     resolve(result);
                 } catch (e) {
-                    HealerLogger.error('Queued execution failed', e);
+                    HealerLogger.error('Queued execution failed or timed out', e);
                     resolve(false);
                 }
             });
@@ -48,20 +55,34 @@ export class SuggestionExecutor {
                         : sourcePath;
 
                 await this.plugin.app.fileManager.processFrontMatter(targetFile, (fm: Record<string, unknown>) => {
-                    const existing = fm[prop];
-                    const newLink = `[[${sourceName}]]`;
+                    let existing = fm[prop];
+                    const isTag = prop === 'tags';
+                    const newValue = isTag && suggestion.meta?.winner ? suggestion.meta.winner : `[[${sourceName}]]`;
 
-                    if (Array.isArray(existing)) {
-                        if (!existing.some((e: string) => String(e).includes(sourceName))) {
-                            existing.push(newLink);
+                    if (isTag) {
+                        // Normalize tag array
+                        if (typeof existing === 'string') {
+                            existing = [existing];
+                        } else if (!Array.isArray(existing)) {
+                            existing = [];
                         }
-                    } else if (existing) {
-                        const existingStr = JSON.stringify(existing);
-                        if (!existingStr.includes(sourceName)) {
-                            fm[prop] = [existing, newLink];
+                        if (!(existing as string[]).includes(newValue)) {
+                            fm[prop] = [...(existing as string[]), newValue];
                         }
                     } else {
-                        fm[prop] = newLink;
+                        // Standard link logic
+                        if (Array.isArray(existing)) {
+                            if (!existing.some((e: string) => String(e).includes(sourceName))) {
+                                existing.push(newValue);
+                            }
+                        } else if (existing) {
+                            const existingStr = JSON.stringify(existing);
+                            if (!existingStr.includes(sourceName)) {
+                                fm[prop] = [existing, newValue];
+                            }
+                        } else {
+                            fm[prop] = newValue;
+                        }
                     }
                 });
                 new Notice(`Fixed ${targetFile.basename}`);
@@ -81,10 +102,16 @@ export class SuggestionExecutor {
         return new Promise((resolve) => {
             this.queue = this.queue.then(async () => {
                 try {
-                    const result = await this.innerResolveChoice(suggestion, winner, losers);
+                    let timerId: ReturnType<typeof setTimeout> | undefined;
+                    const timeout = new Promise<boolean>((_, reject) => {
+                        timerId = setTimeout(() => reject(new Error('Resolution Timeout')), 10000);
+                    });
+
+                    const result = await Promise.race([this.innerResolveChoice(suggestion, winner, losers), timeout]);
+                    clearTimeout(timerId);
                     resolve(result);
                 } catch (e) {
-                    HealerLogger.error('Queued resolution failed', e);
+                    HealerLogger.error('Queued resolution failed or timed out', e);
                     resolve(false);
                 }
             });
@@ -136,10 +163,16 @@ export class SuggestionExecutor {
         return new Promise((resolve) => {
             this.queue = this.queue.then(async () => {
                 try {
-                    const result = await this.innerExecuteRelink(suggestion);
+                    let timerId: ReturnType<typeof setTimeout> | undefined;
+                    const timeout = new Promise<boolean>((_, reject) => {
+                        timerId = setTimeout(() => reject(new Error('Relink Timeout')), 10000);
+                    });
+
+                    const result = await Promise.race([this.innerExecuteRelink(suggestion), timeout]);
+                    clearTimeout(timerId);
                     resolve(result);
                 } catch (e) {
-                    HealerLogger.error('Queued relink failed', e);
+                    HealerLogger.error('Queued relink failed or timed out', e);
                     resolve(false);
                 }
             });
@@ -201,20 +234,14 @@ export class SuggestionExecutor {
     }
 
     private async finalizeSuggestion(suggestion: Suggestion, targetPath: string, customAction?: string) {
-        this.plugin.settings.pendingSuggestions = this.plugin.settings.pendingSuggestions.filter(
-            (s) => s.id !== suggestion.id,
-        );
+        this.plugin.cache.suggestions = this.plugin.cache.suggestions.filter((s) => s.id !== suggestion.id);
 
-        this.plugin.settings.history.push({
+        this.plugin.cache.pushHistory({
             action: customAction || `Resolved: ${suggestion.source.substring(0, 50)}`,
             file: targetPath,
             timestamp: Date.now(),
             type: 'fix',
         });
-
-        if (this.plugin.settings.history.length > 100) {
-            this.plugin.settings.history = this.plugin.settings.history.slice(-100);
-        }
 
         // BUG FIX (Bug 4): Await to prevent race conditions during rapid batches
         await this.plugin.saveSettings();

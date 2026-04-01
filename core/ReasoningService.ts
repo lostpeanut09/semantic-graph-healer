@@ -27,12 +27,23 @@ export class ReasoningService {
      * Returns the ReasoningResult if successful, null otherwise.
      */
     async analyze(suggestion: Suggestion): Promise<ReasoningResult | null> {
-        const noteName = suggestion.meta?.targetNote;
+        // RESILIENT METADATA EXTRACTION (SOTA 2026)
+        // For incongruences, targetNote might be missing, use sourceNote as subject.
+        const noteName =
+            suggestion.meta?.targetNote ||
+            suggestion.meta?.sourceNote ||
+            (suggestion.meta?.sourcePath ? suggestion.meta.sourcePath.split('/').pop()?.replace('.md', '') : null);
+
         const prop = suggestion.meta?.property;
         const values = suggestion.meta?.competingValues ?? suggestion.meta?.losers;
 
         if (!noteName || !prop || !values?.length) {
-            HealerLogger.warn('Cannot reason: missing structured metadata on suggestion.', suggestion.id);
+            HealerLogger.warn('Cannot reason: missing structured metadata on suggestion.', {
+                id: suggestion.id,
+                noteName,
+                prop,
+                valuesCount: values?.length,
+            });
             return null;
         }
 

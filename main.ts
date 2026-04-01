@@ -4,29 +4,32 @@ import {
     SemanticGraphHealerSettings,
     DEFAULT_SETTINGS,
     Suggestion,
+    HistoryItem,
     SuggestionType,
     InfraGap,
+    ExtendedApp,
 } from './types';
 import {
     formatRagPrompt,
-    isObsidianInternalApp,
     generateId,
     sleep,
+    isThenable,
+    isObsidianInternalApp,
     HealerLogger as LegacyLogger,
 } from './core/HealerUtils';
+import { HealerLogger as InstanceLogger } from './core/utils/HealerLogger';
+import { KeychainService } from './core/services/KeychainService';
+import { GraphWorkerService } from './core/services/GraphWorkerService';
 import { TopologyAnalyzer } from './core/TopologyAnalyzer';
 import { QualityAnalyzer } from './core/QualityAnalyzer';
 import { LlmService } from './core/LlmService';
-import { VaultDataAdapter } from './core/DataAdapter';
+import { UnifiedMetadataAdapter } from './core/adapters/UnifiedMetadataAdapter';
 import { SuggestionExecutor } from './core/SuggestionExecutor';
 import { ReasoningService } from './core/ReasoningService';
 import { QuarantineDashboardView, ReasoningView, REASONING_VIEW_TYPE } from './DashboardView';
 import { SemanticHealerSettingTab } from './SettingsTab';
-
-// Phase 1 Imports
-import { HealerLogger } from './src/utils/HealerLogger';
-import { KeychainService } from './src/services/KeychainService';
-import { GraphWorkerService } from './src/services/GraphWorkerService';
+import { CacheService } from './core/CacheService';
+import { SemanticTagPropagator } from './core/SemanticTagPropagator';
 
 export default class SemanticGraphHealer extends Plugin {
     settings: SemanticGraphHealerSettings;
@@ -34,36 +37,46 @@ export default class SemanticGraphHealer extends Plugin {
     public topology: TopologyAnalyzer;
     public quality: QualityAnalyzer;
     public llm: LlmService;
-    public engine: VaultDataAdapter;
+    public engine: UnifiedMetadataAdapter;
     public executor: SuggestionExecutor;
     public reasoner: ReasoningService;
+    public tagPropagator: SemanticTagPropagator;
 
     // Phase 1 Services
-    public logger: HealerLogger;
+    public logger: InstanceLogger;
     public keychainService: KeychainService;
     public graphWorkerService: GraphWorkerService;
+    public cache: CacheService;
 
     private isAnalyzing = false;
     private analysisDebounce = new Map<string, ReturnType<typeof setTimeout>>();
+    private currentAnalysisController: AbortController | null = null;
 
     async onload() {
+        this.cache = new CacheService(this);
         await this.loadSettings();
 
         // 1. Initialize Infrastructure & Services
-        this.logger = new HealerLogger('SemanticGraphHealer', this, this.settings);
+        this.logger = new InstanceLogger('SemanticGraphHealer', this, this.settings);
         LegacyLogger.setInstance(this.logger);
-        this.logger.info('🚀 Semantic Graph Healer Phase 1 loading...');
+        this.logger.info('Semantic Graph Healer Phase 4 loading...');
 
-        this.keychainService = new KeychainService(this, this.logger);
-        this.graphWorkerService = new GraphWorkerService(this.logger);
+        this.keychainService = new KeychainService(this);
+        this.graphWorkerService = new GraphWorkerService(this.logger, this);
         await this.graphWorkerService.initialize();
 
-        this.engine = new VaultDataAdapter(this.app);
+        this.engine = new UnifiedMetadataAdapter(this.app as ExtendedApp);
         this.executor = new SuggestionExecutor(this);
-        this.llm = new LlmService(this.settings, (primary) => this.getApiKey(primary));
-        this.topology = new TopologyAnalyzer(this.app, this.settings, this.engine);
-        this.quality = new QualityAnalyzer(this.app, this.settings, this.engine);
-        this.reasoner = new ReasoningService(this.app, this.settings, this.llm, this.engine.getDataviewApi());
+        this.llm = new LlmService(this.settings, (type) => this.getApiKey(type));
+        this.topology = new TopologyAnalyzer(this.app as ExtendedApp, this.settings, this.engine, this.llm);
+        this.quality = new QualityAnalyzer(this.app as ExtendedApp, this.settings, this.engine);
+        this.reasoner = new ReasoningService(
+            this.app as ExtendedApp,
+            this.settings,
+            this.llm,
+            this.engine.getDataviewApi(),
+        );
+        this.tagPropagator = new SemanticTagPropagator(this.app as ExtendedApp, this.settings, this.engine, this.llm);
 
         // 2. Setup Security & Identity
         await this.initializeSecurity();
@@ -82,7 +95,7 @@ export default class SemanticGraphHealer extends Plugin {
         });
 
         this.addSettingTab(new SemanticHealerSettingTab(this.app, this));
-        this.logger.info('✅ Semantic Graph Healer Phase 1 ready');
+        this.logger.info('Semantic Graph Healer Phase 4 ready');
     }
 
     /**
@@ -95,17 +108,27 @@ export default class SemanticGraphHealer extends Plugin {
             await this.loadSettings();
 
             // 1. Hot Reload Infrastructure
-            this.engine = new VaultDataAdapter(this.app);
+            if (this.engine) {
+                this.engine.destroy();
+            }
+            this.engine = new UnifiedMetadataAdapter(this.app as ExtendedApp);
 
             // 2. Hot Reload Logic Services
-            this.llm = new LlmService(this.settings, (primary) => this.getApiKey(primary));
-            this.topology = new TopologyAnalyzer(this.app, this.settings, this.engine);
-            this.quality = new QualityAnalyzer(this.app, this.settings, this.engine);
-            this.reasoner = new ReasoningService(this.app, this.settings, this.llm, this.engine.getDataviewApi());
+            this.llm = new LlmService(this.settings, (type) => this.getApiKey(type));
+            this.quality = new QualityAnalyzer(this.app as ExtendedApp, this.settings, this.engine);
+            this.topology = new TopologyAnalyzer(this.app as ExtendedApp, this.settings, this.engine, this.llm);
+
+            // 4. Hot Reload Worker Service (P2 Fix)
+            if (this.graphWorkerService) {
+                await this.graphWorkerService.destroy();
+            }
+            this.graphWorkerService = new GraphWorkerService(this.logger, this);
+            await this.graphWorkerService.initialize();
 
             // 3. Hot Reload Executor (needs plugin reference)
             this.executor = new SuggestionExecutor(this);
 
+            new Notice('Settings synchronized successfully.');
             this.logger.info('Hot reload complete. UI refresh triggered.');
             void this.refreshDashboard().catch((e) => this.logger.error('Sync Refresh failed', e));
         } catch (e) {
@@ -198,15 +221,16 @@ export default class SemanticGraphHealer extends Plugin {
         if (this.isAnalyzing) return;
         this.isAnalyzing = true;
         try {
-            const bridgeIssues = await this.topology.runBridgeScrutiny();
+            const bridgeIssues = await this.topology.runBridgeScrutiny(file);
             if (bridgeIssues.length > 0) {
                 // FIX: Deduplication using Stable ID (ID deterministico strutturale)
                 const newIssues = bridgeIssues.filter(
-                    (bi: Suggestion) => !this.settings.pendingSuggestions.some((ps: Suggestion) => ps.id === bi.id),
+                    (bi: Suggestion) => !this.cache.suggestions.some((ps: Suggestion) => ps.id === bi.id),
                 );
 
                 if (newIssues.length > 0) {
-                    this.settings.pendingSuggestions.push(...newIssues);
+                    this.cache.suggestions.push(...newIssues);
+                    this.cache.save();
                     new Notice(`Structural gap detected for ${file.basename}!`);
                     await this.saveSettings();
                     void this.refreshDashboard();
@@ -220,8 +244,9 @@ export default class SemanticGraphHealer extends Plugin {
     }
 
     private async initializeSecurity() {
-        // ✅ 2026-era Cloud Safety Net (Used only if detection is never run)
-        const cloudFallbacks = ['gpt-5.4-pro', 'claude-opus-4.6', 'gemini-3.1-pro', 'deepseek-v3'];
+        // Cloud Safety Net (Used only if detection is never run)
+        // Cloud Safety Net (SOTA 2026 standard models)
+        const cloudFallbacks = this.settings.cloudModelFallbacks;
 
         let settingsChanged = false;
         // Option B Logic: Only populate if completely empty (first run)
@@ -234,9 +259,9 @@ export default class SemanticGraphHealer extends Plugin {
             settingsChanged = true;
         }
 
-        const app = this.app as any;
+        const app = this.app as ExtendedApp;
         if (app.secretStorage || app.keychain) {
-            this.logger.debug('Obsidian Secure Storage detected. Verifying and migrating API keys...');
+            this.logger.debug('Obsidian secure storage detected. Verifying and migrating API keys...');
 
             // 1. Migrate Primary Key
             if (this.settings.llmApiKey && this.settings.llmApiKey !== 'sk-local') {
@@ -245,16 +270,29 @@ export default class SemanticGraphHealer extends Plugin {
                 settingsChanged = true;
             }
             // Fallback for previous manual naming 'semantic-healer-primary'
-            const legacyKey = await (app.secretStorage
-                ? app.secretStorage.getSecret('semantic-healer-primary')
-                : app.keychain
-                  ? app.keychain.get('semantic-healer-primary')
-                  : null);
+            const keychain = app.keychain;
+            const secretStorage = app.secretStorage;
+
+            let legacyKey: string | null = null;
+
+            if (secretStorage) {
+                const res = secretStorage.getSecret('semantic-healer-primary');
+                legacyKey = await Promise.resolve(res);
+            } else if (keychain) {
+                const res = keychain.get('semantic-healer-primary');
+                legacyKey = await Promise.resolve(res);
+            }
+
             if (legacyKey) {
                 await this.keychainService.setApiKey('openai', legacyKey);
                 // Clean up legacy key
-                if (app.secretStorage) await app.secretStorage.setSecret('semantic-healer-primary', '');
-                else if (app.keychain) await app.keychain.set('semantic-healer-primary', '');
+                if (secretStorage) {
+                    const res = secretStorage.setSecret('semantic-healer-primary', '');
+                    if (isThenable(res)) await res;
+                } else if (keychain) {
+                    const res = keychain.set('semantic-healer-primary', '');
+                    if (isThenable(res)) await res;
+                }
             }
 
             // 2. Migrate Secondary Key
@@ -308,26 +346,6 @@ export default class SemanticGraphHealer extends Plugin {
             },
         });
 
-        this.addCommand({
-            id: 'auto-fix-all-mundane',
-            name: 'Auto-fix safe links',
-            callback: async () => {
-                const safeOnes = this.settings.pendingSuggestions.filter(
-                    (s) => s.type === 'deterministic' && s.meta?.property,
-                );
-                if (safeOnes.length === 0) {
-                    new Notice('No safe reciprocal fixes pending.');
-                    return;
-                }
-                let fixed = 0;
-                for (const s of safeOnes) {
-                    const success = await this.executor.execute(s);
-                    if (success) fixed++;
-                }
-                new Notice(`Auto-fixed ${fixed} safe links.`);
-            },
-        });
-
         // SOTA 2026: CLI-optimized command for automation
         this.addCommand({
             id: 'analyze-silent',
@@ -373,7 +391,8 @@ export default class SemanticGraphHealer extends Plugin {
                             this.settings.smartConnectionsLimit,
                         );
                         if (scSuggestions.length > 0) {
-                            this.settings.pendingSuggestions.push(...scSuggestions);
+                            this.cache.suggestions.push(...scSuggestions);
+                            this.cache.save();
                         }
                     }
 
@@ -385,7 +404,7 @@ export default class SemanticGraphHealer extends Plugin {
                             const link = match[0];
                             const targetName = match[1];
                             if (!this.settings.proximityIgnoreList.includes(link)) {
-                                this.settings.pendingSuggestions.push({
+                                this.cache.suggestions.push({
                                     id: generateId('ai'),
                                     type: 'ai',
                                     link: link,
@@ -403,6 +422,7 @@ export default class SemanticGraphHealer extends Plugin {
                             }
                         }
                         if (foundAny) {
+                            this.cache.save();
                             await this.saveSettings();
                             new Notice('New links suggested.');
                             void this.refreshDashboard();
@@ -430,7 +450,8 @@ export default class SemanticGraphHealer extends Plugin {
                     // 2. Sibling suggestions (vault-wide, filtered to active file)
                     const allSiblings = this.topology.deriveTagSiblings();
                     const relevantSiblings = allSiblings.filter(
-                        (s) => s.meta?.sourceNote === activeFile.basename || s.meta?.targetNote === activeFile.basename,
+                        (s: Suggestion) =>
+                            s.meta?.sourceNote === activeFile.basename || s.meta?.targetNote === activeFile.basename,
                     );
 
                     const combined = [...parentSuggestions, ...relevantSiblings];
@@ -438,10 +459,11 @@ export default class SemanticGraphHealer extends Plugin {
                     if (combined.length > 0) {
                         // Deduplicate against existing
                         const newOnes = combined.filter(
-                            (s) => !this.settings.pendingSuggestions.some((p) => p.id === s.id),
+                            (s: Suggestion) => !this.cache.suggestions.some((p: Suggestion) => p.id === s.id),
                         );
                         if (newOnes.length > 0) {
-                            this.settings.pendingSuggestions.push(...newOnes);
+                            this.cache.suggestions.push(...newOnes);
+                            this.cache.save();
                             await this.saveSettings();
                             void this.refreshDashboard();
                             new Notice(`Derived ${newOnes.length} mapping(s).`);
@@ -464,10 +486,14 @@ export default class SemanticGraphHealer extends Plugin {
                 const recentPaths = this.app.workspace.getLastOpenFiles();
 
                 // Filter to only valid markdown files
-                const recentFiles = recentPaths
-                    .map((p) => this.app.vault.getAbstractFileByPath(p))
+                const recentFilesArr = recentPaths
+                    .map((p: string) => this.app.vault.getAbstractFileByPath(p))
                     .filter((f): f is TFile => f instanceof TFile && f.extension === 'md')
                     .slice(0, 10); // Cap at 10 for safety
+
+                // BUG FIX: getLastOpenFiles returns reverse chronological order (Recents first).
+                // Reversing ensures links like 1 -> 2 -> 3 are created sequentially.
+                const recentFiles = [...recentFilesArr].reverse();
 
                 if (recentFiles.length < 2) {
                     new Notice('Need at least 2 recently opened notes.');
@@ -492,13 +518,13 @@ export default class SemanticGraphHealer extends Plugin {
                     const stableId = `lasso_down:${parentNote.path}:${child.path}`;
 
                     // Check if relationship already exists
-                    if (this.settings.pendingSuggestions.some((s) => s.id === stableId)) continue;
+                    if (this.cache.suggestions.some((s: Suggestion) => s.id === stableId)) continue;
 
-                    this.settings.pendingSuggestions.push({
+                    this.cache.suggestions.push({
                         id: stableId,
                         type: 'deterministic',
                         link: `[[${child.basename}]]`,
-                        source: `Lasso Hierarchy: [[${parentNote.basename}]] proposed as parent of [[${child.basename}]] (based on recent activity).`,
+                        source: `Lasso Hierarchy: [[${parentNote.basename}]] proposed as parent of [[${child.basename}]].`,
                         timestamp: Date.now(),
                         category: 'suggestion',
                         meta: {
@@ -511,7 +537,26 @@ export default class SemanticGraphHealer extends Plugin {
                             description: `Parent-child from lasso selection`,
                         },
                     });
-                    suggestions++;
+
+                    // FIX #7: Bi-directional Lasso (UP)
+                    this.cache.suggestions.push({
+                        id: `lasso_up:${child.path}:${parentNote.path}`,
+                        type: 'deterministic',
+                        link: `[[${parentNote.basename}]]`,
+                        source: `Lasso Hierarchy: [[${child.basename}]] child of [[${parentNote.basename}]].`,
+                        timestamp: Date.now(),
+                        category: 'suggestion',
+                        meta: {
+                            property: 'up',
+                            propertyKey: hierarchy.up[0] || 'up',
+                            sourcePath: child.path,
+                            targetPath: parentNote.path,
+                            sourceNote: child.basename,
+                            targetNote: parentNote.basename,
+                            description: `Child-parent from lasso selection`,
+                        },
+                    });
+                    suggestions += 2;
                 }
 
                 // 2. Suggest sequential (next/prev) chain among children
@@ -520,13 +565,13 @@ export default class SemanticGraphHealer extends Plugin {
                     const next = childNotes[i + 1];
 
                     const stableId = `lasso_seq:${current.path}:${next.path}`;
-                    if (this.settings.pendingSuggestions.some((s) => s.id === stableId)) continue;
+                    if (this.cache.suggestions.some((s: Suggestion) => s.id === stableId)) continue;
 
-                    this.settings.pendingSuggestions.push({
+                    this.cache.suggestions.push({
                         id: stableId,
                         type: 'deterministic',
-                        link: `[[${current.basename}]] → [[${next.basename}]]`,
-                        source: `Lasso Sequence: [[${current.basename}]] → [[${next.basename}]] based on opening order.`,
+                        link: `[[${current.basename}]] â†’ [[${next.basename}]]`,
+                        source: `Lasso Sequence: [[${current.basename}]] â†’ [[${next.basename}]] based on opening order.`,
                         timestamp: Date.now(),
                         category: 'suggestion',
                         meta: {
@@ -539,10 +584,30 @@ export default class SemanticGraphHealer extends Plugin {
                             description: `Sequential link from lasso order`,
                         },
                     });
-                    suggestions++;
+
+                    // FIX #6: Bi-directional Lasso (PREV)
+                    this.cache.suggestions.push({
+                        id: `lasso_prev:${next.path}:${current.path}`,
+                        type: 'deterministic',
+                        link: `[[${next.basename}]] â†  [[${current.basename}]]`,
+                        source: `Lasso Sequence: [[${next.basename}]] â†  [[${current.basename}]] based on opening order.`,
+                        timestamp: Date.now(),
+                        category: 'suggestion',
+                        meta: {
+                            property: 'prev',
+                            propertyKey: hierarchy.prev[0] || 'prev',
+                            sourcePath: next.path,
+                            targetPath: current.path,
+                            sourceNote: next.basename,
+                            targetNote: current.basename,
+                            description: `Sequential back-link from lasso order`,
+                        },
+                    });
+                    suggestions += 2;
                 }
 
                 if (suggestions > 0) {
+                    this.cache.save();
                     await this.saveSettings();
                     void this.refreshDashboard();
                     new Notice(`Lasso: ${suggestions} relationships proposed. Review in dashboard.`);
@@ -573,7 +638,7 @@ export default class SemanticGraphHealer extends Plugin {
         const leaves = this.app.workspace.getLeavesOfType(DASHBOARD_VIEW_TYPE);
         for (const leaf of leaves) {
             if (leaf.view instanceof QuarantineDashboardView) {
-                await leaf.view.onOpen();
+                await leaf.view.refresh();
             }
         }
     }
@@ -593,8 +658,8 @@ export default class SemanticGraphHealer extends Plugin {
         // --- SMART PRUNING (v3.3.8) ---
         // We keep AI suggestions and Manual Bridge Gaps
         // but REPLACE all other topological issues with the fresh audit.
-        const persistentTypes: SuggestionType[] = ['ai', 'infra', 'semantic', 'hybrid'];
-        const persistentSuggestions = this.settings.pendingSuggestions.filter((suggestion) => {
+        const persistentTypes: SuggestionType[] = ['ai', 'infra', 'hybrid'];
+        const persistentSuggestions = this.cache.suggestions.filter((suggestion: Suggestion) => {
             return persistentTypes.includes(suggestion.type);
         });
         return [...persistentSuggestions, ...newIssues];
@@ -603,31 +668,50 @@ export default class SemanticGraphHealer extends Plugin {
     public async analyzeGraph(silent = false) {
         if (this.isAnalyzing) {
             if (!silent) new Notice('Analysis already in progress...');
-            return;
+            return Promise.resolve();
         }
+
+        // ABORT PREVIOUS SCAN
+        if (this.currentAnalysisController) {
+            this.currentAnalysisController.abort();
+        }
+        this.currentAnalysisController = new AbortController();
+
         this.isAnalyzing = true;
         this.logger.info('Analyzing graph (Smart Scrutiny)...');
 
         try {
-            const deterministicIssues = this.topology.runDeterministicAnalysis();
+            const deterministicIssues = await this.topology.runDeterministicAnalysis();
             await sleep(10);
 
-            const cycleIssues = this.topology.runCycleAnalysis();
+            const cycleIssues = await this.topology.runCycleAnalysis();
             await sleep(10);
 
-            const sinkIssues = this.topology.runFlowStagnationAnalysis();
+            const sinkIssues = await this.topology.runFlowStagnationAnalysis();
             await sleep(10);
 
             const qualityIssues = await this.quality.runQualityAnalysis();
             await sleep(10);
 
-            const incongruenceIssues = this.topology.runIncongruenceAnalysis();
+            const incongruenceIssues = await this.topology.runIncongruenceAnalysis();
             await sleep(10);
+
+            // ABORT CHECK
+            if (this.currentAnalysisController?.signal.aborted) return;
+
+            // NEW: Semantic Audit (Hardened 2026 Batching)
+            let semanticIssues: Suggestion[] = [];
+            if (this.settings.enableSemanticAudit) {
+                semanticIssues = await this.topology.runSemanticChildValidation(this.currentAnalysisController?.signal);
+                await sleep(10);
+            }
 
             // NEW: Tag Sibling Detection (integrated into global scan)
             let tagSiblings: Suggestion[] = [];
             if (this.settings.enableTagHierarchySync) {
                 tagSiblings = this.topology.deriveTagSiblings();
+                const tagPropagations = this.tagPropagator.runTagPropagationAnalysis();
+                tagSiblings.push(...tagPropagations);
                 await sleep(10);
             }
 
@@ -642,10 +726,12 @@ export default class SemanticGraphHealer extends Plugin {
                 ...sinkIssues,
                 ...qualityIssues,
                 ...incongruenceIssues,
-                ...tagSiblings, // ← NEW
+                ...tagSiblings,
+                ...semanticIssues, // â†  NEW
                 ...advancedSuggestions,
             ];
-            this.settings.pendingSuggestions = this.pruneStaleSuggestions(newTopologicalIssues);
+            this.cache.suggestions = this.pruneStaleSuggestions(newTopologicalIssues);
+            this.cache.save();
 
             if (newTopologicalIssues.length > 0) {
                 new Notice(`Scrutiny complete: ${newTopologicalIssues.length} issues detected.`);
@@ -656,7 +742,7 @@ export default class SemanticGraphHealer extends Plugin {
             this.refreshDashboard().catch((err) => this.logger.error('Refresh failed', err));
             await this.activateDashboard();
 
-            this.settings.history.push({
+            this.cache.pushHistory({
                 action: `Full scan: ${newTopologicalIssues.length} issues`,
                 file: 'Vault',
                 timestamp: Date.now(),
@@ -675,19 +761,24 @@ export default class SemanticGraphHealer extends Plugin {
         this.logger.info('Loading Advanced Graph Engine...');
         try {
             const { GraphEngine } = await import('./core/GraphEngine');
-            const engine = new GraphEngine(this.app, this.settings);
+            const engine = new GraphEngine(this);
 
             engine.buildGraph();
             await sleep(10);
 
             const suggestions: Suggestion[] = [];
-            suggestions.push(...engine.runPageRankAnalysis());
+            suggestions.push(...(await engine.runPageRankAnalysis()));
             await sleep(10);
 
-            suggestions.push(...engine.runCommunityDetection());
+            suggestions.push(...(await engine.runCommunityDetection()));
             await sleep(10);
 
-            suggestions.push(...engine.runBetweennessAnalysis());
+            suggestions.push(...(await engine.runBetweennessAnalysis()));
+            await sleep(10);
+
+            // Co-Citation Analysis: 2nd-order backlinks (Small 1973 + SkepticMystic algorithm)
+            // Uses Obsidian's resolvedLinks directly â€” works at any vault size.
+            suggestions.push(...engine.runCoCitationAnalysis());
 
             return suggestions;
         } catch (e) {
@@ -697,21 +788,8 @@ export default class SemanticGraphHealer extends Plugin {
         }
     }
 
-    async getApiKey(isPrimary: boolean): Promise<string> {
-        // Use KeychainService (Centralized logic for SecretStorage/Keychain/Settings)
-        const type = isPrimary ? 'openai' : 'anthropic';
-        const key = await this.keychainService.getApiKey(type as any);
-        if (key) return key;
-
-        // Fallback to settings (only for legacy dev mode or pre-keychain versions)
-        return isPrimary ? this.settings.llmApiKey : this.settings.secondaryLlmApiKey;
-    }
-
-    async getInfraNodusApiKey(): Promise<string> {
-        const key = await this.keychainService.getApiKey('infranodus');
-        if (key) return key;
-
-        return this.settings.infraNodusApiKey;
+    public async getApiKey(type: 'openai' | 'anthropic' | 'deepseek' | 'infranodus' | 'custom'): Promise<string> {
+        return (await this.keychainService.getApiKey(type)) || 'sk-local';
     }
 
     async fetchInfraNodusGaps(): Promise<number> {
@@ -721,7 +799,7 @@ export default class SemanticGraphHealer extends Plugin {
             return 0;
         }
 
-        const apiKey = await this.getInfraNodusApiKey();
+        const apiKey = await this.getApiKey('infranodus');
         if (!apiKey || apiKey === '') {
             this.logger.error('InfraNodus API Key missing.');
             return -1;
@@ -731,7 +809,7 @@ export default class SemanticGraphHealer extends Plugin {
             this.logger.info(`Querying InfraNodus for structural gaps in ${activeFile.basename}...`);
             const content = await this.app.vault.read(activeFile);
 
-            // ✅ FIX: URL updated to current v1 API
+            // FIX: URL updated to current v1 API
             const response = await requestUrl({
                 url: 'https://infranodus.com/api/v1/graphAndStatements',
                 method: 'POST',
@@ -751,7 +829,7 @@ export default class SemanticGraphHealer extends Plugin {
                 return -1;
             }
 
-            // ✅ FIX: v1 response nests gaps inside graph.graphologyGraph.attributes.gaps
+            // FIX: v1 response nests gaps inside graph.graphologyGraph.attributes.gaps
             const data = response.json as {
                 gaps?: InfraGap[];
                 graph?: {
@@ -779,7 +857,7 @@ export default class SemanticGraphHealer extends Plugin {
                           ? gap.bridging_text
                           : `Missing conceptual bridge between '${termA}' and '${termB}'.`;
 
-                this.settings.pendingSuggestions.push({
+                this.cache.suggestions.push({
                     id: generateId('infra'),
                     type: 'infra',
                     link: `[[Bridge: ${termA} & ${termB}]]`,
@@ -787,6 +865,7 @@ export default class SemanticGraphHealer extends Plugin {
                     timestamp: Date.now(),
                     category: 'suggestion',
                 });
+                this.cache.save();
                 newCount++;
             }
 
@@ -801,68 +880,22 @@ export default class SemanticGraphHealer extends Plugin {
         }
     }
 
-    onunload() {
-        this.analysisDebounce.forEach((timer) => clearTimeout(timer));
-        this.analysisDebounce.clear();
-
-        // Phase 1 Cleanup
-        if (this.graphWorkerService) {
-            void this.graphWorkerService.destroy();
-        }
-        if (this.logger) {
-            this.logger.clearBuffer();
-        }
-
-        this.logger.info('Unloading Semantic Graph Healer');
-    }
-
     async loadSettings() {
         const loadedData = (await this.loadData()) as Partial<SemanticGraphHealerSettings>;
         const baseSettings = Object.assign({}, DEFAULT_SETTINGS, loadedData) as SemanticGraphHealerSettings;
 
         // --- MIGRATION: Ensure all hierarchies have all keys (related, next, prev) ---
         if (baseSettings.hierarchies && Array.isArray(baseSettings.hierarchies)) {
-            baseSettings.hierarchies = baseSettings.hierarchies.map((h) => ({
+            baseSettings.hierarchies = (baseSettings.hierarchies as Record<string, unknown>[]).map((h) => ({
                 ...DEFAULT_SETTINGS.hierarchies[0],
                 ...h,
             }));
         }
 
-        // --- MIGRATION: Ensure all suggestions have a type field ---
-        interface LegacySuggestion {
-            id?: string;
-            type?: SuggestionType;
-            [key: string]: unknown;
-        }
-
-        if (baseSettings.pendingSuggestions && Array.isArray(baseSettings.pendingSuggestions)) {
-            baseSettings.pendingSuggestions = (baseSettings.pendingSuggestions as unknown as LegacySuggestion[]).map(
-                (s) => {
-                    let type: SuggestionType = s.type || 'ai';
-                    const id = s.id || '';
-                    if (
-                        id.startsWith('orphan:') ||
-                        id.startsWith('dangling:') ||
-                        id.startsWith('moc_sat:') ||
-                        id.startsWith('quality:') ||
-                        id.startsWith('asymmetry:') ||
-                        id.startsWith('bridge_gap:') ||
-                        id.startsWith('tag_sync:')
-                    ) {
-                        type = 'deterministic';
-                    } else if (id.startsWith('incongruence:')) {
-                        type = 'incongruence';
-                    } else if (id.startsWith('infra:')) {
-                        type = 'infra';
-                    } else if (id.startsWith('sc_match:')) {
-                        type = 'semantic';
-                    } else if (id.startsWith('suggest:') || id.startsWith('smart_')) {
-                        type = 'ai';
-                    }
-                    return { ...s, type } as unknown as Suggestion;
-                },
-            );
-        }
+        // --- CACHE LOAD & MIGRATION ---
+        await this.cache.load(
+            baseSettings as unknown as { pendingSuggestions?: Suggestion[]; history?: HistoryItem[] },
+        );
 
         // --- ZOD VALIDATION ---
         try {
@@ -884,9 +917,9 @@ export default class SemanticGraphHealer extends Plugin {
             this.settings = baseSettings;
         }
 
-        // ✅ FIX: Ensures that there is always at least one valid hierarchy
+        // FIX: Ensures that there is always at least one valid hierarchy
         if (!this.settings.hierarchies || this.settings.hierarchies.length === 0) {
-            this.logger.warn('No valid hierarchy found after load — restoring defaults.');
+            this.logger.warn('No valid hierarchy found after load â€” restoring defaults.');
             this.settings.hierarchies = [...DEFAULT_SETTINGS.hierarchies];
         }
     }
@@ -896,7 +929,7 @@ export default class SemanticGraphHealer extends Plugin {
     }
 
     /**
-     * 🔄 SCAN EXTERNAL TOPOLOGIES (Breadcrumbs, ExcaliBrain)
+     * ðŸ”„ SCAN EXTERNAL TOPOLOGIES (Breadcrumbs, ExcaliBrain)
      * Hardened 2026 Sync: supports V4 edge_fields and Related links.
      */
     async syncExternalSettings(): Promise<boolean> {
@@ -909,13 +942,13 @@ export default class SemanticGraphHealer extends Plugin {
                 return false;
             }
 
-            // ✅ HELPER: Safe array validation
+            // HELPER: Safe array validation
             const safeArray = (val: unknown): string[] => {
                 if (!Array.isArray(val)) return [];
                 return val.filter((item): item is string => typeof item === 'string' && item.trim() !== '');
             };
 
-            // ✅ HELPER: Track new properties for notification
+            // HELPER: Track new properties for notification
             const newProps: string[] = [];
 
             // 1. BREADCRUMBS (V3 & V4)
@@ -992,7 +1025,7 @@ export default class SemanticGraphHealer extends Plugin {
                         found = true;
                     }
 
-                    // ✅ NEW: Support ExcaliBrain property mapping for next/prev/related
+                    // NEW: Support ExcaliBrain property mapping for next/prev/related
                     const ebPropertyMap = ebData?.propertyMapping;
                     if (ebPropertyMap) {
                         for (const [prop, direction] of Object.entries(ebPropertyMap)) {
@@ -1011,7 +1044,7 @@ export default class SemanticGraphHealer extends Plugin {
 
             if (found) {
                 await this.saveSettings();
-                // ✅ Notify user
+                // Notify user
                 if (newProps.length > 0) {
                     new Notice(`Imported ${newProps.length} new hierarchy properties from external plugins.`);
                 } else {
@@ -1023,6 +1056,38 @@ export default class SemanticGraphHealer extends Plugin {
         } catch (e) {
             this.logger.error('External Sync failed', e);
             return false;
+        }
+    }
+
+    onunload() {
+        this.logger.info('Semantic Graph Healer unloading...');
+
+        // âœ… Gold Master Refinement: Clear pending analysis timers
+        this.analysisDebounce.forEach((timer) => clearTimeout(timer));
+        this.analysisDebounce.clear();
+
+        if (this.graphWorkerService) {
+            void this.graphWorkerService.destroy();
+        }
+
+        // 1.5. Destroy Metadata Engine (Caches & Events)
+        if (this.engine) {
+            this.engine.destroy();
+        }
+
+        // 1.7. Shutdown AI Services (Interval cleanup)
+        if (this.llm) {
+            this.llm.destroy();
+        }
+
+        // 2. Ensure cache is flushed
+        if (this.cache) {
+            void this.cache.destroy();
+        }
+
+        // 3. Clear logger buffer to free memory (SOTA 2026 Audit Fix)
+        if (this.logger) {
+            this.logger.clearBuffer();
         }
     }
 }

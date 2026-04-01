@@ -62,12 +62,12 @@
 }
 
 .healer-category-error {
-    background-color: rgb(255 0 0 / 5%);
+    background-color: var(--background-modifier-error);
     border-color: var(--text-error);
 }
 
 .healer-category-suggestion {
-    background-color: rgb(0 200 100 / 5%);
+    background-color: var(--background-modifier-success);
 }
 
 .healer-category-info {
@@ -130,7 +130,7 @@
 
 .healer-btn-reason {
     background-color: var(--interactive-success);
-    color: white;
+    color: var(--text-on-accent);
 }
 
 .healer-card-title {
@@ -185,7 +185,7 @@
 .healer-ai-suggestion-box {
     margin-top: 8px;
     padding: 6px;
-    background-color: rgb(0 200 100 / 5%);
+    background-color: var(--background-modifier-success);
     border-left: 3px solid var(--text-success);
 }
 
@@ -286,7 +286,7 @@
     display: block;
     margin: 0 auto 30px;
     border-radius: 8px;
-    box-shadow: 0 4px 12px rgb(0 0 0 / 30%);
+    box-shadow: var(--shadow-s);
 }
 
 .healer-category-header {
@@ -369,8 +369,8 @@
 }
 
 .healer-warning-banner {
-    background-color: rgb(255 170 0 / 10%);
-    border-left: 4px solid #fa0;
+    background-color: var(--background-secondary-alt);
+    border-left: 4px solid var(--text-warning);
     color: var(--text-normal);
     padding: 10px 15px;
     margin: 10px 0;
@@ -395,10 +395,12 @@
         opacity: 0.4;
         transform: scale(0.98);
     }
+
     50% {
         opacity: 1;
         transform: scale(1);
     }
+
     100% {
         opacity: 0.4;
         transform: scale(0.98);

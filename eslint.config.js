@@ -30,6 +30,9 @@ export default defineConfig([
                 cancelAnimationFrame: 'readonly',
                 fetch: 'readonly',
                 self: 'readonly',
+                crypto: 'readonly',
+                btoa: 'readonly',
+                atob: 'readonly',
                 // Node Globals (needed for config files/tools)
                 process: 'readonly',
                 __dirname: 'readonly',

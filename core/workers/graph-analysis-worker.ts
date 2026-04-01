@@ -7,18 +7,18 @@ import betweennessCentrality from 'graphology-metrics/centrality/betweenness';
 type WorkerMessage = {
     type: 'PAGERANK' | 'COMMUNITY' | 'BETWEENNESS' | 'FULL_ANALYSIS';
     payload: {
-        nodes: Array<{ key: string; attributes: any }>;
-        edges: Array<{ source: string; target: string; attributes: any }>;
+        nodes: Array<{ key: string; attributes: Record<string, unknown> }>;
+        edges: Array<{ source: string; target: string; attributes: Record<string, unknown> }>;
         requestId: string;
     };
-    options?: any;
+    options?: Record<string, unknown>;
 };
 
 type WorkerResponse = {
     type: 'RESULT' | 'ERROR' | 'PROGRESS';
     payload: {
         requestId: string;
-        data?: any;
+        data?: unknown;
         message?: string;
     };
 };
@@ -43,19 +43,20 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
             }
         });
 
-        let result: any;
+        type MetricFunction = (g: DirectedGraph, o?: Record<string, unknown>) => unknown;
+        let result: unknown;
 
         switch (type) {
             case 'PAGERANK':
-                result = pagerank(graph, options);
+                result = (pagerank as MetricFunction)(graph, options);
                 break;
 
             case 'COMMUNITY':
-                result = louvain(graph, options);
+                result = (louvain as MetricFunction)(graph, options);
                 break;
 
             case 'BETWEENNESS':
-                result = betweennessCentrality(graph, options);
+                result = (betweennessCentrality as MetricFunction)(graph, options);
                 break;
 
             case 'FULL_ANALYSIS':
