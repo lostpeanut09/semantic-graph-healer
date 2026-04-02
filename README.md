@@ -21,6 +21,17 @@ The plugin implements a production-grade **Hybrid Query Engine** that automatica
 
 A critical adapter layer (`mapMarkdownToDataview`) transparently maps Datacore's schema to the legacy Dataview format, ensuring zero-disruption migration.
 
+### Multi-Adapter Architecture (v2.0)
+
+The plugin implements a modular adapter pattern (`IMetadataAdapter`) for seamless integration with the broader Obsidian ecosystem:
+
+- **`DatacoreAdapter`** — High-performance reactive queries via the Datacore API.
+- **`BreadcrumbsAdapter`** — Reads hierarchical relationships (up/down/next/prev) from the Breadcrumbs V4 plugin.
+- **`SmartConnectionsAdapter`** — Fetches AI vector-similarity scores from Smart Connections v4+ with `.ajson` fallback.
+- **`UnifiedMetadataAdapter`** — Orchestrates all adapters into a single, consistent API surface.
+
+All adapters use type-safe access patterns (`ExtendedApp` interface) and are fully compliant with strict ESLint rules (zero warnings).
+
 ### Deep Graph Analysis (Graphology)
 
 When enabled, the engine builds a full in-memory graph using [Graphology](https://graphology.github.io/) and runs academic-grade algorithms:
@@ -30,6 +41,33 @@ When enabled, the engine builds a full in-memory graph using [Graphology](https:
 - **Betweenness Centrality** — Finds critical bridge notes connecting disparate topics. Includes a safety guard that skips analysis for vaults exceeding 2,500 nodes to prevent UI freezes.
 
 The `GraphEngine` is lazy-loaded via dynamic `import()` to minimize initial plugin load time.
+
+#### Web Worker Offloading (v2.0)
+
+On desktop, all heavy graph computations (PageRank, Louvain, Betweenness) are offloaded to a dedicated **Web Worker** thread via `GraphWorkerService`. This prevents UI freezes during analysis of large vaults. On mobile (iOS/Android), the worker is automatically disabled to avoid Capacitor crashes, and analysis falls back to the main thread with adaptive batch sizes.
+
+### Deterministic Link Prediction Engine (v2.0)
+
+The `LinkPredictionEngine` implements a scientifically-grounded three-way blend of link prediction indices to discover **"Missing Rings"** — note pairs with high shared-neighbor overlap that are not yet directly connected:
+
+| Algorithm | Weight | Reference |
+| :--- | :--- | :--- |
+| **Jaccard Similarity** | 0.35 | Liben-Nowell & Kleinberg, 2004 |
+| **Adamic-Adar Index** | 0.35 | Adamic & Adar, 2003 |
+| **Resource Allocation** | 0.30 | Lü & Zhou, 2010 |
+
+All weights are user-configurable and auto-normalized to sum to 1. A **Temporal Decay** multiplier (λ=0.005, half-life ≈139 days) prioritizes notes created or modified around the same time, reflecting human memory and context coherence.
+
+**Co-Citation Analysis**: The engine also detects notes that are frequently cited together in the same source ("2nd-order backlinks"), surfacing latent semantic relationships invisible to direct link analysis.
+
+### StructuralCache — Performance Layer (v2.0)
+
+A generic LRU (Least Recently Used) caching layer sits between the query engine and the analysis modules. It features:
+
+- **Event-based invalidation** — Cache entries are automatically purged when files are modified, renamed, or deleted.
+- **Configurable TTL** — Default 5-minute expiry prevents stale data without excessive recomputation.
+- **Memory budget** — Hard cap of 10,000 entries with LRU eviction to prevent memory bloat on mobile devices.
+- **Explicit lifecycle management** — `destroy()` unregisters all event listeners to prevent memory leaks.
 
 ### AI Tribunal and Epistemic Stability
 
@@ -81,9 +119,15 @@ Integration with the [InfraNodus](https://infranodus.com) API enables the detect
 
 The engine performs deterministic alignment of Map of Content (MOC) structures by analyzing Dataview-powered tag hierarchies. It automatically recognizes fields from Breadcrumbs and ExcaliBrain to maintain cross-plugin consistency, proposing hierarchical links that mirror your existing taxonomy without requiring AI inference.
 
-### Secure Credential Management
+### Secure Credential Management (v2.0 Hardened)
 
-API credentials for all providers are managed via the native **Obsidian Keychain API**. Secrets are never stored in plain text within the plugin configuration files, ensuring vault security across synchronized devices.
+API credentials for all providers are managed via the **KeychainService** with defense-in-depth encryption:
+
+1. **Obsidian SecretStorage** (v1.11.4+) — Primary backend using the OS-native credential store.
+2. **Legacy Keychain** — Backward-compatible fallback for older Obsidian versions.
+3. **AES-256-GCM Software Encryption** — When no native secure storage is available, secrets are encrypted at rest using a derived master key via `CryptoUtils`. Initialization vectors are unique per credential.
+
+Secrets are **never stored in plain text** within `data.json` or any plugin configuration file.
 
 ### Sync-Safe Settings (Hot Reload)
 
