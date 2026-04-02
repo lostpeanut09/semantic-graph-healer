@@ -72,12 +72,17 @@ export class SuggestionExecutor {
                     } else {
                         // Standard link logic
                         if (Array.isArray(existing)) {
-                            if (!existing.some((e: string) => String(e).includes(sourceName))) {
-                                existing.push(newValue);
-                            }
+                            // ✅ FIX BUG 3: Normalizzazione esatta (evita che "Note" matchi con "[[Programming Note]]")
+                            const normalizeLink = (s: unknown) =>
+                                typeof s === 'string' ? s.replace(/[[\]]/g, '').split('|')[0].trim() : '';
+                            const cleanSourceName = normalizeLink(sourceName);
+                            const hasMatch = existing.some((e: unknown) => normalizeLink(e) === cleanSourceName);
+                            if (!hasMatch) existing.push(newValue);
                         } else if (existing) {
-                            const existingStr = JSON.stringify(existing);
-                            if (!existingStr.includes(sourceName)) {
+                            const normalizeLink = (s: unknown) =>
+                                typeof s === 'string' ? s.replace(/[[\]]/g, '').split('|')[0].trim() : '';
+                            const cleanSourceName = normalizeLink(sourceName);
+                            if (normalizeLink(existing) !== cleanSourceName) {
                                 fm[prop] = [existing, newValue];
                             }
                         } else {
@@ -133,11 +138,13 @@ export class SuggestionExecutor {
             await this.plugin.app.fileManager.processFrontMatter(targetFile, (fm: Record<string, unknown>) => {
                 const existing = fm[prop];
                 if (Array.isArray(existing)) {
-                    fm[prop] = existing.filter((val: string) => {
-                        const valStr = String(val).replace(/\[|\]/g, '').trim().split('|')[0];
-                        // BUG FIX (Bug 3): Exact match after normalization
+                    fm[prop] = (existing as string[]).filter((val: unknown) => {
+                        const normalizeLink = (s: unknown) =>
+                            typeof s === 'string' ? s.replace(/[[\]]/g, '').trim().split('|')[0].trim() : '';
+                        const valStr = normalizeLink(val);
+                        // ✅ FIX BUG 3 (Diamond Master): Exact match after normalization
                         return !losers.some((l) => {
-                            const lStr = String(l).replace(/\[|\]/g, '').trim().split('|')[0];
+                            const lStr = normalizeLink(l);
                             return lStr === valStr;
                         });
                     });
