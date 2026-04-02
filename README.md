@@ -21,7 +21,7 @@ The plugin implements a production-grade **Hybrid Query Engine** that automatica
 
 A critical adapter layer (`mapMarkdownToDataview`) transparently maps Datacore's schema to the legacy Dataview format, ensuring zero-disruption migration.
 
-### Multi-Adapter Architecture (v2.0)
+### Multi-Adapter Architecture 
 
 The plugin implements a modular adapter pattern (`IMetadataAdapter`) for seamless integration with the broader Obsidian ecosystem:
 
@@ -42,11 +42,11 @@ When enabled, the engine builds a full in-memory graph using [Graphology](https:
 
 The `GraphEngine` is lazy-loaded via dynamic `import()` to minimize initial plugin load time.
 
-#### Web Worker Offloading (v2.0)
+#### Web Worker Offloading 
 
 On desktop, all heavy graph computations (PageRank, Louvain, Betweenness) are offloaded to a dedicated **Web Worker** thread via `GraphWorkerService`. This prevents UI freezes during analysis of large vaults. On mobile (iOS/Android), the worker is automatically disabled to avoid Capacitor crashes, and analysis falls back to the main thread with adaptive batch sizes.
 
-### Deterministic Link Prediction Engine (v2.0)
+### Deterministic Link Prediction Engine
 
 The `LinkPredictionEngine` implements a scientifically-grounded three-way blend of link prediction indices to discover **"Missing Rings"** — note pairs with high shared-neighbor overlap that are not yet directly connected:
 
@@ -60,7 +60,7 @@ All weights are user-configurable and auto-normalized to sum to 1. A **Temporal 
 
 **Co-Citation Analysis**: The engine also detects notes that are frequently cited together in the same source ("2nd-order backlinks"), surfacing latent semantic relationships invisible to direct link analysis.
 
-### StructuralCache — Performance Layer (v2.0)
+### StructuralCache — Performance Layer 
 
 A generic LRU (Least Recently Used) caching layer sits between the query engine and the analysis modules. It features:
 
@@ -119,7 +119,7 @@ Integration with the [InfraNodus](https://infranodus.com) API enables the detect
 
 The engine performs deterministic alignment of Map of Content (MOC) structures by analyzing Dataview-powered tag hierarchies. It automatically recognizes fields from Breadcrumbs and ExcaliBrain to maintain cross-plugin consistency, proposing hierarchical links that mirror your existing taxonomy without requiring AI inference.
 
-### Secure Credential Management (v2.0 Hardened)
+### Secure Credential Management 
 
 API credentials for all providers are managed via the **KeychainService** with defense-in-depth encryption:
 
@@ -139,7 +139,7 @@ A dedicated `Run silent graph analysis (CLI)` command enables headless execution
 
 ---
 
-## Experimental Phase 3 (AI Inference)
+## Experimental AI
 
 A new suite of features currently in development leveraging local LLMs (Ollama, LM Studio) to provide profound semantic validation:
 - **Semantic Tag Propagation:** Let the AI analyze parent clusters (MOCs) and suggest pushing relevant tags down to child notes based on content synergy.
