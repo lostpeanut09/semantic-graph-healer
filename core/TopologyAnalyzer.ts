@@ -149,6 +149,7 @@ export class TopologyAnalyzer {
                             // Severity mapping based on strict check
                             const severity =
                                 this.settings.strictDownCheck && relType === 'down' ? 'error' : 'suggestion';
+                            const targetBasename = pathB.split('/').pop()?.replace('.md', '') || pathB;
                             suggestions.push({
                                 id: `missing_reciprocity:${pathA}:${relType}:${pathB}`,
                                 type: 'topology_gap',
@@ -156,6 +157,15 @@ export class TopologyAnalyzer {
                                 source: `${pathToWikilink(this.app, pathA, pathA)} defines ${pathToWikilink(this.app, pathB, pathB)} as '${relType}', but ${pathToWikilink(this.app, pathB, pathB)} does not have a back-reference.`,
                                 timestamp: Date.now(),
                                 category: severity,
+                                // ✅ FIX BUG 1: Aggiunto meta object per l'Executor
+                                meta: {
+                                    property: invRelType,
+                                    propertyKey: (hierarchy as Record<string, string[]>)[invRelType]?.[0] || invRelType,
+                                    sourcePath: pathA, // Cosa scrivere (A)
+                                    targetPath: pathB, // Dove scriverlo (B)
+                                    sourceNote: pageA.file.basename,
+                                    targetNote: targetBasename,
+                                },
                             });
                         }
                     }
@@ -167,6 +177,7 @@ export class TopologyAnalyzer {
                         const targetInvType = relType === 'next' ? 'prev' : 'next';
                         const bTargetsBack = relMaps[targetInvType].get(pathB) || new Set();
                         if (!bTargetsBack.has(pathA)) {
+                            const targetBasename = pathB.split('/').pop()?.replace('.md', '') || pathB;
                             suggestions.push({
                                 id: `missing_directional_reciprocity:${pathA}:${relType}:${pathB}`,
                                 type: 'topology_gap',
@@ -174,6 +185,15 @@ export class TopologyAnalyzer {
                                 source: `${pathToWikilink(this.app, pathA, pathA)} defines ${pathToWikilink(this.app, pathB, pathB)} as '${relType}', but ${pathToWikilink(this.app, pathB, pathB)} is missing the corresponding '${targetInvType}' back-link.`,
                                 timestamp: Date.now(),
                                 category: 'suggestion',
+                                // ✅ FIX BUG 1: Aggiunto meta object per l'Executor
+                                meta: {
+                                    property: targetInvType,
+                                    propertyKey: (hierarchy as Record<string, string[]>)[targetInvType]?.[0] || targetInvType,
+                                    sourcePath: pathA, // Cosa scrivere (A)
+                                    targetPath: pathB, // Dove scriverlo (B)
+                                    sourceNote: pageA.file.basename,
+                                    targetNote: targetBasename,
+                                },
                             });
                         }
                     }
@@ -532,27 +552,47 @@ export class TopologyAnalyzer {
                     const pathA = paths[i];
                     const pathB = paths[j];
 
-                    const stableId = `tag_sibling:${parentPrefix}:${[pathA, pathB].sort().join('|')}`;
+                    const stableIdA = `tag_sibling:${parentPrefix}:${pathA}->${pathB}`;
+                    const stableIdB = `tag_sibling:${parentPrefix}:${pathB}->${pathA}`;
 
                     const fileA = this.app.vault.getAbstractFileByPath(pathA);
                     const fileB = this.app.vault.getAbstractFileByPath(pathB);
                     if (!(fileA instanceof TFile) || !(fileB instanceof TFile)) continue;
 
+                    // ✅ FIX BUG 2: Suggestion 1 (Scrive in A puntando a B)
                     suggestions.push({
-                        id: stableId,
+                        id: stableIdA,
                         type: 'deterministic',
-                        link: `${pathToWikilink(this.app, pathA, pathB)} â†’ ${pathToWikilink(this.app, pathB, pathA)}`,
+                        link: `${pathToWikilink(this.app, pathA, pathA)} (add ${fileB.basename})`,
                         source: `Tag siblings: both share parent tag #${parentPrefix}. Consider linking as 'same'.`,
                         timestamp: Date.now(),
                         category: 'suggestion',
                         meta: {
                             property: 'same',
                             propertyKey: hierarchy.same[0] || 'same',
-                            sourcePath: pathA,
-                            targetPath: pathB,
+                            sourcePath: pathB, // Cosa scrivere (B)
+                            targetPath: pathA, // Dove scriverlo (A)
+                            sourceNote: fileB.basename,
+                            targetNote: fileA.basename,
+                            confidence: priority,
+                        },
+                    });
+
+                    // ✅ FIX BUG 2: Suggestion 2 (Scrive in B puntando ad A)
+                    suggestions.push({
+                        id: stableIdB,
+                        type: 'deterministic',
+                        link: `${pathToWikilink(this.app, pathB, pathB)} (add ${fileA.basename})`,
+                        source: `Tag siblings: both share parent tag #${parentPrefix}. Consider linking as 'same'.`,
+                        timestamp: Date.now(),
+                        category: 'suggestion',
+                        meta: {
+                            property: 'same',
+                            propertyKey: hierarchy.same[0] || 'same',
+                            sourcePath: pathA, // Cosa scrivere (A)
+                            targetPath: pathB, // Dove scriverlo (B)
                             sourceNote: fileA.basename,
                             targetNote: fileB.basename,
-                            description: `Sibling relationship via shared tag prefix #${parentPrefix}`,
                             confidence: priority,
                         },
                     });
@@ -748,8 +788,11 @@ export class TopologyAnalyzer {
             }
         };
 
+        // ✅ FIX BUG 4: Controllo cicli anche su percorsi inversi
         performCycleCheck(hierarchy.up || [], 'hierarchy');
+        performCycleCheck(hierarchy.down || [], 'hierarchy_down');
         performCycleCheck(hierarchy.next || [], 'sequence');
+        performCycleCheck(hierarchy.prev || [], 'sequence_prev');
         return suggestions;
     }
 
