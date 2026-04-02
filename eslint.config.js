@@ -100,6 +100,7 @@ export default defineConfig([
             'eslint.config.js',
             'eslint.config.mjs',
             'node_modules/',
+            '.kilo/',
             '**/*.test.ts',
             '**/*.bak',
         ],

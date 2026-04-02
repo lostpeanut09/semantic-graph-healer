@@ -1,4 +1,5 @@
 import { App, TFile } from 'obsidian';
+import type { MultiGraph } from 'graphology';
 export const DASHBOARD_VIEW_TYPE = 'semantic-healer-dashboard';
 
 // --- Internal Obsidian API interfaces ---
@@ -50,18 +51,32 @@ export interface DataviewApi {
     fileToLinktext(file: TFile, origin: string, omit?: boolean): string;
 }
 
+export type BCDirection = 'up' | 'same' | 'down' | 'next' | 'prev';
+
 export interface BreadcrumbsApi {
-    mainG?: unknown; // The graphology graph
-    get_edges?(args: { source: string }): Array<{ field: string; target: string }>;
-    get_hierarchy?(path: string): {
-        up?: string[];
-        down?: string[];
-        next?: string[];
-        prev?: string[];
-        parent?: string[];
-        child?: string[];
-    };
-    getHierarchy?(path: string): Promise<HierarchyNode | null>;
+    DIRECTIONS: readonly BCDirection[];
+    mainG: MultiGraph | null;
+    closedG: MultiGraph | null;
+
+    getMatrixNeighbours(
+        node: string,
+        dirs: readonly BCDirection[],
+    ): Record<BCDirection, unknown> | null;
+
+    getSubInDirs(dirs: readonly BCDirection[], graph?: MultiGraph): MultiGraph;
+    getSubForFields(fields: string[], graph?: MultiGraph): MultiGraph;
+    refreshIndex(): void;
+    dfsAllPaths(start?: string, graph?: MultiGraph): string[][];
+    getFieldInfo(field: string): { dir: BCDirection; fieldName: string } | null;
+    getFields(dir?: BCDirection): string[];
+    getOppDir(dir: BCDirection): BCDirection;
+    getOppFields(field: string): string[];
+    iterateHiers(callback: (hier: unknown, dir: BCDirection, field: string) => void): void;
+
+    // Optional V4 properties
+    ARROW_DIRECTIONS?: Record<BCDirection, string>;
+    buildObsGraph?(): void;
+    createIndex?(): void;
 }
 
 export interface DataviewPage {
@@ -296,6 +311,7 @@ export interface RelatedNote {
 export interface HierarchyNode {
     parents: string[];
     children: string[];
+    siblings: string[]; // relations "same"
     next: string[];
     prev: string[];
 }
