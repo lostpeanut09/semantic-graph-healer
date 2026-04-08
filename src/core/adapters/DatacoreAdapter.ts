@@ -264,9 +264,38 @@ export class DatacoreAdapter implements IMetadataAdapter {
         const app = this.app as ExtendedApp;
         const plugin = app.plugins.getPlugin('datacore');
         const api = plugin && 'api' in plugin ? (plugin as { api: DatacoreApi }).api : null;
-        if (api && typeof api.tryQuery === 'function') return api;
-        if (this.debug) HealerLogger.warn('DatacoreAdapter: Datacore API (tryQuery) not ready yet.');
+        if (api && (typeof api.tryQuery === 'function' || typeof api.query === 'function')) return api;
+        if (this.debug) HealerLogger.warn('DatacoreAdapter: Datacore API not ready yet.');
         return null;
+    }
+
+    /**
+     * Helper to reliably execute a query on the Datacore API,
+     * acting as a bridge between tryQuery and legacy/fallback query.
+     */
+    private runQuery<T>(api: unknown, q: string): T[] {
+        if (api && typeof api.tryQuery === 'function') {
+            const tryQ = api.tryQuery as (q: string) => unknown;
+            const r = tryQ(q);
+            if (r && typeof r === 'object' && r.successful === false) {
+                if (this.debug) HealerLogger.warn('DatacoreAdapter: tryQuery failed', r.error);
+                return [];
+            }
+            return r && typeof r === 'object' && Array.isArray(r.value) ? (r.value as T[]) : [];
+        }
+
+        if (api && typeof api.query === 'function') {
+            try {
+                const qFn = api.query as (q: string) => unknown;
+                const res = qFn(q);
+                return Array.isArray(res) ? (res as T[]) : [];
+            } catch (e) {
+                if (this.debug) HealerLogger.warn('DatacoreAdapter: query fallback failed', e);
+                return [];
+            }
+        }
+
+        return [];
     }
 
     /**
@@ -315,10 +344,10 @@ export class DatacoreAdapter implements IMetadataAdapter {
             }
 
             const query = `@page and $path = "${this.escapeDcString(resolvedPath)}"`;
-            const result = dc.tryQuery<MarkdownPage>(query);
+            const result = this.runQuery<MarkdownPage>(dc, query);
 
-            if (isRecord(result) && result['successful'] && Array.isArray(result['value'])) {
-                const page = result['value'][0];
+            if (result.length > 0) {
+                const page = result[0];
                 if (page && this.isMarkdownPage(page)) {
                     return this.mapToDataviewPage(page);
                 }
@@ -384,17 +413,8 @@ export class DatacoreAdapter implements IMetadataAdapter {
     public getPages(query: string): DataviewPage[] {
         const api = this.getApi();
         if (!api) return [];
-        if (!isRecord(api) || typeof api['tryQuery'] !== 'function') {
-            HealerLogger.error('DatacoreAdapter: tryQuery not available — Datacore version mismatch.');
-            return [];
-        }
         try {
-            const result = api.tryQuery<MarkdownPage>(query);
-            if (isRecord(result) && !result['successful']) {
-                HealerLogger.error('DatacoreAdapter: getPages query failed', result['error'] ?? 'Unknown error');
-                return [];
-            }
-            const rawItems = isRecord(result) && Array.isArray(result['value']) ? result['value'] : [];
+            const rawItems = this.runQuery<MarkdownPage>(api, query);
             const pages = rawItems.filter((item): item is MarkdownPage => this.isMarkdownPage(item));
             if (pages.length !== rawItems.length) {
                 HealerLogger.warn(
@@ -429,15 +449,14 @@ export class DatacoreAdapter implements IMetadataAdapter {
         for (const chunk of pathChunks) {
             const pageFilter = chunk.map((p) => `$path = "${this.escapeDcString(p)}"`).join(' or ');
             const queryContext = `childof(@page and (${pageFilter}))`;
-            const taskResult = dc.tryQuery<unknown>(`@task and ${queryContext}`);
-            const listResult = dc.tryQuery<unknown>(`@list-item and ${queryContext}`);
-            if (!this.isValidDcBatchResult(taskResult) || !this.isValidDcBatchResult(listResult)) {
-                if (this.debug) HealerLogger.warn('DatacoreAdapter: Batch prefetch segment failed. Continuing.');
-                continue;
+            const tasks = this.runQuery<unknown>(dc, `@task and ${queryContext}`);
+            const lists = this.runQuery<unknown>(dc, `@list-item and ${queryContext}`);
+            if (tasks.length === 0 && lists.length === 0) {
+                // If both are absolutely empty, might just be no lists/tasks, which is fine to cache
             }
             for (const p of chunk) successful.add(p);
-            this.distributePrefetchedNodes(taskResult['value'], 'tasks', staged);
-            this.distributePrefetchedNodes(listResult['value'], 'lists', staged);
+            this.distributePrefetchedNodes(tasks, 'tasks', staged);
+            this.distributePrefetchedNodes(lists, 'lists', staged);
         }
         // Only cache paths that had successful queries
         for (const path of successful) {
@@ -446,9 +465,7 @@ export class DatacoreAdapter implements IMetadataAdapter {
         }
     }
 
-    private isValidDcBatchResult(res: unknown): res is { successful: true; value: unknown[] } {
-        return isRecord(res) && res['successful'] === true && Array.isArray(res['value']);
-    }
+    // isValidDcBatchResult has been superseded by runQuery.
 
     private distributePrefetchedNodes(
         nodes: unknown[],

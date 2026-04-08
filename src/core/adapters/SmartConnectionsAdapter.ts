@@ -252,6 +252,8 @@ export class SmartConnectionsAdapter implements IMetadataAdapter {
     }
 
     private async queryAjsonFallback(sourcePath: string, limit: number): Promise<RelatedNote[]> {
+        // Best-effort heuristic looking for Smart Environment multi-indexes, which
+        // are undocumented and not formally guaranteed by the Smart Connections API.
         const envPaths = ['.smart-env/multi', '.smart-connections', '.smart-connections/multi'];
         const adapter = this.app.vault.adapter;
         const suggestions: RelatedNote[] = [];

@@ -71,7 +71,7 @@ export interface BreadcrumbsApi {
     iterateHiers(callback: (hier: unknown, dir: BCDirection, field: string) => void): void;
 
     // --- Breadcrumbs Properties ---
-    get_neighbours?(node: string): unknown;
+    get_neighbours?(node?: string): unknown; // V4 BCAPI exposes get_neighbours returning an EdgeList
     plugin?: {
         settings?: {
             hierarchies?: Array<{
