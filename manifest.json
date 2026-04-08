@@ -1,7 +1,7 @@
 {
     "id": "semantic-graph-healer",
     "name": "Semantic Graph Healer",
-    "version": "2.0.1",
+    "version": "2.2.0",
     "minAppVersion": "1.11.4",
     "description": "Topological restoration engine that utilizes Dataview, Breadcrumbs, and ExcaliBrain metadata to identify and resolve structural inconsistencies in the knowledge graph.",
     "author": "lostpeanut09",
