@@ -252,12 +252,42 @@ export class SmartConnectionsAdapter implements IMetadataAdapter {
     }
 
     private async queryAjsonFallback(sourcePath: string, limit: number): Promise<RelatedNote[]> {
-        // Best-effort heuristic looking for Smart Environment multi-indexes, which
-        // are undocumented and not formally guaranteed by the Smart Connections API.
-        const envPaths = ['.smart-env/multi', '.smart-connections', '.smart-connections/multi'];
         const adapter = this.app.vault.adapter;
         const suggestions: RelatedNote[] = [];
         const seen = new Set<string>();
+
+        const singleFileFallback = '.smart-env/smart_sources.json';
+        if (await adapter.exists(singleFileFallback)) {
+            try {
+                const content = await adapter.read(singleFileFallback);
+                const data = JSON.parse(content) as Record<string, unknown>;
+                const items = data.items && typeof data.items === 'object' ? data.items : data;
+
+                for (const [targetKey, targetVal] of Object.entries(items as Record<string, unknown>)) {
+                    if (targetKey === sourcePath) continue;
+                    if (JSON.stringify(targetVal).includes(sourcePath)) {
+                        const targetFile = this.app.metadataCache.getFirstLinkpathDest(targetKey, sourcePath);
+                        if (!(targetFile instanceof TFile)) continue;
+                        if (seen.has(targetFile.path)) continue;
+
+                        seen.add(targetFile.path);
+                        suggestions.push({
+                            path: targetFile.path,
+                            score: 0.5,
+                            link: '[[' + this.app.metadataCache.fileToLinktext(targetFile, sourcePath, true) + ']]',
+                        });
+                        if (suggestions.length >= limit) return suggestions;
+                    }
+                }
+                return suggestions;
+            } catch (e) {
+                HealerLogger.error('SmartConnectionsAdapter: failed reading ' + singleFileFallback, e);
+            }
+        }
+
+        // Best-effort heuristic looking for Smart Environment multi-indexes, which
+        // are undocumented and not formally guaranteed by the Smart Connections API.
+        const envPaths = ['.smart-env/multi', '.smart-connections', '.smart-connections/multi'];
 
         for (const envPath of envPaths) {
             if (!(await adapter.exists(envPath))) continue;

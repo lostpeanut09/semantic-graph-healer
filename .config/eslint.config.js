@@ -93,14 +93,7 @@ export default defineConfig([
 
     // 7. Ignore globali
     {
-        ignores: [
-            '**/*.js',
-            '**/*.mjs',
-            'node_modules/',
-            '.kilo/',
-            '**/*.test.ts',
-            '**/*.bak',
-        ],
+        ignores: ['**/*.js', '**/*.mjs', 'node_modules/', '.kilo/', '**/*.test.ts', '**/*.bak'],
     },
 
     // 8. Prettier in coda
