@@ -1,4 +1,4 @@
-![Banner](banner.png)
+![Banner](assets/banner.png)
 
 # Semantic Graph Healer
 
