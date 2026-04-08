@@ -647,8 +647,18 @@ export default class SemanticGraphHealer extends Plugin {
         if (isObsidianInternalApp(this.app)) {
             const plugins = this.app.plugins;
             if (plugins && plugins.enabledPlugins) {
-                if (!plugins.enabledPlugins.has('dataview')) {
-                    this.logger.warn('Dataview missing.');
+                if (!plugins.enabledPlugins.has('datacore') && !plugins.enabledPlugins.has('dataview')) {
+                    this.logger.warn('Dependency missing: Both Datacore and Dataview are missing. Queries will fail!');
+                } else if (!plugins.enabledPlugins.has('datacore')) {
+                    this.logger.warn(
+                        'Datacore missing. Note that Dataview fallback in Semantic Graph Healer may have limited capabilities.',
+                    );
+                }
+
+                if (!plugins.enabledPlugins.has('breadcrumbs')) {
+                    this.logger.warn(
+                        'Breadcrumbs missing. Hierarchical topology analysis will have limited capabilities.',
+                    );
                 }
             }
         }

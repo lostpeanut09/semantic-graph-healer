@@ -6,7 +6,7 @@
     "main": "main.js",
     "scripts": {
         "dev": "node .config/esbuild.config.mjs",
-        "build": "tsc -noEmit -skipLibCheck && node .config/esbuild.config.mjs production",
+        "build": "tsc --noEmit --skipLibCheck && node .config/esbuild.config.mjs production",
         "lint": "eslint -c .config/eslint.config.js .",
         "lint:css": "stylelint \"**/*.css\" --config .config/.stylelintrc.json",
         "format": "prettier --config .config/.prettierrc --ignore-path .config/.prettierignore --write .",
