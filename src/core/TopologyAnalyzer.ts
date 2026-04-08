@@ -188,7 +188,8 @@ export class TopologyAnalyzer {
                                 // ✅ FIX BUG 1: Aggiunto meta object per l'Executor
                                 meta: {
                                     property: targetInvType,
-                                    propertyKey: (hierarchy as Record<string, string[]>)[targetInvType]?.[0] || targetInvType,
+                                    propertyKey:
+                                        (hierarchy as Record<string, string[]>)[targetInvType]?.[0] || targetInvType,
                                     sourcePath: pathA, // Cosa scrivere (A)
                                     targetPath: pathB, // Dove scriverlo (B)
                                     sourceNote: pageA.file.basename,

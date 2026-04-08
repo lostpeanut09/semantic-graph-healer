@@ -1,7 +1,7 @@
 import { ItemView, WorkspaceLeaf, Notice, DropdownComponent, Setting } from 'obsidian';
-import { DASHBOARD_VIEW_TYPE, Suggestion, HistoryItem, SuggestionType } from './types';
-import { HealerLogger } from './core/HealerUtils';
-import SemanticGraphHealer from './main';
+import { DASHBOARD_VIEW_TYPE, Suggestion, HistoryItem, SuggestionType } from '../types';
+import { HealerLogger } from '../core/HealerUtils';
+import SemanticGraphHealer from '../main';
 
 export const REASONING_VIEW_TYPE = 'healer-reasoning-view';
 

@@ -1,21 +1,24 @@
-import { App } from 'obsidian';
+import { App, TFile, parseLinktext } from 'obsidian';
 import { IMetadataAdapter } from './IMetadataAdapter';
 import { DatacoreAdapter } from './DatacoreAdapter';
 import { BreadcrumbsAdapter } from './BreadcrumbsAdapter';
 import { SmartConnectionsAdapter } from './SmartConnectionsAdapter';
-import { DataviewApi, DataviewPage, HierarchyNode, RelatedNote } from '../../types';
+import { DataviewApi, DataviewPage, HierarchyNode, RelatedNote, SemanticGraphHealerSettings } from '../../types';
 import { StructuralCache } from '../StructuralCache';
 import { HealerLogger } from '../HealerUtils';
 
 /**
- * UnifiedMetadataAdapter: The "Holy Grail" of 2026 Data Orchestration.
+ * UnifiedMetadataAdapter
  * Implements the Unified interface by delegating to specialized adapters
  * and wrapping them in a high-performance LRU cache.
+ *
+ * Propagates system settings and lifecycle signals
+ * down to specialized adapters.
  */
 export class UnifiedMetadataAdapter implements IMetadataAdapter {
-    private datacore: DatacoreAdapter;
-    private breadcrumbs: BreadcrumbsAdapter;
-    private smartConnections: SmartConnectionsAdapter;
+    private datacore: IMetadataAdapter;
+    private breadcrumbs: IMetadataAdapter;
+    private smartConnections: IMetadataAdapter;
 
     // Phase 4: Performance Layer
     private pageCache: StructuralCache<DataviewPage | null>;
@@ -23,9 +26,10 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
 
     constructor(
         private app: App,
+        private settings: SemanticGraphHealerSettings,
         options: { maxNodes?: number; ttlMs?: number } = {},
     ) {
-        this.datacore = new DatacoreAdapter(this.app);
+        this.datacore = new DatacoreAdapter(this.app, this.settings.logLevel === 'debug');
         this.breadcrumbs = new BreadcrumbsAdapter(this.app);
         this.smartConnections = new SmartConnectionsAdapter(this.app);
 
@@ -34,18 +38,26 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
         this.hierarchyCache = new StructuralCache<HierarchyNode | null>(this.app, options);
     }
 
+    private normalizeCacheKey(path: string, sourcePath = ''): string {
+        const { path: linkpath } = parseLinktext(path);
+        const direct = this.app.vault.getAbstractFileByPath(linkpath);
+        if (direct instanceof TFile) return direct.path;
+        return this.app.metadataCache.getFirstLinkpathDest(linkpath, sourcePath)?.path ?? linkpath;
+    }
+
     getPage(path: string): DataviewPage | null {
-        const cached = this.pageCache.get(path);
+        const key = this.normalizeCacheKey(path, path);
+        const cached = this.pageCache.get(key);
         if (cached !== undefined) return cached;
 
-        const page = this.datacore.getPage(path);
-        // Cache even null values to avoid repeated lookup loops
-        // Invalidation must be handled by file creation/deletion events.
-        this.pageCache.set(path, page);
+        const page = this.datacore.getPage(key);
+        // Cache even null values to avoid repeated lookup loops.
+        this.pageCache.set(key, page);
         return page;
     }
 
     public invalidateBacklinkIndex() {
+        this.pageCache.invalidate();
         this.datacore.invalidateBacklinkIndex();
     }
 
@@ -68,17 +80,18 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
     }
 
     async getHierarchy(path: string): Promise<HierarchyNode | null> {
-        const cached = this.hierarchyCache.get(path);
-        if (cached !== undefined && cached !== null) return cached;
+        const key = this.normalizeCacheKey(path, path);
+        const cached = this.hierarchyCache.get(key);
+        if (cached !== undefined) return cached;
 
-        let hierarchy = await this.breadcrumbs.getHierarchy(path);
+        let hierarchy = await this.breadcrumbs.getHierarchy(key);
 
-        // Fallback: If BC fails, try Datacore (Basic hierarchies)
+        // Fallback: If BC fails, try Datacore (basic hierarchies)
         if (!hierarchy) {
-            hierarchy = await this.datacore.getHierarchy(path);
+            hierarchy = await this.datacore.getHierarchy(key);
         }
 
-        this.hierarchyCache.set(path, hierarchy);
+        this.hierarchyCache.set(key, hierarchy);
         return hierarchy;
     }
 
@@ -89,19 +102,23 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
     }
 
     invalidate(path?: string): void {
-        this.pageCache.invalidate(path);
-        this.hierarchyCache.invalidate(path);
+        const key = path ? this.normalizeCacheKey(path, path) : undefined;
+        this.pageCache.invalidate(key);
+        this.hierarchyCache.invalidate(key);
         this.datacore.invalidate(path);
         this.breadcrumbs.invalidate(path);
         this.smartConnections.invalidate(path);
     }
 
     /**
-     * ✅ NEW: Explicit cleanup for hot-reload and shutdown cycles.
+     * Explicit cleanup for hot-reload and shutdown cycles.
      */
     public destroy(): void {
         this.pageCache.destroy();
         this.hierarchyCache.destroy();
+        this.datacore.destroy?.();
+        this.breadcrumbs.destroy?.();
+        this.smartConnections.destroy?.();
         HealerLogger.debug('UnifiedMetadataAdapter destroyed.');
     }
 }

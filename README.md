@@ -21,7 +21,7 @@ The plugin implements a production-grade **Hybrid Query Engine** that automatica
 
 A critical adapter layer (`mapMarkdownToDataview`) transparently maps Datacore's schema to the legacy Dataview format, ensuring zero-disruption migration.
 
-### Multi-Adapter Architecture 
+### Multi-Adapter Architecture
 
 The plugin implements a modular adapter pattern (`IMetadataAdapter`) for seamless integration with the broader Obsidian ecosystem:
 
@@ -42,7 +42,7 @@ When enabled, the engine builds a full in-memory graph using [Graphology](https:
 
 The `GraphEngine` is lazy-loaded via dynamic `import()` to minimize initial plugin load time.
 
-#### Web Worker Offloading 
+#### Web Worker Offloading
 
 On desktop, all heavy graph computations (PageRank, Louvain, Betweenness) are offloaded to a dedicated **Web Worker** thread via `GraphWorkerService`. This prevents UI freezes during analysis of large vaults. On mobile (iOS/Android), the worker is automatically disabled to avoid Capacitor crashes, and analysis falls back to the main thread with adaptive batch sizes.
 
@@ -50,17 +50,17 @@ On desktop, all heavy graph computations (PageRank, Louvain, Betweenness) are of
 
 The `LinkPredictionEngine` implements a scientifically-grounded three-way blend of link prediction indices to discover **"Missing Rings"** — note pairs with high shared-neighbor overlap that are not yet directly connected:
 
-| Algorithm | Weight | Reference |
-| :--- | :--- | :--- |
-| **Jaccard Similarity** | 0.35 | Liben-Nowell & Kleinberg, 2004 |
-| **Adamic-Adar Index** | 0.35 | Adamic & Adar, 2003 |
-| **Resource Allocation** | 0.30 | Lü & Zhou, 2010 |
+| Algorithm               | Weight | Reference                      |
+| :---------------------- | :----- | :----------------------------- |
+| **Jaccard Similarity**  | 0.35   | Liben-Nowell & Kleinberg, 2004 |
+| **Adamic-Adar Index**   | 0.35   | Adamic & Adar, 2003            |
+| **Resource Allocation** | 0.30   | Lü & Zhou, 2010                |
 
 All weights are user-configurable and auto-normalized to sum to 1. A **Temporal Decay** multiplier (λ=0.005, half-life ≈139 days) prioritizes notes created or modified around the same time, reflecting human memory and context coherence.
 
 **Co-Citation Analysis**: The engine also detects notes that are frequently cited together in the same source ("2nd-order backlinks"), surfacing latent semantic relationships invisible to direct link analysis.
 
-### StructuralCache — Performance Layer 
+### StructuralCache — Performance Layer
 
 A generic LRU (Least Recently Used) caching layer sits between the query engine and the analysis modules. It features:
 
@@ -83,7 +83,12 @@ Consensus states are classified as:
 
 Direct integration with the [Smart Connections](https://github.com/brianpetro/obsidian-smart-connections) environment unlocks vector-similarity scores for every link suggestion. The engine analyzes AI embeddings to propose candidates with the highest semantic proximity, ensuring that your graph architecture mirrors the conceptual depth of your notes.
 
-**Smart Connections v4+ Compatibility**: The adapter uses the modern `window.smart_env.smart_sources.find()` API. If the runtime API is unavailable, a graceful fallback reads semantic data directly from `.smart-env/multi/*.ajson` index files.
+**Smart Connections v4+ Compatibility**: The `SmartConnectionsAdapter` tries, in order:
+
+1. global `window.smart_env.smart_sources`
+2. plugin-internal `smart_sources`
+3. legacy `plugin.api.search` and `find`
+4. `.smart-env/*.ajson` or `.smart-connections/*.ajson` fallback
 
 ### Structural Gap Detection (Bridge Scrutiny)
 
@@ -119,7 +124,7 @@ Integration with the [InfraNodus](https://infranodus.com) API enables the detect
 
 The engine performs deterministic alignment of Map of Content (MOC) structures by analyzing Dataview-powered tag hierarchies. It automatically recognizes fields from Breadcrumbs and ExcaliBrain to maintain cross-plugin consistency, proposing hierarchical links that mirror your existing taxonomy without requiring AI inference.
 
-### Secure Credential Management 
+### Secure Credential Management
 
 API credentials for all providers are managed via the **KeychainService** with defense-in-depth encryption:
 
@@ -142,6 +147,7 @@ A dedicated `Run silent graph analysis (CLI)` command enables headless execution
 ## Experimental AI
 
 A new suite of features currently in development leveraging local LLMs (Ollama, LM Studio) to provide profound semantic validation:
+
 - **Semantic Tag Propagation:** Let the AI analyze parent clusters (MOCs) and suggest pushing relevant tags down to child notes based on content synergy.
 - **AI Branch Validation:** When a sequence splits into parallel paths (multiple `next` or `prev` links), the AI determines if these branches are mutually exclusive (topological error) or valid non-linear continuations.
 - **Related Reciprocity Override:** Force strict bidirectional validation even for weak "related" links using intelligent semantic analysis.

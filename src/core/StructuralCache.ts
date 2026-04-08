@@ -1,8 +1,8 @@
-import { App, TFile } from 'obsidian';
+import { App, TAbstractFile, TFile, EventRef } from 'obsidian';
 import { HealerLogger } from './HealerUtils';
 
 /**
- * StructuralCache: SOTA 2026 Performance Layer.
+ * StructuralCache
  * Implements LRU (Least Recently Used) eviction to prevent memory bloat on mobile.
  */
 
@@ -11,8 +11,12 @@ export class StructuralCache<T> {
     private maxNodes: number;
     private ttlMs: number;
 
-    private boundInvalidate: (file: TFile) => void;
-    private boundRename: (file: TFile, oldPath: string) => void;
+    private boundInvalidate: (file: TAbstractFile) => void;
+    private boundRename: (file: TAbstractFile, oldPath: string) => void;
+
+    private changedRef: EventRef;
+    private renameRef: EventRef;
+    private deleteRef: EventRef;
 
     constructor(
         private app: App,
@@ -21,34 +25,39 @@ export class StructuralCache<T> {
         this.maxNodes = options.maxNodes || 10000;
         this.ttlMs = options.ttlMs || 300000; // 5 minutes default
 
-        // Event-based Invalidation (Bound for unregistration)
-        this.boundInvalidate = (file: TFile) => this.invalidate(file.path);
-        this.boundRename = (file: TFile) => this.invalidate(file.path);
-
-        this.app.metadataCache.on('changed', this.boundInvalidate);
-        this.app.vault.on('rename', this.boundRename);
-        this.app.vault.on('delete', this.boundInvalidate);
+        // Event-based Invalidation
+        this.boundInvalidate = (file: TAbstractFile) => this.invalidate(file.path);
+        this.boundRename = (file: TAbstractFile, oldPath: string) => {
+            this.invalidate(oldPath);
+            this.invalidate(file.path);
+        };
+        this.changedRef = this.app.metadataCache.on(
+            'changed',
+            this.boundInvalidate as unknown as (file: TFile) => void,
+        );
+        this.renameRef = this.app.vault.on('rename', this.boundRename);
+        this.deleteRef = this.app.vault.on('delete', this.boundInvalidate);
     }
 
     /**
      * ✅ NEW: Explicit cleanup to prevent memory leaks from global event listeners.
      */
     public destroy(): void {
-        this.app.metadataCache.off('changed', this.boundInvalidate);
-        this.app.vault.off('rename', this.boundRename);
-        this.app.vault.off('delete', this.boundInvalidate);
+        this.app.metadataCache.offref(this.changedRef);
+        this.app.vault.offref(this.renameRef);
+        this.app.vault.offref(this.deleteRef);
         this.cache.clear();
         HealerLogger.debug('StructuralCache listeners unregistered.');
     }
 
-    public get(path: string): T | null {
+    public get(path: string): T | undefined {
         const entry = this.cache.get(path);
-        if (!entry) return null;
+        if (!entry) return undefined;
 
         const isExpired = Date.now() - entry.timestamp > this.ttlMs;
         if (isExpired) {
             this.invalidate(path);
-            return null;
+            return undefined;
         }
 
         // LRU: Refresh position in Map by deleting and re-inserting

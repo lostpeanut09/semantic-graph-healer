@@ -26,8 +26,8 @@ import { LlmService } from './core/LlmService';
 import { UnifiedMetadataAdapter } from './core/adapters/UnifiedMetadataAdapter';
 import { SuggestionExecutor } from './core/SuggestionExecutor';
 import { ReasoningService } from './core/ReasoningService';
-import { QuarantineDashboardView, ReasoningView, REASONING_VIEW_TYPE } from './DashboardView';
-import { SemanticHealerSettingTab } from './SettingsTab';
+import { QuarantineDashboardView, ReasoningView, REASONING_VIEW_TYPE } from './views/DashboardView';
+import { SemanticHealerSettingTab } from './views/SettingsTab';
 import { CacheService } from './core/CacheService';
 import { SemanticTagPropagator } from './core/SemanticTagPropagator';
 
@@ -65,7 +65,7 @@ export default class SemanticGraphHealer extends Plugin {
         this.graphWorkerService = new GraphWorkerService(this.logger, this);
         await this.graphWorkerService.initialize();
 
-        this.engine = new UnifiedMetadataAdapter(this.app as ExtendedApp);
+        this.engine = new UnifiedMetadataAdapter(this.app as ExtendedApp, this.settings);
         this.executor = new SuggestionExecutor(this);
         this.llm = new LlmService(this.settings, (type) => this.getApiKey(type));
         this.topology = new TopologyAnalyzer(this.app as ExtendedApp, this.settings, this.engine, this.llm);
@@ -111,7 +111,7 @@ export default class SemanticGraphHealer extends Plugin {
             if (this.engine) {
                 this.engine.destroy();
             }
-            this.engine = new UnifiedMetadataAdapter(this.app as ExtendedApp);
+            this.engine = new UnifiedMetadataAdapter(this.app as ExtendedApp, this.settings);
 
             // 2. Hot Reload Logic Services
             this.llm = new LlmService(this.settings, (type) => this.getApiKey(type));
