@@ -1,9 +1,8 @@
-/* 
 // @vitest-environment jsdom
 
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../HealerUtils', () => ({
+vi.mock('../../../src/core/HealerUtils', () => ({
     HealerLogger: {
         warn: vi.fn(),
         error: vi.fn(),
@@ -36,7 +35,7 @@ vi.mock('obsidian', () => ({
     }),
 }));
 
-import { BreadcrumbsAdapter } from '../BreadcrumbsAdapter';
+import { BreadcrumbsAdapter } from '../../../src/core/adapters/BreadcrumbsAdapter';
 import { TFile, type App, parseLinktext } from 'obsidian';
 
 interface MockBreadcrumbsApi {
@@ -83,7 +82,7 @@ describe('BreadcrumbsAdapter', () => {
     let adapter: BreadcrumbsAdapter;
     let mockApp: App;
 
-    const makeTFile = (path: string): TFile => new TFile(path) as TFile;
+    const makeTFile = (path: string): TFile => new (TFile as any)(path) as TFile;
 
     const createMockApi = (overrides: Partial<MockBreadcrumbsApi> = {}): MockBreadcrumbsApi => ({
         closedG: null,
@@ -359,4 +358,3 @@ describe('BreadcrumbsAdapter', () => {
         expect(result).toBeNull();
     });
 });
-*/

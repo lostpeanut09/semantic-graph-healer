@@ -273,29 +273,33 @@ export class DatacoreAdapter implements IMetadataAdapter {
      * Helper to reliably execute a query on the Datacore API,
      * acting as a bridge between tryQuery and legacy/fallback query.
      */
-    private runQuery<T>(api: unknown, q: string): T[] {
-        if (api && typeof api.tryQuery === 'function') {
-            const tryQ = api.tryQuery as (q: string) => unknown;
+    private runQuery<T>(api: unknown, q: string): T[] | null {
+        if (api && typeof (api as Record<string, unknown>).tryQuery === 'function') {
+            const tryQ = (api as Record<string, unknown>).tryQuery as (q: string) => unknown;
             const r = tryQ(q);
-            if (r && typeof r === 'object' && r.successful === false) {
-                if (this.debug) HealerLogger.warn('DatacoreAdapter: tryQuery failed', r.error);
-                return [];
+            if (r && typeof r === 'object' && (r as Record<string, unknown>).successful === false) {
+                if (this.debug)
+                    HealerLogger.warn('DatacoreAdapter: tryQuery failed', (r as Record<string, unknown>).error);
+                // return null;
+                return null;
             }
-            return r && typeof r === 'object' && Array.isArray(r.value) ? (r.value as T[]) : [];
+            return r && typeof r === 'object' && Array.isArray((r as Record<string, unknown>).value)
+                ? ((r as Record<string, unknown>).value as T[])
+                : [];
         }
 
-        if (api && typeof api.query === 'function') {
+        if (api && typeof (api as Record<string, unknown>).query === 'function') {
             try {
-                const qFn = api.query as (q: string) => unknown;
+                const qFn = (api as Record<string, unknown>).query as (q: string) => unknown;
                 const res = qFn(q);
                 return Array.isArray(res) ? (res as T[]) : [];
             } catch (e) {
                 if (this.debug) HealerLogger.warn('DatacoreAdapter: query fallback failed', e);
-                return [];
+                return null;
             }
         }
 
-        return [];
+        return null;
     }
 
     /**
@@ -346,7 +350,7 @@ export class DatacoreAdapter implements IMetadataAdapter {
             const query = `@page and $path = "${this.escapeDcString(resolvedPath)}"`;
             const result = this.runQuery<MarkdownPage>(dc, query);
 
-            if (result.length > 0) {
+            if (result && result.length > 0) {
                 const page = result[0];
                 if (page && this.isMarkdownPage(page)) {
                     return this.mapToDataviewPage(page);
@@ -414,7 +418,7 @@ export class DatacoreAdapter implements IMetadataAdapter {
         const api = this.getApi();
         if (!api) return [];
         try {
-            const rawItems = this.runQuery<MarkdownPage>(api, query);
+            const rawItems = this.runQuery<MarkdownPage>(api, query) || [];
             const pages = rawItems.filter((item): item is MarkdownPage => this.isMarkdownPage(item));
             if (pages.length !== rawItems.length) {
                 HealerLogger.warn(
@@ -451,6 +455,9 @@ export class DatacoreAdapter implements IMetadataAdapter {
             const queryContext = `childof(@page and (${pageFilter}))`;
             const tasks = this.runQuery<unknown>(dc, `@task and ${queryContext}`);
             const lists = this.runQuery<unknown>(dc, `@list-item and ${queryContext}`);
+
+            if (!tasks || !lists) continue;
+
             if (tasks.length === 0 && lists.length === 0) {
                 // If both are absolutely empty, might just be no lists/tasks, which is fine to cache
             }

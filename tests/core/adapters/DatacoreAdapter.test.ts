@@ -1,9 +1,8 @@
-/* 
 // @vitest-environment jsdom
 
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../HealerUtils', () => ({
+vi.mock('../../../src/core/HealerUtils', () => ({
     HealerLogger: {
         warn: vi.fn(),
         error: vi.fn(),
@@ -38,7 +37,7 @@ vi.mock('obsidian', () => ({
     }),
 }));
 
-import { DatacoreAdapter } from '../DatacoreAdapter';
+import { DatacoreAdapter } from '../../../src/core/adapters/DatacoreAdapter';
 import { TFile, type App, parseLinktext } from 'obsidian';
 
 type ListenerMap = Record<string, Function[]>;
@@ -59,9 +58,7 @@ function createListenerHub() {
     };
 }
 
-function makeTFile(path: string): TFile {
-    return new TFile(path) as TFile;
-}
+const makeTFile = (path: string): TFile => new (TFile as any)(path) as TFile;
 
 function makeMarkdownPage(overrides: Record<string, unknown> = {}) {
     const base = {
@@ -462,4 +459,3 @@ describe('DatacoreAdapter', () => {
         expect((adapter as any).pageChildrenCache.size).toBe(0);
     });
 });
-*/

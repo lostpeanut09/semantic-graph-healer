@@ -77,18 +77,31 @@ export class BreadcrumbsAdapter implements IMetadataAdapter {
         if (v4) {
             try {
                 const edgeList = v4.get_neighbours(normalizedPath);
-                const targetsRaw = this.bestEffortEdgeListToTargets(edgeList);
-                const children = targetsRaw
-                    .map((t) => this.normalizeBreadcrumbPath(t, normalizedPath))
-                    .filter((t) => t && t !== normalizedPath);
+                const edges = this.bestEffortEdgeListToTargets(edgeList);
 
-                // V4 API pubblica: outgoing edges. “parents/prev/next” richiedono info extra.
+                const parents: string[] = [];
+                const children: string[] = [];
+                const siblings: string[] = [];
+                const next: string[] = [];
+                const prev: string[] = [];
+
+                for (const edge of edges) {
+                    const normalizedTarget = this.normalizeBreadcrumbPath(edge.target, normalizedPath);
+                    if (!normalizedTarget || normalizedTarget === normalizedPath) continue;
+
+                    if (edge.dir === 'up') parents.push(normalizedTarget);
+                    else if (edge.dir === 'same') siblings.push(normalizedTarget);
+                    else if (edge.dir === 'next') next.push(normalizedTarget);
+                    else if (edge.dir === 'prev') prev.push(normalizedTarget);
+                    else children.push(normalizedTarget); // Default to children ('down' or unknown)
+                }
+
                 return {
-                    parents: [],
+                    parents: [...new Set(parents)],
                     children: [...new Set(children)],
-                    siblings: [],
-                    next: [],
-                    prev: [],
+                    siblings: [...new Set(siblings)],
+                    next: [...new Set(next)],
+                    prev: [...new Set(prev)],
                 };
             } catch (e) {
                 HealerLogger.error(`BreadcrumbsAdapter(V4): get_neighbours failed for "${normalizedPath}"`, e);
@@ -142,7 +155,7 @@ export class BreadcrumbsAdapter implements IMetadataAdapter {
         return x === 'up' || x === 'down' || x === 'same' || x === 'next' || x === 'prev';
     }
 
-    private bestEffortEdgeListToTargets(edgeList: unknown): string[] {
+    private bestEffortEdgeListToTargets(edgeList: unknown): { target: string; dir?: string }[] {
         const isObj = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null;
 
         const edges: unknown[] = Array.isArray(edgeList)
@@ -151,18 +164,24 @@ export class BreadcrumbsAdapter implements IMetadataAdapter {
               ? edgeList.edges
               : [];
 
-        const out: string[] = [];
+        const out: { target: string; dir?: string }[] = [];
         for (const e of edges) {
-            const target =
-                typeof e === 'string'
-                    ? e
-                    : isObj(e) && typeof e.target === 'string'
-                      ? e.target
-                      : isObj(e) && typeof e.to === 'string'
-                        ? e.to
-                        : null;
+            let target: string | null = null;
+            let dir: string | undefined = undefined;
 
-            if (target) out.push(target);
+            if (typeof e === 'string') {
+                target = e;
+            } else if (isObj(e)) {
+                if (typeof e.target === 'string') target = e.target;
+                else if (typeof e.to === 'string') target = e.to;
+
+                // Try to extract dir
+                if (typeof e.dir === 'string') dir = e.dir;
+                else if (isObj(e.attr) && typeof e.attr.dir === 'string') dir = e.attr.dir;
+                else if (isObj(e.attrs) && typeof e.attrs.dir === 'string') dir = e.attrs.dir;
+            }
+
+            if (target) out.push({ target, dir });
         }
         return out;
     }
@@ -221,7 +240,7 @@ export class BreadcrumbsAdapter implements IMetadataAdapter {
             next: string[] = [],
             prev: string[] = [];
         graph.forEachOutEdge(path, (_edge, attrs, _src, target, _srcAttrs, _tgtAttrs) => {
-            const dir = attrs?.dir;
+            const dir = (attrs as Record<string, unknown>)?.dir;
             if (!this.isDirection(dir)) return;
             const normalizedTarget = this.normalizeBreadcrumbPath(target, path);
             if (!normalizedTarget || normalizedTarget === path) return;
@@ -245,7 +264,7 @@ export class BreadcrumbsAdapter implements IMetadataAdapter {
         });
         if (reverseIn && typeof graph.forEachInEdge === 'function') {
             graph.forEachInEdge(path, (_edge, attrs, source, _target, _srcAttrs, _tgtAttrs) => {
-                const dir = attrs?.dir;
+                const dir = (attrs as Record<string, unknown>)?.dir;
                 if (!this.isDirection(dir)) return;
                 const normalizedSource = this.normalizeBreadcrumbPath(source, path);
                 if (!normalizedSource || normalizedSource === path) return;
