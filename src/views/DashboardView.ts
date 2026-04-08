@@ -58,7 +58,7 @@ export class QuarantineDashboardView extends ItemView {
         // --- BANNER ---
         const manifest = this.plugin.manifest as typeof this.plugin.manifest & { dir?: string };
         const dir = manifest.dir ?? '';
-        const bannerPath = this.plugin.app.vault.adapter.getResourcePath(`${dir}/banner.png`);
+        const bannerPath = this.plugin.app.vault.adapter.getResourcePath(`${dir}/assets/banner.png`);
         const bannerEl = container.createEl('img');
         bannerEl.src = bannerPath;
         bannerEl.addClass('healer-dashboard-banner');

@@ -21,3 +21,9 @@ plugin_audit_archive.md
 
 # Environment variables
 .env
+
+# Generated Build Artifacts
+main.js
+worker.js
+styles.css
+tsconfig.tsbuildinfo

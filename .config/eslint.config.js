@@ -42,7 +42,7 @@ export default defineConfig([
             },
             parserOptions: {
                 projectService: true,
-                tsconfigRootDir: import.meta.dirname,
+                tsconfigRootDir: import.meta.dirname + '/../',
             },
         },
     },
@@ -94,11 +94,8 @@ export default defineConfig([
     // 7. Ignore globali
     {
         ignores: [
-            'worker.js',
-            'main.js',
-            'esbuild.config.mjs',
-            'eslint.config.js',
-            'eslint.config.mjs',
+            '**/*.js',
+            '**/*.mjs',
             'node_modules/',
             '.kilo/',
             '**/*.test.ts',
