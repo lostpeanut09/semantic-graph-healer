@@ -9,8 +9,33 @@ import { HealerLogger, isObsidianInternalApp } from '../HealerUtils';
  * Compatible with local BCAPII surface used by Semantic Graph Healer.
  * Not guaranteed against the public upstream Breadcrumbs API.
  */
+
+type BCAPIV4Like = {
+    get_neighbours: (node?: string) => unknown; // EdgeList | undefined
+    fields?: unknown;
+    field_groups?: unknown;
+};
+
 export class BreadcrumbsAdapter implements IMetadataAdapter {
     constructor(private app: App) {}
+
+    private getV4Api(): BCAPIV4Like | null {
+        // 1) prefer window.BCAPI (Breadcrumbs V4 explicitly exposes it)
+        const w = window as unknown;
+        if (w?.BCAPI && typeof w.BCAPI.get_neighbours === 'function') return w.BCAPI as BCAPIV4Like;
+
+        // 2) fallback: plugin.api
+        if (!isObsidianInternalApp(this.app)) return null;
+        try {
+            const plugin = (this.app as import('../../types').ExtendedApp).plugins.getPlugin('breadcrumbs');
+            const api = plugin?.api as unknown;
+            if (api && typeof api.get_neighbours === 'function') return api as BCAPIV4Like;
+        } catch {
+            // ignore
+        }
+
+        return null;
+    }
 
     private getApi(): BreadcrumbsApi | null {
         if (!isObsidianInternalApp(this.app)) return null;
@@ -52,9 +77,23 @@ export class BreadcrumbsAdapter implements IMetadataAdapter {
     invalidate(_path?: string): void {}
 
     getHierarchy(path: string): Promise<HierarchyNode | null> {
+        const normalizedPath = this.normalizeBreadcrumbPath(path);
+
+        // NEW: Breadcrumbs V4 path (BCAPI)
+        const v4 = this.getV4Api();
+        if (v4) {
+            try {
+                const edgeList = v4.get_neighbours(normalizedPath);
+                const fromV4 = this.toHierarchyFromV4Neighbours(edgeList, normalizedPath);
+                if (fromV4) return Promise.resolve(fromV4);
+            } catch (e) {
+                HealerLogger.error(`BreadcrumbsAdapter(V4): get_neighbours failed for "${normalizedPath}"`, e);
+                // continue with legacy fallback
+            }
+        }
+
         const api = this.getApi();
         if (!api) return Promise.resolve(null);
-        const normalizedPath = this.normalizeBreadcrumbPath(path);
         try {
             // Try getMatrixNeighbours first, but fall back to graph if it returns null
             if (typeof api.getMatrixNeighbours === 'function') {
@@ -97,6 +136,46 @@ export class BreadcrumbsAdapter implements IMetadataAdapter {
 
     private isDirection(x: unknown): x is BCDirection {
         return x === 'up' || x === 'down' || x === 'same' || x === 'next' || x === 'prev';
+    }
+
+    private toHierarchyFromV4Neighbours(edgeList: unknown, currentPath: string): HierarchyNode | null {
+        // EdgeList shape not publicly documented for external integrations -> best-effort parsing
+        const edges = Array.isArray(edgeList)
+            ? edgeList
+            : edgeList && typeof edgeList === 'object' && Array.isArray((edgeList as unknown).edges)
+              ? (edgeList as unknown).edges
+              : [];
+
+        const children: string[] = [];
+
+        for (const e of edges) {
+            // try common patterns: string, {to}, {target}, {path}
+            const rawTarget =
+                typeof e === 'string'
+                    ? e
+                    : e && typeof e === 'object' && typeof e.to === 'string'
+                      ? e.to
+                      : e && typeof e === 'object' && typeof e.target === 'string'
+                        ? e.target
+                        : e && typeof e === 'object' && typeof e.path === 'string'
+                          ? e.path
+                          : null;
+
+            if (!rawTarget) continue;
+
+            const target = this.normalizeBreadcrumbPath(rawTarget, currentPath);
+            if (target && target !== currentPath) children.push(target);
+        }
+
+        // We initially return 'children' because get_neighbours typically returns outgoing edges.
+        // Expanding to other directions safely would require richer EdgeList type knowledge.
+        return {
+            parents: [],
+            children: [...new Set(children)],
+            siblings: [],
+            next: [],
+            prev: [],
+        };
     }
 
     private fromMatrixNeighbours(api: BreadcrumbsApi, path: string): HierarchyNode | null {

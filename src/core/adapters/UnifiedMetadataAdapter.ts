@@ -84,12 +84,7 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
         const cached = this.hierarchyCache.get(key);
         if (cached !== undefined) return cached;
 
-        let hierarchy = await this.breadcrumbs.getHierarchy(key);
-
-        // Fallback: If BC fails, try Datacore (basic hierarchies)
-        if (!hierarchy) {
-            hierarchy = await this.datacore.getHierarchy(key);
-        }
+        const hierarchy = await this.breadcrumbs.getHierarchy(key);
 
         this.hierarchyCache.set(key, hierarchy);
         return hierarchy;
