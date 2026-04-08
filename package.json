@@ -11,23 +11,30 @@
         "lint:css": "stylelint \"**/*.css\"",
         "format": "prettier --write .",
         "knip": "knip",
-        "prepare": "husky"
+        "prepare": "husky",
+        "lint:fix": "eslint . --fix && stylelint \"**/*.css\" --fix",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "test:adapter": "vitest run src/core/adapters/DatacoreAdapter.test.ts"
     },
     "keywords": [],
     "author": "lostpeanut09",
     "license": "GPL-3.0",
     "devDependencies": {
+        "@eslint/js": "^9.10.0",
         "@eslint/json": "^0.14.0",
         "@types/node": "^24.0.0",
         "@typescript-eslint/eslint-plugin": "^8.57.2",
         "@typescript-eslint/parser": "^8.57.2",
         "@vitest/ui": "^4.1.0",
+        "esbuild": "^0.20.0",
         "eslint": "^10.1.0",
         "eslint-config-prettier": "^10.1.8",
         "eslint-plugin-obsidianmd": "^0.1.9",
-        "esbuild": "^0.20.0",
         "husky": "^9.1.7",
+        "jsdom": "^29.0.2",
         "knip": "^6.0.5",
+        "nano-staged": "^0.8.0",
         "obsidian": "latest",
         "obsidian-typings": "^5.18.0",
         "prettier": "^3.8.1",
@@ -44,5 +51,18 @@
         "graphology-metrics": "^2.4.0",
         "graphology-types": "^0.24.8",
         "zod": "^4.3.6"
+    },
+    "nano-staged": {
+        "*.ts": [
+            "eslint --fix",
+            "prettier --write"
+        ],
+        "*.css": [
+            "stylelint --fix",
+            "prettier --write"
+        ],
+        "*.{json,md}": [
+            "prettier --write"
+        ]
     }
 }

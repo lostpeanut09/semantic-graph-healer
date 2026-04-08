@@ -83,9 +83,9 @@ export default defineConfig([
             '@typescript-eslint/no-unused-vars': 'warn',
 
             // Obsidian specific
-            'obsidianmd/no-tfile-tfolder-cast': 'warn',
+            'obsidianmd/no-tfile-tfolder-cast': 'error',
             'obsidianmd/ui/sentence-case': 'warn',
-            'obsidianmd/no-static-styles-assignment': 'warn',
+            'obsidianmd/no-static-styles-assignment': 'error',
 
             'no-console': ['warn', { allow: ['warn', 'error', 'debug', 'info'] }],
         },

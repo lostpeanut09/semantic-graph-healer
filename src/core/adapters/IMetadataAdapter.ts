@@ -1,8 +1,11 @@
-import { DataviewPage, RelatedNote, HierarchyNode } from '../../types';
+import type { DataviewApi, DataviewPage, RelatedNote, HierarchyNode } from '../../types';
 
 /**
  * IMetadataAdapter: Unified Interface for External Plugin Data.
  * SOTA 2026 Strategy: Decoupling the Core Healer from external API changes.
+ *
+ * Note: Adapters may return null, empty arrays, or no-op for operations
+ * they do not support.
  */
 export interface IMetadataAdapter {
     /**
@@ -33,7 +36,7 @@ export interface IMetadataAdapter {
     /**
      * Retrieves the raw Dataview API instance (legacy support).
      */
-    getDataviewApi(): import('../../types').DataviewApi | null;
+    getDataviewApi(): DataviewApi | null;
 
     /**
      * Retrieves hierarchical Breadcrumbs (V3/V4) data.
@@ -49,4 +52,9 @@ export interface IMetadataAdapter {
      * Invalidates cache for a specific path or the entire adapter.
      */
     invalidate(path?: string): void;
+
+    /**
+     * Explicit cleanup for hot-reload and shutdown cycles.
+     */
+    destroy?(): void;
 }

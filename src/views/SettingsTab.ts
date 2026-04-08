@@ -1,7 +1,7 @@
 import { App, PluginSettingTab, Setting, ButtonComponent, Notice, Modal } from 'obsidian';
-import { HealerLogger, isObsidianInternalApp } from './core/HealerUtils';
-import SemanticGraphHealer from './main';
-import { DEFAULT_SETTINGS, SettingsPreset, SemanticGraphHealerSettings } from './types';
+import { HealerLogger, isObsidianInternalApp } from '../core/HealerUtils';
+import SemanticGraphHealer from '../main';
+import { DEFAULT_SETTINGS, SettingsPreset, SemanticGraphHealerSettings } from '../types';
 
 export class SemanticHealerSettingTab extends PluginSettingTab {
     plugin: SemanticGraphHealer;
@@ -1118,7 +1118,7 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
                         const content = await file.text();
                         try {
                             const imported = JSON.parse(content) as Record<string, unknown>;
-                            const { SettingsSchema } = await import('./types.schema');
+                            const { SettingsSchema } = await import('../types.schema');
                             const result = SettingsSchema.safeParse(imported);
                             if (result.success) {
                                 this.plugin.settings = {
