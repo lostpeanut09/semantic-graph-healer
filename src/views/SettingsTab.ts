@@ -28,7 +28,7 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
         // ✅ Hardened manifest access for v1.3.0
         const manifest = this.plugin.manifest as typeof this.plugin.manifest & { dir?: string };
         const dir = manifest.dir ?? `plugins/${manifest.id}`;
-        const bannerPath = this.app.vault.adapter.getResourcePath(`${dir}/banner.png`);
+        const bannerPath = this.app.vault.adapter.getResourcePath(`${dir}/assets/banner.png`);
         const bannerEl = containerEl.createEl('img');
         bannerEl.src = bannerPath;
         bannerEl.addClass('healer-settings-banner');
