@@ -18,13 +18,13 @@ export class BreadcrumbsAdapter implements IMetadataAdapter {
     constructor(private app: App) {}
 
     private getV4Api(): BCAPIV4Like | null {
-        const w = window as unknown;
+        const w = window as { BCAPI?: { get_neighbours?: unknown } };
         if (w?.BCAPI && typeof w.BCAPI.get_neighbours === 'function') return w.BCAPI as BCAPIV4Like;
 
         // fallback: plugin.api (in V4 è proprio BCAPI)
         if (!isObsidianInternalApp(this.app)) return null;
         const plugin = (this.app as import('../../types').ExtendedApp).plugins.getPlugin('breadcrumbs');
-        const api = (plugin as unknown)?.api;
+        const api = (plugin as { api?: { get_neighbours?: unknown } })?.api;
         if (api && typeof api.get_neighbours === 'function') return api as BCAPIV4Like;
 
         return null;
@@ -143,11 +143,12 @@ export class BreadcrumbsAdapter implements IMetadataAdapter {
     }
 
     private bestEffortEdgeListToTargets(edgeList: unknown): string[] {
-        // Non assumo una shape unica: provo pattern comuni (array / {edges:[...]} / iterable)
+        const isObj = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null;
+
         const edges: unknown[] = Array.isArray(edgeList)
             ? edgeList
-            : edgeList && typeof edgeList === 'object' && Array.isArray((edgeList as unknown).edges)
-              ? (edgeList as unknown).edges
+            : isObj(edgeList) && Array.isArray(edgeList.edges)
+              ? edgeList.edges
               : [];
 
         const out: string[] = [];
@@ -155,10 +156,10 @@ export class BreadcrumbsAdapter implements IMetadataAdapter {
             const target =
                 typeof e === 'string'
                     ? e
-                    : e && typeof e === 'object' && typeof (e as unknown).target === 'string'
-                      ? (e as unknown).target
-                      : e && typeof e === 'object' && typeof (e as unknown).to === 'string'
-                        ? (e as unknown).to
+                    : isObj(e) && typeof e.target === 'string'
+                      ? e.target
+                      : isObj(e) && typeof e.to === 'string'
+                        ? e.to
                         : null;
 
             if (target) out.push(target);

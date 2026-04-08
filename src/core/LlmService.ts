@@ -88,8 +88,19 @@ export class LlmService {
                     temperature: this.settings.aiTemperature ?? 0.7,
                 } as Record<string, unknown>;
 
-                // ✅ FORWARD-COMPATIBILITY: OpenAI Responses API 2026 (/v1/responses)
-                const isResponsesApi = endpoint.includes('/v1/responses');
+                const normalizeEndpoint = (ep: string, tgtPath: 'responses' | 'chat/completions') => {
+                    const base = ep.replace(/\/+$/, ''); // trim trailing /
+                    if (base.endsWith(`/v1/${tgtPath}`)) return base;
+                    if (base.endsWith('/v1')) return `${base}/${tgtPath}`;
+                    if (tgtPath === 'responses' && base.endsWith('/v1/responses')) return base;
+                    if (tgtPath === 'chat/completions' && base.endsWith('/v1/chat/completions')) return base;
+                    return `${base}/${tgtPath}`;
+                };
+
+                const cleanEp = endpoint.replace(/\/+$/, '');
+                const isResponsesApi = cleanEp.endsWith('/v1/responses');
+                const apiPath = isResponsesApi ? 'responses' : 'chat/completions';
+
                 if (isResponsesApi) {
                     bodyJson['instructions'] = 'You are the Supreme Tribunal of the Knowledge Graph.';
                     bodyJson['input'] = prompt;
@@ -97,10 +108,8 @@ export class LlmService {
                     bodyJson['messages'] = [{ role: 'user', content: prompt }];
                 }
 
-                // ✅ FIX: Use correct endpoint for Responses API
-                const apiPath = isResponsesApi ? 'responses' : 'chat/completions';
                 const fetchPromise = requestUrl({
-                    url: endpoint.endsWith('/') ? `${endpoint}${apiPath}` : `${endpoint}/${apiPath}`,
+                    url: normalizeEndpoint(endpoint, apiPath),
                     method: 'POST',
                     headers: {
                         Authorization: `Bearer ${apiKey}`,
