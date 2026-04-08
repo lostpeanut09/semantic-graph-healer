@@ -7,8 +7,6 @@
 
 **Semantic Graph Healer** is a topological restoration and deep graph analysis engine for Obsidian. It leverages [Datacore](https://github.com/blacksmithgu/datacore) (with [Dataview](https://github.com/blacksmithgu/obsidian-dataview) fallback), [Breadcrumbs](https://github.com/Sirenko/obsidian-breadcrumbs), [ExcaliBrain](https://github.com/zsviczian/excalibrain), and [Graphology](https://graphology.github.io/) to identify and resolve structural inconsistencies in the knowledge graph. It's designed for researchers and curators managing large-scale digital gardens where manual link auditing is no longer feasible.
 
----
-
 ## Technical Features
 
 ### Hybrid Vault Query Engine
@@ -19,16 +17,16 @@ The plugin implements a production-grade **Hybrid Query Engine** that automatica
 2. **Dataview** (Fallback) — Full backward compatibility for vaults that haven't migrated yet.
 3. **MetadataCache** (Baseline) — Native Obsidian cache for backlink resolution when no query plugin is available.
 
-A critical adapter layer (`mapMarkdownToDataview`) transparently maps Datacore's schema to the legacy Dataview format, ensuring zero-disruption migration.
+A robust adapter layer (`mapMarkdownToDataview`) transparently resolves query parity and implicit fields between the Datacore schema and the legacy Dataview format, ensuring zero-disruption migration.
 
 ### Multi-Adapter Architecture
 
 The plugin implements a modular adapter pattern (`IMetadataAdapter`) for seamless integration with the broader Obsidian ecosystem:
 
 - **`DatacoreAdapter`** — High-performance reactive queries via the Datacore API.
-- **`BreadcrumbsAdapter`** — Reads hierarchical relationships (up/down/next/prev) from the Breadcrumbs V4 plugin.
-- **`SmartConnectionsAdapter`** — Fetches AI vector-similarity scores from Smart Connections v4+ with `.ajson` fallback.
-- **`UnifiedMetadataAdapter`** — Orchestrates all adapters into a single, consistent API surface.
+- **`BreadcrumbsAdapter`** — Seamlessly navigates hierarchical relationships (up/down/next/prev) utilizing the new Breadcrumbs V4 rewrite-from-scratch architecture.
+- **`SmartConnectionsAdapter`** — Orchestrates the modern Smart Environment API to fetch AI vector-similarity scores, while retaining strict backward compatibility with `.ajson` sources.
+- **`UnifiedMetadataAdapter`** — Orchestrates all adapters into a single, cohesive, and failure-resilient API surface.
 
 All adapters use type-safe access patterns (`ExtendedApp` interface) and are fully compliant with strict ESLint rules (zero warnings).
 
@@ -64,10 +62,10 @@ All weights are user-configurable and auto-normalized to sum to 1. A **Temporal 
 
 A generic LRU (Least Recently Used) caching layer sits between the query engine and the analysis modules. It features:
 
-- **Event-based invalidation** — Cache entries are automatically purged when files are modified, renamed, or deleted.
+- **Event-based invalidation** — Enforces strict `EventRef` lifecycle management. Cache entries are automatically and safely purged when files are modified, renamed, or deleted without risking memory leaks.
 - **Configurable TTL** — Default 5-minute expiry prevents stale data without excessive recomputation.
 - **Memory budget** — Hard cap of 10,000 entries with LRU eviction to prevent memory bloat on mobile devices.
-- **Explicit lifecycle management** — `destroy()` unregisters all event listeners to prevent memory leaks.
+- **Explicit lifecycle management** — `destroy()` unregisters all event listeners comprehensively across the architecture.
 
 ### AI Tribunal and Epistemic Stability
 
