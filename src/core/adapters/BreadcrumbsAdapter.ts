@@ -12,27 +12,20 @@ import { HealerLogger, isObsidianInternalApp } from '../HealerUtils';
 
 type BCAPIV4Like = {
     get_neighbours: (node?: string) => unknown; // EdgeList | undefined
-    fields?: unknown;
-    field_groups?: unknown;
 };
 
 export class BreadcrumbsAdapter implements IMetadataAdapter {
     constructor(private app: App) {}
 
     private getV4Api(): BCAPIV4Like | null {
-        // 1) prefer window.BCAPI (Breadcrumbs V4 explicitly exposes it)
         const w = window as unknown;
         if (w?.BCAPI && typeof w.BCAPI.get_neighbours === 'function') return w.BCAPI as BCAPIV4Like;
 
-        // 2) fallback: plugin.api
+        // fallback: plugin.api (in V4 è proprio BCAPI)
         if (!isObsidianInternalApp(this.app)) return null;
-        try {
-            const plugin = (this.app as import('../../types').ExtendedApp).plugins.getPlugin('breadcrumbs');
-            const api = plugin?.api as unknown;
-            if (api && typeof api.get_neighbours === 'function') return api as BCAPIV4Like;
-        } catch {
-            // ignore
-        }
+        const plugin = (this.app as import('../../types').ExtendedApp).plugins.getPlugin('breadcrumbs');
+        const api = (plugin as unknown)?.api;
+        if (api && typeof api.get_neighbours === 'function') return api as BCAPIV4Like;
 
         return null;
     }
@@ -76,19 +69,30 @@ export class BreadcrumbsAdapter implements IMetadataAdapter {
     invalidateBacklinkIndex(): void {}
     invalidate(_path?: string): void {}
 
-    getHierarchy(path: string): Promise<HierarchyNode | null> {
+    async getHierarchy(path: string): Promise<HierarchyNode | null> {
         const normalizedPath = this.normalizeBreadcrumbPath(path);
 
-        // NEW: Breadcrumbs V4 path (BCAPI)
+        // 1) Breadcrumbs V4 path (BCAPI.get_neighbours → outgoing edges)
         const v4 = this.getV4Api();
         if (v4) {
             try {
                 const edgeList = v4.get_neighbours(normalizedPath);
-                const fromV4 = this.toHierarchyFromV4Neighbours(edgeList, normalizedPath);
-                if (fromV4) return Promise.resolve(fromV4);
+                const targetsRaw = this.bestEffortEdgeListToTargets(edgeList);
+                const children = targetsRaw
+                    .map((t) => this.normalizeBreadcrumbPath(t, normalizedPath))
+                    .filter((t) => t && t !== normalizedPath);
+
+                // V4 API pubblica: outgoing edges. “parents/prev/next” richiedono info extra.
+                return {
+                    parents: [],
+                    children: [...new Set(children)],
+                    siblings: [],
+                    next: [],
+                    prev: [],
+                };
             } catch (e) {
                 HealerLogger.error(`BreadcrumbsAdapter(V4): get_neighbours failed for "${normalizedPath}"`, e);
-                // continue with legacy fallback
+                // continua su legacy
             }
         }
 
@@ -138,44 +142,28 @@ export class BreadcrumbsAdapter implements IMetadataAdapter {
         return x === 'up' || x === 'down' || x === 'same' || x === 'next' || x === 'prev';
     }
 
-    private toHierarchyFromV4Neighbours(edgeList: unknown, currentPath: string): HierarchyNode | null {
-        // EdgeList shape not publicly documented for external integrations -> best-effort parsing
-        const edges = Array.isArray(edgeList)
+    private bestEffortEdgeListToTargets(edgeList: unknown): string[] {
+        // Non assumo una shape unica: provo pattern comuni (array / {edges:[...]} / iterable)
+        const edges: unknown[] = Array.isArray(edgeList)
             ? edgeList
             : edgeList && typeof edgeList === 'object' && Array.isArray((edgeList as unknown).edges)
               ? (edgeList as unknown).edges
               : [];
 
-        const children: string[] = [];
-
+        const out: string[] = [];
         for (const e of edges) {
-            // try common patterns: string, {to}, {target}, {path}
-            const rawTarget =
+            const target =
                 typeof e === 'string'
                     ? e
-                    : e && typeof e === 'object' && typeof e.to === 'string'
-                      ? e.to
-                      : e && typeof e === 'object' && typeof e.target === 'string'
-                        ? e.target
-                        : e && typeof e === 'object' && typeof e.path === 'string'
-                          ? e.path
-                          : null;
+                    : e && typeof e === 'object' && typeof (e as unknown).target === 'string'
+                      ? (e as unknown).target
+                      : e && typeof e === 'object' && typeof (e as unknown).to === 'string'
+                        ? (e as unknown).to
+                        : null;
 
-            if (!rawTarget) continue;
-
-            const target = this.normalizeBreadcrumbPath(rawTarget, currentPath);
-            if (target && target !== currentPath) children.push(target);
+            if (target) out.push(target);
         }
-
-        // We initially return 'children' because get_neighbours typically returns outgoing edges.
-        // Expanding to other directions safely would require richer EdgeList type knowledge.
-        return {
-            parents: [],
-            children: [...new Set(children)],
-            siblings: [],
-            next: [],
-            prev: [],
-        };
+        return out;
     }
 
     private fromMatrixNeighbours(api: BreadcrumbsApi, path: string): HierarchyNode | null {
@@ -234,21 +222,23 @@ export class BreadcrumbsAdapter implements IMetadataAdapter {
         graph.forEachOutEdge(path, (_edge, attrs, _src, target, _srcAttrs, _tgtAttrs) => {
             const dir = attrs?.dir;
             if (!this.isDirection(dir)) return;
+            const normalizedTarget = this.normalizeBreadcrumbPath(target, path);
+            if (!normalizedTarget || normalizedTarget === path) return;
             switch (dir) {
                 case 'up':
-                    parents.push(target);
+                    parents.push(normalizedTarget);
                     break;
                 case 'down':
-                    children.push(target);
+                    children.push(normalizedTarget);
                     break;
                 case 'same':
-                    siblings.push(target);
+                    siblings.push(normalizedTarget);
                     break;
                 case 'next':
-                    next.push(target);
+                    next.push(normalizedTarget);
                     break;
                 case 'prev':
-                    prev.push(target);
+                    prev.push(normalizedTarget);
                     break;
             }
         });
@@ -256,21 +246,23 @@ export class BreadcrumbsAdapter implements IMetadataAdapter {
             graph.forEachInEdge(path, (_edge, attrs, source, _target, _srcAttrs, _tgtAttrs) => {
                 const dir = attrs?.dir;
                 if (!this.isDirection(dir)) return;
+                const normalizedSource = this.normalizeBreadcrumbPath(source, path);
+                if (!normalizedSource || normalizedSource === path) return;
                 switch (dir) {
                     case 'down':
-                        parents.push(source);
+                        parents.push(normalizedSource);
                         break;
                     case 'up':
-                        children.push(source);
+                        children.push(normalizedSource);
                         break;
                     case 'next':
-                        prev.push(source);
+                        prev.push(normalizedSource);
                         break;
                     case 'prev':
-                        next.push(source);
+                        next.push(normalizedSource);
                         break;
                     case 'same':
-                        siblings.push(source);
+                        siblings.push(normalizedSource);
                         break;
                 }
             });

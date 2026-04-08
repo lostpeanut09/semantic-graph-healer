@@ -38,7 +38,7 @@ vi.mock('obsidian', () => ({
     }),
 }));
 
-import { DatacoreAdapter } from './DatacoreAdapter';
+import { DatacoreAdapter } from '../DatacoreAdapter';
 import { TFile, type App, parseLinktext } from 'obsidian';
 
 type ListenerMap = Record<string, Function[]>;

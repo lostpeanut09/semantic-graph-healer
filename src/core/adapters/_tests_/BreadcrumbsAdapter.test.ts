@@ -36,7 +36,7 @@ vi.mock('obsidian', () => ({
     }),
 }));
 
-import { BreadcrumbsAdapter } from './BreadcrumbsAdapter';
+import { BreadcrumbsAdapter } from '../BreadcrumbsAdapter';
 import { TFile, type App, parseLinktext } from 'obsidian';
 
 interface MockBreadcrumbsApi {
