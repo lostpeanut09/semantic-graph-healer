@@ -110,6 +110,7 @@ describe('DatacoreAdapter', () => {
 
     let dcApi: {
         tryQuery: ReturnType<typeof vi.fn>;
+        query: ReturnType<typeof vi.fn>;
         resolvePath: ReturnType<typeof vi.fn>;
         page: ReturnType<typeof vi.fn>;
         blockLink: ReturnType<typeof vi.fn>;
@@ -133,6 +134,7 @@ describe('DatacoreAdapter', () => {
 
         dcApi = {
             tryQuery: vi.fn(),
+            query: vi.fn(),
             resolvePath: vi.fn((p: string) => p),
             page: vi.fn(),
             blockLink: vi.fn((path: string, blockId: string) => ({
@@ -457,5 +459,37 @@ describe('DatacoreAdapter', () => {
         expect((adapter as any).backlinkIndex).toBeNull();
         expect((adapter as any).linkCache.size).toBe(0);
         expect((adapter as any).pageChildrenCache.size).toBe(0);
+    });
+
+    it('falls back to query() when tryQuery is unavailable', () => {
+        const page = makeMarkdownPage({
+            $path: 'folder/note.md',
+            $name: 'note',
+        });
+
+        // Replace dcApi with one that only has query(), no tryQuery
+        const queryOnlyApi = {
+            query: vi.fn((q: string) => {
+                if (q.includes('@page')) return [page];
+                if (q.startsWith('@task')) return [];
+                if (q.startsWith('@list-item')) return [];
+                return [];
+            }),
+            resolvePath: vi.fn((p: string) => p),
+            page: vi.fn(() => null),
+            coerce: dcApi.coerce,
+        };
+
+        getPlugin.mockImplementation((id: string) => {
+            if (id === 'datacore') return { api: queryOnlyApi };
+            if (id === 'dataview') return { api: dvApi };
+            return null;
+        });
+
+        const result = adapter.getPage('folder/note.md');
+
+        expect(result).not.toBeNull();
+        expect(result!.file.path).toBe('folder/note.md');
+        expect(queryOnlyApi.query).toHaveBeenCalled();
     });
 });

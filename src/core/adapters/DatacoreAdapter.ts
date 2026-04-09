@@ -273,26 +273,19 @@ export class DatacoreAdapter implements IMetadataAdapter {
      * Helper to reliably execute a query on the Datacore API,
      * acting as a bridge between tryQuery and legacy/fallback query.
      */
-    private runQuery<T>(api: unknown, q: string): T[] | null {
-        if (api && typeof (api as Record<string, unknown>).tryQuery === 'function') {
-            const tryQ = (api as Record<string, unknown>).tryQuery as (q: string) => unknown;
-            const r = tryQ(q);
-            if (r && typeof r === 'object' && (r as Record<string, unknown>).successful === false) {
-                if (this.debug)
-                    HealerLogger.warn('DatacoreAdapter: tryQuery failed', (r as Record<string, unknown>).error);
-                // return null;
+    private runQuery<T>(api: DatacoreApi, q: string): T[] | null {
+        if (typeof api.tryQuery === 'function') {
+            const r = api.tryQuery<T>(q);
+            if (!r.successful) {
+                if (this.debug) HealerLogger.warn('DatacoreAdapter: tryQuery failed', r.error);
                 return null;
             }
-            return r && typeof r === 'object' && Array.isArray((r as Record<string, unknown>).value)
-                ? ((r as Record<string, unknown>).value as T[])
-                : [];
+            return r.value;
         }
 
-        if (api && typeof (api as Record<string, unknown>).query === 'function') {
+        if (typeof api.query === 'function') {
             try {
-                const qFn = (api as Record<string, unknown>).query as (q: string) => unknown;
-                const res = qFn(q);
-                return Array.isArray(res) ? (res as T[]) : [];
+                return api.query<T>(q);
             } catch (e) {
                 if (this.debug) HealerLogger.warn('DatacoreAdapter: query fallback failed', e);
                 return null;
@@ -914,8 +907,7 @@ export class DatacoreAdapter implements IMetadataAdapter {
         const dc = this.getApi();
         if (!dc) return null;
         const query = `${type} and childof(@page and $path = "${this.escapeDcString(pagePath)}")`;
-        const result = dc.tryQuery<unknown>(query);
-        return isRecord(result) && result['successful'] && Array.isArray(result['value']) ? result['value'] : null;
+        return this.runQuery<unknown>(dc, query);
     }
 
     private escapeDcString(value: string): string {
