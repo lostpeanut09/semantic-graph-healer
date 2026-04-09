@@ -4,7 +4,7 @@ import { ExtendedApp } from '../../types';
 import SemanticGraphHealer from '../../main';
 import { CryptoUtils } from '../utils/CryptoUtils';
 
-export type ApiKeyType = 'openai' | 'anthropic' | 'deepseek' | 'infranodus' | 'custom';
+type ApiKeyType = 'openai' | 'anthropic' | 'deepseek' | 'infranodus' | 'custom';
 
 /**
  * Interface for Obsidian Secure Storage (v1.11.4+)

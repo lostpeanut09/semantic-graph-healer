@@ -2,7 +2,7 @@ import { HealerLogger } from '../utils/HealerLogger';
 import { Platform, App } from 'obsidian';
 import { SemanticGraphHealerSettings } from '../../types';
 
-export type AnalysisType = 'PAGERANK' | 'COMMUNITY' | 'BETWEENNESS' | 'FULL_ANALYSIS';
+type AnalysisType = 'PAGERANK' | 'COMMUNITY' | 'BETWEENNESS' | 'FULL_ANALYSIS';
 
 interface PluginWithSettings {
     manifest: { dir?: string };

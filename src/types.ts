@@ -332,12 +332,6 @@ export interface SemanticGraphHealerSettings {
 
 export type SettingsPreset = 'balanced' | 'privacy' | 'ai-maximal' | 'performance';
 
-export interface SettingsProfile {
-    name: string;
-    preset: SettingsPreset;
-    settings: Partial<SemanticGraphHealerSettings>;
-}
-
 export interface RelatedNote {
     path: string;
     score: number;

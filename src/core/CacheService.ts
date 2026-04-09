@@ -20,7 +20,7 @@ const CACHE_FILENAME = 'healer-cache.json';
 const HISTORY_CAP = 100;
 const SAVE_DEBOUNCE_MS = 500;
 
-export interface HealerCache {
+interface HealerCache {
     pendingSuggestions: Suggestion[];
     history: HistoryItem[];
 }

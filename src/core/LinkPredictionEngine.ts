@@ -16,7 +16,7 @@ import { HealerLogger } from './HealerUtils';
  *            Physica A: Statistical Mechanics and its Applications, 2011.
  */
 
-export interface LinkPredictionWeights {
+interface LinkPredictionWeights {
     jaccard: number;
     adamicAdar: number;
     resourceAllocation: number;
