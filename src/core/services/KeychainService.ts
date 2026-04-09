@@ -71,7 +71,7 @@ export class KeychainService {
         } else {
             this.isSecureStorageAvailable = false;
             HealerLogger.warn('Secure storage NOT available - Obsidian version too old');
-            HealerLogger.warn('API keys will be saved in data.json (plain text!)');
+            HealerLogger.warn('API keys will be stored encrypted (AES-256-GCM) in data.json (sync-resilient).');
         }
     }
 

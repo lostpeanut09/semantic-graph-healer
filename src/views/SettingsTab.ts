@@ -853,7 +853,7 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
             .setDesc(
                 keychainStatus
                     ? 'Obsidian Keychain active. Your keys are encrypted at the OS level.'
-                    : 'Keychain NOT detected. Keys are currently saved in plain text data.json.',
+                    : 'Keychain NOT detected. Keys are stored encrypted (AES-256-GCM) in data.json.',
             )
             .addButton((button) => {
                 button

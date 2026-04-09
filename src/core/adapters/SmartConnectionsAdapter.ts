@@ -256,8 +256,9 @@ export class SmartConnectionsAdapter implements IMetadataAdapter {
         const suggestions: RelatedNote[] = [];
         const seen = new Set<string>();
 
-        const singleFileFallback = '.smart-env/smart_sources.json';
-        if (await adapter.exists(singleFileFallback)) {
+        const singleFileFallbacks = ['.smart-env/smart_sources.json', '.smart-env/smart_sources.ajson'];
+        for (const singleFileFallback of singleFileFallbacks) {
+            if (!(await adapter.exists(singleFileFallback))) continue;
             try {
                 const content = await adapter.read(singleFileFallback);
                 const data = JSON.parse(content) as Record<string, unknown>;
