@@ -357,4 +357,31 @@ describe('BreadcrumbsAdapter', () => {
         const result = await adapter.getHierarchy('note');
         expect(result).toBeNull();
     });
+
+    it('uses window.BCAPI.get_neighbours for V4 fallback', async () => {
+        const getMatrixNeighbours = vi.fn().mockReturnValue(null);
+        (mockApp.plugins.getPlugin as ReturnType<typeof vi.fn>).mockReturnValue({
+            api: createMockApi({ getMatrixNeighbours }),
+        });
+
+        // Set up global `window.BCAPI` mock
+        (globalThis as any).window = globalThis as any;
+        (globalThis as any).window.BCAPI = {
+            get_neighbours: () => ({
+                edges: [
+                    { target: 'folder/parent.md', attrs: { dir: 'up' } },
+                    { target: 'folder/next.md', attrs: { dir: 'next' } },
+                ],
+            }),
+        };
+
+        const result = await adapter.getHierarchy('test/note.md');
+
+        expect(result).not.toBeNull();
+        expect(result!.parents).toContain('folder/parent.md');
+        expect(result!.next).toContain('folder/next.md');
+
+        // Cleanup mock
+        delete (globalThis as any).window.BCAPI;
+    });
 });

@@ -58,6 +58,7 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
 
     public invalidateBacklinkIndex() {
         this.pageCache.invalidate();
+        this.hierarchyCache.invalidate();
         this.datacore.invalidateBacklinkIndex();
     }
 
