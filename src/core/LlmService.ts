@@ -21,6 +21,7 @@ interface LlmResponse {
             content?: string;
         };
     }>;
+    output?: unknown[];
     message?: {
         content?: string;
     };
@@ -79,6 +80,10 @@ export class LlmService {
             const MAX_RETRIES = this.settings.llmMaxRetries || 2;
             const RETRYABLE_STATUSES = this.settings.llmRetryableStatuses || [429, 408, 503];
 
+            const cleanEp = endpoint.replace(/\/+$/, '');
+            const isResponsesApi = cleanEp.endsWith('/v1/responses');
+            const apiPath = isResponsesApi ? 'responses' : ('chat/completions' as const);
+
             const makeRequest = async (): Promise<{ status: number; json: LlmResponse }> => {
                 let timer: ReturnType<typeof setTimeout> | null = null;
 
@@ -97,13 +102,11 @@ export class LlmService {
                     return `${base}/${tgtPath}`;
                 };
 
-                const cleanEp = endpoint.replace(/\/+$/, '');
-                const isResponsesApi = cleanEp.endsWith('/v1/responses');
-                const apiPath = isResponsesApi ? 'responses' : 'chat/completions';
-
                 if (isResponsesApi) {
                     bodyJson['instructions'] = 'You are the Supreme Tribunal of the Knowledge Graph.';
                     bodyJson['input'] = prompt;
+                    bodyJson['max_output_tokens'] = this.settings.aiMaxTokens || 1000;
+                    delete bodyJson['max_tokens'];
                 } else {
                     bodyJson['messages'] = [{ role: 'user', content: prompt }];
                 }
@@ -164,12 +167,13 @@ export class LlmService {
                 const json = response.json;
 
                 // ✅ VALIDATION: Ensure response structure is valid
-                if (!this.validateLlmResponse(json)) {
+                if (!this.validateLlmResponse(json, isResponsesApi)) {
                     HealerLogger.warn(`Invalid LLM response structure: ${JSON.stringify(json).slice(0, 200)}`);
                     return '';
                 }
 
                 return (
+                    (isResponsesApi ? this.extractResponsesText(json) : '') ||
                     json.choices?.[0]?.message?.content?.trim() ||
                     json.message?.content?.trim() ||
                     json.response?.trim() ||
@@ -516,10 +520,36 @@ Only return the JSON. No markdown or meta-talk.
     }
 
     /**
+     * Helper to extract text from an OpenAI Responses API response
+     */
+    private extractResponsesText(json: LlmResponse): string {
+        const output = Array.isArray(json?.output) ? json.output : [];
+        const parts: string[] = [];
+
+        for (const item of output) {
+            if (!item || typeof item !== 'object') continue;
+            const content = Array.isArray((item as Record<string, unknown>).content)
+                ? (item as Record<string, unknown>).content
+                : [];
+            for (const c of content as unknown[]) {
+                if (!c || typeof c !== 'object') continue;
+                const record = c as Record<string, unknown>;
+                if (typeof record.text === 'string') parts.push(record.text);
+                if (typeof record.output_text === 'string') parts.push(record.output_text);
+                if (typeof record.content === 'string') parts.push(record.content);
+            }
+        }
+        return parts.join('\n').trim();
+    }
+
+    /**
      * Validation method for LLM responses
      */
-    private validateLlmResponse(json: LlmResponse): boolean {
+    private validateLlmResponse(json: LlmResponse, isResponsesApi: boolean = false): boolean {
         if (!json) return false;
+        if (isResponsesApi) {
+            return Array.isArray(json.output);
+        }
         if (json.choices && Array.isArray(json.choices) && json.choices.length > 0) {
             return !!json.choices[0].message?.content;
         }

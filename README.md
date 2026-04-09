@@ -5,19 +5,18 @@
 [![Obsidian Plugin](https://img.shields.io/badge/Obsidian-Plugin-purple.svg)](https://obsidian.md/)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
-**Semantic Graph Healer** is a topological restoration and deep graph analysis engine for Obsidian. It leverages [Datacore](https://github.com/blacksmithgu/datacore) (with [Dataview](https://github.com/blacksmithgu/obsidian-dataview) fallback), [Breadcrumbs](https://github.com/Sirenko/obsidian-breadcrumbs), [ExcaliBrain](https://github.com/zsviczian/excalibrain), and [Graphology](https://graphology.github.io/) to identify and resolve structural inconsistencies in the knowledge graph. It's designed for researchers and curators managing large-scale digital gardens where manual link auditing is no longer feasible.
+**Semantic Graph Healer** is a topological restoration and deep graph analysis engine for Obsidian. It leverages [Datacore](https://github.com/blacksmithgu/datacore), [Breadcrumbs](https://github.com/Sirenko/obsidian-breadcrumbs), [ExcaliBrain](https://github.com/zsviczian/excalibrain), and [Graphology](https://graphology.github.io/) to identify and resolve structural inconsistencies in the knowledge graph. It's designed for researchers and curators managing large-scale digital gardens where manual link auditing is no longer feasible.
 
 ## Technical Features
 
-### Hybrid Vault Query Engine
+### Robust Vault Query Engine
 
-The plugin implements a production-grade **Hybrid Query Engine** that automatically selects the fastest available data backend:
+The plugin implements a production-grade **Query Engine** powered by Datacore:
 
-1. **Datacore** (Primary) — Up to 100x faster than Dataview, with reactive queries and a modern schema (`$path`, `$tags`, `$links`).
-2. **Dataview** (Fallback) — Full backward compatibility for vaults that haven't migrated yet.
-3. **MetadataCache** (Baseline) — Native Obsidian cache for backlink resolution when no query plugin is available.
+1. **Datacore** (Primary Engine) — Up to 100x faster than Dataview, with reactive queries and a modern schema (`$path`, `$tags`, `$links`). Datacore is strictly required.
+2. **MetadataCache** (Baseline) — Native Obsidian cache utilized for specific low-level backlink resolutions and normalized keys.
 
-A robust adapter layer (`mapMarkdownToDataview`) transparently resolves query parity and implicit fields between the Datacore schema and the legacy Dataview format, ensuring zero-disruption migration.
+A robust adapter layer transparently utilizes Datacore to ensure high semantic parity and speed.
 
 ### Multi-Adapter Architecture
 
@@ -188,7 +187,8 @@ Each suggestion card supports:
 ## Requirements
 
 - Obsidian v1.5.0 or higher.
-- [Datacore](https://github.com/blacksmithgu/datacore) (recommended) or [Dataview](https://github.com/blacksmithgu/obsidian-dataview) plugin (active).
+- [Datacore](https://github.com/blacksmithgu/datacore) plugin (required for query engine).
+- [Breadcrumbs](https://github.com/Sirenko/obsidian-breadcrumbs) plugin (recommended, for hierarchical analysis).
 - [Ollama](https://ollama.com) or a valid Cloud LLM API key (for AI features).
 - [Smart Connections](https://github.com/brianpetro/obsidian-smart-connections) (optional, for vector discovery).
 - [Graphology](https://graphology.github.io/) is bundled — no external install required.
