@@ -5,7 +5,7 @@ import { HealerLogger } from './HealerUtils';
 /**
  * Custom Error for LLM operations.
  */
-export class LlmError extends Error {
+class LlmError extends Error {
     constructor(
         public readonly model: string,
         public readonly status: number,

@@ -1,7 +1,7 @@
 import { Plugin, TFile } from 'obsidian';
 import { SemanticGraphHealerSettings } from '../../types';
 
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 const LOG_LEVELS: Record<LogLevel, number> = {
     debug: 0,

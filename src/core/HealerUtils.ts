@@ -338,13 +338,6 @@ export function sleep(ms: number): Promise<void> {
 // ============================================================================
 
 /**
- * ✅ NEW: Safe regex escaping for user-provided patterns.
- */
-export function escapeRegExp(string: string): string {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-/**
  * ✅ NEW: Safe regex compilation with error handling.
  */
 export function safeCompileRegex(pattern: string, flags?: string): RegExp | null {
@@ -355,52 +348,6 @@ export function safeCompileRegex(pattern: string, flags?: string): RegExp | null
         HealerLogger.error(`Invalid regex pattern: "${pattern}"`, e);
         return null;
     }
-}
-
-/**
- * ✅ NEW: Process items in batches with concurrency control & delay.
- */
-export async function processInBatches<T, R>(
-    items: T[],
-    processor: (item: T, index: number) => Promise<R>,
-    batchSize: number = 10,
-    delayMs: number = 100,
-): Promise<R[]> {
-    const results: R[] = [];
-    for (let i = 0; i < items.length; i += batchSize) {
-        const batch = items.slice(i, i + batchSize);
-        const batchResults = await Promise.all(batch.map((item, idx) => processor(item, i + idx)));
-        results.push(...batchResults);
-        if (i + batchSize < items.length) {
-            await sleep(delayMs);
-        }
-    }
-    return results;
-}
-
-/**
- * ✅ NEW: Debounce utility for UI/performance throttling.
- */
-export function debounce<T extends (...args: unknown[]) => void>(
-    func: T,
-    wait: number,
-): (...args: Parameters<T>) => void {
-    let timeout: ReturnType<typeof setTimeout> | null = null;
-    return (...args: Parameters<T>) => {
-        if (timeout) clearTimeout(timeout);
-        timeout = setTimeout(() => func(...args), wait);
-    };
-}
-
-/**
- * ✅ NEW: Type-safe property access.
- */
-export function safeGet<T extends Record<string, unknown>, K extends keyof T>(
-    obj: T | null | undefined,
-    key: K,
-    defaultValue: T[K],
-): T[K] {
-    return obj?.[key] ?? defaultValue;
 }
 
 /**

@@ -1,8 +1,16 @@
 {
     "$schema": "https://unpkg.com/knip@5/schema.json",
     "project": ["**/*.ts"],
+    "entry": ["src/main.ts", "src/core/workers/graph-analysis-worker.ts"],
     "ignore": [],
-    "ignoreDependencies": ["@vitest/ui", "vitest", "@typescript-eslint/eslint-plugin", "@typescript-eslint/parser"],
+    "ignoreDependencies": [
+        "esbuild",
+        "stylelint-config-standard",
+        "@vitest/ui",
+        "vitest",
+        "@typescript-eslint/eslint-plugin",
+        "@typescript-eslint/parser"
+    ],
     "rules": {
         "files": "error",
         "dependencies": "error",
