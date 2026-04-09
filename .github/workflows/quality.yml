@@ -1,0 +1,47 @@
+name: Quality Pipeline
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  quality:
+    name: Lint, Test & Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Format Check
+        run: npx prettier --config .config/.prettierrc --check .
+
+      - name: Lint (TS/JS)
+        run: npm run lint
+
+      - name: Lint (CSS)
+        run: npm run lint:css
+
+      - name: Dependency Audit (Knip)
+        run: npm run knip
+
+      - name: Run Tests
+        run: npm run test
+
+      - name: Build Check
+        run: npm run build
