@@ -1,46 +1,43 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - '*'
+    push:
+        tags:
+            - '*'
 
 permissions:
-  contents: write
-
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    contents: write
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+    build:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v6
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
+            - name: Setup Node.js
+              uses: actions/setup-node@v6
+              with:
+                  node-version: '22'
+                  cache: 'npm'
 
-      - name: Install Dependencies
-        run: npm install --legacy-peer-deps
+            - name: Install Dependencies
+              run: npm install --legacy-peer-deps
 
-      - name: Build Plugin
-        run: npm run build
+            - name: Build Plugin
+              run: npm run build
 
-      - name: Create Release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release create ${{ github.ref_name }} \
-            --title "Release ${{ github.ref_name }}" \
-            --generate-notes \
-            || echo "Release already exists"
-          
-          gh release upload ${{ github.ref_name }} \
-            main.js \
-            worker.js \
-            manifest.json \
-            styles.css \
-            --clobber
+            - name: Create Release
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  gh release create ${{ github.ref_name }} \
+                    --title "Release ${{ github.ref_name }}" \
+                    --generate-notes \
+                    || echo "Release already exists"
+
+                  gh release upload ${{ github.ref_name }} \
+                    main.js \
+                    worker.js \
+                    manifest.json \
+                    styles.css \
+                    --clobber
