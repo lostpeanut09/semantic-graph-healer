@@ -266,7 +266,7 @@ export class SmartConnectionsAdapter implements IMetadataAdapter {
 
                 for (const [targetKey, targetVal] of Object.entries(items as Record<string, unknown>)) {
                     if (targetKey === sourcePath) continue;
-                    if (JSON.stringify(targetVal).includes(sourcePath)) {
+                    if (this.containsExactPath(JSON.stringify(targetVal), sourcePath)) {
                         const targetFile = this.app.metadataCache.getFirstLinkpathDest(targetKey, sourcePath);
                         if (!(targetFile instanceof TFile)) continue;
                         if (seen.has(targetFile.path)) continue;

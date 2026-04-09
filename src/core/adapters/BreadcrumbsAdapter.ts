@@ -6,8 +6,12 @@ import { HealerLogger, isObsidianInternalApp } from '../HealerUtils';
 
 /**
  * BreadcrumbsAdapter: Decoupled Navigation Wrapper.
- * Compatible with local BCAPII surface used by Semantic Graph Healer.
- * Not guaranteed against the public upstream Breadcrumbs API.
+ *
+ * V4 path: Uses the public `window.BCAPI.get_neighbours()` surface
+ * documented by Breadcrumbs 4.4.x.
+ *
+ * Legacy path: Falls back to `getMatrixNeighbours` / `closedG` / `mainG`
+ * for pre-V4 installations.
  */
 
 type BCAPIV4Like = {
@@ -155,7 +159,7 @@ export class BreadcrumbsAdapter implements IMetadataAdapter {
         return x === 'up' || x === 'down' || x === 'same' || x === 'next' || x === 'prev';
     }
 
-    private bestEffortEdgeListToTargets(edgeList: unknown): { target: string; dir?: string }[] {
+    private bestEffortEdgeListToTargets(edgeList: unknown): { target: string; dir?: BCDirection }[] {
         const isObj = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null;
 
         const edges: unknown[] = Array.isArray(edgeList)
@@ -164,10 +168,10 @@ export class BreadcrumbsAdapter implements IMetadataAdapter {
               ? edgeList.edges
               : [];
 
-        const out: { target: string; dir?: string }[] = [];
+        const out: { target: string; dir?: BCDirection }[] = [];
         for (const e of edges) {
             let target: string | null = null;
-            let dir: string | undefined = undefined;
+            let dir: BCDirection | undefined = undefined;
 
             if (typeof e === 'string') {
                 target = e;
@@ -175,10 +179,10 @@ export class BreadcrumbsAdapter implements IMetadataAdapter {
                 if (typeof e.target === 'string') target = e.target;
                 else if (typeof e.to === 'string') target = e.to;
 
-                // Try to extract dir
-                if (typeof e.dir === 'string') dir = e.dir;
-                else if (isObj(e.attr) && typeof e.attr.dir === 'string') dir = e.attr.dir;
-                else if (isObj(e.attrs) && typeof e.attrs.dir === 'string') dir = e.attrs.dir;
+                // Extract and validate dir through the BCDirection type guard
+                const dirRaw: unknown =
+                    e.dir ?? (isObj(e.attr) ? e.attr.dir : undefined) ?? (isObj(e.attrs) ? e.attrs.dir : undefined);
+                if (this.isDirection(dirRaw)) dir = dirRaw;
             }
 
             if (target) out.push({ target, dir });

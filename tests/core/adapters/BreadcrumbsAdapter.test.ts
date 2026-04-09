@@ -384,4 +384,33 @@ describe('BreadcrumbsAdapter', () => {
         // Cleanup mock
         delete (globalThis as any).window.BCAPI;
     });
+
+    it('routes edges with invalid dir to children in V4', async () => {
+        (mockApp.plugins.getPlugin as ReturnType<typeof vi.fn>).mockReturnValue({
+            api: createMockApi(),
+        });
+
+        (globalThis as any).window = globalThis as any;
+        (globalThis as any).window.BCAPI = {
+            get_neighbours: () => ({
+                edges: [
+                    { target: 'folder/parent.md', dir: 'up' }, // valid → parents
+                    { target: 'folder/child.md', dir: 'diagonal' }, // invalid → children (default)
+                    { target: 'folder/peer.md', attrs: { dir: '' } }, // empty → children (default)
+                    { target: 'folder/next.md', dir: 42 }, // non-string → children (default)
+                ],
+            }),
+        };
+
+        const result = await adapter.getHierarchy('test/note.md');
+
+        expect(result).not.toBeNull();
+        expect(result!.parents).toEqual(['folder/parent.md']);
+        expect(result!.children).toContain('folder/child.md');
+        expect(result!.children).toContain('folder/peer.md');
+        expect(result!.children).toContain('folder/next.md');
+        expect(result!.siblings).toEqual([]);
+
+        delete (globalThis as any).window.BCAPI;
+    });
 });
