@@ -102,10 +102,17 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
  * Optimized Similarity Analysis (Jaccard, AA, RA).
  * Uses Inverted Index for Candidate Generation.
  */
+interface SimilarityOptions {
+    weights?: { jaccard: number; adamicAdar: number; resourceAllocation: number };
+    limit?: number;
+    fileStats?: Record<string, { mtime: number }>;
+}
+
 function runSimilarityAnalysis(graph: DirectedGraph, options: unknown) {
-    const weights = options?.weights || { jaccard: 0.35, adamicAdar: 0.35, resourceAllocation: 0.3 };
-    const limit = options?.limit || 5;
-    const fileStats = options?.fileStats || {};
+    const opts = options as SimilarityOptions | undefined;
+    const weights = opts?.weights || { jaccard: 0.35, adamicAdar: 0.35, resourceAllocation: 0.3 };
+    const limit = opts?.limit || 5;
+    const fileStats = opts?.fileStats || {};
     const predictions: Array<{ source: string; target: string; score: number }> = [];
 
     // 1. Build Neighbor Map and Inverted Index (Neighbor -> Nodes)
@@ -197,8 +204,13 @@ function runSimilarityAnalysis(graph: DirectedGraph, options: unknown) {
 /**
  * Optimized Co-Citation Analysis.
  */
+interface CoCitationOptions {
+    minScore?: number;
+}
+
 function runCoCitationAnalysis(graph: DirectedGraph, options: unknown) {
-    const minScore = options?.minScore || 2;
+    const opts = options as CoCitationOptions | undefined;
+    const minScore = opts?.minScore || 2;
     const results: Array<{ a: string; b: string; score: number }> = [];
 
     // 1. Inverted Index of Backlinkers (Children -> Parents)

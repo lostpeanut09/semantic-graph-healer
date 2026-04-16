@@ -7,14 +7,12 @@ import {
     resolveLinkpathsToPaths,
     pathToWikilink,
     safeString,
-    normalizeTimestamp,
     isObsidianInternalApp,
     sleep,
 } from './HealerUtils';
 
 import { IMetadataAdapter } from './adapters/IMetadataAdapter';
 import { LlmService } from './LlmService';
-import { LinkPredictionEngine } from './LinkPredictionEngine';
 import { GraphEngine } from './GraphEngine';
 import { Platform } from 'obsidian';
 import SemanticGraphHealer from '../main';

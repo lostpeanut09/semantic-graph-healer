@@ -1,5 +1,4 @@
 import { HealerLogger } from './HealerUtils';
-import { SemanticGraphHealerSettings } from '../types';
 
 /**
  * LinkPredictionEngine: SOTA 2026 Deep Topology Engine.
