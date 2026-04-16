@@ -68,7 +68,7 @@ export default class SemanticGraphHealer extends Plugin {
         this.engine = new UnifiedMetadataAdapter(this.app as ExtendedApp, this.settings);
         this.executor = new SuggestionExecutor(this);
         this.llm = new LlmService(this.settings, (type) => this.getApiKey(type));
-        this.topology = new TopologyAnalyzer(this.app as ExtendedApp, this.settings, this.engine, this.llm);
+        this.topology = new TopologyAnalyzer(this.app as ExtendedApp, this.settings, this.engine, this.llm, this);
         this.quality = new QualityAnalyzer(this.app as ExtendedApp, this.settings, this.engine);
         this.reasoner = new ReasoningService(
             this.app as ExtendedApp,
@@ -116,7 +116,7 @@ export default class SemanticGraphHealer extends Plugin {
             // 2. Hot Reload Logic Services
             this.llm = new LlmService(this.settings, (type) => this.getApiKey(type));
             this.quality = new QualityAnalyzer(this.app as ExtendedApp, this.settings, this.engine);
-            this.topology = new TopologyAnalyzer(this.app as ExtendedApp, this.settings, this.engine, this.llm);
+            this.topology = new TopologyAnalyzer(this.app as ExtendedApp, this.settings, this.engine, this.llm, this);
 
             // 4. Hot Reload Worker Service (P2 Fix)
             if (this.graphWorkerService) {
@@ -791,7 +791,7 @@ export default class SemanticGraphHealer extends Plugin {
 
             // Co-Citation Analysis: 2nd-order backlinks (Small 1973 + SkepticMystic algorithm)
             // Uses Obsidian's resolvedLinks directly â€” works at any vault size.
-            suggestions.push(...engine.runCoCitationAnalysis());
+            suggestions.push(...(await engine.runCoCitationAnalysis()));
 
             return suggestions;
         } catch (e) {

@@ -346,89 +346,185 @@ export class GraphEngine {
 
     /**
      * ✅ NEW: Co-citation Analysis — 2nd-order backlinks.
-     *
-     * Two notes A and B are "co-cited" if they are both linked from the same
-     * third note C. The more frequently two notes are co-cited (and the closer
-     * together those citations appear), the stronger their implied relationship.
-     *
-     * This algorithm surfaces implicit conceptual bridges that don't yet have
-     * direct wikilinks, making it a powerful complement to direct link prediction.
-     *
-     * Based on: Small (1973) "Co-citation in the scientific literature" and
-     *            SkepticMystic/graph-analysis (2022) proximity-weighted implementation.
+     * Async via Worker to handle O(N^2) complexity in large vaults.
      */
-    public runCoCitationAnalysis(minScore = 2, limit = 15): Suggestion[] {
-        HealerLogger.info('Running Co-Citation Analysis (2nd-order backlinks)...');
-        const suggestions: Suggestion[] = [];
+    public async runCoCitationAnalysis(minScore = 2, limit = 15): Promise<Suggestion[]> {
+        HealerLogger.info('Running Co-Citation Analysis (Worker offloaded)...');
 
-        // Build backlink index: target → Set of notes that link TO it
-        const backlinkIndex = new Map<string, Set<string>>();
-        const resolvedLinks = this.app.metadataCache.resolvedLinks;
-
-        for (const [sourcePath, targets] of Object.entries(resolvedLinks)) {
-            for (const targetPath of Object.keys(targets)) {
-                if (sourcePath === targetPath) continue;
-                if (!backlinkIndex.has(targetPath)) backlinkIndex.set(targetPath, new Set());
-                backlinkIndex.get(targetPath)!.add(sourcePath);
-            }
+        // Serialization Guard
+        if (this.graph.order < 100) {
+            return this.runCoCitationAnalysisSync(minScore, limit);
         }
+
+        try {
+            const nodes = this.getSerializedNodes();
+            const edges = this.getSerializedEdges();
+            const worker = this.plugin.graphWorkerService;
+
+            const results = await worker.runAnalysis<Array<{ a: string; b: string; score: number }>>(
+                'COCITATION',
+                nodes,
+                edges,
+                { minScore },
+            );
+
+            if (!results) return [];
+
+            const suggestions: Suggestion[] = [];
+            const sorted = results.sort((a, b) => b.score - a.score).slice(0, limit);
+
+            for (const { a, b, score } of sorted) {
+                const fileA = this.app.vault.getAbstractFileByPath(a);
+                const fileB = this.app.vault.getAbstractFileByPath(b);
+                if (!(fileA instanceof TFile) || !(fileB instanceof TFile)) continue;
+
+                suggestions.push({
+                    id: `cocitation:${[a, b].sort().join('::')}`,
+                    type: 'deterministic',
+                    link: `[[${fileB.basename}]]`,
+                    source: `Co-Citation (score: ${score}): [[${fileA.basename}]] and [[${fileB.basename}]] are cited together in ${score} note(s).`,
+                    timestamp: Date.now(),
+                    category: 'suggestion',
+                    meta: {
+                        property: 'related',
+                        sourcePath: a,
+                        targetPath: b,
+                        sourceNote: fileA.basename,
+                        targetNote: fileB.basename,
+                        description: `Implied relationship via ${score} shared citation source(s)`,
+                        confidence: Math.min(Math.round(score * 15), 95),
+                    },
+                });
+            }
+
+            HealerLogger.info(`Co-Citation: ${suggestions.length} implicit links discovered via worker.`);
+            return suggestions;
+        } catch (e) {
+            HealerLogger.error('Co-citation analysis failed in worker, falling back to sync.', e);
+            return this.runCoCitationAnalysisSync(minScore, limit);
+        }
+    }
+
+    /**
+     * ✅ NEW: Similarity Analysis (Jaccard, AA, RA).
+     * Async via Worker with Candidate Generation (O(E) instead of O(V^2)).
+     */
+    public async runSimilarityAnalysis(options?: unknown): Promise<Suggestion[]> {
+        HealerLogger.info('Running Deep Topology Similarity Analysis (Worker offloaded)...');
+
+        try {
+            const nodes = this.getSerializedNodes();
+            const edges = this.getSerializedEdges();
+            const worker = this.plugin.graphWorkerService;
+
+            const results = await worker.runAnalysis<Array<{ source: string; target: string; score: number }>>(
+                'SIMILARITY',
+                nodes,
+                edges,
+                {
+                    weights: this.settings.linkPredictionWeights,
+                    limit: options?.limit || 5,
+                    fileStats: this.getFileStats(),
+                },
+            );
+
+            if (!results) return [];
+
+            const suggestions: Suggestion[] = [];
+            for (const res of results) {
+                const fileS = this.app.vault.getAbstractFileByPath(res.source);
+                const fileT = this.app.vault.getAbstractFileByPath(res.target);
+                if (!(fileS instanceof TFile) || !(fileT instanceof TFile)) continue;
+
+                suggestions.push({
+                    id: `predicted_link:${res.source}:${res.target}`,
+                    type: 'semantic_inference',
+                    link: this.pathToLink(res.target),
+                    source: `Predicted Semantic Connection: [[${fileS.basename}]] and [[${fileT.basename}]] share high topological similarity (Score: ${res.score.toFixed(2)}).`,
+                    timestamp: Date.now(),
+                    category: 'suggestion',
+                    meta: {
+                        confidence: Math.round(res.score * 100),
+                        sourcePath: res.source,
+                        targetPath: res.target,
+                        sourceNote: fileS.basename,
+                        targetNote: fileT.basename,
+                        description: `Topological similarity predicted via Jaccard/AA/RA hybrid.`,
+                    },
+                });
+            }
+
+            return suggestions;
+        } catch (e) {
+            HealerLogger.error('Similarity analysis failed in worker.', e);
+            return [];
+        }
+    }
+
+    private getFileStats(): Record<string, { mtime: number }> {
+        const stats: Record<string, { mtime: number }> = {};
+        this.app.vault.getMarkdownFiles().forEach((f) => {
+            stats[f.path] = { mtime: f.stat.mtime };
+        });
+        return stats;
+    }
+
+    private getSerializedNodes() {
+        const nodes: Array<{ key: string; attributes: Record<string, unknown> }> = [];
+        this.graph.forEachNode((node, attrs) => {
+            nodes.push({ key: node, attributes: attrs as Record<string, unknown> });
+        });
+        return nodes;
+    }
+
+    private getSerializedEdges() {
+        const edges: Array<{ source: string; target: string; attributes: Record<string, unknown> }> = [];
+        this.graph.forEachEdge((edge, attrs, source, target) => {
+            edges.push({ source, target, attributes: attrs as Record<string, unknown> });
+        });
+        return edges;
+    }
+
+    private runCoCitationAnalysisSync(minScore: number, limit: number): Suggestion[] {
+        // ... (Existing sync logic, simplified) ...
+        const suggestions: Suggestion[] = [];
+        const backlinkIndex = new Map<string, Set<string>>();
+        this.graph.forEachNode((node) => {
+            backlinkIndex.set(node, new Set(this.graph.inNeighbors(node)));
+        });
 
         const allPaths = [...backlinkIndex.keys()];
-        const coCitationScores = new Map<string, number>(); // key: `pathA::pathB` (sorted)
+        const results: Array<{ a: string; b: string; score: number }> = [];
 
-        // For each pair (A, B), measure shared backlinkers (notes that cite both)
         for (let i = 0; i < allPaths.length; i++) {
             const pathA = allPaths[i];
-            const backlinkersA = backlinkIndex.get(pathA) ?? new Set<string>();
-            if (backlinkersA.size === 0) continue;
-
+            const backlinksA = backlinkIndex.get(pathA)!;
             for (let j = i + 1; j < allPaths.length; j++) {
                 const pathB = allPaths[j];
-                if (pathA === pathB) continue;
-
-                // Skip if already directly linked (both directions)
-                const alreadyLinked = resolvedLinks[pathA]?.[pathB] != null || resolvedLinks[pathB]?.[pathA] != null;
-                if (alreadyLinked) continue;
-
-                const backlinkersB = backlinkIndex.get(pathB) ?? new Set<string>();
-                const score = LinkPredictionEngine.computeCoCitationScore(backlinkersA, backlinkersB);
-
-                if (score >= minScore) {
-                    const key = [pathA, pathB].sort().join('::');
-                    coCitationScores.set(key, score);
-                }
+                const backlinksB = backlinkIndex.get(pathB)!;
+                const score = [...backlinksA].filter((x) => backlinksB.has(x)).length;
+                if (score >= minScore) results.push({ a: pathA, b: pathB, score });
             }
         }
 
-        // Convert top co-citations to suggestions
-        const sorted = [...coCitationScores.entries()].sort(([, a], [, b]) => b - a).slice(0, limit);
-
-        for (const [key, score] of sorted) {
-            const [pathA, pathB] = key.split('::');
-            const fileA = this.app.vault.getAbstractFileByPath(pathA);
-            const fileB = this.app.vault.getAbstractFileByPath(pathB);
-            if (!(fileA instanceof TFile) || !(fileB instanceof TFile)) continue;
-
-            suggestions.push({
-                id: `cocitation:${key}`,
-                type: 'deterministic',
-                link: `[[${fileB.basename}]]`,
-                source: `Co-Citation (score: ${score}): [[${fileA.basename}]] and [[${fileB.basename}]] are cited together in ${score} note(s). Consider linking them directly.`,
-                timestamp: Date.now(),
-                category: 'suggestion',
-                meta: {
-                    property: 'related',
-                    sourcePath: pathA,
-                    targetPath: pathB,
-                    sourceNote: fileA.basename,
-                    targetNote: fileB.basename,
-                    description: `Implied relationship via ${score} shared citation source(s)`,
-                    confidence: Math.min(Math.round(score * 15), 95), // scale: 2=30%, 7=95%
-                },
+        results
+            .sort((a, b) => b.score - a.score)
+            .slice(0, limit)
+            .forEach(({ a, b, score }) => {
+                const fileA = this.app.vault.getAbstractFileByPath(a);
+                const fileB = this.app.vault.getAbstractFileByPath(b);
+                if (fileA instanceof TFile && fileB instanceof TFile) {
+                    suggestions.push({
+                        id: `cocitation:${[a, b].sort().join('::')}`,
+                        type: 'deterministic',
+                        link: `[[${fileB.basename}]]`,
+                        source: `Co-Citation (Sync): Shared neighbors detected.`,
+                        timestamp: Date.now(),
+                        category: 'suggestion',
+                        meta: { sourcePath: a, targetPath: b, sourceNote: fileA.basename, targetNote: fileB.basename },
+                    });
+                }
             });
-        }
-
-        HealerLogger.info(`Co-Citation: ${suggestions.length} implicit links discovered.`);
         return suggestions;
     }
 
