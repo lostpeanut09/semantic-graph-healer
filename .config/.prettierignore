@@ -1,7 +1,7 @@
 node_modules
 package-lock.json
 main.js
-styles.css (if auto-generated)
+worker.js
 .husky
 dist
 .kilo
