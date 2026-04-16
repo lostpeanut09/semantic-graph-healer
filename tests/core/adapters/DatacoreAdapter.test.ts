@@ -421,6 +421,12 @@ describe('DatacoreAdapter', () => {
         expect(root.completed).toBe(true);
         expect(root.fullyCompleted).toBe(false);
         expect(child.parent).toBe(1);
+
+        // Lock in checkbox semantics: unchecked task [ ] still has checkbox present.
+        expect(root.checked).toBe(true); // [x] → checked
+        expect(child.checked).toBe(true); // [ ] (status=' ') → checked=true (checkbox present)
+        expect(list.checked).toBe(false); // plain list-item, no status → no checkbox
+
         expect(list.task).toBe(false);
         expect(result.file.day).toBeDefined();
     });
