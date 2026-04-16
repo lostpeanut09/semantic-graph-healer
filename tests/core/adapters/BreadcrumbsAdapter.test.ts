@@ -411,4 +411,29 @@ describe('BreadcrumbsAdapter', () => {
 
         delete (globalThis as any).window.BCAPI;
     });
+
+    it('ignores bare string edges (no dir) in V4 — policy: fail-closed', async () => {
+        // Policy decision: if BCAPI returns string edges (target only, no dir),
+        // they get dir=undefined → ignored. Prevents false hierarchy from untyped edges.
+        (mockApp.plugins.getPlugin as ReturnType<typeof vi.fn>).mockReturnValue({
+            api: createMockApi(),
+        });
+
+        (globalThis as any).window = globalThis as any;
+        (globalThis as any).window.BCAPI = {
+            get_neighbours: () => ['folder/parent.md', 'folder/child.md'],
+        };
+
+        const result = await adapter.getHierarchy('test/note.md');
+
+        expect(result).not.toBeNull();
+        // String edges have no dir → all ignored (fail-closed policy)
+        expect(result!.parents).toEqual([]);
+        expect(result!.children).toEqual([]);
+        expect(result!.siblings).toEqual([]);
+        expect(result!.next).toEqual([]);
+        expect(result!.prev).toEqual([]);
+
+        delete (globalThis as any).window.BCAPI;
+    });
 });
