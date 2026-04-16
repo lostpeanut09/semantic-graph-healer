@@ -305,10 +305,12 @@ export class SmartConnectionsAdapter implements IMetadataAdapter {
 
             try {
                 const files = await adapter.list(envPath);
-                const ajsonFiles = files.files.filter((f) => f.endsWith('.ajson'));
+                const ajsonFiles = files.files.filter((f) => f.endsWith('.ajson')).slice(0, 200); // Safety cap: avoid unbounded I/O on huge indexes
 
                 for (const f of ajsonFiles) {
-                    const content = await adapter.read(f);
+                    // Harden: ensure full vault-relative path for adapter.read()
+                    const readPath = f.includes('/') ? f : `${envPath}/${f}`;
+                    const content = await adapter.read(readPath);
                     if (!this.containsExactPath(content, sourcePath)) continue;
 
                     const targetBase =
