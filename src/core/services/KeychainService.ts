@@ -113,8 +113,15 @@ export class KeychainService {
         const potentialKey = settings[`${type}LlmApiKey`] as string | undefined;
         if (potentialKey) {
             HealerLogger.warn(`API Key ${type} found in plaintext settings (INSECURE). Migration triggered.`);
-            // Auto-migrate to secure storage if possible
-            void this.setApiKey(type, potentialKey);
+            // Auto-migrate: await encryption so plaintext is cleared only on success.
+            // Avoids data loss if CryptoUtils.encrypt throws.
+            try {
+                await this.setApiKey(type, potentialKey);
+                settings[`${type}LlmApiKey`] = '';
+                await this.plugin.saveSettings();
+            } catch (migErr) {
+                HealerLogger.error(`Plaintext migration failed for ${type} — key retained in plaintext.`, migErr);
+            }
             return potentialKey;
         }
 
