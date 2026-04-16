@@ -409,7 +409,7 @@ export class GraphEngine {
      * ✅ NEW: Similarity Analysis (Jaccard, AA, RA).
      * Async via Worker with Candidate Generation (O(E) instead of O(V^2)).
      */
-    public async runSimilarityAnalysis(options?: unknown): Promise<Suggestion[]> {
+    public async runSimilarityAnalysis(options?: { limit?: number }): Promise<Suggestion[]> {
         HealerLogger.info('Running Deep Topology Similarity Analysis (Worker offloaded)...');
 
         try {
