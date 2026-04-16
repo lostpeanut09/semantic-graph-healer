@@ -454,8 +454,8 @@ describe('DatacoreAdapter', () => {
 
         adapter.destroy();
 
-        expect(metadataCache.offref).toHaveBeenCalledTimes(3);
-        expect(vault.offref).toHaveBeenCalledTimes(1);
+        expect(metadataCache.offref).toHaveBeenCalledTimes(4);
+        expect(vault.offref).toHaveBeenCalledTimes(2);
         expect((adapter as any).backlinkIndex).toBeNull();
         expect((adapter as any).linkCache.size).toBe(0);
         expect((adapter as any).pageChildrenCache.size).toBe(0);

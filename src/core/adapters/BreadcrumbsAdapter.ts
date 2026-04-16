@@ -97,7 +97,12 @@ export class BreadcrumbsAdapter implements IMetadataAdapter {
                     else if (edge.dir === 'same') siblings.push(normalizedTarget);
                     else if (edge.dir === 'next') next.push(normalizedTarget);
                     else if (edge.dir === 'prev') prev.push(normalizedTarget);
-                    else children.push(normalizedTarget); // Default to children ('down' or unknown)
+                    else if (edge.dir === 'down') children.push(normalizedTarget);
+                    else {
+                        HealerLogger.debug?.(
+                            `BreadcrumbsAdapter: Unknown or missing edge direction for target "${normalizedTarget}". Ignoring.`,
+                        );
+                    }
                 }
 
                 return {
