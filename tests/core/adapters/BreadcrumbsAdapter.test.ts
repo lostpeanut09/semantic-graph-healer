@@ -395,9 +395,9 @@ describe('BreadcrumbsAdapter', () => {
             get_neighbours: () => ({
                 edges: [
                     { target: 'folder/parent.md', dir: 'up' }, // valid → parents
-                    { target: 'folder/child.md', dir: 'diagonal' }, // invalid → children (default)
-                    { target: 'folder/peer.md', attrs: { dir: '' } }, // empty → children (default)
-                    { target: 'folder/next.md', dir: 42 }, // non-string → children (default)
+                    { target: 'folder/child.md', dir: 'diagonal' }, // invalid → ignored
+                    { target: 'folder/peer.md', attrs: { dir: '' } }, // empty → ignored
+                    { target: 'folder/next.md', dir: 42 }, // non-string → ignored
                 ],
             }),
         };
