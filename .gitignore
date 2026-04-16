@@ -13,6 +13,9 @@ yarn-error.log*
 data.json
 .husky/
 
+# Editor tooling
+.kilo/
+
 # Backups and temporary files
 *.bak
 *.tmp
