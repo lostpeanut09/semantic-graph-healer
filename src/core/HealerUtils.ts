@@ -373,30 +373,3 @@ export function safeString(val: unknown): string {
     }
     return JSON.stringify(val);
 }
-
-/**
- * ✅ Gold Master Fix: Luxon-Aware Timestamp Normalizer
- * Converts potential Luxon DateTime objects, Date objects, or numbers into Unix Milliseconds.
- * Essential for 2026 metadata providers (Dataview/Datacore).
- */
-export function normalizeTimestamp(val: unknown): number {
-    if (typeof val === 'number') return val;
-    if (!val) return Date.now();
-
-    // Luxon Detection (Dataview/Datacore standard 2026)
-    if (
-        val &&
-        typeof val === 'object' &&
-        'toMillis' in val &&
-        typeof (val as { toMillis: unknown }).toMillis === 'function'
-    ) {
-        return (val as { toMillis: () => number }).toMillis();
-    }
-
-    // Native JS Date
-    if (val instanceof Date) return val.getTime();
-
-    // Fallback: Attempt parsing
-    const parsed = Number(val);
-    return isNaN(parsed) ? Date.now() : parsed;
-}
