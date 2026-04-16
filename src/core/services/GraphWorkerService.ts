@@ -56,6 +56,11 @@ export class GraphWorkerService {
         } catch (error) {
             this.logger.error('Worker initialization failed. Plugin will gracefully degrade.', error);
             this.worker = null;
+            // MED-2: revoke Blob URL to prevent memory leak if Worker() failed after createObjectURL
+            if (this.workerUrl) {
+                URL.revokeObjectURL(this.workerUrl);
+                this.workerUrl = null;
+            }
         }
     }
 
@@ -122,11 +127,16 @@ export class GraphWorkerService {
         });
     }
 
-    async terminate(): Promise<void> {
+    terminate(): void {
+        // MED-1: reject pending callers before clearing — prevents hanging promise chains
+        for (const [requestId, cb] of this.pendingCallbacks.entries()) {
+            cb.reject(new Error(`Worker terminated (request ${requestId})`));
+        }
+        this.pendingCallbacks.clear();
+
         if (this.worker) {
             this.worker.terminate();
             this.worker = null;
-            this.pendingCallbacks.clear();
 
             if (this.workerUrl) {
                 URL.revokeObjectURL(this.workerUrl);
@@ -134,11 +144,10 @@ export class GraphWorkerService {
             }
             this.logger.info('Worker terminated and memory freed');
         }
-        return Promise.resolve();
     }
 
-    async destroy(): Promise<void> {
-        await this.terminate();
+    destroy(): void {
+        this.terminate();
         this.logger.info('GraphWorkerService destroyed');
     }
 }

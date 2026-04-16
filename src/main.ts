@@ -120,7 +120,7 @@ export default class SemanticGraphHealer extends Plugin {
 
             // 4. Hot Reload Worker Service (P2 Fix)
             if (this.graphWorkerService) {
-                await this.graphWorkerService.destroy();
+                this.graphWorkerService.destroy();
             }
             this.graphWorkerService = new GraphWorkerService(this.logger, this);
             await this.graphWorkerService.initialize();

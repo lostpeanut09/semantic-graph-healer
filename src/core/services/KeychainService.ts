@@ -158,10 +158,23 @@ export class KeychainService {
             HealerLogger.info(`API Key ${type} removed from secure storage`);
         }
 
-        // Clean up settings as well if present
+        // Clean up settings: both plaintext (legacy) and encrypted (sync-resilient).
+        // IMPORTANT: must clear encrypted field too — getApiKey() Attempt 2 reads
+        // ${type}LlmApiKeyEncrypted and would still return the key if left intact.
         const settings = this.plugin.settings as unknown as Record<string, unknown>;
+        let changed = false;
+
         if (settings[`${type}LlmApiKey`]) {
             settings[`${type}LlmApiKey`] = '';
+            changed = true;
+        }
+
+        if (settings[`${type}LlmApiKeyEncrypted`]) {
+            settings[`${type}LlmApiKeyEncrypted`] = '';
+            changed = true;
+        }
+
+        if (changed) {
             await this.plugin.saveSettings();
         }
     }
