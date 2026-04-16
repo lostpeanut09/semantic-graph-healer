@@ -112,7 +112,14 @@ export class SmartConnectionsAdapter implements IMetadataAdapter {
         return Promise.resolve(null);
     }
 
-    invalidate(_path?: string): void {}
+    invalidate(path?: string): void {
+        if (!path) {
+            this.semanticQueryCache.clear();
+            return;
+        }
+        const normalized = this.normalizeNotePath(path, path);
+        this.semanticQueryCache.delete(normalized);
+    }
 
     public destroy(): void {
         this.semanticQueryCache.clear();
