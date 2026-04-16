@@ -11,6 +11,7 @@ yarn-error.log*
 # Obsidian local files
 .obsidian/
 data.json
+.husky/
 
 # Backups and temporary files
 *.bak
