@@ -385,7 +385,7 @@ describe('BreadcrumbsAdapter', () => {
         delete (globalThis as any).window.BCAPI;
     });
 
-    it('routes edges with invalid dir to children in V4', async () => {
+    it('ignores edges with invalid dir in V4', async () => {
         (mockApp.plugins.getPlugin as ReturnType<typeof vi.fn>).mockReturnValue({
             api: createMockApi(),
         });
@@ -406,9 +406,7 @@ describe('BreadcrumbsAdapter', () => {
 
         expect(result).not.toBeNull();
         expect(result!.parents).toEqual(['folder/parent.md']);
-        expect(result!.children).toContain('folder/child.md');
-        expect(result!.children).toContain('folder/peer.md');
-        expect(result!.children).toContain('folder/next.md');
+        expect(result!.children).toEqual([]);
         expect(result!.siblings).toEqual([]);
 
         delete (globalThis as any).window.BCAPI;

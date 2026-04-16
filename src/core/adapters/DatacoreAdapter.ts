@@ -200,6 +200,8 @@ export class DatacoreAdapter implements IMetadataAdapter {
     private deletedListenerRef: EventRef | null = null;
     private cacheListenerRef: EventRef | null = null;
     private renameListenerRef: EventRef | null = null;
+    private changedListenerRef: EventRef | null = null;
+    private deleteVaultListenerRef: EventRef | null = null;
     private invalidationTimer: number | null = null;
 
     constructor(
@@ -219,6 +221,16 @@ export class DatacoreAdapter implements IMetadataAdapter {
             this.scheduleInvalidation();
         });
         this.renameListenerRef = this.app.vault.on('rename', (_file: TAbstractFile, _oldPath: string) => {
+            this.scheduleInvalidation();
+        });
+
+        // When file metadata changes (content edit), invalidate caches.
+        this.changedListenerRef = this.app.metadataCache.on('changed', () => {
+            this.scheduleInvalidation();
+        });
+
+        // When files are deleted, invalidate caches (vault-level event is usually reliable).
+        this.deleteVaultListenerRef = this.app.vault.on('delete', () => {
             this.scheduleInvalidation();
         });
     }
@@ -253,6 +265,14 @@ export class DatacoreAdapter implements IMetadataAdapter {
         if (this.renameListenerRef) {
             this.app.vault.offref(this.renameListenerRef);
             this.renameListenerRef = null;
+        }
+        if (this.changedListenerRef) {
+            this.app.metadataCache.offref(this.changedListenerRef);
+            this.changedListenerRef = null;
+        }
+        if (this.deleteVaultListenerRef) {
+            this.app.vault.offref(this.deleteVaultListenerRef);
+            this.deleteVaultListenerRef = null;
         }
         this.linkCache.clear();
         this.pageChildrenCache.clear();
@@ -935,10 +955,10 @@ export class DatacoreAdapter implements IMetadataAdapter {
         const tags = this.extractTaskTags(node);
         const section = this.deriveTaskSection(page, lineNum, node);
         const rawStatus = this.readTaskImplicit(node, 'status');
-        const status = typeof rawStatus === 'string' && rawStatus.length > 0 ? rawStatus : ' ';
+        const status = typeof rawStatus === 'string' ? rawStatus : ' ';
         const rawCompleted = this.readTaskImplicit(node, 'completed');
         const completed = typeof rawCompleted === 'boolean' ? rawCompleted : status.toLowerCase() === 'x';
-        const checked = status.trim().length > 0;
+        const checked = nodeTypes.includes('task') || rawStatus !== undefined;
         const parent = this.normalizeParentLine(node);
         const task = nodeTypes.includes('task');
         const link = this.makeTaskLink(node, path, blockId, section);

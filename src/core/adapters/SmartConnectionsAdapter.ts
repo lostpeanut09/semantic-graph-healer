@@ -39,6 +39,8 @@ interface SmartConnectionsPluginShape {
  * Not guaranteed against public Smart Connections API stability.
  */
 export class SmartConnectionsAdapter implements IMetadataAdapter {
+    private semanticQueryCache = new Map<string, { mtime: number; query: string }>();
+
     constructor(private app: App) {}
 
     private getPluginShape(): SmartConnectionsPluginShape | null {
@@ -113,6 +115,7 @@ export class SmartConnectionsAdapter implements IMetadataAdapter {
     invalidate(_path?: string): void {}
 
     public destroy(): void {
+        this.semanticQueryCache.clear();
         HealerLogger.debug?.('SmartConnectionsAdapter destroyed.');
     }
 
@@ -121,10 +124,16 @@ export class SmartConnectionsAdapter implements IMetadataAdapter {
         const file = this.app.vault.getAbstractFileByPath(normalized);
         if (!(file instanceof TFile)) return normalized;
 
+        const mtime = file.stat.mtime;
+        const cached = this.semanticQueryCache.get(file.path);
+        if (cached && cached.mtime === mtime) return cached.query;
+
         try {
             const fileContent = await this.app.vault.cachedRead(file);
             const head = fileContent.slice(0, 1500).trim();
-            return (file.basename + ' ' + head).trim();
+            const query = (file.basename + ' ' + head).trim();
+            this.semanticQueryCache.set(file.path, { mtime, query });
+            return query;
         } catch {
             return normalized;
         }
@@ -233,6 +242,7 @@ export class SmartConnectionsAdapter implements IMetadataAdapter {
                         const targetPath = this.normalizeNotePath(rawTarget, normalizedSource);
                         if (!targetPath || targetPath === normalizedSource) return null;
                         if (seen.has(targetPath)) return null;
+                        if (!(this.app.vault.getAbstractFileByPath(targetPath) instanceof TFile)) return null;
 
                         seen.add(targetPath);
                         return {
