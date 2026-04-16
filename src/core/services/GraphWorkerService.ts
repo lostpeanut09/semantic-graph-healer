@@ -156,6 +156,7 @@ export class GraphWorkerService {
     terminate(): void {
         // MED-1: reject pending callers before clearing — prevents hanging promise chains
         for (const [requestId, cb] of this.pendingCallbacks.entries()) {
+            if (cb.timeoutId) clearTimeout(cb.timeoutId);
             cb.reject(new Error(`Worker terminated (request ${requestId})`));
         }
         this.pendingCallbacks.clear();
