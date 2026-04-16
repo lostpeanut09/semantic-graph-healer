@@ -5,7 +5,7 @@ import pagerank from 'graphology-metrics/centrality/pagerank';
 // betweennessCentrality: Refactored to Web Worker
 import { Suggestion, SemanticGraphHealerSettings } from '../types';
 import { HealerLogger } from './HealerUtils';
-import { LinkPredictionEngine } from './LinkPredictionEngine';
+
 import SemanticGraphHealer from '../main';
 
 interface GraphNodeAttributes {
