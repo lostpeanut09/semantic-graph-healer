@@ -15,7 +15,9 @@ import {
 import { IMetadataAdapter } from './adapters/IMetadataAdapter';
 import { LlmService } from './LlmService';
 import { LinkPredictionEngine } from './LinkPredictionEngine';
+import { GraphEngine } from './GraphEngine';
 import { Platform } from 'obsidian';
+import SemanticGraphHealer from '../main';
 
 export class TopologyAnalyzer {
     private BATCH_SIZE: number;
@@ -26,6 +28,7 @@ export class TopologyAnalyzer {
         private settings: SemanticGraphHealerSettings,
         private engine: IMetadataAdapter,
         private llm: LlmService,
+        private plugin: SemanticGraphHealer,
     ) {
         // Hybrid Batching SOTA 2026: Mobile vs Desktop Optimization
         this.BATCH_SIZE = Platform.isMobile ? 20 : 100;
@@ -209,34 +212,12 @@ export class TopologyAnalyzer {
 
         // 3. PRO-ACTIVE INTELLIGENCE: DEEP TOPOLOGY (SOTA 2026)
         if (this.settings.enableDeepTopology) {
-            HealerLogger.info('Engaging Deep Topology Discovery with Temporal Decay...');
-            const paths = pages.map((p) => p.file.path);
+            HealerLogger.info('Engaging Deep Topology Discovery (Worker-offloaded)...');
+            const graphEngine = new GraphEngine(this.plugin);
+            graphEngine.buildGraph();
 
-            // Raccogli le statistiche temporali per il decadimento (mtime)
-            const fileStats = new Map<string, { mtime: number }>();
-            pages.forEach((p) => fileStats.set(p.file.path, { mtime: normalizeTimestamp(p.file.mtime) }));
-
-            const linkPrediction = new LinkPredictionEngine(relMaps, paths, this.settings.linkPredictionWeights);
-
-            for (const page of pages) {
-                const sourceMtime = normalizeTimestamp(page.file.mtime);
-                const results = linkPrediction.findMissingRings(page.file.path, sourceMtime, fileStats, 10);
-                results.forEach((res) => {
-                    suggestions.push({
-                        id: `predicted_link:${page.file.path}:${res.path}`,
-                        type: 'semantic_inference',
-                        link: pathToWikilink(this.app, res.path, res.path),
-                        source: `Predicted Semantic Connection: ${pathToWikilink(this.app, page.file.path, page.file.path)} and ${pathToWikilink(this.app, res.path, res.path)} share ${res.sharedCount} common neighbors. Temporal-Weighted Score: ${res.score.toFixed(2)}. Consider establishing a link.`,
-                        timestamp: Date.now(),
-                        category: 'suggestion',
-                    });
-                });
-
-                count++;
-                if (count % Math.floor(this.BATCH_SIZE / 2) === 0 && this.YIELD_INTERVAL > 0) {
-                    await new Promise((resolve) => setTimeout(resolve, this.YIELD_INTERVAL));
-                }
-            }
+            const predictedLinks = await graphEngine.runSimilarityAnalysis();
+            suggestions.push(...predictedLinks);
         }
 
         return suggestions;
