@@ -33,6 +33,22 @@ export class KeychainService {
         this.checkKeychainAvailability();
     }
 
+    private getStableSalt(): string {
+        const anyApp = this.plugin.app as unknown;
+        const appId = anyApp?.appId;
+        if (typeof appId === 'string' && appId) return appId;
+
+        const settings = this.plugin.settings as unknown as Record<string, unknown>;
+        const k = 'cryptoSalt';
+        const existing = settings[k];
+        if (typeof existing === 'string' && existing) return existing;
+
+        const salt = `salt_${crypto.getRandomValues(new Uint32Array(1))[0].toString(16)}`;
+        settings[k] = salt;
+        void this.plugin.saveSettings();
+        return salt;
+    }
+
     private checkKeychainAvailability(): void {
         const app = this.app;
 
@@ -77,7 +93,7 @@ export class KeychainService {
 
     async getApiKey(type: ApiKeyType): Promise<string | null> {
         const storageKey = `semantic-graph-healer-${type}-key`;
-        const appId = isObsidianInternalApp(this.plugin.app) ? this.plugin.app.appId || 'default-salt' : 'default-salt';
+        const appId = this.getStableSalt();
 
         // Attempt 1: Secure Local Storage (Obsidian 1.11.4+)
         if (this.isSecureStorageAvailable && this.storage) {
@@ -130,7 +146,7 @@ export class KeychainService {
 
     async setApiKey(type: ApiKeyType, key: string): Promise<void> {
         const storageKey = `semantic-graph-healer-${type}-key`;
-        const appId = isObsidianInternalApp(this.plugin.app) ? this.plugin.app.appId || 'default-salt' : 'default-salt';
+        const appId = this.getStableSalt();
 
         // 1. Double-Layer Protection: SecretStorage (Local) + AES-256-GCM (Sync)
 
