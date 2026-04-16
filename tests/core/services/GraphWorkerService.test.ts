@@ -115,4 +115,36 @@ describe('GraphWorkerService', () => {
             // Can't check private field .workerUrl easily, but the revoke logic is what matters
         });
     });
+
+    describe('handleWorkerError (fail-fast)', () => {
+        it('rejects pending requests immediately upon worker error', async () => {
+            const plugin = makePlugin();
+            const loggerMock = {
+                info: vi.fn(),
+                debug: vi.fn(),
+                error: vi.fn(),
+                warn: vi.fn(),
+            } as unknown as HealerLogger;
+            const service = new GraphWorkerService(loggerMock, plugin);
+
+            await service.initialize();
+
+            // Trigger a pending request
+            const promise = service.runAnalysis('SIMILARITY', [], [], {});
+
+            // Simulate worker throwing an error event
+            const workerInstance = (service as any).worker;
+
+            if (workerInstance && workerInstance.onerror) {
+                workerInstance.onerror({
+                    message: 'Fatal exception in thread',
+                    filename: 'worker.js',
+                    lineno: 42,
+                } as ErrorEvent);
+            }
+
+            // Ensure the promise is rejected immediately due to fail-fast
+            await expect(promise).rejects.toThrow(/Worker error: Fatal exception/);
+        });
+    });
 });

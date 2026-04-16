@@ -16,8 +16,11 @@ export class GraphWorkerService {
     private logger: HealerLogger;
     private plugin: PluginWithSettings;
 
-    private pendingCallbacks: Map<string, { resolve: (data: unknown) => void; reject: (error: Error) => void }> =
-        new Map();
+    private initPromise: Promise<void> | null = null;
+    private pendingCallbacks: Map<
+        string,
+        { resolve: (data: unknown) => void; reject: (error: Error) => void; timeoutId?: ReturnType<typeof setTimeout> }
+    > = new Map();
     private requestId: number = 0;
 
     constructor(logger: HealerLogger, plugin: PluginWithSettings) {
@@ -31,6 +34,10 @@ export class GraphWorkerService {
             return;
         }
 
+        if (this.initPromise) {
+            return this.initPromise;
+        }
+
         if (Platform.isMobile) {
             this.logger.warn(
                 'Web Workers are explicitly disabled on mobile devices (iOS/Android) to prevent Capacitor crashes.',
@@ -38,30 +45,36 @@ export class GraphWorkerService {
             return Promise.resolve();
         }
 
-        try {
-            const pluginDir = this.plugin.manifest.dir;
-            if (!pluginDir) {
-                throw new Error('Plugin directory undefined in manifest');
+        this.initPromise = (async () => {
+            try {
+                const pluginDir = this.plugin.manifest.dir;
+                if (!pluginDir) {
+                    throw new Error('Plugin directory undefined in manifest');
+                }
+                const workerContent = await this.plugin.app.vault.adapter.read(`${pluginDir}/worker.js`);
+                const blob = new Blob([workerContent], { type: 'application/javascript' });
+                this.workerUrl = URL.createObjectURL(blob);
+
+                this.worker = new Worker(this.workerUrl);
+
+                this.worker.onmessage = (e) => this.handleWorkerMessage(e);
+                this.worker.onerror = (e) => this.handleWorkerError(e);
+
+                this.logger.info('Web Worker initialized');
+            } catch (error) {
+                this.logger.error('Worker initialization failed. Plugin will gracefully degrade.', error);
+                this.worker = null;
+                // MED-2: revoke Blob URL to prevent memory leak if Worker() failed after createObjectURL
+                if (this.workerUrl) {
+                    URL.revokeObjectURL(this.workerUrl);
+                    this.workerUrl = null;
+                }
+            } finally {
+                this.initPromise = null;
             }
-            const workerContent = await this.plugin.app.vault.adapter.read(`${pluginDir}/worker.js`);
-            const blob = new Blob([workerContent], { type: 'application/javascript' });
-            this.workerUrl = URL.createObjectURL(blob);
+        })();
 
-            this.worker = new Worker(this.workerUrl);
-
-            this.worker.onmessage = (e) => this.handleWorkerMessage(e);
-            this.worker.onerror = (e) => this.handleWorkerError(e);
-
-            this.logger.info('Web Worker initialized');
-        } catch (error) {
-            this.logger.error('Worker initialization failed. Plugin will gracefully degrade.', error);
-            this.worker = null;
-            // MED-2: revoke Blob URL to prevent memory leak if Worker() failed after createObjectURL
-            if (this.workerUrl) {
-                URL.revokeObjectURL(this.workerUrl);
-                this.workerUrl = null;
-            }
-        }
+        return this.initPromise;
     }
 
     private handleWorkerMessage(e: MessageEvent): void {
@@ -72,12 +85,14 @@ export class GraphWorkerService {
         if (type === 'RESULT' && requestId) {
             const callback = this.pendingCallbacks.get(requestId);
             if (callback) {
+                if (callback.timeoutId) clearTimeout(callback.timeoutId);
                 callback.resolve(payload.data);
                 this.pendingCallbacks.delete(requestId);
             }
         } else if (type === 'ERROR' && requestId) {
             const callback = this.pendingCallbacks.get(requestId);
             if (callback) {
+                if (callback.timeoutId) clearTimeout(callback.timeoutId);
                 callback.reject(new Error(payload.message));
                 this.pendingCallbacks.delete(requestId);
             }
@@ -92,6 +107,16 @@ export class GraphWorkerService {
             filename: e.filename,
             lineno: e.lineno,
         });
+
+        // Fail-fast: reject all pending requests and terminate to avoid zombie waits
+        for (const [requestId, cb] of this.pendingCallbacks.entries()) {
+            if (cb.timeoutId) clearTimeout(cb.timeoutId);
+            cb.reject(new Error(`Worker error: ${e.message} (request ${requestId})`));
+        }
+        this.pendingCallbacks.clear();
+
+        // Best effort cleanup
+        this.terminate();
     }
 
     async runAnalysis<T = unknown>(
@@ -106,24 +131,25 @@ export class GraphWorkerService {
 
         return new Promise((resolve, reject) => {
             const requestId = `req_${Date.now()}_${this.requestId++}`;
-            this.pendingCallbacks.set(requestId, { resolve, reject });
-
-            this.worker!.postMessage({
-                type,
-                payload: { nodes, edges, requestId },
-                options,
-            });
 
             // Optimized timeout (User-defined or 2-minute fallback)
             const timeoutMs = (this.plugin.settings?.workerTimeout || 120) * 1000;
 
-            setTimeout(() => {
+            const timeoutId = setTimeout(() => {
                 const callback = this.pendingCallbacks.get(requestId);
                 if (callback) {
                     this.pendingCallbacks.delete(requestId);
                     callback.reject(new Error(`Analysis timeout for ${type} after ${timeoutMs / 1000} seconds`));
                 }
             }, timeoutMs);
+
+            this.pendingCallbacks.set(requestId, { resolve, reject, timeoutId });
+
+            this.worker!.postMessage({
+                type,
+                payload: { nodes, edges, requestId },
+                options,
+            });
         });
     }
 
