@@ -155,6 +155,28 @@ describe('Utils Hardening', () => {
             expect(plugin.app.vault.append).toHaveBeenCalled();
             expect(plugin.app.vault.process).not.toHaveBeenCalled();
         });
+
+        it('ULTRA-6: respects logBufferSize (no hardcoded 1000)', () => {
+            const smallSettings = {
+                ...settings,
+                enableFileLogging: false,
+                logBufferSize: 3,
+            };
+            const logger = new HealerLogger('Test', plugin as any, smallSettings);
+            logger.info('m1');
+            logger.info('m2');
+            logger.info('m3');
+            logger.info('m4');
+            logger.info('m5');
+
+            expect(logger.getStats().total).toBe(3);
+            const out = logger.exportLogs();
+            expect(out).toContain('m3');
+            expect(out).toContain('m4');
+            expect(out).toContain('m5');
+            expect(out).not.toContain('m1');
+            expect(out).not.toContain('m2');
+        });
     });
 
     describe('CryptoUtils (Existing Hardening)', () => {
