@@ -1,6 +1,14 @@
 import { Plugin, TFile, TFolder, normalizePath } from 'obsidian';
 import { SemanticGraphHealerSettings } from '../../types';
 
+/**
+ * High-Fidelity API Augmentation (SOTA 2026)
+ * Enables type-safe detection of the optimized 'append' method.
+ */
+interface VaultWithAppend {
+    append(file: TFile, data: string): Promise<void>;
+}
+
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 const LOG_LEVELS: Record<LogLevel, number> = {
@@ -178,12 +186,12 @@ export class HealerLogger {
      */
     private async appendLogLine(file: TFile, line: string): Promise<void> {
         const vault = this.plugin.app.vault;
-        const vaultAny = vault as unknown;
+        const vaultWithAppend = vault as unknown as VaultWithAppend;
 
         try {
-            // 1. Prefer Vault.append (Native, fast, reliable)
-            if (typeof vaultAny.append === 'function') {
-                await vaultAny.append(file, line + '\n');
+            // 1. Prefer Vault.append (Native, fast, reliable optimized I/O)
+            if (typeof vaultWithAppend.append === 'function') {
+                await vaultWithAppend.append(file, line + '\n');
                 return;
             }
 
