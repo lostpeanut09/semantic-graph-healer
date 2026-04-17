@@ -5,6 +5,23 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.3.1] — 2026-04-17
+
+### Fixed
+
+- **Build Pipeline — BigInt support**: updated `tsconfig.json` target to `ES2022`. Fixed `BigInt literals are not available when targeting lower than ES2020` regression.
+- **SmartConnectionsAdapter — Logger regression**: resolved invalid property access in `if (this.debug)`. Replaced with direct `HealerLogger` calls.
+
+### Improved
+
+- **Metadata Bridges Hardening**:
+    - **DatacoreAdapter**: strict isolation of internal `$`-prefixed fields in `extractUserFields` and expanded reserved key protection for Dataview parity.
+    - **BreadcrumbsAdapter**: added ghost-edge protection at the re-indexing layer to filter out null/empty target objects.
+    - **SmartConnectionsAdapter**: implemented mandatory `smart_env.ready` check to prevent semantic search race conditions in the April 2026 "Substrate" update.
+- **Repository Cleanliness**: purged temporary audit logs from root and hardened `.gitignore` for zero-noise releases.
+
+---
+
 ## [2.3.0] — 2026-04-16 (`endpoint-v2.3`)
 
 ### Fixed
