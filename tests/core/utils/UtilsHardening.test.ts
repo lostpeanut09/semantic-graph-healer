@@ -39,7 +39,8 @@ describe('Utils Hardening', () => {
                         modify: vi.fn(),
                         process: vi.fn(async (file: TFile, fn: (data: string) => string) => {
                             const current = await plugin.app.vault.read(file);
-                            return fn(current);
+                            const updated = fn(current);
+                            return updated;
                         }),
                     },
                 },
@@ -54,6 +55,7 @@ describe('Utils Hardening', () => {
 
             // Should not throw
             expect(() => logger.info('Logging circular', circular)).not.toThrow();
+            expect(logger.exportLogs()).toContain('[Circular]');
         });
 
         it('CRIT-1: safeStringify handles BigInt', () => {
@@ -62,6 +64,7 @@ describe('Utils Hardening', () => {
 
             // Should not throw and format as 100n
             expect(() => logger.info('Logging BigInt', data)).not.toThrow();
+            expect(logger.exportLogs()).toContain('100n');
         });
 
         it('MED-1: writeToFile uses Vault.process for atomic updates', async () => {
@@ -81,6 +84,42 @@ describe('Utils Hardening', () => {
             });
 
             expect(plugin.app.vault.process).toHaveBeenCalled();
+        });
+
+        it('MED-1: redact of apiKey/token/authorization', () => {
+            const logger = new HealerLogger('Test', plugin as any, settings);
+            const data = { apiKey: 'abc', token: 'xyz', Authorization: 'Bearer 123' };
+
+            // @ts-ignore - access private formatLogLine
+            const output = (logger as any).formatLogLine({
+                timestamp: '2026-04-17',
+                level: 'info',
+                module: 'Test',
+                message: 'secrets',
+                data,
+            });
+
+            expect(output).toContain('"apiKey":"***"');
+            expect(output).toContain('"token":"***"');
+            expect(output).toContain('"Authorization":"***"');
+            expect(output).not.toContain('abc');
+            expect(output).not.toContain('xyz');
+            expect(output).not.toContain('Bearer 123');
+        });
+
+        it('MED-2: sanità CR/LF nel message', () => {
+            const logger = new HealerLogger('Test', plugin as any, settings);
+
+            // @ts-ignore
+            const output = (logger as any).formatLogLine({
+                timestamp: '2026-04-17',
+                level: 'info',
+                module: 'Test',
+                message: 'a\nb\r\nc',
+            });
+
+            expect(output).toContain('a\\nb\\r\\nc');
+            expect(output).not.toContain('\n'); // Should be single line
         });
     });
 
