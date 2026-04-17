@@ -85,8 +85,6 @@ export class LlmService {
             const apiPath = isResponsesApi ? 'responses' : ('chat/completions' as const);
 
             const makeRequest = async (): Promise<{ status: number; json: LlmResponse }> => {
-                let timer: ReturnType<typeof setTimeout> | null = null;
-
                 const bodyJson = {
                     model: model,
                     max_tokens: this.settings.aiMaxTokens || 1000,
@@ -121,26 +119,15 @@ export class LlmService {
                     },
                     body: JSON.stringify(bodyJson),
                     throw: false,
+                    timeout: timeoutMs,
                 });
 
-                const timeoutSignal = new Promise<never>((_, reject) => {
-                    timer = setTimeout(() => {
-                        reject(new Error('Timeout'));
-                    }, timeoutMs);
-                });
-
-                try {
-                    const response = (await Promise.race([fetchPromise, timeoutSignal])) as {
-                        status: number;
-                        json: LlmResponse;
-                    };
-                    if (signal?.aborted) throw new Error('AbortError');
-                    if (timer) clearTimeout(timer);
-                    return response;
-                } catch (e) {
-                    if (timer) clearTimeout(timer);
-                    throw e;
-                }
+                const response = (await fetchPromise) as {
+                    status: number;
+                    json: LlmResponse;
+                };
+                if (signal?.aborted) throw new Error('AbortError');
+                return response;
             };
 
             try {
@@ -232,7 +219,7 @@ export class LlmService {
             consensusState = 'UNCERTAIN';
         }
 
-        return `${result}\n\n[Consensus Report]\nStatus: ${consensusState}\nSecondary Model Output: ${secondResult}`;
+        return `${result}\n\n<tribunal_audit>\nStatus: ${consensusState}\nSecondary Model Output: ${secondResult}\n</tribunal_audit>`;
     }
 
     /**
@@ -609,7 +596,10 @@ Only return the JSON. No markdown or meta-talk.
         };
 
         try {
-            const winnerMatch = raw.match(
+            // SOTA 2026: Strip audit tags before parsing to ensure we only look at primary reasoning
+            const mainContent = raw.replace(/<tribunal_audit>[\s\S]*?<\/tribunal_audit>/g, '').trim();
+
+            const winnerMatch = mainContent.match(
                 /WINNER:\s*(?:\[\[)?(.*?)(?:\]\])?\s*\|\s*SCORE:\s*(\d+)%?\s*\|\s*WHY:\s*(.*)/i,
             );
             if (winnerMatch) {
@@ -628,7 +618,7 @@ Only return the JSON. No markdown or meta-talk.
             }
 
             if (!result.winner) {
-                const lines = raw.split('\n');
+                const lines = mainContent.split('\n');
                 for (const line of lines) {
                     if (line.toUpperCase().includes('WINNER:')) {
                         const clean = line
