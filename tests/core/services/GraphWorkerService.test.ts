@@ -87,6 +87,35 @@ describe('GraphWorkerService', () => {
         });
     });
 
+    describe('initialize() race-lock', () => {
+        it('uses the same initialization promise for parallel calls', async () => {
+            const plugin = makePlugin();
+            const loggerMock = {
+                info: vi.fn(),
+                debug: vi.fn(),
+                error: vi.fn(),
+                warn: vi.fn(),
+            } as unknown as HealerLogger;
+            const service = new GraphWorkerService(loggerMock, plugin);
+
+            // Spy on worker creation
+            const workerSpy = vi.spyOn(global, 'Worker');
+
+            // Call initialize multiple times concurrently
+            const p1 = service.initialize();
+            const p2 = service.initialize();
+            const p3 = service.initialize();
+
+            await Promise.all([p1, p2, p3]);
+
+            // Ensure adapter.read and Worker constructor were called only once
+            expect(plugin.app.vault.adapter.read).toHaveBeenCalledTimes(1);
+            expect(workerSpy).toHaveBeenCalledTimes(1);
+
+            workerSpy.mockRestore();
+        });
+    });
+
     describe('initialize() MED-1', () => {
         it('revokes blob URL if Worker constructor fails', async () => {
             const plugin = makePlugin();
