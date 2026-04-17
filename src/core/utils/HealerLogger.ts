@@ -1,4 +1,4 @@
-import { Plugin, TFile } from 'obsidian';
+import { Plugin, TFile, TFolder, normalizePath } from 'obsidian';
 import { SemanticGraphHealerSettings } from '../../types';
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
@@ -27,9 +27,39 @@ const SECRET_KEYS = new Set([
     'private_key',
 ]);
 
+const MAX_LOG_BYTES = 2 * 1024 * 1024; // 2MB Rotation Cap
+
+/**
+ * Ultra-Hardening: Masks sensitive patterns (Bearer, JWT) in raw strings.
+ */
+function maskSensitiveStrings(s: string): string {
+    // Mask Bearer tokens: Bearer <token>
+    let masked = s.replace(/\bBearer\s+[A-Za-z0-9._~-]{10,}(?:\.[A-Za-z0-9._~-]+){0,2}\b/gi, 'Bearer ***');
+
+    // Mask JWT-like structures (starts with eyJ... contains dots, minimum length)
+    masked = masked.replace(/\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g, '***JWT***');
+
+    return masked;
+}
+
+/**
+ * Ultra-Hardening: Neutralizes ALL control characters (ASCII 0x00-0x1F + 0x7F) to prevent log injection.
+ */
 function sanitizeForLog(s: string): string {
-    // CRLF/log forging prevention: escape newlines
-    return s.replace(/\r/g, '\\r').replace(/\n/g, '\\n');
+    // Mask sensitive sequences before escaping control chars
+    const masked = maskSensitiveStrings(s);
+
+    // Escape Line Breaks first for readability
+    let sanitized = masked.replace(/\r/g, '\\r').replace(/\n/g, '\\n');
+
+    // Neutralize other control chars (including Tab, Null, etc.)
+    // eslint-disable-next-line no-control-regex
+    sanitized = sanitized.replace(/[\u0000-\u001F\u007F]/g, (ch) => {
+        if (ch === '\t') return '\\t';
+        return `\\u${ch.charCodeAt(0).toString(16).padStart(4, '0')}`;
+    });
+
+    return sanitized;
 }
 
 function truncate(s: string, max = 10000): string {
@@ -90,7 +120,6 @@ export class HealerLogger {
         if (typeof m === 'function') {
             return m().format('YYYY-MM-DD HH:mm:ss.SSS');
         }
-        // Native fallback if moment is not available (March 2026 Resilience)
         return new Date().toISOString().replace('T', ' ').substring(0, 23);
     }
 
@@ -103,12 +132,71 @@ export class HealerLogger {
         return `${this.logFilePath}/healer-${dateStr}.log`;
     }
 
-    private addToBuffer(entry: LogEntry): void {
-        this.logBuffer.push(entry);
+    /**
+     * Ultra-Hardening: Ensures log folder exists and handles path collisions with files.
+     */
+    private async ensureLogFolder(): Promise<TFolder | null> {
+        const vault = this.plugin.app.vault;
+        const folderPath = normalizePath(this.logFilePath);
 
-        // Circular buffer: remove old entries if limit exceeded
-        if (this.logBuffer.length > this.maxBufferSize) {
-            this.logBuffer = this.logBuffer.slice(-this.maxBufferSize);
+        const existing = vault.getAbstractFileByPath(folderPath);
+        if (existing) {
+            if (existing instanceof TFolder) return existing;
+            // Path collision: a file exists where we need a folder
+            console.warn(`[HealerLogger] Path collision: "${folderPath}" is a file. Disabling file logging.`);
+            return null;
+        }
+
+        try {
+            await vault.createFolder(folderPath);
+            const created = vault.getAbstractFileByPath(folderPath);
+            return created instanceof TFolder ? created : null;
+        } catch (e) {
+            console.error(`[HealerLogger] Failed to create log folder:`, e);
+            return null;
+        }
+    }
+
+    /**
+     * Ultra-Hardening: Size-based rotation (Cap at 2MB).
+     */
+    private async maybeRotate(file: TFile): Promise<TFile> {
+        if (file.stat.size < MAX_LOG_BYTES) return file;
+
+        const rotatedPath = file.path.replace(/\.log$/, `.${Date.now()}.log`);
+        try {
+            await this.plugin.app.vault.rename(file, rotatedPath);
+            return await this.plugin.app.vault.create(file.path, '');
+        } catch (e) {
+            console.warn(`[HealerLogger] Rotation failed:`, e);
+            return file;
+        }
+    }
+
+    /**
+     * Ultra-Hardening: Optimized append using prioritized feature detection.
+     */
+    private async appendLogLine(file: TFile, line: string): Promise<void> {
+        const vault = this.plugin.app.vault;
+        const vaultAny = vault as unknown;
+
+        try {
+            // 1. Prefer Vault.append (Native, fast, reliable)
+            if (typeof vaultAny.append === 'function') {
+                await vaultAny.append(file, line + '\n');
+                return;
+            }
+
+            // 2. Fallback to DataAdapter.append (Direct FS access)
+            if (typeof vault.adapter.append === 'function') {
+                await vault.adapter.append(file.path, line + '\n');
+                return;
+            }
+
+            // 3. Final Fallback: Atomic process (Slowest, O(n) on file size)
+            await vault.process(file, (existing) => (existing ? existing + '\n' + line : line));
+        } catch (e) {
+            console.error(`[HealerLogger] Append failed:`, e);
         }
     }
 
@@ -116,29 +204,26 @@ export class HealerLogger {
         if (!this.fileLoggingEnabled || !this.plugin) return;
 
         try {
+            const folder = await this.ensureLogFolder();
+            if (!folder) return;
+
             const fileName = this.getSafeLogFileName();
-
-            // Ensure folder exists
-            const folder = this.plugin.app.vault.getAbstractFileByPath(this.logFilePath);
-            if (!folder) {
-                await this.plugin.app.vault.createFolder(this.logFilePath);
-            }
-
             const abstractFile = this.plugin.app.vault.getAbstractFileByPath(fileName);
             let file: TFile;
+
             if (abstractFile instanceof TFile) {
                 file = abstractFile;
             } else if (!abstractFile) {
                 file = await this.plugin.app.vault.create(fileName, '');
             } else {
-                return; // Not a file
+                return; // Collision at filename level
             }
 
+            // Perform size-based rotation check
+            file = await this.maybeRotate(file);
+
             const logLine = this.formatLogLine(entry);
-            // SOTA 2026: Atomic write using Vault.process (prevents race conditions)
-            await this.plugin.app.vault.process(file, (existing) => {
-                return existing ? existing + '\n' + logLine : logLine;
-            });
+            await this.appendLogLine(file, logLine);
         } catch (error) {
             console.error(`[HealerLogger] Error writing to log file:`, error);
         }
@@ -148,13 +233,12 @@ export class HealerLogger {
         try {
             const seen = new WeakSet<object>();
             const json = JSON.stringify(data, (key, value: unknown) => {
-                // Redaction logic for secrets
                 if (key && SECRET_KEYS.has(key.toLowerCase())) {
                     return '***';
                 }
 
                 if (typeof value === 'string') {
-                    // Sanitize string values to prevent log injection in data payload
+                    // Apply both sanitization and inline masking for strings in data
                     return sanitizeForLog(value);
                 }
 
@@ -197,12 +281,13 @@ export class HealerLogger {
 
         this.addToBuffer(entry);
 
-        // Console output (always, for immediate debug)
-        if (level === 'error') console.error(this.formatLogLine(entry));
-        else if (level === 'warn') console.warn(this.formatLogLine(entry));
-        else console.debug(this.formatLogLine(entry));
+        // Console output
+        const logLine = this.formatLogLine(entry);
+        if (level === 'error') console.error(logLine);
+        else if (level === 'warn') console.warn(logLine);
+        else console.debug(logLine);
 
-        // File output (if enabled)
+        // File output
         void this.writeToFile(entry);
     }
 
@@ -224,18 +309,15 @@ export class HealerLogger {
         this.log('error', message, errorData);
     }
 
-    // Utility for log export
     exportLogs(): string {
         return this.logBuffer.map((entry) => this.formatLogLine(entry)).join('\n');
     }
 
-    // Utility for buffer cleanup
     clearBuffer(): void {
         this.logBuffer = [];
         this.info('Log buffer cleared');
     }
 
-    // Utility for stats
     getStats(): { total: number; byLevel: Record<LogLevel, number> } {
         const stats = {
             total: this.logBuffer.length,
