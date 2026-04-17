@@ -318,6 +318,13 @@ export class HealerLogger {
         this.info('Log buffer cleared');
     }
 
+    private addToBuffer(entry: LogEntry): void {
+        this.logBuffer.push(entry);
+        if (this.logBuffer.length > 1000) {
+            this.logBuffer.shift();
+        }
+    }
+
     getStats(): { total: number; byLevel: Record<LogLevel, number> } {
         const stats = {
             total: this.logBuffer.length,
