@@ -172,10 +172,11 @@ export class HealerLogger {
     private async maybeRotate(file: TFile): Promise<TFile> {
         if (file.stat.size < MAX_LOG_BYTES) return file;
 
+        const originalPath = file.path; // Cache path before mutation
         const rotatedPath = file.path.replace(/\.log$/, `.${Date.now()}.log`);
         try {
             await this.plugin.app.vault.rename(file, rotatedPath);
-            return await this.plugin.app.vault.create(file.path, '');
+            return await this.plugin.app.vault.create(originalPath, '');
         } catch (e) {
             console.warn(`[HealerLogger] Rotation failed:`, e);
             return file;

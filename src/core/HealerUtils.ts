@@ -271,7 +271,8 @@ export function formatRagPrompt(
     propertiesCount: number,
     contentSnippet: string,
 ): string {
-    return `[GRAPH RAG: SEMANTIC PROXIMITY]\nFocus Node: [[${basename}]]\nTags: ${tags}\nProperties Count: ${propertiesCount}\n\nSnippet:\n${contentSnippet}...\n\nTASK: Identify 3 distinct concepts or non-existing MOCs that should be linked to this node to enhance the semantic graph topology. Output as a bulleted list of Obsidian links [[Link]].`;
+    const safeSnippet = sanitizeForLlm(contentSnippet);
+    return `[GRAPH RAG: SEMANTIC PROXIMITY]\nFocus Node: [[${basename}]]\nTags: ${tags}\nProperties Count: ${propertiesCount}\n\nSnippet:\n${safeSnippet}...\n\nTASK: Identify 3 distinct concepts or non-existing MOCs that should be linked to this node to enhance the semantic graph topology. Output as a bulleted list of Obsidian links [[Link]].`;
 }
 
 /**
@@ -295,6 +296,8 @@ export function formatIncongruencePrompt(
         candidateContext += `- ${val}: Folder=${d.folder || 'unknown'}, HTR_Score=${d.score || 0}%\n`;
     }
 
+    const safeSnippet = sanitizeForLlm(contentSnippet);
+
     return `
 You are the Supreme Tribunal of the Knowledge Graph.
 An incongruence has been detected in the vault. 
@@ -307,7 +310,7 @@ ${infraContext}
 ${candidateContext}
 
 CONTENT SNIPPET:
-${contentSnippet}
+${safeSnippet}
 
 TASK: Based on the content and topological context, decide which value(s) should be kept.
 Output format:
@@ -336,6 +339,21 @@ export function sleep(ms: number): Promise<void> {
 // ============================================================================
 // ✅ NEW UTILITY FUNCTIONS (SOTA 2026)
 // ============================================================================
+
+/**
+ * ✅ NEW: SOTA 2026 Redaction Utility.
+ * Masks sensitive patterns (Bearer, JWT) in strings before sending to external APIs.
+ */
+export function sanitizeForLlm(s: string): string {
+    if (!s) return '';
+    // Mask Bearer tokens: Bearer <token>
+    let masked = s.replace(/\bBearer\s+[A-Za-z0-9._~-]{10,}(?:\.[A-Za-z0-9._~-]+){0,2}\b/gi, 'Bearer ***');
+
+    // Mask JWT-like structures (starts with eyJ... contains dots, minimum length)
+    masked = masked.replace(/\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g, '***JWT***');
+
+    return masked;
+}
 
 /**
  * ✅ NEW: Safe regex compilation with error handling.
