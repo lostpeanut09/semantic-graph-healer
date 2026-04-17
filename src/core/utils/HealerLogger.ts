@@ -146,8 +146,8 @@ export class HealerLogger {
 
     private safeStringify(data: unknown): string {
         try {
-            const seen = new WeakSet();
-            const json = JSON.stringify(data, (key, value) => {
+            const seen = new WeakSet<object>();
+            const json = JSON.stringify(data, (key, value: unknown) => {
                 // Redaction logic for secrets
                 if (key && SECRET_KEYS.has(key.toLowerCase())) {
                     return '***';
@@ -161,12 +161,14 @@ export class HealerLogger {
                 if (typeof value === 'bigint') {
                     return value.toString() + 'n';
                 }
+
                 if (value !== null && typeof value === 'object') {
                     if (seen.has(value)) {
                         return '[Circular]';
                     }
                     seen.add(value);
                 }
+
                 return value;
             });
 
