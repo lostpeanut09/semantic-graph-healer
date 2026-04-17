@@ -30,3 +30,5 @@ plugin_audit_archive.md
 main.js
 worker.js
 tsconfig.tsbuildinfo
+lint_output.txt
+*.log
