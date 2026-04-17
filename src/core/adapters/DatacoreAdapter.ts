@@ -295,12 +295,21 @@ export class DatacoreAdapter implements IMetadataAdapter {
      */
     private runQuery<T>(api: DatacoreApi, q: string): T[] | null {
         if (typeof api.tryQuery === 'function') {
-            const r = api.tryQuery<T>(q);
-            if (!r.successful) {
-                if (this.debug) HealerLogger.warn('DatacoreAdapter: tryQuery failed', r.error);
-                return null;
+            try {
+                const r = api.tryQuery<T>(q);
+                if (!r.successful) {
+                    if (this.debug) {
+                        HealerLogger.warn(`DatacoreAdapter: tryQuery failed for "${q}"`, r.error);
+                    }
+                    return null;
+                }
+                return r.value ?? [];
+            } catch (e) {
+                if (this.debug) {
+                    HealerLogger.error(`DatacoreAdapter: tryQuery threw exception for "${q}"`, e);
+                }
+                // Fallback to query() if tryQuery throws
             }
-            return r.value;
         }
 
         if (typeof api.query === 'function') {
@@ -808,9 +817,34 @@ export class DatacoreAdapter implements IMetadataAdapter {
      */
     private isReservedTopLevelKey(rawKey: string): boolean {
         const raw = rawKey.trim();
-        if (raw.toLowerCase() === 'file') return true;
+        const lower = raw.toLowerCase();
+        // SOTA 2026: Protect all standard Dataview file members + tasks/lists
+        const standardMembers = [
+            'file',
+            'tasks',
+            'lists',
+            'tags',
+            'etags',
+            'aliases',
+            'ctime',
+            'mtime',
+            'cday',
+            'mday',
+            'day',
+            'size',
+            'link',
+            'inlinks',
+            'outlinks',
+            'frontmatter',
+            'name',
+            'path',
+            'folder',
+            'ext',
+        ];
+
+        if (standardMembers.includes(lower)) return true;
         const normalized = normalizeDataviewFieldName(raw);
-        return normalized === 'file';
+        return standardMembers.includes(normalized);
     }
 
     /**
@@ -824,7 +858,10 @@ export class DatacoreAdapter implements IMetadataAdapter {
         const allUserKeys = new Set([...frontmatterKeys, ...inlineKeys]);
         const out: Record<string, unknown> = {};
         for (const key of allUserKeys) {
+            // SOTA 2026: Strictly isolate internal fields starting with '$'
+            if (key.startsWith('$')) continue;
             if (this.isReservedTopLevelKey(key)) continue;
+
             const val = p.value(key);
             if (val === undefined) continue;
             this.writeFieldAliases(out, key, val);

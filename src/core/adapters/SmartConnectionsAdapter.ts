@@ -184,6 +184,22 @@ export class SmartConnectionsAdapter implements IMetadataAdapter {
 
         const plugin = this.getPluginShape();
         const globalSources = this.getGlobalSmartSources();
+
+        // SOTA 2026: Fast-exit if the environment is not ready or busy indexing
+        const isReady = (() => {
+            if (!globalSources) return true;
+            const gs = globalSources as Record<string, unknown>;
+            if (typeof gs.ready === 'boolean') return gs.ready;
+            if (typeof gs.is_ready === 'function') return (gs.is_ready as () => boolean)();
+            return true;
+        })();
+
+        if (globalSources && !isReady) {
+            if (this.debug)
+                HealerLogger.warn('SmartConnectionsAdapter: environment not ready, skipping semantic search');
+            return this.queryAjsonFallback(normalizedPath, limit);
+        }
+
         const pluginSources = this.resolveSmartSources(plugin);
         const legacyApi = this.resolveLegacyApi(plugin);
 
@@ -324,7 +340,9 @@ export class SmartConnectionsAdapter implements IMetadataAdapter {
                         f
                             .split('/')
                             .pop()
-                            ?.replace(/\.ajson$/i, '') ?? '';
+                            ?.replace(/\.ajson$/i, '')
+                            // SOTA 2026: Handle potential base64 or URL-encoded path segments in fallback
+                            .replace(/--[a-zA-Z0-9+/=]+$/, '') ?? '';
                     if (!targetBase) continue;
 
                     const targetFile = this.app.metadataCache.getFirstLinkpathDest(targetBase, sourcePath);
