@@ -328,8 +328,15 @@ export class HealerLogger {
 
     private addToBuffer(entry: LogEntry): void {
         this.logBuffer.push(entry);
-        if (this.logBuffer.length > 1000) {
-            this.logBuffer.shift();
+
+        // Respect configured max buffer size (default: 1000)
+        const max = Number.isFinite(this.maxBufferSize) ? Math.floor(this.maxBufferSize) : 1000;
+        const safeMax = Math.max(1, max);
+
+        const excess = this.logBuffer.length - safeMax;
+        if (excess > 0) {
+            // Remove the oldest entries in one shot (less overhead than repeated shift)
+            this.logBuffer.splice(0, excess);
         }
     }
 
