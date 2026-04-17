@@ -1,4 +1,4 @@
-import { HealerLogger, isObsidianInternalApp } from '../HealerUtils';
+import { HealerLogger } from '../HealerUtils';
 import { isThenable } from '../HealerUtils';
 import { ExtendedApp } from '../../types';
 import SemanticGraphHealer from '../../main';
@@ -34,8 +34,7 @@ export class KeychainService {
     }
 
     private getStableSalt(): string {
-        const anyApp = this.plugin.app as unknown;
-        const appId = anyApp?.appId;
+        const appId = (this.plugin.app as ExtendedApp).appId;
         if (typeof appId === 'string' && appId) return appId;
 
         const settings = this.plugin.settings as unknown as Record<string, unknown>;
