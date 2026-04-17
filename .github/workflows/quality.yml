@@ -1,4 +1,5 @@
 name: Quality Pipeline
+# Trigger: v2.3.1 production gate audit
 
 on:
     push:

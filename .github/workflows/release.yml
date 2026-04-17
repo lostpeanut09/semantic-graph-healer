@@ -26,7 +26,8 @@ jobs:
             - name: Build Plugin
               run: npm run build
 
-            - name: Create Release
+            - name: Production Release
+# Trigger: v2.3.1 production gate audit
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: |
