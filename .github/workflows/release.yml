@@ -27,7 +27,7 @@ jobs:
               run: npm run build
 
             - name: Production Release
-# Trigger: v2.3.1 production gate audit
+              # Trigger: v2.3.1 production gate audit
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: |
