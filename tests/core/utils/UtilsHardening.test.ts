@@ -177,6 +177,24 @@ describe('Utils Hardening', () => {
             expect(out).not.toContain('m1');
             expect(out).not.toContain('m2');
         });
+
+        it('ULTRA-7: clearBuffer leaves buffer empty', () => {
+            const logger = new HealerLogger('Test', plugin as any, {
+                ...settings,
+                enableFileLogging: false, // avoids async I/O in this sync test
+                logBufferSize: 1000,
+            });
+
+            logger.info('a');
+            logger.info('b');
+            expect(logger.getStats().total).toBe(2);
+
+            logger.clearBuffer();
+            expect(logger.getStats().total).toBe(0);
+
+            // exportLogs must be empty if buffer is empty
+            expect(logger.exportLogs()).toBe('');
+        });
     });
 
     describe('CryptoUtils (Existing Hardening)', () => {

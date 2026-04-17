@@ -90,6 +90,7 @@ export class HealerLogger {
     private logBuffer: LogEntry[] = [];
     private maxBufferSize: number = 1000; // Circular buffer
     private fileLoggingEnabled: boolean = false;
+    private fileWriteFailures: number = 0;
     private logFilePath: string = 'SemanticGraphHealer/logs';
 
     constructor(module: string, plugin: Plugin, settings: SemanticGraphHealerSettings) {
@@ -232,8 +233,19 @@ export class HealerLogger {
 
             const logLine = this.formatLogLine(entry);
             await this.appendLogLine(file, logLine);
+
+            // Reset failure counter on success
+            this.fileWriteFailures = 0;
         } catch (error) {
+            this.fileWriteFailures++;
             console.error(`[HealerLogger] Error writing to log file:`, error);
+
+            if (this.fileWriteFailures >= 3 && this.fileLoggingEnabled) {
+                this.fileLoggingEnabled = false;
+                console.warn(
+                    `[HealerLogger] Disabling file logging after 3 consecutive failures to prevent performance degradation.`,
+                );
+            }
         }
     }
 
@@ -322,8 +334,22 @@ export class HealerLogger {
     }
 
     clearBuffer(): void {
+        const prevSize = this.logBuffer.length;
         this.logBuffer = [];
-        this.info('Log buffer cleared');
+
+        // Optional audit: write to console/file WITHOUT re-buffering to maintain strict empty state
+        const entry: LogEntry = {
+            timestamp: this.formatTimestamp(),
+            level: 'info',
+            module: this.module,
+            message: `Log buffer cleared (prevSize=${prevSize})`,
+        };
+
+        if (this.shouldLog('info')) {
+            console.debug(this.formatLogLine(entry));
+        }
+
+        void this.writeToFile(entry);
     }
 
     private addToBuffer(entry: LogEntry): void {
