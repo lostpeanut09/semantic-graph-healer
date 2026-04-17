@@ -10,6 +10,33 @@ const LOG_LEVELS: Record<LogLevel, number> = {
     error: 3,
 };
 
+// 1) SOTA 2026: Blacklist of sensitive keys to redact from logs (prevent accidental leaks)
+const SECRET_KEYS = new Set([
+    'apikey',
+    'api_key',
+    'token',
+    'access_token',
+    'refresh_token',
+    'authorization',
+    'bearer',
+    'password',
+    'pass',
+    'secret',
+    'client_secret',
+    'privatekey',
+    'private_key',
+]);
+
+function sanitizeForLog(s: string): string {
+    // CRLF/log forging prevention: escape newlines
+    return s.replace(/\r/g, '\\r').replace(/\n/g, '\\n');
+}
+
+function truncate(s: string, max = 10000): string {
+    if (s.length <= max) return s;
+    return s.slice(0, max) + `...[truncated ${s.length - max} chars]`;
+}
+
 interface LogEntry {
     timestamp: string;
     level: LogLevel;
@@ -120,7 +147,17 @@ export class HealerLogger {
     private safeStringify(data: unknown): string {
         try {
             const seen = new WeakSet();
-            return JSON.stringify(data, (key, value) => {
+            const json = JSON.stringify(data, (key, value) => {
+                // Redaction logic for secrets
+                if (key && SECRET_KEYS.has(key.toLowerCase())) {
+                    return '***';
+                }
+
+                if (typeof value === 'string') {
+                    // Sanitize string values to prevent log injection in data payload
+                    return sanitizeForLog(value);
+                }
+
                 if (typeof value === 'bigint') {
                     return value.toString() + 'n';
                 }
@@ -132,14 +169,17 @@ export class HealerLogger {
                 }
                 return value;
             });
+
+            return truncate(json);
         } catch (e) {
             return `[Serialization Error: ${e instanceof Error ? e.message : String(e)}]`;
         }
     }
 
     private formatLogLine(entry: LogEntry): string {
+        const msg = sanitizeForLog(entry.message);
         const dataStr = entry.data ? ' ' + this.safeStringify(entry.data) : '';
-        return `[${entry.timestamp}] [${entry.level.toUpperCase()}] [${entry.module}] ${entry.message}${dataStr}`;
+        return `[${entry.timestamp}] [${entry.level.toUpperCase()}] [${entry.module}] ${msg}${dataStr}`;
     }
 
     private log(level: LogLevel, message: string, data?: unknown): void {
