@@ -195,8 +195,7 @@ export class SmartConnectionsAdapter implements IMetadataAdapter {
         })();
 
         if (globalSources && !isReady) {
-            if (this.debug)
-                HealerLogger.warn('SmartConnectionsAdapter: environment not ready, skipping semantic search');
+            HealerLogger.warn('SmartConnectionsAdapter: environment not ready, skipping semantic search');
             return this.queryAjsonFallback(normalizedPath, limit);
         }
 
