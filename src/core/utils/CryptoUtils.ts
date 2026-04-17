@@ -18,7 +18,7 @@ export class CryptoUtils {
             {
                 name: 'PBKDF2',
                 salt: encoder.encode(salt),
-                iterations: 100000,
+                iterations: 600000,
                 hash: 'SHA-256',
             },
             baseKey,
@@ -45,8 +45,8 @@ export class CryptoUtils {
             combined.set(iv);
             combined.set(new Uint8Array(ciphertext), iv.length);
 
-            // btoa for storage
-            return btoa(String.fromCharCode(...combined));
+            // Robust Base64 for SOTA 2026 (prevents call stack size exceeded on large buffers)
+            return this.uint8ToBase64(combined);
         } catch (e) {
             console.error('Encryption failed', e);
             throw new Error('FAILED_ENCRYPTION');
@@ -58,11 +58,7 @@ export class CryptoUtils {
      */
     public static async decrypt(combinedBase64: string, master: string, salt: string): Promise<string | null> {
         try {
-            const combined = new Uint8Array(
-                atob(combinedBase64)
-                    .split('')
-                    .map((c) => c.charCodeAt(0)),
-            );
+            const combined = this.base64ToUint8(combinedBase64);
             const iv = combined.slice(0, 12);
             const ciphertext = combined.slice(12);
 
@@ -74,5 +70,30 @@ export class CryptoUtils {
             console.error('Decryption failed', e);
             return null;
         }
+    }
+
+    /**
+     * SOTA 2026: Chunked base64 encoding to prevent stack overflow.
+     */
+    private static uint8ToBase64(u8: Uint8Array): string {
+        const CHUNK_SIZE = 0x8000; // 32KB
+        let s = '';
+        for (let i = 0; i < u8.length; i += CHUNK_SIZE) {
+            s += String.fromCharCode(...u8.subarray(i, i + CHUNK_SIZE));
+        }
+        return btoa(s);
+    }
+
+    /**
+     * Robust base64 decoding.
+     */
+    private static base64ToUint8(b64: string): Uint8Array {
+        const binary = atob(b64);
+        const len = binary.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+        return bytes;
     }
 }

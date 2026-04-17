@@ -108,16 +108,38 @@ export class HealerLogger {
             }
 
             const logLine = this.formatLogLine(entry);
-            const existingContent = await this.plugin.app.vault.read(file);
-            await this.plugin.app.vault.modify(file, existingContent + '\n' + logLine);
+            // SOTA 2026: Atomic write using Vault.process (prevents race conditions)
+            await this.plugin.app.vault.process(file, (existing) => {
+                return existing ? existing + '\n' + logLine : logLine;
+            });
         } catch (error) {
             console.error(`[HealerLogger] Error writing to log file:`, error);
         }
     }
 
+    private safeStringify(data: unknown): string {
+        try {
+            const seen = new WeakSet();
+            return JSON.stringify(data, (key, value) => {
+                if (typeof value === 'bigint') {
+                    return value.toString() + 'n';
+                }
+                if (value !== null && typeof value === 'object') {
+                    if (seen.has(value)) {
+                        return '[Circular]';
+                    }
+                    seen.add(value);
+                }
+                return value;
+            });
+        } catch (e) {
+            return `[Serialization Error: ${e instanceof Error ? e.message : String(e)}]`;
+        }
+    }
+
     private formatLogLine(entry: LogEntry): string {
-        const dataStr = entry.data ? JSON.stringify(entry.data) : '';
-        return `[${entry.timestamp}] [${entry.level.toUpperCase()}] [${entry.module}] ${entry.message} ${dataStr}`;
+        const dataStr = entry.data ? ' ' + this.safeStringify(entry.data) : '';
+        return `[${entry.timestamp}] [${entry.level.toUpperCase()}] [${entry.module}] ${entry.message}${dataStr}`;
     }
 
     private log(level: LogLevel, message: string, data?: unknown): void {
