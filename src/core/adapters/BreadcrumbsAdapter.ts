@@ -175,14 +175,18 @@ export class BreadcrumbsAdapter implements IMetadataAdapter {
 
         const out: { target: string; dir?: BCDirection }[] = [];
         for (const e of edges) {
+            if (e === null || e === undefined) continue;
+
             let target: string | null = null;
             let dir: BCDirection | undefined = undefined;
 
             if (typeof e === 'string') {
                 target = e;
             } else if (isObj(e)) {
+                // SOTA 2026: Handle both direct 'target' and nested 'to' structures
                 if (typeof e.target === 'string') target = e.target;
                 else if (typeof e.to === 'string') target = e.to;
+                else if (isObj(e.target) && typeof e.target.path === 'string') target = e.target.path;
 
                 // Extract and validate dir through the BCDirection type guard
                 const dirRaw: unknown =
@@ -190,7 +194,10 @@ export class BreadcrumbsAdapter implements IMetadataAdapter {
                 if (this.isDirection(dirRaw)) dir = dirRaw;
             }
 
-            if (target) out.push({ target, dir });
+            // Shield from ghost edges (empty target strings)
+            if (target && target.trim().length > 0) {
+                out.push({ target: target.trim(), dir });
+            }
         }
         return out;
     }
