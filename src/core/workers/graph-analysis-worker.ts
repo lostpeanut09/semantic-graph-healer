@@ -102,11 +102,11 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
 
             case 'FULL_ANALYSIS':
                 result = {
-                    pageRank: pagerank(graph, options as unknown),
-                    communities: louvain(graph, options as unknown),
+                    pageRank: pagerank(graph, options as Parameters<typeof pagerank>[1]),
+                    communities: louvain(graph, options as Parameters<typeof louvain>[1]),
                     betweenness:
                         graph.order <= DEFAULT_LIMITS.BETWEENNESS
-                            ? betweennessCentrality(graph, options as unknown)
+                            ? betweennessCentrality(graph, options as Parameters<typeof betweennessCentrality>[1])
                             : null,
                     nodeCount: graph.order,
                     edgeCount: graph.size,
