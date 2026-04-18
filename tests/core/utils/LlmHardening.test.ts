@@ -107,5 +107,20 @@ WINNER: [[AuditNote]]
                 }),
             );
         });
+
+        it('triggers logical timeout fallback when network hangs (ULTRA-11)', async () => {
+            const service = new LlmService(settings, mockGetKey);
+
+            // Mock a "hanging" request that never resolves
+            (requestUrl as any).mockReturnValue(new Promise(() => {}));
+
+            // Force dynamic timeout and disable retries for the test
+            (service as any).settings.primaryTimeout = 0.1; // 100ms
+            (service as any).settings.llmMaxRetries = 0;
+
+            const result = await (service as any).callLlm('test-prompt', false);
+
+            expect(result).toContain('TimeoutError: Logical timeout reached');
+        });
     });
 });

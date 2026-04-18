@@ -118,6 +118,13 @@ export class LlmService {
                     timeout?: number;
                 }
 
+                let timeoutTimer: ReturnType<typeof setTimeout>;
+                const logicalTimeoutPromise = new Promise<never>((_, reject) => {
+                    timeoutTimer = setTimeout(() => {
+                        reject(new Error(`TimeoutError: Logical timeout reached (${timeoutMs}ms)`));
+                    }, timeoutMs);
+                });
+
                 const fetchPromise = requestUrl({
                     url: normalizeEndpoint(endpoint, apiPath),
                     method: 'POST',
@@ -131,12 +138,16 @@ export class LlmService {
                     timeout: timeoutMs,
                 } as HealerRequestUrlParam);
 
-                const response = (await fetchPromise) as {
-                    status: number;
-                    json: LlmResponse;
-                };
-                if (signal?.aborted) throw new Error('AbortError');
-                return response;
+                try {
+                    const response = (await Promise.race([fetchPromise, logicalTimeoutPromise])) as {
+                        status: number;
+                        json: LlmResponse;
+                    };
+                    if (signal?.aborted) throw new Error('AbortError');
+                    return response;
+                } finally {
+                    if (timeoutTimer!) clearTimeout(timeoutTimer);
+                }
             };
 
             try {
