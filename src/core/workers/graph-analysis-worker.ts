@@ -20,6 +20,12 @@ type WorkerMessage = {
             resourceAllocation: number;
         };
         fileStats?: Record<string, { mtime: number }>;
+        // Scale guardrails (override defaults)
+        maxSimilarityNodes?: number;
+        maxCoCitationNodes?: number;
+        maxEdges?: number;
+        // Edge validation policy: 'STRICT' (error on missing nodes) | 'TOLERANT' (auto-add missing nodes)
+        edgePolicy?: 'STRICT' | 'TOLERANT';
         [key: string]: unknown; // Allow additional per-algorithm options
     };
 };
@@ -46,13 +52,19 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
             MAX_EDGES: 100000,
         };
 
+        // Override defaults with options if provided
+        const maxSimilarityNodes = options?.maxSimilarityNodes ?? DEFAULT_LIMITS.SIMILARITY;
+        const maxCoCitationNodes = options?.maxCoCitationNodes ?? DEFAULT_LIMITS.COCITATION;
+        const maxEdges = options?.maxEdges ?? DEFAULT_LIMITS.MAX_EDGES;
+        const edgePolicy = options?.edgePolicy ?? 'STRICT';
+
         const validateGraphSize = (type: string, limit: number) => {
             if (graph.order > limit) {
                 throw new Error(`Graph too large for ${type} (nodes=${graph.order}, limit=${limit})`);
             }
-            if (graph.size > DEFAULT_LIMITS.MAX_EDGES) {
+            if (graph.size > maxEdges) {
                 throw new Error(
-                    `Graph too dense for analysis (edges=${graph.size}, limit=${DEFAULT_LIMITS.MAX_EDGES})`,
+                    `Graph too dense for analysis (edges=${graph.size}, limit=${maxEdges})`,
                 );
             }
         };
@@ -66,13 +78,26 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
             }
         };
 
+        const addEdgeTolerant = (e: { source: string; target: string; attributes: Record<string, unknown> }) => {
+            if (!graph.hasNode(e.source)) {
+                graph.addNode(e.source, {});
+            }
+            if (!graph.hasNode(e.target)) {
+                graph.addNode(e.target, {});
+            }
+            if (!graph.hasEdge(e.source, e.target)) {
+                graph.addEdge(e.source, e.target, e.attributes);
+            }
+        };
+
         payload.nodes.forEach((node) => {
             if (!graph.hasNode(node.key)) {
                 graph.addNode(node.key, node.attributes);
             }
         });
 
-        payload.edges.forEach((edge) => addEdgeStrict(edge));
+        const addEdgeFn = edgePolicy === 'TOLERANT' ? addEdgeTolerant : addEdgeStrict;
+        payload.edges.forEach((edge) => addEdgeFn(edge));
 
         let result: unknown;
 
@@ -91,12 +116,12 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
                 break;
 
             case 'SIMILARITY':
-                validateGraphSize('SIMILARITY', DEFAULT_LIMITS.SIMILARITY);
+                validateGraphSize('SIMILARITY', maxSimilarityNodes);
                 result = runSimilarityAnalysis(graph, options);
                 break;
 
             case 'COCITATION':
-                validateGraphSize('COCITATION', DEFAULT_LIMITS.COCITATION);
+                validateGraphSize('COCITATION', maxCoCitationNodes);
                 result = runCoCitationAnalysis(graph, options);
                 break;
 
@@ -137,6 +162,7 @@ interface SimilarityOptions {
     weights?: { jaccard: number; adamicAdar: number; resourceAllocation: number };
     limit?: number;
     fileStats?: Record<string, { mtime: number }>;
+    maxSimilarityNodes?: number; // Override for per-node candidate limit
 }
 
 function runSimilarityAnalysis(graph: DirectedGraph, options: unknown) {
@@ -237,6 +263,7 @@ function runSimilarityAnalysis(graph: DirectedGraph, options: unknown) {
  */
 interface CoCitationOptions {
     minScore?: number;
+    maxCoCitationNodes?: number; // Override for max nodes to process
 }
 
 function runCoCitationAnalysis(graph: DirectedGraph, options: unknown) {
