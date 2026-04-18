@@ -52,18 +52,17 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
             }
         });
 
-        type MetricFunction = (g: DirectedGraph, o?: Record<string, unknown>) => unknown;
         let result: unknown;
 
         const BETWEENNESS_LIMIT = 2500;
 
         switch (type) {
             case 'PAGERANK':
-                result = (pagerank as MetricFunction)(graph, options);
+                result = pagerank(graph, options as Parameters<typeof pagerank>[1]);
                 break;
 
             case 'COMMUNITY':
-                result = (louvain as MetricFunction)(graph, options);
+                result = louvain(graph, options as Parameters<typeof louvain>[1]);
                 break;
 
             case 'BETWEENNESS':
@@ -72,7 +71,7 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
                         `Graph too large for dedicated betweenness analysis (nodes=${graph.order}, limit=${BETWEENNESS_LIMIT})`,
                     );
                 }
-                result = (betweennessCentrality as MetricFunction)(graph, options);
+                result = betweennessCentrality(graph, options as Parameters<typeof betweennessCentrality>[1]);
                 break;
 
             case 'SIMILARITY':
@@ -85,10 +84,12 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
 
             case 'FULL_ANALYSIS':
                 result = {
-                    pageRank: pagerank(graph, options as unknown),
-                    communities: louvain(graph, options as unknown),
+                    pageRank: pagerank(graph, options as Parameters<typeof pagerank>[1]),
+                    communities: louvain(graph, options as Parameters<typeof louvain>[1]),
                     betweenness:
-                        graph.order <= BETWEENNESS_LIMIT ? betweennessCentrality(graph, options as unknown) : null,
+                        graph.order <= BETWEENNESS_LIMIT
+                            ? betweennessCentrality(graph, options as Parameters<typeof betweennessCentrality>[1])
+                            : null,
                     nodeCount: graph.order,
                     edgeCount: graph.size,
                 };
