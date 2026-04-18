@@ -20,6 +20,7 @@ type WorkerMessage = {
             resourceAllocation: number;
         };
         fileStats?: Record<string, { mtime: number }>;
+        [key: string]: unknown; // Allow additional per-algorithm options
     };
 };
 
@@ -54,6 +55,8 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
         type MetricFunction = (g: DirectedGraph, o?: Record<string, unknown>) => unknown;
         let result: unknown;
 
+        const BETWEENNESS_LIMIT = 2500;
+
         switch (type) {
             case 'PAGERANK':
                 result = (pagerank as MetricFunction)(graph, options);
@@ -64,6 +67,11 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
                 break;
 
             case 'BETWEENNESS':
+                if (graph.order > BETWEENNESS_LIMIT) {
+                    throw new Error(
+                        `Graph too large for dedicated betweenness analysis (nodes=${graph.order}, limit=${BETWEENNESS_LIMIT})`,
+                    );
+                }
                 result = (betweennessCentrality as MetricFunction)(graph, options);
                 break;
 
@@ -77,13 +85,18 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
 
             case 'FULL_ANALYSIS':
                 result = {
-                    pageRank: pagerank(graph),
-                    communities: louvain(graph),
-                    betweenness: graph.order <= 2500 ? betweennessCentrality(graph) : null,
+                    pageRank: pagerank(graph, options as unknown),
+                    communities: louvain(graph, options as unknown),
+                    betweenness:
+                        graph.order <= BETWEENNESS_LIMIT ? betweennessCentrality(graph, options as unknown) : null,
                     nodeCount: graph.order,
                     edgeCount: graph.size,
                 };
                 break;
+
+            default:
+                // Exhaustive check: catch any messages not correctly handled
+                throw new Error(`Unsupported graph worker message type: ${String(type)}`);
         }
 
         self.postMessage({
@@ -93,7 +106,7 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
     } catch (error) {
         self.postMessage({
             type: 'ERROR',
-            payload: { requestId, message: (error as Error).message },
+            payload: { requestId, message: (error as Error).message || 'Unknown analysis error' },
         } as WorkerResponse);
     }
 };
