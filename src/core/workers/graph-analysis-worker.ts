@@ -39,6 +39,32 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
 
     try {
         const graph = new DirectedGraph();
+        const DEFAULT_LIMITS = {
+            BETWEENNESS: 2500,
+            SIMILARITY: 5000,
+            COCITATION: 8000,
+            MAX_EDGES: 100000,
+        };
+
+        const validateGraphSize = (type: string, limit: number) => {
+            if (graph.order > limit) {
+                throw new Error(`Graph too large for ${type} (nodes=${graph.order}, limit=${limit})`);
+            }
+            if (graph.size > DEFAULT_LIMITS.MAX_EDGES) {
+                throw new Error(
+                    `Graph too dense for analysis (edges=${graph.size}, limit=${DEFAULT_LIMITS.MAX_EDGES})`,
+                );
+            }
+        };
+
+        const addEdgeStrict = (e: { source: string; target: string; attributes: Record<string, unknown> }) => {
+            if (!graph.hasNode(e.source) || !graph.hasNode(e.target)) {
+                throw new Error(`Invalid edge: missing node(s) for ${e.source} -> ${e.target}`);
+            }
+            if (!graph.hasEdge(e.source, e.target)) {
+                graph.addEdge(e.source, e.target, e.attributes);
+            }
+        };
 
         payload.nodes.forEach((node) => {
             if (!graph.hasNode(node.key)) {
@@ -46,15 +72,9 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
             }
         });
 
-        payload.edges.forEach((edge) => {
-            if (!graph.hasEdge(edge.source, edge.target)) {
-                graph.addEdge(edge.source, edge.target, edge.attributes);
-            }
-        });
+        payload.edges.forEach((edge) => addEdgeStrict(edge));
 
         let result: unknown;
-
-        const BETWEENNESS_LIMIT = 2500;
 
         switch (type) {
             case 'PAGERANK':
@@ -66,29 +86,27 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
                 break;
 
             case 'BETWEENNESS':
-                if (graph.order > BETWEENNESS_LIMIT) {
-                    throw new Error(
-                        `Graph too large for dedicated betweenness analysis (nodes=${graph.order}, limit=${BETWEENNESS_LIMIT})`,
-                    );
-                }
+                validateGraphSize('BETWEENNESS', DEFAULT_LIMITS.BETWEENNESS);
                 result = betweennessCentrality(graph, options as Parameters<typeof betweennessCentrality>[1]);
                 break;
 
             case 'SIMILARITY':
+                validateGraphSize('SIMILARITY', DEFAULT_LIMITS.SIMILARITY);
                 result = runSimilarityAnalysis(graph, options);
                 break;
 
             case 'COCITATION':
+                validateGraphSize('COCITATION', DEFAULT_LIMITS.COCITATION);
                 result = runCoCitationAnalysis(graph, options);
                 break;
 
             case 'FULL_ANALYSIS':
                 result = {
-                    pageRank: pagerank(graph, options as Parameters<typeof pagerank>[1]),
-                    communities: louvain(graph, options as Parameters<typeof louvain>[1]),
+                    pageRank: pagerank(graph, options as unknown),
+                    communities: louvain(graph, options as unknown),
                     betweenness:
-                        graph.order <= BETWEENNESS_LIMIT
-                            ? betweennessCentrality(graph, options as Parameters<typeof betweennessCentrality>[1])
+                        graph.order <= DEFAULT_LIMITS.BETWEENNESS
+                            ? betweennessCentrality(graph, options as unknown)
                             : null,
                     nodeCount: graph.order,
                     edgeCount: graph.size,
@@ -96,7 +114,6 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
                 break;
 
             default:
-                // Exhaustive check: catch any messages not correctly handled
                 throw new Error(`Unsupported graph worker message type: ${String(type)}`);
         }
 
