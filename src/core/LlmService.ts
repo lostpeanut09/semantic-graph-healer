@@ -1,4 +1,4 @@
-import { requestUrl } from 'obsidian';
+import { requestUrl, RequestUrlParam } from 'obsidian';
 import { SemanticGraphHealerSettings, ReasoningResult } from '../types';
 import { HealerLogger } from './HealerUtils';
 
@@ -109,6 +109,15 @@ export class LlmService {
                     bodyJson['messages'] = [{ role: 'user', content: prompt }];
                 }
 
+                /**
+                 * ✅ NEW: SOTA 2026 Type Extension.
+                 * Extends native RequestUrlParam to include the 'timeout' property (Obsidian v1.11.8+).
+                 * Resolves TS2353 build errors for environments with lagging type definitions.
+                 */
+                interface HealerRequestUrlParam extends RequestUrlParam {
+                    timeout?: number;
+                }
+
                 const fetchPromise = requestUrl({
                     url: normalizeEndpoint(endpoint, apiPath),
                     method: 'POST',
@@ -120,7 +129,7 @@ export class LlmService {
                     body: JSON.stringify(bodyJson),
                     throw: false,
                     timeout: timeoutMs,
-                });
+                } as HealerRequestUrlParam);
 
                 const response = (await fetchPromise) as {
                     status: number;
