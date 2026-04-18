@@ -344,7 +344,7 @@ export function sleep(ms: number): Promise<void> {
  * ✅ NEW: SOTA 2026 Redaction Utility.
  * Masks sensitive patterns (Bearer, JWT) in strings before sending to external APIs.
  */
-export function sanitizeForLlm(s: string): string {
+function sanitizeForLlm(s: string): string {
     if (!s) return '';
     // Mask Bearer tokens: Bearer <token>
     let masked = s.replace(/\bBearer\s+[A-Za-z0-9._~-]{10,}(?:\.[A-Za-z0-9._~-]+){0,2}\b/gi, 'Bearer ***');
