@@ -1,6 +1,6 @@
 {
     "name": "semantic-graph-healer",
-    "version": "2.4.3",
+    "version": "2.4.4",
     "type": "module",
     "description": "Topological restoration engine that utilizes Dataview, Breadcrumbs, and ExcaliBrain metadata to identify and resolve structural inconsistencies in the knowledge graph.",
     "main": "main.js",
