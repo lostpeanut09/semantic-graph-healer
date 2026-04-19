@@ -16,7 +16,8 @@
         "lint:fix": "eslint -c .config/eslint.config.js . --fix && stylelint \"**/*.css\" --config .config/.stylelintrc.json --fix",
         "test": "vitest run",
         "test:adapter": "vitest run tests/core/adapters/DatacoreAdapter.test.ts",
-        "test:breadcrumbs": "vitest run tests/core/adapters/BreadcrumbsAdapter.test.ts"
+        "test:breadcrumbs": "vitest run tests/core/adapters/BreadcrumbsAdapter.test.ts",
+        "test:worker": "vitest run tests/core/workers/GraphAnalysisWorkerCore.test.ts"
     },
     "keywords": [],
     "author": "lostpeanut09",
