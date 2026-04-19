@@ -2,7 +2,7 @@
     "$schema": "https://unpkg.com/knip@5/schema.json",
     "project": ["**/*.ts"],
     "entry": ["src/main.ts", "src/core/workers/graph-analysis-worker.ts", "tests/**/*.test.ts"],
-    "ignore": [],
+    "ignore": [".agent/**"],
     "ignoreDependencies": [
         "esbuild",
         "stylelint-config-standard",

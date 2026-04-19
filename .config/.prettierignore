@@ -5,3 +5,4 @@ worker.js
 .husky
 dist
 .kilo
+.agent
