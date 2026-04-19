@@ -19,7 +19,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **ESLint / Knip / Prettier**: added `.agent/` to all tool ignore configs; eliminated ~431 spurious lint errors from internal GSD tooling.
 - **Repository Hygiene**: added `tsc_out.txt` and `lint_results.txt` to `.gitignore` to prevent debug artifacts from polluting commits.
 
-> **Compatibility note**: `minAppVersion` remains `1.11.4`. BigInt is natively supported in all Electron versions Obsidian has ever shipped; no installer update is required by users.
+> **Compatibility note**: `minAppVersion` remains `1.11.4`. BigInt is natively supported from Chrome 67+ (2018), so no installer update is required for this specific fix. Installer updates may still be needed for other Electron/Chromium changes over time.
 
 ---
 
