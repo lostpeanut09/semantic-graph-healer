@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
     handleGraphWorkerMessage,
+    createProgressReporter,
     ProgressReporter,
     WorkerMessage,
 } from '../../../src/core/workers/graph-analysis-core';
@@ -145,6 +146,43 @@ describe('GraphAnalysisWorkerCore', () => {
 
             handleGraphWorkerMessage(message, mockReporter);
             expect(mockReporter.postProgress).toHaveBeenCalled();
+        });
+
+        it('should compute Co-citation correctly', () => {
+            const message: WorkerMessage = {
+                type: 'COCITATION',
+                payload: basePayload,
+            };
+
+            const response = handleGraphWorkerMessage(message, mockReporter);
+            expect(response.type).toBe('RESULT');
+        });
+
+        it('should compute Full Analysis correctly', () => {
+            const message: WorkerMessage = {
+                type: 'FULL_ANALYSIS',
+                payload: basePayload,
+            };
+
+            const response = handleGraphWorkerMessage(message, mockReporter);
+            expect(response.type).toBe('RESULT');
+        });
+    });
+
+    describe('Factory: createProgressReporter', () => {
+        it('should create a reporter that calls the postMessage callback', () => {
+            const postMessageFn = vi.fn();
+            const reporter = createProgressReporter(postMessageFn);
+
+            reporter.postProgress('req-1', 50, 'Processing...');
+
+            expect(postMessageFn).toHaveBeenCalledWith({
+                type: 'PROGRESS',
+                payload: {
+                    requestId: 'req-1',
+                    data: { pct: 50, message: 'Processing...' },
+                },
+            });
         });
     });
 });

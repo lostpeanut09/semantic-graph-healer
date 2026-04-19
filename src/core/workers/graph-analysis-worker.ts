@@ -1,17 +1,9 @@
 // Dedicated worker bridge for heavy graph analysis
-import { handleGraphWorkerMessage, WorkerMessage, WorkerResponse, ProgressReporter } from './graph-analysis-core';
+import { handleGraphWorkerMessage, createProgressReporter, WorkerMessage } from './graph-analysis-core';
 
 self.onmessage = (e: MessageEvent<WorkerMessage>) => {
     const message = e.data;
-
-    const reporter: ProgressReporter = {
-        postProgress: (requestId: string, pct: number, message: string) => {
-            self.postMessage({
-                type: 'PROGRESS',
-                payload: { requestId, data: { pct, message } },
-            } as unknown as WorkerResponse);
-        },
-    };
+    const reporter = createProgressReporter(self.postMessage.bind(self));
 
     const response = handleGraphWorkerMessage(message, reporter);
     self.postMessage(response);

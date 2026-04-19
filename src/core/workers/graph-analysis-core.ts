@@ -37,6 +37,18 @@ export interface ProgressReporter {
     postProgress: (requestId: string, pct: number, message: string) => void;
 }
 
+/**
+ * Creates a ProgressReporter that sends messages to the postMessage function.
+ */
+export const createProgressReporter = (postMessageFn: (msg: WorkerResponse) => void): ProgressReporter => ({
+    postProgress: (requestId: string, pct: number, message: string) => {
+        postMessageFn({
+            type: 'PROGRESS',
+            payload: { requestId, data: { pct, message } },
+        });
+    },
+});
+
 const DEFAULT_LIMITS = {
     BETWEENNESS: 2500,
     SIMILARITY: 5000,
