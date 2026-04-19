@@ -3,7 +3,6 @@ import { handleGraphWorkerMessage, WorkerMessage, WorkerResponse } from './graph
 
 self.onmessage = (e: MessageEvent<WorkerMessage>) => {
     const message = e.data;
-    const requestId = message.payload.requestId;
 
     const reporter = {
         postProgress: (requestId: string, pct: number, message: string) => {
