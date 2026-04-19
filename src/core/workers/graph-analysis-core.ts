@@ -37,7 +37,7 @@ export interface ProgressReporter {
     postProgress: (requestId: string, pct: number, message: string) => void;
 }
 
-export const DEFAULT_LIMITS = {
+const DEFAULT_LIMITS = {
     BETWEENNESS: 2500,
     SIMILARITY: 5000,
     FULL_ANALYSIS: 8000,
@@ -48,7 +48,7 @@ export const DEFAULT_LIMITS = {
 /**
  * Helper for safe numeric options parsing with fallback and clamp.
  */
-export const numOpt = (opts: unknown, key: string, fallback: number): number => {
+const numOpt = (opts: unknown, key: string, fallback: number): number => {
     const v = (opts as Record<string, unknown>)?.[key];
     if (typeof v !== 'number' || !Number.isFinite(v)) return fallback;
     return Math.max(1, Math.floor(v));
