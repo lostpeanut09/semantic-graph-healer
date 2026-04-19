@@ -11,7 +11,7 @@ yarn-error.log*
 # Obsidian local files
 .obsidian/
 data.json
-.husky/
+.husky/_/
 
 # Editor tooling
 .kilo/
