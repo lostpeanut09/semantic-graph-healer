@@ -141,6 +141,7 @@ export class CacheService {
                     await adapter.rename(tempPath, this._cacheFilePath);
                 } catch (e) {
                     // 3. Fallback for systems/filesystems that block direct rename
+                    HealerLogger.warn('CacheService: Direct rename failed, falling back to remove+rename.', e);
                     if (await adapter.exists(this._cacheFilePath)) {
                         await adapter.remove(this._cacheFilePath);
                     }
