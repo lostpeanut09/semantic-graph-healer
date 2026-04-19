@@ -8,13 +8,13 @@ import { z } from 'zod';
 
 const NodeSchema = z.object({
     key: z.string(),
-    attributes: z.record(z.unknown()).default({}),
+    attributes: z.record(z.string(), z.unknown()).default({}),
 });
 
 const EdgeSchema = z.object({
     source: z.string(),
     target: z.string(),
-    attributes: z.record(z.unknown()).default({}),
+    attributes: z.record(z.string(), z.unknown()).default({}),
 });
 
 const WorkerMessageSchema = z.looseObject({
@@ -35,7 +35,7 @@ const WorkerMessageSchema = z.looseObject({
                     resourceAllocation: z.number(),
                 })
                 .optional(),
-            fileStats: z.record(z.object({ mtime: z.number() })).optional(),
+            fileStats: z.record(z.string(), z.object({ mtime: z.number() })).optional(),
             edgePolicy: z.enum(['strict', 'tolerant']).optional(),
             maxEdges: z.number().optional(),
             maxNodes: z.number().optional(),

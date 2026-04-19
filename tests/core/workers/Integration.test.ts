@@ -105,10 +105,9 @@ describe('GraphWorkerService Integration (Real Worker)', () => {
 
     it('should fail if Zod validation rejects the message', async () => {
         await service.initialize();
-
         // Send invalid nodes (null) to trigger Zod error in the worker
         const nodes = null as any;
-        const edges = [];
+        const edges: Array<{ source: string; target: string; attributes: Record<string, unknown> }> = [];
 
         await expect(service.runAnalysis('PAGERANK', nodes, edges)).rejects.toThrow();
 
@@ -119,7 +118,7 @@ describe('GraphWorkerService Integration (Real Worker)', () => {
         await service.initialize();
 
         const nodes = [{ key: 'A', attributes: {} }];
-        const edges = [];
+        const edges: Array<{ source: string; target: string; attributes: Record<string, unknown> }> = [];
 
         // Launch two analyses simultaneously
         const p1 = service.runAnalysis('PAGERANK', nodes, edges);
