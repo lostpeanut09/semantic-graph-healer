@@ -1,4 +1,4 @@
-﻿// Dedicated worker for heavy graph analysis
+// Dedicated worker for heavy graph analysis
 import { DirectedGraph } from 'graphology';
 import pagerank from 'graphology-metrics/centrality/pagerank';
 import louvain from 'graphology-communities-louvain';
@@ -33,39 +33,43 @@ type WorkerResponse = {
     };
 };
 
+/**
+ * Helper for safe numeric options parsing with fallback and clamp.
+ */
+const numOpt = (opts: unknown, key: string, fallback: number): number => {
+    const v = (opts as Record<string, unknown>)?.[key];
+    if (typeof v !== 'number' || !Number.isFinite(v)) return fallback;
+    return Math.max(1, Math.floor(v));
+};
+
+const DEFAULT_LIMITS = {
+    BETWEENNESS: 2500,
+    SIMILARITY: 5000,
+    FULL_ANALYSIS: 8000,
+    COCITATION: 8000,
+    MAX_EDGES: 100_000,
+} as const;
+
 self.onmessage = (e: MessageEvent<WorkerMessage>) => {
     const { type, payload, options } = e.data;
     const requestId = payload.requestId;
 
     try {
         const graph = new DirectedGraph();
-        const DEFAULT_LIMITS = {
-            BETWEENNESS: 2500,
-            SIMILARITY: 5000,
-            FULL_ANALYSIS: 8000,
-            COCITATION: 8000,
-            MAX_EDGES: 100000,
-        };
 
-        const validateGraphSize = (type: string, limit: number) => {
-            if (graph.order > limit) {
-                throw new Error(`Graph too large for ${type} (nodes=${graph.order}, limit=${limit})`);
+        const validateGraphSize = (type: string, opts: unknown, nodeLimitDefault: number) => {
+            const maxEdges = numOpt(opts, 'maxEdges', DEFAULT_LIMITS.MAX_EDGES);
+            if (graph.size > maxEdges) {
+                throw new Error(`Graph too dense (edges=${graph.size}, limit=${maxEdges})`);
             }
-            if (graph.size > DEFAULT_LIMITS.MAX_EDGES) {
-                throw new Error(
-                    `Graph too dense for analysis (edges=${graph.size}, limit=${DEFAULT_LIMITS.MAX_EDGES})`,
-                );
+            const maxNodes = numOpt(opts, 'maxNodes', nodeLimitDefault);
+            if (graph.order > maxNodes) {
+                throw new Error(`Graph too large for ${type} (nodes=${graph.order}, limit=${maxNodes})`);
             }
         };
 
-        const addEdgeStrict = (e: { source: string; target: string; attributes: Record<string, unknown> }) => {
-            if (!graph.hasNode(e.source) || !graph.hasNode(e.target)) {
-                throw new Error(`Invalid edge: missing node(s) for ${e.source} -> ${e.target}`);
-            }
-            if (!graph.hasEdge(e.source, e.target)) {
-                graph.addEdge(e.source, e.target, e.attributes);
-            }
-        };
+        // v2.4.2: Flexible Edge Ingestion
+        const policy = options?.edgePolicy === 'tolerant' ? 'tolerant' : 'strict';
 
         payload.nodes.forEach((node) => {
             if (!graph.hasNode(node.key)) {
@@ -73,7 +77,19 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
             }
         });
 
-        payload.edges.forEach((edge) => addEdgeStrict(edge));
+        payload.edges.forEach((edge) => {
+            if (!graph.hasNode(edge.source)) {
+                if (policy === 'strict') throw new Error(`Missing source node: ${edge.source}`);
+                graph.addNode(edge.source, {}); // Auto-repair in tolerant mode
+            }
+            if (!graph.hasNode(edge.target)) {
+                if (policy === 'strict') throw new Error(`Missing target node: ${edge.target}`);
+                graph.addNode(edge.target, {}); // Auto-repair in tolerant mode
+            }
+            if (!graph.hasEdge(edge.source, edge.target)) {
+                graph.addEdge(edge.source, edge.target, edge.attributes);
+            }
+        });
 
         let result: unknown;
 
@@ -87,22 +103,22 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
                 break;
 
             case 'BETWEENNESS':
-                validateGraphSize('BETWEENNESS', DEFAULT_LIMITS.BETWEENNESS);
+                validateGraphSize('BETWEENNESS', options, DEFAULT_LIMITS.BETWEENNESS);
                 result = betweennessCentrality(graph, options as Parameters<typeof betweennessCentrality>[1]);
                 break;
 
             case 'SIMILARITY':
-                validateGraphSize('SIMILARITY', DEFAULT_LIMITS.SIMILARITY);
+                validateGraphSize('SIMILARITY', options, DEFAULT_LIMITS.SIMILARITY);
                 result = runSimilarityAnalysis(graph, options);
                 break;
 
             case 'COCITATION':
-                validateGraphSize('COCITATION', DEFAULT_LIMITS.COCITATION);
+                validateGraphSize('COCITATION', options, DEFAULT_LIMITS.COCITATION);
                 result = runCoCitationAnalysis(graph, options);
                 break;
 
             case 'FULL_ANALYSIS':
-                validateGraphSize('FULL_ANALYSIS', DEFAULT_LIMITS.FULL_ANALYSIS);
+                validateGraphSize('FULL_ANALYSIS', options, DEFAULT_LIMITS.FULL_ANALYSIS);
                 result = {
                     pageRank: pagerank(graph, options as Parameters<typeof pagerank>[1]),
                     communities: louvain(graph, options as Parameters<typeof louvain>[1]),
