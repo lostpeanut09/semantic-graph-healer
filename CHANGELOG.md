@@ -5,6 +5,24 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.4.4] — 2026-04-19
+
+### Fixed
+
+- **Build Pipeline**: bumped esbuild `target` from `es2018` to `es2020` in both `mainCtx` (CJS) and `workerCtx` (IIFE). Resolves `BigInt literals are not available` error caused by `p-queue` v9 using `#idAssigner = 1n`.
+- **Type Safety**: resolved `no-unsafe-argument` in `graph-analysis-worker.ts` by introducing a typed `postMessage` bridge (`WorkerResponse`).
+- **Zod v4 Compatibility**: updated all `z.record()` calls to the required 2-argument form `z.record(z.string(), ...)`.
+- **Test Harness**: replaced `@vitest/web-worker` with an inline `MockWorker` to avoid `blob:nodedata:` crash in Node CI environment.
+
+### Improved
+
+- **ESLint / Knip / Prettier**: added `.agent/` to all tool ignore configs; eliminated ~431 spurious lint errors from internal GSD tooling.
+- **Repository Hygiene**: added `tsc_out.txt` and `lint_results.txt` to `.gitignore` to prevent debug artifacts from polluting commits.
+
+> **Compatibility note**: `minAppVersion` remains `1.11.4`. BigInt is natively supported in all Electron versions Obsidian has ever shipped; no installer update is required by users.
+
+---
+
 ## [2.4.0] — 2026-04-19
 
 ### Added
