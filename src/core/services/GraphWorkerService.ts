@@ -1,6 +1,7 @@
 import { HealerLogger } from '../utils/HealerLogger';
 import { Platform, App } from 'obsidian';
 import { SemanticGraphHealerSettings } from '../../types';
+import PQueue from 'p-queue';
 
 type AnalysisType = 'PAGERANK' | 'COMMUNITY' | 'BETWEENNESS' | 'FULL_ANALYSIS' | 'COCITATION' | 'SIMILARITY';
 
@@ -15,6 +16,7 @@ export class GraphWorkerService {
     private workerUrl: string | null = null; // Store for memory revocation
     private logger: HealerLogger;
     private plugin: PluginWithSettings;
+    private queue: PQueue;
 
     private initPromise: Promise<void> | null = null;
     private pendingCallbacks: Map<
@@ -26,6 +28,7 @@ export class GraphWorkerService {
     constructor(logger: HealerLogger, plugin: PluginWithSettings) {
         this.plugin = plugin;
         this.logger = logger;
+        this.queue = new PQueue({ concurrency: 1 });
     }
 
     async initialize(): Promise<void> {
@@ -129,31 +132,37 @@ export class GraphWorkerService {
             throw new Error('Worker not initialized. Call initialize() first.');
         }
 
-        return new Promise((resolve, reject) => {
-            const requestId = `req_${Date.now()}_${this.requestId++}`;
+        return this.queue.add(
+            () =>
+                new Promise<T>((resolve, reject) => {
+                    const requestId = `req_${Date.now()}_${this.requestId++}`;
 
-            // Optimized timeout (User-defined or 2-minute fallback)
-            const timeoutMs = (this.plugin.settings?.workerTimeout || 120) * 1000;
+                    // Optimized timeout (User-defined or 2-minute fallback)
+                    const timeoutMs = (this.plugin.settings?.workerTimeout || 120) * 1000;
 
-            const timeoutId = setTimeout(() => {
-                const callback = this.pendingCallbacks.get(requestId);
-                if (callback) {
-                    this.pendingCallbacks.delete(requestId);
-                    callback.reject(new Error(`Analysis timeout for ${type} after ${timeoutMs / 1000} seconds`));
-                }
-            }, timeoutMs);
+                    const timeoutId = setTimeout(() => {
+                        const callback = this.pendingCallbacks.get(requestId);
+                        if (callback) {
+                            this.pendingCallbacks.delete(requestId);
+                            callback.reject(
+                                new Error(`Analysis timeout for ${type} after ${timeoutMs / 1000} seconds`),
+                            );
+                        }
+                    }, timeoutMs);
 
-            this.pendingCallbacks.set(requestId, { resolve, reject, timeoutId });
+                    this.pendingCallbacks.set(requestId, { resolve, reject, timeoutId });
 
-            this.worker!.postMessage({
-                type,
-                payload: { nodes, edges, requestId },
-                options,
-            });
-        });
+                    this.worker!.postMessage({
+                        type,
+                        payload: { nodes, edges, requestId },
+                        options,
+                    });
+                }),
+        );
     }
 
     terminate(): void {
+        this.queue.clear();
         // MED-1: reject pending callers before clearing — prevents hanging promise chains
         for (const [requestId, cb] of this.pendingCallbacks.entries()) {
             if (cb.timeoutId) clearTimeout(cb.timeoutId);

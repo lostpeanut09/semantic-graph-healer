@@ -23,6 +23,7 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
     // Phase 4: Performance Layer
     private pageCache: StructuralCache<DataviewPage | null>;
     private hierarchyCache: StructuralCache<HierarchyNode | null>;
+    private relatedNotesCache: StructuralCache<RelatedNote[]>; // Phase 2 Hardening
 
     constructor(
         private app: App,
@@ -36,6 +37,34 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
         // Initialize Performance Caches
         this.pageCache = new StructuralCache<DataviewPage | null>(this.app, options);
         this.hierarchyCache = new StructuralCache<HierarchyNode | null>(this.app, options);
+
+        // Related notes are short-lived to reflect embedding updates (2 min TTL)
+        this.relatedNotesCache = new StructuralCache<RelatedNote[]>(this.app, {
+            ...options,
+            ttlMs: 120000,
+        });
+    }
+
+    /**
+     * Resiliency Wrapper: Protects the system from unhandled exceptions
+     * in third-party plugin adapters.
+     */
+    private safeExecute<T>(fn: () => T, fallback: T, context: string): T {
+        try {
+            return fn();
+        } catch (e) {
+            HealerLogger.error(`UnifiedMetadataAdapter: ${context} failed`, e);
+            return fallback;
+        }
+    }
+
+    private async safeExecuteAsync<T>(fn: () => Promise<T>, fallback: T, context: string): Promise<T> {
+        try {
+            return await fn();
+        } catch (e) {
+            HealerLogger.error(`UnifiedMetadataAdapter: ${context} failed`, e);
+            return fallback;
+        }
     }
 
     private normalizeCacheKey(path: string, sourcePath = ''): string {
@@ -50,8 +79,7 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
         const cached = this.pageCache.get(key);
         if (cached !== undefined) return cached;
 
-        const page = this.datacore.getPage(key);
-        // Cache even null values to avoid repeated lookup loops.
+        const page = this.safeExecute(() => this.datacore.getPage(key), null, `getPage(${key})`);
         this.pageCache.set(key, page);
         return page;
     }
@@ -59,25 +87,24 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
     public invalidateBacklinkIndex() {
         this.pageCache.invalidate();
         this.hierarchyCache.invalidate();
+        this.relatedNotesCache.invalidate();
         this.datacore.invalidateBacklinkIndex();
     }
 
     async queryPages(query: string): Promise<DataviewPage[]> {
-        // Query results depend on the full vault, so we don't cache
-        // them as aggressively as individual page properties.
-        return this.datacore.queryPages(query);
+        return this.safeExecuteAsync(() => this.datacore.queryPages(query), [], `queryPages(${query})`);
     }
 
     getPages(query: string): DataviewPage[] {
-        return this.datacore.getPages(query);
+        return this.safeExecute(() => this.datacore.getPages(query), [], `getPages(${query})`);
     }
 
     getBacklinks(path: string): string[] {
-        return this.datacore.getBacklinks(path);
+        return this.safeExecute(() => this.datacore.getBacklinks(path), [], `getBacklinks(${path})`);
     }
 
     getDataviewApi(): DataviewApi | null {
-        return this.datacore.getDataviewApi();
+        return this.safeExecute(() => this.datacore.getDataviewApi(), null, 'getDataviewApi');
     }
 
     async getHierarchy(path: string): Promise<HierarchyNode | null> {
@@ -85,22 +112,40 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
         const cached = this.hierarchyCache.get(key);
         if (cached !== undefined) return cached;
 
-        const hierarchy = await this.breadcrumbs.getHierarchy(key);
+        const hierarchy = await this.safeExecuteAsync(
+            () => this.breadcrumbs.getHierarchy(key),
+            null,
+            `getHierarchy(${key})`,
+        );
 
         this.hierarchyCache.set(key, hierarchy);
         return hierarchy;
     }
 
     async getRelatedNotes(path: string, limit: number): Promise<RelatedNote[]> {
-        // Semantic similarity results from SC change as the embedding model updates,
-        // so we call it directly or with shorter TTL.
-        return this.smartConnections.getRelatedNotes(path, limit);
+        const key = `${this.normalizeCacheKey(path, path)}|limit=${limit}`;
+        const cached = this.relatedNotesCache.get(key);
+        if (cached !== undefined) return cached;
+
+        const related = await this.safeExecuteAsync(
+            () => this.smartConnections.getRelatedNotes(path, limit),
+            [],
+            `getRelatedNotes(${path})`,
+        );
+
+        this.relatedNotesCache.set(key, related);
+        return related;
     }
 
     invalidate(path?: string): void {
         const key = path ? this.normalizeCacheKey(path, path) : undefined;
         this.pageCache.invalidate(key);
         this.hierarchyCache.invalidate(key);
+
+        // Related notes use composite keys, so we full-invalidate on specific path change
+        // to ensure semantic updates are picked up.
+        this.relatedNotesCache.invalidate();
+
         this.datacore.invalidate(path);
         this.breadcrumbs.invalidate(path);
         this.smartConnections.invalidate(path);
@@ -112,6 +157,7 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
     public destroy(): void {
         this.pageCache.destroy();
         this.hierarchyCache.destroy();
+        this.relatedNotesCache.destroy();
         this.datacore.destroy?.();
         this.breadcrumbs.destroy?.();
         this.smartConnections.destroy?.();
