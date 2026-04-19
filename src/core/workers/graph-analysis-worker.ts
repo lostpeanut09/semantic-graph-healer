@@ -1,4 +1,4 @@
-// Dedicated worker for heavy graph analysis
+﻿// Dedicated worker for heavy graph analysis
 import { DirectedGraph } from 'graphology';
 import pagerank from 'graphology-metrics/centrality/pagerank';
 import louvain from 'graphology-communities-louvain';
@@ -42,6 +42,7 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
         const DEFAULT_LIMITS = {
             BETWEENNESS: 2500,
             SIMILARITY: 5000,
+            FULL_ANALYSIS: 8000,
             COCITATION: 8000,
             MAX_EDGES: 100000,
         };
@@ -101,6 +102,7 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
                 break;
 
             case 'FULL_ANALYSIS':
+                validateGraphSize('FULL_ANALYSIS', DEFAULT_LIMITS.FULL_ANALYSIS);
                 result = {
                     pageRank: pagerank(graph, options as Parameters<typeof pagerank>[1]),
                     communities: louvain(graph, options as Parameters<typeof louvain>[1]),
