@@ -10,6 +10,7 @@ export default defineConfig({
     },
     test: {
         environment: 'jsdom',
+        setupFiles: ['@vitest/web-worker'],
         exclude: ['**/node_modules/**', '**/.kilo/**'],
     },
 });

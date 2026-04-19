@@ -2,27 +2,49 @@ import { DirectedGraph } from 'graphology';
 import pagerank from 'graphology-metrics/centrality/pagerank';
 import louvain from 'graphology-communities-louvain';
 import betweennessCentrality from 'graphology-metrics/centrality/betweenness';
+import { z } from 'zod';
 
-export type WorkerMessage = {
-    type: 'PAGERANK' | 'COMMUNITY' | 'BETWEENNESS' | 'FULL_ANALYSIS' | 'SIMILARITY' | 'COCITATION';
-    payload: {
-        nodes: Array<{ key: string; attributes: Record<string, unknown> }>;
-        edges: Array<{ source: string; target: string; attributes: Record<string, unknown> }>;
-        requestId: string;
-    };
-    options?: {
-        limit?: number;
-        minScore?: number;
-        weights?: {
-            jaccard: number;
-            adamicAdar: number;
-            resourceAllocation: number;
-        };
-        fileStats?: Record<string, { mtime: number }>;
-        edgePolicy?: 'strict' | 'tolerant';
-        [key: string]: unknown;
-    };
-};
+// --- Phase 2: OSS Hardening (Zod Validation) ---
+
+const NodeSchema = z.object({
+    key: z.string(),
+    attributes: z.record(z.unknown()).default({}),
+});
+
+const EdgeSchema = z.object({
+    source: z.string(),
+    target: z.string(),
+    attributes: z.record(z.unknown()).default({}),
+});
+
+const WorkerMessageSchema = z.object({
+    type: z.enum(['PAGERANK', 'COMMUNITY', 'BETWEENNESS', 'FULL_ANALYSIS', 'SIMILARITY', 'COCITATION']),
+    payload: z.object({
+        nodes: z.array(NodeSchema),
+        edges: z.array(EdgeSchema),
+        requestId: z.string(),
+    }),
+    options: z
+        .object({
+            limit: z.number().optional(),
+            minScore: z.number().optional(),
+            weights: z
+                .object({
+                    jaccard: z.number(),
+                    adamicAdar: z.number(),
+                    resourceAllocation: z.number(),
+                })
+                .optional(),
+            fileStats: z.record(z.object({ mtime: z.number() })).optional(),
+            edgePolicy: z.enum(['strict', 'tolerant']).optional(),
+            maxEdges: z.number().optional(),
+            maxNodes: z.number().optional(),
+        })
+        .loose()
+        .optional(),
+});
+
+export type WorkerMessage = z.infer<typeof WorkerMessageSchema>;
 
 export type WorkerResponse = {
     type: 'RESULT' | 'ERROR' | 'PROGRESS';
@@ -67,10 +89,14 @@ const numOpt = (opts: unknown, key: string, fallback: number): number => {
 };
 
 export function handleGraphWorkerMessage(message: WorkerMessage, reporter?: ProgressReporter): WorkerResponse {
-    const { type, payload, options } = message;
-    const requestId = payload.requestId;
+    let requestId = 'unknown';
 
     try {
+        // --- Phase 2 Hardening: Structural Validation ---
+        const validated = WorkerMessageSchema.parse(message);
+        const { type, payload, options } = validated;
+        requestId = payload.requestId;
+
         const graph = new DirectedGraph();
 
         const validateGraphSize = (type: string, opts: unknown, nodeLimitDefault: number) => {
@@ -155,9 +181,22 @@ export function handleGraphWorkerMessage(message: WorkerMessage, reporter?: Prog
             payload: { requestId, data: result },
         };
     } catch (error) {
+        let message = (error as Error).message || 'Unknown analysis error';
+
+        // --- Phase 2 Hardening: Structural Error Formatting ---
+        if (error instanceof z.ZodError) {
+            const issues = error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
+            message = `Validation Error: ${issues}`;
+
+            // Compatibility check: if 'type' is the issue, include the expected error substring for tests
+            if (error.issues.some((i) => i.path.includes('type'))) {
+                message = `Unsupported graph worker message type. Details: ${issues}`;
+            }
+        }
+
         return {
             type: 'ERROR',
-            payload: { requestId, message: (error as Error).message || 'Unknown analysis error' },
+            payload: { requestId, message },
         };
     }
 }

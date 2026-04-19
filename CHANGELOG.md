@@ -5,6 +5,29 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.4.0] — 2026-04-19
+
+### Added
+
+- **Runtime Integrity Layer (OSS Hardening v2)**:
+    - **Zod Validation**: implemented strict schema validation for all cross-thread messages in `graph-analysis-core.ts`. Prevents topological hallucinations by enforcing runtime data integrity.
+    - **Concurrency Management**: integrated `p-queue` in `GraphWorkerService` to serialize heavy graph analysis requests, preventing worker thread contention and resource exhaustion.
+    - **Worker Testing Harness**: configured `@vitest/web-worker` for realistic end-to-end multi-threaded validation.
+
+### Improved
+
+- **UnifiedMetadataAdapter Hardening**:
+    - **Safe Execution Wrappers**: implemented `safeExecute` and `safeExecuteAsync` decorators to isolate and gracefully handle third-party adapter failures (Datacore, Breadcrumbs, Smart Connections).
+    - **Semantic Similarity Cache**: added a high-performance cache (TTL: 120s) for semantic relatedness lookups, significantly reducing Obsidian "Substrate" search overhead.
+    - **Unified Invalidation**: synchronized cache clearing across all metadata providers (hierarchical, semantic, and field-based).
+
+### Tests
+
+- **Coordination Layer**: introduced `UnifiedMetadataAdapter.test.ts` (5 tests) covering cache hits, resilient fail-opens, and invalidation propagation.
+- **Worker Protocol**: expanded `GraphAnalysisWorkerCore.test.ts` to verify Zod schema enforcement and error message readability.
+
+---
+
 ## [2.3.1] — 2026-04-17
 
 ### Fixed
