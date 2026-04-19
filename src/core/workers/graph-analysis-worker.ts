@@ -1,10 +1,10 @@
 // Dedicated worker bridge for heavy graph analysis
-import { handleGraphWorkerMessage, WorkerMessage, WorkerResponse } from './graph-analysis-core';
+import { handleGraphWorkerMessage, WorkerMessage, WorkerResponse, ProgressReporter } from './graph-analysis-core';
 
 self.onmessage = (e: MessageEvent<WorkerMessage>) => {
     const message = e.data;
 
-    const reporter = {
+    const reporter: ProgressReporter = {
         postProgress: (requestId: string, pct: number, message: string) => {
             self.postMessage({
                 type: 'PROGRESS',

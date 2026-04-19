@@ -1,9 +1,10 @@
 {
     "$schema": "https://unpkg.com/knip@5/schema.json",
     "project": ["**/*.ts"],
-    "entry": ["src/main.ts", "src/core/workers/graph-analysis-worker.ts", ".config/esbuild.config.mjs"],
+    "entry": ["src/main.ts", "src/core/workers/graph-analysis-worker.ts", "tests/**/*.test.ts"],
     "ignore": [],
     "ignoreDependencies": [
+        "esbuild",
         "stylelint-config-standard",
         "@typescript-eslint/eslint-plugin",
         "@typescript-eslint/parser"
