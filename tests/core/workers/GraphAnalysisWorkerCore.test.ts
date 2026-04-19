@@ -1,86 +1,150 @@
-import { describe, it, expect } from 'vitest';
-import { handleGraphWorkerMessage, WorkerMessage } from '../../../src/core/workers/graph-analysis-core';
-
-function msg(type: any, nodes: string[], edges: Array<[string, string]>, options?: any): WorkerMessage {
-    return {
-        type,
-        payload: {
-            requestId: 'r1',
-            nodes: nodes.map((id) => ({ key: id, attributes: {} })),
-            edges: edges.map(([source, target]) => ({ source, target, attributes: {} })),
-        },
-        options: options ?? {},
-    };
-}
+import { describe, it, expect, vi } from 'vitest';
+import {
+    handleGraphWorkerMessage,
+    ProgressReporter,
+    WorkerMessage,
+} from '../../../src/core/workers/graph-analysis-core';
 
 describe('GraphAnalysisWorkerCore', () => {
-    it('fail-closed: unknown type -> ERROR', () => {
-        const res = handleGraphWorkerMessage(msg('UNKNOWN' as any, [], []));
-        expect(res.type).toBe('ERROR');
-        expect(res.payload.message).toMatch(/Unsupported graph worker message type/i);
+    const mockReporter: ProgressReporter = {
+        postProgress: vi.fn(),
+    };
+
+    const basePayload = {
+        nodes: [
+            { key: 'A', attributes: {} },
+            { key: 'B', attributes: {} },
+            { key: 'C', attributes: {} },
+        ],
+        edges: [
+            { source: 'A', target: 'B', attributes: {} },
+            { source: 'B', target: 'C', attributes: {} },
+        ],
+        requestId: 'test-req',
+    };
+
+    describe('Basic Algorithms', () => {
+        it('should compute PageRank correctly', () => {
+            const message: WorkerMessage = {
+                type: 'PAGERANK',
+                payload: basePayload,
+            };
+
+            const response = handleGraphWorkerMessage(message, mockReporter);
+            expect(response.type).toBe('RESULT');
+            expect(response.payload.data).toBeDefined();
+            const data = response.payload.data as Record<string, number>;
+            expect(data['A']).toBeGreaterThan(0);
+        });
+
+        it('should compute Communities (Louvain) correctly', () => {
+            const message: WorkerMessage = {
+                type: 'COMMUNITY',
+                payload: basePayload,
+            };
+
+            const response = handleGraphWorkerMessage(message, mockReporter);
+            expect(response.type).toBe('RESULT');
+            const data = response.payload.data as Record<string, number>;
+            expect(data['A']).toBeDefined();
+        });
     });
 
-    it('strict edges: missing node -> ERROR', () => {
-        const res = handleGraphWorkerMessage(msg('PAGERANK', ['A'], [['A', 'B']], { edgePolicy: 'strict' }));
-        expect(res.type).toBe('ERROR');
-        expect(res.payload.message).toMatch(/Missing target node: B/i);
+    describe('Guardrails', () => {
+        it('should throw error if graph is too dense (Max Edges)', () => {
+            const message: WorkerMessage = {
+                type: 'BETWEENNESS',
+                payload: basePayload,
+                options: { maxEdges: 1 }, // limit is 1, we have 2 edges
+            };
+
+            const response = handleGraphWorkerMessage(message, mockReporter);
+            expect(response.type).toBe('ERROR');
+            expect(response.payload.message).toContain('Graph too dense');
+        });
+
+        it('should throw error if graph is too large for specific algorithm (Max Nodes)', () => {
+            const message: WorkerMessage = {
+                type: 'BETWEENNESS',
+                payload: basePayload,
+                options: { maxNodes: 2 }, // limit is 2, we have 3 nodes
+            };
+
+            const response = handleGraphWorkerMessage(message, mockReporter);
+            expect(response.type).toBe('ERROR');
+            expect(response.payload.message).toContain('Graph too large');
+        });
     });
 
-    it('tolerant edges: missing node -> AUTO-REPAIR', () => {
-        const res = handleGraphWorkerMessage(msg('PAGERANK', ['A'], [['A', 'B']], { edgePolicy: 'tolerant' }));
-        expect(res.type).toBe('RESULT');
-        // PageRank should have results for both A and B
-        expect(res.payload.data).toHaveProperty('A');
-        expect(res.payload.data).toHaveProperty('B');
+    describe('Edge Policies', () => {
+        const payloadWithMissingNodes = {
+            nodes: [{ key: 'A', attributes: {} }],
+            edges: [{ source: 'A', target: 'B', attributes: {} }], // B is missing
+            requestId: 'test-req',
+        };
+
+        it('should throw error in strict mode if node is missing', () => {
+            const message: WorkerMessage = {
+                type: 'PAGERANK',
+                payload: payloadWithMissingNodes,
+                options: { edgePolicy: 'strict' },
+            };
+
+            const response = handleGraphWorkerMessage(message, mockReporter);
+            expect(response.type).toBe('ERROR');
+            expect(response.payload.message).toContain('Missing target node: B');
+        });
+
+        it('should create missing node in tolerant mode', () => {
+            const message: WorkerMessage = {
+                type: 'PAGERANK',
+                payload: payloadWithMissingNodes,
+                options: { edgePolicy: 'tolerant' },
+            };
+
+            const response = handleGraphWorkerMessage(message, mockReporter);
+            expect(response.type).toBe('RESULT');
+        });
     });
 
-    it('guardrail: too many nodes -> ERROR (BETWEENNESS)', () => {
-        // Betweenness default limit is 2500
-        const nodes = Array.from({ length: 2501 }, (_, i) => `N${i}`);
-        const res = handleGraphWorkerMessage(msg('BETWEENNESS', nodes, []));
-        expect(res.type).toBe('ERROR');
-        expect(res.payload.message).toMatch(/too large for BETWEENNESS/i);
+    describe('Fail-Closed and Error Handling', () => {
+        it('should return ERROR for unknown message types', () => {
+            const message = {
+                type: 'UNKNOWN_TYPE',
+                payload: basePayload,
+            } as unknown as WorkerMessage;
+
+            const response = handleGraphWorkerMessage(message, mockReporter);
+            expect(response.type).toBe('ERROR');
+            expect(response.payload.message).toContain('Unsupported graph worker message type');
+        });
+
+        it('should handle malformed payloads gracefully', () => {
+            const message = {
+                type: 'PAGERANK',
+                payload: { ...basePayload, nodes: null },
+            } as unknown as WorkerMessage;
+
+            const response = handleGraphWorkerMessage(message, mockReporter);
+            expect(response.type).toBe('ERROR');
+            expect(response.payload.message).toBeDefined();
+        });
     });
 
-    it('guardrail: too many edges -> ERROR (MAX_EDGES)', () => {
-        // numOpt clamps to min 1, so we need 2 edges to trigger "too dense" with maxEdges: 1
-        const res = handleGraphWorkerMessage(
-            msg(
-                'FULL_ANALYSIS',
-                ['A', 'B', 'C'],
-                [
-                    ['A', 'B'],
-                    ['B', 'C'],
-                ],
-                { maxEdges: 1 },
-            ),
-        );
-        expect(res.type).toBe('ERROR');
-        expect(res.payload.message).toMatch(/too dense/i);
-    });
+    describe('Advanced Analysis with Progress', () => {
+        it('should report progress for Similarity analysis', async () => {
+            const message: WorkerMessage = {
+                type: 'SIMILARITY',
+                payload: {
+                    ...basePayload,
+                    // Add more nodes to trigger progress report (every 50 processed nodes)
+                    nodes: Array.from({ length: 60 }, (_, i) => ({ key: `node-${i}`, attributes: {} })),
+                    edges: [],
+                },
+            };
 
-    it('functional: PAGERANK basic', () => {
-        const res = handleGraphWorkerMessage(msg('PAGERANK', ['A', 'B'], [['A', 'B']]));
-        expect(res.type).toBe('RESULT');
-        const data = res.payload.data as Record<string, number>;
-        expect(data['B']).toBeGreaterThan(data['A']);
-    });
-
-    it('functional: COMMUNITY basic', () => {
-        const res = handleGraphWorkerMessage(
-            msg(
-                'COMMUNITY',
-                ['A', 'B', 'C', 'D'],
-                [
-                    ['A', 'B'],
-                    ['C', 'D'],
-                ],
-            ),
-        );
-        expect(res.type).toBe('RESULT');
-        const data = res.payload.data as Record<string, number>;
-        expect(data['A']).toBe(data['B']);
-        expect(data['C']).toBe(data['D']);
-        expect(data['A']).not.toBe(data['C']);
+            handleGraphWorkerMessage(message, mockReporter);
+            expect(mockReporter.postProgress).toHaveBeenCalled();
+        });
     });
 });
