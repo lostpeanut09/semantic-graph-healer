@@ -22,6 +22,8 @@ data.json
 *.final_stage_bak
 *.perfect_bak
 plugin_audit_archive.md
+tsc_out.txt
+lint_results.txt
 
 # Environment variables
 .env
