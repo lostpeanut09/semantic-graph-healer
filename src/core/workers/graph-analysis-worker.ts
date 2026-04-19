@@ -34,6 +34,16 @@ type WorkerResponse = {
 };
 
 /**
+ * Helper to report progress during long analysis.
+ */
+const postProgress = (requestId: string, pct: number, message: string) => {
+    self.postMessage({
+        type: 'PROGRESS',
+        payload: { requestId, data: { pct, message } },
+    } as unknown as WorkerResponse);
+};
+
+/**
  * Helper for safe numeric options parsing with fallback and clamp.
  */
 const numOpt = (opts: unknown, key: string, fallback: number): number => {
@@ -109,12 +119,12 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
 
             case 'SIMILARITY':
                 validateGraphSize('SIMILARITY', options, DEFAULT_LIMITS.SIMILARITY);
-                result = runSimilarityAnalysis(graph, options);
+                result = runSimilarityAnalysis(graph, options, requestId);
                 break;
 
             case 'COCITATION':
                 validateGraphSize('COCITATION', options, DEFAULT_LIMITS.COCITATION);
-                result = runCoCitationAnalysis(graph, options);
+                result = runCoCitationAnalysis(graph, options, requestId);
                 break;
 
             case 'FULL_ANALYSIS':
@@ -157,7 +167,7 @@ interface SimilarityOptions {
     fileStats?: Record<string, { mtime: number }>;
 }
 
-function runSimilarityAnalysis(graph: DirectedGraph, options: unknown) {
+function runSimilarityAnalysis(graph: DirectedGraph, options: unknown, requestId: string) {
     const opts = options as SimilarityOptions | undefined;
     const weights = opts?.weights || { jaccard: 0.35, adamicAdar: 0.35, resourceAllocation: 0.3 };
     const limit = opts?.limit || 5;
@@ -179,7 +189,15 @@ function runSimilarityAnalysis(graph: DirectedGraph, options: unknown) {
     });
 
     // 2. Candidate Generation & Scoring
+    const nodeCount = graph.order;
+    let processedNodes = 0;
+
     graph.forEachNode((source) => {
+        processedNodes++;
+        if (processedNodes % 50 === 0) {
+            postProgress(requestId, processedNodes / nodeCount, `Analyzing similarity for ${source}...`);
+        }
+
         const sourceNeighbors = neighborsMap.get(source)!;
         if (sourceNeighbors.size === 0) return;
 
@@ -257,7 +275,7 @@ interface CoCitationOptions {
     minScore?: number;
 }
 
-function runCoCitationAnalysis(graph: DirectedGraph, options: unknown) {
+function runCoCitationAnalysis(graph: DirectedGraph, options: unknown, requestId: string) {
     const opts = options as CoCitationOptions | undefined;
     const minScore = opts?.minScore || 2;
     const results: Array<{ a: string; b: string; score: number }> = [];
@@ -269,8 +287,15 @@ function runCoCitationAnalysis(graph: DirectedGraph, options: unknown) {
     });
 
     const processedPairs = new Set<string>();
+    const nodeCount = graph.order;
+    let processedNodes = 0;
 
     graph.forEachNode((source) => {
+        processedNodes++;
+        if (processedNodes % 50 === 0) {
+            postProgress(requestId, processedNodes / nodeCount, `Analyzing co-citation for ${source}...`);
+        }
+
         const parents = inNeighbors.get(source)!;
         if (parents.size === 0) return;
 
