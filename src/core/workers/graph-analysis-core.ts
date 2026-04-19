@@ -17,7 +17,7 @@ const EdgeSchema = z.object({
     attributes: z.record(z.unknown()).default({}),
 });
 
-const WorkerMessageSchema = z.object({
+const WorkerMessageSchema = z.looseObject({
     type: z.enum(['PAGERANK', 'COMMUNITY', 'BETWEENNESS', 'FULL_ANALYSIS', 'SIMILARITY', 'COCITATION']),
     payload: z.object({
         nodes: z.array(NodeSchema),
@@ -25,7 +25,7 @@ const WorkerMessageSchema = z.object({
         requestId: z.string(),
     }),
     options: z
-        .object({
+        .looseObject({
             limit: z.number().optional(),
             minScore: z.number().optional(),
             weights: z
@@ -40,7 +40,6 @@ const WorkerMessageSchema = z.object({
             maxEdges: z.number().optional(),
             maxNodes: z.number().optional(),
         })
-        .loose()
         .optional(),
 });
 
