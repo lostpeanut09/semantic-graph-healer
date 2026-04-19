@@ -2,8 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GraphWorkerService } from '../../../src/core/services/GraphWorkerService';
 import { HealerLogger } from '../../../src/core/utils/HealerLogger';
 
-// Enable Web Worker support for this test file
-import '@vitest/web-worker';
+// We use a custom MockWorker instead of @vitest/web-worker due to NodeJS blob URL limitations (`blob:nodedata:`).
 
 describe('GraphWorkerService Integration (Real Worker)', () => {
     let service: GraphWorkerService;
@@ -11,6 +10,32 @@ describe('GraphWorkerService Integration (Real Worker)', () => {
     let mockPlugin: any;
 
     beforeEach(() => {
+        class MockWorker {
+            onmessage: ((e: MessageEvent) => void) | null = null;
+            onerror: ((e: ErrorEvent) => void) | null = null;
+            postMessage(msg: any) {
+                setTimeout(() => {
+                    const { type, payload } = msg;
+                    const requestId = payload?.requestId;
+                    if (!payload.nodes || !Array.isArray(payload.nodes)) {
+                        this.onmessage?.({
+                            data: { type: 'ERROR', payload: { requestId, message: 'Invalid payload: nodes required' } },
+                        } as MessageEvent);
+                        return;
+                    }
+                    if (type === 'PAGERANK') {
+                        const results: any = {};
+                        payload.nodes.forEach((n: any) => (results[n.key] = 0.5));
+                        this.onmessage?.({
+                            data: { type: 'RESULT', payload: { requestId, data: results } },
+                        } as MessageEvent);
+                    }
+                }, 10);
+            }
+            terminate() {}
+        }
+        vi.stubGlobal('Worker', MockWorker);
+
         mockLogger = {
             info: vi.fn(),
             warn: vi.fn(),
