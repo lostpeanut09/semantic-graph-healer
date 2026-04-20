@@ -40,7 +40,7 @@ const CustomRuleSchema = z.object({
 
 // --- Main Settings Schema ---
 
-export const SettingsSchema = z.object({
+export const SettingsSchema = z.looseObject({
     // Core
     llmApiKey: z.string().default(''),
     secondaryLlmApiKey: z.string().default(''),

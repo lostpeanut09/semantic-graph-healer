@@ -1,6 +1,6 @@
 import { App, PluginSettingTab, Setting, ButtonComponent, Notice, Modal } from 'obsidian';
 import { HealerLogger, isObsidianInternalApp } from '../core/HealerUtils';
-import SemanticGraphHealer from '../main';
+import type SemanticGraphHealer from '../main';
 import { DEFAULT_SETTINGS, SettingsPreset, SemanticGraphHealerSettings } from '../types';
 
 export class SemanticHealerSettingTab extends PluginSettingTab {
