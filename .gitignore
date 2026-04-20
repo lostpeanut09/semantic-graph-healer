@@ -36,3 +36,4 @@ lint_output.txt
 
 # GSD & Planning (Agentic Workflow)
 .agent/
+.planning/
