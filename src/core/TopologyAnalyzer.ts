@@ -1,5 +1,5 @@
 import { TFile } from 'obsidian';
-import { SemanticGraphHealerSettings, Suggestion, DataviewPage, ExtendedApp } from '../types';
+import { Suggestion, DataviewPage } from '../types';
 import {
     HealerLogger,
     extractLinkpaths,
@@ -15,18 +15,16 @@ import { IMetadataAdapter } from './adapters/IMetadataAdapter';
 import { LlmService } from './LlmService';
 import { GraphEngine } from './GraphEngine';
 import { Platform } from 'obsidian';
-import SemanticGraphHealer from '../main';
+import type { AnalysisContext } from './services/PluginContext';
 
 export class TopologyAnalyzer {
     private BATCH_SIZE: number;
     private YIELD_INTERVAL: number;
 
     constructor(
-        private app: ExtendedApp,
-        private settings: SemanticGraphHealerSettings,
-        private engine: IMetadataAdapter,
+        private context: AnalysisContext,
         private llm: LlmService,
-        private plugin: SemanticGraphHealer,
+        private engine: IMetadataAdapter,
     ) {
         // Hybrid Batching SOTA 2026: Mobile vs Desktop Optimization
         this.BATCH_SIZE = Platform.isMobile ? 20 : 100;
@@ -40,14 +38,16 @@ export class TopologyAnalyzer {
      * We suppress our reciprocity warnings in this case to avoid false positives.
      */
     private isBreadcrumbsActive(): boolean {
-        if (isObsidianInternalApp(this.app)) {
-            return this.app.plugins.enabledPlugins.has('breadcrumbs');
+        if (isObsidianInternalApp(this.context.app)) {
+            return this.context.app.plugins.enabledPlugins.has('breadcrumbs');
         }
         return false;
     }
 
     private getScanQuery(): string {
-        return this.settings.scanFolder && this.settings.scanFolder !== '/' ? `"${this.settings.scanFolder}"` : '';
+        return this.context.settings.scanFolder && this.context.settings.scanFolder !== '/'
+            ? `"${this.context.settings.scanFolder}"`
+            : '';
     }
 
     public async runDeterministicAnalysis(): Promise<Suggestion[]> {
@@ -63,7 +63,7 @@ export class TopologyAnalyzer {
             same: 'same',
             related: 'related',
         };
-        const hierarchy = this.settings.hierarchies[0] || {
+        const hierarchy = this.context.settings.hierarchies[0] || {
             up: [],
             down: [],
             next: [],
@@ -89,7 +89,12 @@ export class TopologyAnalyzer {
             (['up', 'down', 'next', 'prev', 'same', 'related'] as const).forEach((relType) => {
                 const keys = (hierarchy as Record<string, string[]>)[relType] || [];
                 const linkpaths = extractLinkpaths(page, keys);
-                const resolvedPaths = resolveLinkpathsToPaths(this.app, linkpaths, page.file.path, resolverCache);
+                const resolvedPaths = resolveLinkpathsToPaths(
+                    this.context.app,
+                    linkpaths,
+                    page.file.path,
+                    resolverCache,
+                );
 
                 if (!relMaps[relType].has(page.file.path)) {
                     relMaps[relType].set(page.file.path, new Set());
@@ -104,13 +109,15 @@ export class TopologyAnalyzer {
         }
 
         const suggestions: Suggestion[] = [];
+        const suggestionIds = new Set<string>(); // O(1) dedup for conflict detection
+
         const reciprocalTypes = ['up', 'down', 'next', 'prev', 'same'] as const;
         const allTypes = [...reciprocalTypes, 'related'] as const;
 
         // Use 'reciprocalTypes' for asymmetric link detection
         // Use 'allTypes' for dangling link checks if we had it in this loop (we don't, it's separate)
         // But we specifically need to handle 'related' based on setting:
-        const checkArray = this.settings.requireRelatedReciprocity ? allTypes : reciprocalTypes;
+        const checkArray = this.context.settings.requireRelatedReciprocity ? allTypes : reciprocalTypes;
 
         // 2. RECIPROCITY CHECK & DIRECTIONAL CONFLICTS
         count = 0;
@@ -130,12 +137,16 @@ export class TopologyAnalyzer {
                         if (bTargetsSameType.has(pathA)) {
                             // SOTA 2026: Ignore valid circular sequences (A -> B -> C -> A)
                             // Only A <-> B direct reciprocity is a conflict for directional types.
-                            if (!suggestions.find((s) => s.id === `conflict:${pathB}:${relType}:${pathA}`)) {
+                            const forwardId = `conflict:${pathA}:${relType}:${pathB}`;
+                            const reverseId = `conflict:${pathB}:${relType}:${pathA}`;
+                            if (!suggestionIds.has(reverseId)) {
+                                suggestionIds.add(forwardId);
+                                suggestionIds.add(reverseId);
                                 suggestions.push({
-                                    id: `conflict:${pathA}:${relType}:${pathB}`,
+                                    id: forwardId,
                                     type: 'topology_gap',
-                                    link: pathToWikilink(this.app, pathB, pathB),
-                                    source: `Directional conflict: ${pathToWikilink(this.app, pathA, pathA)} and ${pathToWikilink(this.app, pathB, pathB)} both declare '${relType}' toward each other.`,
+                                    link: pathToWikilink(this.context.app, pathB, pathB),
+                                    source: `Directional conflict: ${pathToWikilink(this.context.app, pathA, pathA)} and ${pathToWikilink(this.context.app, pathB, pathB)} both declare '${relType}' toward each other.`,
                                     timestamp: Date.now(),
                                     category: 'error',
                                 });
@@ -149,13 +160,13 @@ export class TopologyAnalyzer {
                         if (!bTargetsBack.has(pathA)) {
                             // Severity mapping based on strict check
                             const severity =
-                                this.settings.strictDownCheck && relType === 'down' ? 'error' : 'suggestion';
+                                this.context.settings.strictDownCheck && relType === 'down' ? 'error' : 'suggestion';
                             const targetBasename = pathB.split('/').pop()?.replace('.md', '') || pathB;
                             suggestions.push({
                                 id: `missing_reciprocity:${pathA}:${relType}:${pathB}`,
                                 type: 'topology_gap',
-                                link: pathToWikilink(this.app, pathB, pathB),
-                                source: `${pathToWikilink(this.app, pathA, pathA)} defines ${pathToWikilink(this.app, pathB, pathB)} as '${relType}', but ${pathToWikilink(this.app, pathB, pathB)} does not have a back-reference.`,
+                                link: pathToWikilink(this.context.app, pathB, pathB),
+                                source: `${pathToWikilink(this.context.app, pathA, pathA)} defines ${pathToWikilink(this.context.app, pathB, pathB)} as '${relType}', but ${pathToWikilink(this.context.app, pathB, pathB)} does not have a back-reference.`,
                                 timestamp: Date.now(),
                                 category: severity,
                                 // ✅ FIX BUG 1: Aggiunto meta object per l'Executor
@@ -182,8 +193,8 @@ export class TopologyAnalyzer {
                             suggestions.push({
                                 id: `missing_directional_reciprocity:${pathA}:${relType}:${pathB}`,
                                 type: 'topology_gap',
-                                link: pathToWikilink(this.app, pathB, pathB),
-                                source: `${pathToWikilink(this.app, pathA, pathA)} defines ${pathToWikilink(this.app, pathB, pathB)} as '${relType}', but ${pathToWikilink(this.app, pathB, pathB)} is missing the corresponding '${targetInvType}' back-link.`,
+                                link: pathToWikilink(this.context.app, pathB, pathB),
+                                source: `${pathToWikilink(this.context.app, pathA, pathA)} defines ${pathToWikilink(this.context.app, pathB, pathB)} as '${relType}', but ${pathToWikilink(this.context.app, pathB, pathB)} is missing the corresponding '${targetInvType}' back-link.`,
                                 timestamp: Date.now(),
                                 category: 'suggestion',
                                 // ✅ FIX BUG 1: Aggiunto meta object per l'Executor
@@ -209,9 +220,9 @@ export class TopologyAnalyzer {
         }
 
         // 3. PRO-ACTIVE INTELLIGENCE: DEEP TOPOLOGY (SOTA 2026)
-        if (this.settings.enableDeepTopology) {
+        if (this.context.settings.enableDeepTopology) {
             HealerLogger.info('Engaging Deep Topology Discovery (Worker-offloaded)...');
-            const graphEngine = new GraphEngine(this.plugin);
+            const graphEngine = new GraphEngine(this.context);
             graphEngine.buildGraph();
 
             const predictedLinks = await graphEngine.runSimilarityAnalysis();
@@ -226,7 +237,7 @@ export class TopologyAnalyzer {
 
         const query = this.getScanQuery();
         const pages = this.engine.getPages(query);
-        const hierarchy = this.settings.hierarchies[0] || {
+        const hierarchy = this.context.settings.hierarchies[0] || {
             up: [],
             down: [],
             next: [],
@@ -245,8 +256,12 @@ export class TopologyAnalyzer {
         ];
 
         // 1. REGEXP GUARDRAIL (Avoid crash on invalid user patterns)
-        const compiledRules: Array<{ regex: RegExp; property: string; maxCount: number }> = [];
-        this.settings.customTopologyRules.forEach((r) => {
+        const compiledRules: Array<{
+            regex: RegExp;
+            property: string;
+            maxCount: number;
+        }> = [];
+        this.context.settings.customTopologyRules.forEach((r) => {
             try {
                 compiledRules.push({
                     ...r,
@@ -265,17 +280,17 @@ export class TopologyAnalyzer {
             const file = page.file;
 
             for (const dir of directionalTypes) {
-                if (dir.type === 'down' && !this.settings.strictDownCheck) continue;
+                if (dir.type === 'down' && !this.context.settings.strictDownCheck) continue;
 
                 const linkpaths = extractLinkpaths(page, dir.keys);
-                const uniquePaths = resolveLinkpathsToPaths(this.app, linkpaths, file.path, resolverCache);
+                const uniquePaths = resolveLinkpathsToPaths(this.context.app, linkpaths, file.path, resolverCache);
 
                 let maxThreshold = 1;
                 if (dir.type === 'up') {
-                    maxThreshold = this.settings.allowMultipleParents ? 999 : 1;
-                } else if (dir.type === 'next' && !this.settings.allowNextBranching) {
+                    maxThreshold = this.context.settings.allowMultipleParents ? 999 : 1;
+                } else if (dir.type === 'next' && !this.context.settings.allowNextBranching) {
                     maxThreshold = 1;
-                } else if (dir.type === 'prev' && !this.settings.allowPrevBranching) {
+                } else if (dir.type === 'prev' && !this.context.settings.allowPrevBranching) {
                     maxThreshold = 1;
                 } else if (dir.type === 'next' || dir.type === 'prev') {
                     maxThreshold = 999;
@@ -291,16 +306,16 @@ export class TopologyAnalyzer {
 
                 if (uniquePaths.length > maxThreshold) {
                     const isVerifiableBranching =
-                        (dir.type === 'next' || dir.type === 'prev') && this.settings.requireAIBranchValidation;
+                        (dir.type === 'next' || dir.type === 'prev') && this.context.settings.requireAIBranchValidation;
 
                     const competingSorted = uniquePaths.slice().sort();
-                    const competitorLinks = competingSorted.map((p) => pathToWikilink(this.app, p, file.path));
+                    const competitorLinks = competingSorted.map((p) => pathToWikilink(this.context.app, p, file.path));
 
                     suggestions.push({
                         id: `incongruence:${file.path}:${dir.type}:${competingSorted.join('|')}`,
                         type: 'incongruence',
-                        link: pathToWikilink(this.app, file.path, file.path),
-                        source: `${isVerifiableBranching ? '[AI Verifiable] ' : ''}Topology incongruence: ${pathToWikilink(this.app, file.path, file.path)} has multiple conflicting '${dir.type}' references: ${competitorLinks.join(', ')}.`,
+                        link: pathToWikilink(this.context.app, file.path, file.path),
+                        source: `${isVerifiableBranching ? '[AI Verifiable] ' : ''}Topology incongruence: ${pathToWikilink(this.context.app, file.path, file.path)} has multiple conflicting '${dir.type}' references: ${competitorLinks.join(', ')}.`,
                         timestamp: Date.now(),
                         category: isVerifiableBranching ? 'suggestion' : 'error',
                     });
@@ -318,7 +333,7 @@ export class TopologyAnalyzer {
 
     public deriveTagSuggestions(tags: string[], filePath: string): Suggestion[] {
         const suggestions: Suggestion[] = [];
-        const file = this.app.vault.getAbstractFileByPath(filePath);
+        const file = this.context.app.vault.getAbstractFileByPath(filePath);
         if (!(file instanceof TFile)) return [];
 
         const fileName = file.basename;
@@ -332,10 +347,10 @@ export class TopologyAnalyzer {
                 const parentCandidate = parts[parts.length - 2];
 
                 // FIX: Verify if parentCandidate exists as a real file
-                const parentFile = this.app.metadataCache.getFirstLinkpathDest(parentCandidate, filePath);
+                const parentFile = this.context.app.metadataCache.getFirstLinkpathDest(parentCandidate, filePath);
                 const confidence = parentFile ? 'suggestion' : 'info';
                 const linkLabel = parentFile
-                    ? pathToWikilink(this.app, parentFile.path, filePath)
+                    ? pathToWikilink(this.context.app, parentFile.path, filePath)
                     : `[[${parentCandidate}]]`;
 
                 suggestions.push({
@@ -347,7 +362,7 @@ export class TopologyAnalyzer {
                     category: confidence,
                     meta: {
                         property: 'up',
-                        propertyKey: this.settings.hierarchies[0]?.up[0] || 'up',
+                        propertyKey: this.context.settings.hierarchies[0]?.up[0] || 'up',
                         sourcePath: filePath,
                         targetPath: parentFile?.path,
                         sourceNote: fileName,
@@ -359,9 +374,9 @@ export class TopologyAnalyzer {
                 // --- 2. ROOT ANCESTOR (if depth > 2) ---
                 if (parts.length > 2) {
                     const rootCandidate = parts[0];
-                    const rootFile = this.app.metadataCache.getFirstLinkpathDest(rootCandidate, filePath);
+                    const rootFile = this.context.app.metadataCache.getFirstLinkpathDest(rootCandidate, filePath);
                     const rootLinkLabel = rootFile
-                        ? pathToWikilink(this.app, rootFile.path, filePath)
+                        ? pathToWikilink(this.context.app, rootFile.path, filePath)
                         : `[[${rootCandidate}]]`;
 
                     suggestions.push({
@@ -373,7 +388,7 @@ export class TopologyAnalyzer {
                         category: 'info',
                         meta: {
                             property: 'up',
-                            propertyKey: this.settings.hierarchies[0]?.up[0] || 'up',
+                            propertyKey: this.context.settings.hierarchies[0]?.up[0] || 'up',
                             sourcePath: filePath,
                             targetPath: rootFile?.path,
                             sourceNote: fileName,
@@ -394,7 +409,7 @@ export class TopologyAnalyzer {
         const query = this.getScanQuery();
         const pages = this.engine.getPages(query);
         const suggestions: Suggestion[] = [];
-        const resolvedLinks = this.app.metadataCache.resolvedLinks;
+        const resolvedLinks = this.context.app.metadataCache.resolvedLinks;
 
         // Build a set of all mentioned paths (targets)
         const allTargets = new Set<string>();
@@ -405,7 +420,7 @@ export class TopologyAnalyzer {
         }
 
         pages.forEach((page) => {
-            if (this.settings.ignoreOrphanNotes) return;
+            if (this.context.settings.ignoreOrphanNotes) return;
             const path = page.file.path;
             if (allTargets.has(path)) return;
 
@@ -416,8 +431,8 @@ export class TopologyAnalyzer {
             suggestions.push({
                 id: `orphan:${path}`,
                 type: 'quality',
-                link: pathToWikilink(this.app, path, path),
-                source: `Orphan Note: ${pathToWikilink(this.app, path, path)} has no incoming or outgoing links detected.`,
+                link: pathToWikilink(this.context.app, path, path),
+                source: `Orphan Note: ${pathToWikilink(this.context.app, path, path)} has no incoming or outgoing links detected.`,
                 timestamp: Date.now(),
                 category: 'suggestion',
                 meta: {
@@ -436,7 +451,9 @@ export class TopologyAnalyzer {
 
         // Define a local interface to satisfy lint without explicit 'any' issues
         interface EngineWithSC {
-            getSmartConnectionsAdapter?: () => { query: (path: string, limit: number) => Promise<Suggestion[]> };
+            getSmartConnectionsAdapter?: () => {
+                query: (path: string, limit: number) => Promise<Suggestion[]>;
+            };
         }
 
         const engineWithSC = this.engine as unknown as EngineWithSC;
@@ -446,8 +463,8 @@ export class TopologyAnalyzer {
                 : null;
 
         const scSuggestions =
-            this.settings.enableSmartConnections && adapter
-                ? await adapter.query(file.path, this.settings.smartConnectionsLimit)
+            this.context.settings.enableSmartConnections && adapter
+                ? await adapter.query(file.path, this.context.settings.smartConnectionsLimit)
                 : [];
         return scSuggestions;
     }
@@ -458,11 +475,11 @@ export class TopologyAnalyzer {
         const query = this.getScanQuery();
         const pages = this.engine.getPages(query);
         const suggestions: Suggestion[] = [];
-        const threshold = this.settings.mocSaturationThreshold || 20;
+        const threshold = this.context.settings.mocSaturationThreshold || 20;
 
         pages.forEach((page) => {
             const path = page.file.path;
-            const links = this.app.metadataCache.resolvedLinks[path] || {};
+            const links = this.context.app.metadataCache.resolvedLinks[path] || {};
             const linkCount = Object.keys(links).length;
 
             if (linkCount > threshold) {
@@ -472,8 +489,8 @@ export class TopologyAnalyzer {
                     suggestions.push({
                         id: `moc_candidate:${path}`,
                         type: 'quality',
-                        link: pathToWikilink(this.app, path, path),
-                        source: `Potential MOC: ${pathToWikilink(this.app, path, path)} has high link density (${linkCount} links).`,
+                        link: pathToWikilink(this.context.app, path, path),
+                        source: `Potential MOC: ${pathToWikilink(this.context.app, path, path)} has high link density (${linkCount} links).`,
                         timestamp: Date.now(),
                         category: 'info',
                         meta: {
@@ -492,7 +509,7 @@ export class TopologyAnalyzer {
     public deriveTagSiblings(): Suggestion[] {
         HealerLogger.info('Starting tag sibling detection (Precision Path mode)...');
         const suggestions: Suggestion[] = [];
-        const hierarchy = this.settings.hierarchies?.[0];
+        const hierarchy = this.context.settings.hierarchies?.[0];
         if (!hierarchy) return [];
 
         const query = this.getScanQuery();
@@ -535,15 +552,15 @@ export class TopologyAnalyzer {
                     const stableIdA = `tag_sibling:${parentPrefix}:${pathA}->${pathB}`;
                     const stableIdB = `tag_sibling:${parentPrefix}:${pathB}->${pathA}`;
 
-                    const fileA = this.app.vault.getAbstractFileByPath(pathA);
-                    const fileB = this.app.vault.getAbstractFileByPath(pathB);
+                    const fileA = this.context.app.vault.getAbstractFileByPath(pathA);
+                    const fileB = this.context.app.vault.getAbstractFileByPath(pathB);
                     if (!(fileA instanceof TFile) || !(fileB instanceof TFile)) continue;
 
                     // ✅ FIX BUG 2: Suggestion 1 (Scrive in A puntando a B)
                     suggestions.push({
                         id: stableIdA,
                         type: 'deterministic',
-                        link: `${pathToWikilink(this.app, pathA, pathA)} (add ${fileB.basename})`,
+                        link: `${pathToWikilink(this.context.app, pathA, pathA)} (add ${fileB.basename})`,
                         source: `Tag siblings: both share parent tag #${parentPrefix}. Consider linking as 'same'.`,
                         timestamp: Date.now(),
                         category: 'suggestion',
@@ -562,7 +579,7 @@ export class TopologyAnalyzer {
                     suggestions.push({
                         id: stableIdB,
                         type: 'deterministic',
-                        link: `${pathToWikilink(this.app, pathB, pathB)} (add ${fileA.basename})`,
+                        link: `${pathToWikilink(this.context.app, pathB, pathB)} (add ${fileA.basename})`,
                         source: `Tag siblings: both share parent tag #${parentPrefix}. Consider linking as 'same'.`,
                         timestamp: Date.now(),
                         category: 'suggestion',
@@ -588,13 +605,13 @@ export class TopologyAnalyzer {
         const query = this.getScanQuery();
         let pages = this.engine.getPages(query);
         const suggestions: Suggestion[] = [];
-        const hierarchy = this.settings.hierarchies?.[0];
+        const hierarchy = this.context.settings.hierarchies?.[0];
         if (!hierarchy) return [];
 
         // P1: Dynamic Graph Size Guardrail
         // If the workspace is too large or Deep Graph is enabled, we adjust the limit to avoid O(N^2) UI freezing.
         // We SKIP this guard if we are scoped to a single file.
-        const bridgeLimit = this.settings.enableDeepGraphAnalysis ? 1500 : 2500;
+        const bridgeLimit = this.context.settings.enableDeepGraphAnalysis ? 1500 : 2500;
         if (!scopeFile && pages.length > bridgeLimit) {
             HealerLogger.warn(
                 `Bridge Scrutiny skipped: vault too large (${pages.length} nodes, limit: ${bridgeLimit}).`,
@@ -614,7 +631,7 @@ export class TopologyAnalyzer {
         pages.forEach((p: DataviewPage) => {
             (['up', 'down', 'next', 'prev'] as const).forEach((rel) => {
                 const linkpaths = extractLinkpaths(p, hierarchy[rel]);
-                const resolved = resolveLinkpathsToPaths(this.app, linkpaths, p.file.path, resolverCache);
+                const resolved = resolveLinkpathsToPaths(this.context.app, linkpaths, p.file.path, resolverCache);
                 relMaps[rel].set(p.file.path, new Set(resolved));
             });
         });
@@ -634,13 +651,13 @@ export class TopologyAnalyzer {
             pages = pages.filter((p) => neighbors.has(p.file.path));
         }
 
-        const maxDepth = this.settings.bridgeScrutinyMaxDepth ?? 1;
+        const maxDepth = this.context.settings.bridgeScrutinyMaxDepth ?? 1;
         if (maxDepth === 0) {
             HealerLogger.info('Bridge Scrutiny disabled (bridgeScrutinyMaxDepth = 0).');
             return [];
         }
 
-        const directions = this.settings.enableVastBridgeScrutiny
+        const directions = this.context.settings.enableVastBridgeScrutiny
             ? (['up', 'down', 'next', 'prev'] as const)
             : (['up'] as const);
 
@@ -663,14 +680,14 @@ export class TopologyAnalyzer {
                         // structure inherently scans only one level deep, so this check
                         // is a semantic annotation and future-proofing flag.
                         if (!targetsOfA.has(pathC)) {
-                            const fileC = this.app.vault.getAbstractFileByPath(pathC);
+                            const fileC = this.context.app.vault.getAbstractFileByPath(pathC);
                             if (!(fileC instanceof TFile)) return;
 
                             suggestions.push({
                                 id: `bridge_gap:${dir}:${pathA}:${pathB}:${pathC}`,
                                 type: 'deterministic',
-                                link: pathToWikilink(this.app, pathC, pathA),
-                                source: `Structural Gap (${dir}): Hierarchy ${pathToWikilink(this.app, pathA, pathA)} â†’ ${pathToWikilink(this.app, pathB, pathB)} â†’ ${pathToWikilink(this.app, pathC, pathC)} is missing a direct link. Consider completing the bridge.`,
+                                link: pathToWikilink(this.context.app, pathC, pathA),
+                                source: `Structural Gap (${dir}): Hierarchy ${pathToWikilink(this.context.app, pathA, pathA)} â†’ ${pathToWikilink(this.context.app, pathB, pathB)} â†’ ${pathToWikilink(this.context.app, pathC, pathC)} is missing a direct link. Consider completing the bridge.`,
                                 timestamp: Date.now(),
                                 category: 'info',
                                 meta: {
@@ -696,7 +713,7 @@ export class TopologyAnalyzer {
         await Promise.resolve();
         HealerLogger.info('Starting hierarchical cycle detection (Precision Path mode)...');
         const suggestions: Suggestion[] = [];
-        const hierarchy = this.settings.hierarchies?.[0];
+        const hierarchy = this.context.settings.hierarchies?.[0];
         if (!hierarchy) return [];
 
         const query = this.getScanQuery();
@@ -708,7 +725,7 @@ export class TopologyAnalyzer {
 
             pages.forEach((p: DataviewPage) => {
                 const linkpaths = extractLinkpaths(p, propertyKeys);
-                const resolved = resolveLinkpathsToPaths(this.app, linkpaths, p.file.path, resolverCache);
+                const resolved = resolveLinkpathsToPaths(this.context.app, linkpaths, p.file.path, resolverCache);
                 if (resolved.length > 0) graph.set(p.file.path, resolved);
             });
 
@@ -753,8 +770,8 @@ export class TopologyAnalyzer {
                         suggestions.push({
                             id: stableId,
                             type: 'quality',
-                            link: pathToWikilink(this.app, cyclePath[0], cyclePath[0]),
-                            source: `Ouroboros (${edgeType}): Infinite loop detected. Path: ${cyclePath.map((p) => pathToWikilink(this.app, p, p)).join(' â†’ ')}`,
+                            link: pathToWikilink(this.context.app, cyclePath[0], cyclePath[0]),
+                            source: `Ouroboros (${edgeType}): Infinite loop detected. Path: ${cyclePath.map((p) => pathToWikilink(this.context.app, p, p)).join(' â†’ ')}`,
                             timestamp: Date.now(),
                             category: severity,
                             meta: {
@@ -785,14 +802,14 @@ export class TopologyAnalyzer {
 
         for (const page of pages) {
             const path = page.file.path;
-            const abstractFile = this.app.vault.getAbstractFileByPath(path);
+            const abstractFile = this.context.app.vault.getAbstractFileByPath(path);
             if (!(abstractFile instanceof TFile)) continue;
 
-            const cache = this.app.metadataCache.getFileCache(abstractFile);
+            const cache = this.context.app.metadataCache.getFileCache(abstractFile);
             if (!cache) continue;
 
             // Check for unresolved links within the file
-            const unresolved = this.app.metadataCache.unresolvedLinks?.[path];
+            const unresolved = this.context.app.metadataCache.unresolvedLinks?.[path];
             if (unresolved) {
                 for (const linkText in unresolved) {
                     const linkCount = unresolved[linkText];
@@ -800,7 +817,7 @@ export class TopologyAnalyzer {
                         suggestions.push({
                             id: `dangling:${path}:${linkText}`,
                             type: 'quality',
-                            link: pathToWikilink(this.app, path, path),
+                            link: pathToWikilink(this.context.app, path, path),
                             source: `Dangling Link: [[${page.file.basename}]] contains an unresolved link to '${linkText}'.`,
                             timestamp: Date.now(),
                             category: 'error',
@@ -822,8 +839,8 @@ export class TopologyAnalyzer {
         HealerLogger.info('Starting flow stagnation analysis (Precision Path mode)...');
         const suggestions: Suggestion[] = [];
 
-        const resolvedLinks = this.app.metadataCache.resolvedLinks;
-        const unresolvedLinks = this.app.metadataCache.unresolvedLinks;
+        const resolvedLinks = this.context.app.metadataCache.resolvedLinks;
+        const unresolvedLinks = this.context.app.metadataCache.unresolvedLinks;
 
         const inDegree = new Map<string, number>();
         const outDegree = new Map<string, number>();
@@ -842,12 +859,12 @@ export class TopologyAnalyzer {
             outDegree.set(source, (outDegree.get(source) || 0) + targetNames.length);
         }
 
-        const mdFiles = this.app.vault.getMarkdownFiles();
+        const mdFiles = this.context.app.vault.getMarkdownFiles();
         const fileMap = new Map<string, TFile>();
         mdFiles.forEach((f) => fileMap.set(f.path, f));
 
-        if (this.settings.includeNonMarkdownHubs) {
-            this.app.vault.getFiles().forEach((f) => {
+        if (this.context.settings.includeNonMarkdownHubs) {
+            this.context.app.vault.getFiles().forEach((f) => {
                 const isCanvas = f.extension === 'canvas';
                 if (isCanvas) fileMap.set(f.path, f);
             });
@@ -870,7 +887,7 @@ export class TopologyAnalyzer {
                     suggestions.push({
                         id: stableId,
                         type: 'quality',
-                        link: pathToWikilink(this.app, path, path),
+                        link: pathToWikilink(this.context.app, path, path),
                         source: `Flow Stagnation: This ${typeLabel} attracts ${ins} links but leads nowhere (0 outgoing).`,
                         timestamp: Date.now(),
                         category: isCanvas ? 'info' : 'suggestion',
@@ -896,10 +913,10 @@ export class TopologyAnalyzer {
         existingRelations: string;
     }> {
         const MAX_CONTENT_LENGTH = 5000;
-        const sourceFile = this.app.vault.getAbstractFileByPath(sourcePath);
+        const sourceFile = this.context.app.vault.getAbstractFileByPath(sourcePath);
         const sourceContent =
             sourceFile instanceof TFile
-                ? await this.app.vault
+                ? await this.context.app.vault
                       .read(sourceFile)
                       .then((c) => {
                           if (c.length > MAX_CONTENT_LENGTH)
@@ -917,10 +934,10 @@ export class TopologyAnalyzer {
                 targetContents.push('');
                 continue;
             }
-            const targetFile = this.app.vault.getAbstractFileByPath(targetPath);
+            const targetFile = this.context.app.vault.getAbstractFileByPath(targetPath);
             const content =
                 targetFile instanceof TFile
-                    ? await this.app.vault
+                    ? await this.context.app.vault
                           .read(targetFile)
                           .then((c) => {
                               if (c.length > MAX_CONTENT_LENGTH)
@@ -948,7 +965,7 @@ export class TopologyAnalyzer {
      * Runs AI validation on down relationships.
      */
     public async runSemanticChildValidation(signal?: AbortSignal): Promise<Suggestion[]> {
-        if (!this.settings.enableSemanticAudit) {
+        if (!this.context.settings.enableSemanticAudit) {
             HealerLogger.debug('Semantic child validation disabled in settings.');
             return [];
         }
@@ -965,7 +982,7 @@ export class TopologyAnalyzer {
             return [];
         }
 
-        const hierarchy = this.settings.hierarchies[0] || { down: [] };
+        const hierarchy = this.context.settings.hierarchies[0] || { down: [] };
         const downKeys = hierarchy.down.length > 0 ? hierarchy.down : ['down', 'child'];
 
         // Build parent-child map
@@ -980,13 +997,13 @@ export class TopologyAnalyzer {
             if (++count % 50 === 0) await sleep(0);
 
             const linkpaths = extractLinkpaths(page, downKeys);
-            const childPaths = resolveLinkpathsToPaths(this.app, linkpaths, page.file.path, resolverCache);
+            const childPaths = resolveLinkpathsToPaths(this.context.app, linkpaths, page.file.path, resolverCache);
 
             for (const childPath of childPaths) {
                 if (!parentChildMap.has(page.file.path)) {
                     parentChildMap.set(page.file.path, []);
                 }
-                const childFile = this.app.vault.getAbstractFileByPath(childPath);
+                const childFile = this.context.app.vault.getAbstractFileByPath(childPath);
                 if (childFile instanceof TFile) {
                     parentChildMap.get(page.file.path)!.push({
                         childPath,
@@ -1001,10 +1018,10 @@ export class TopologyAnalyzer {
         for (const [parentPath, children] of parentChildMap.entries()) {
             if (signal?.aborted) return suggestions;
 
-            const parentFile = this.app.vault.getAbstractFileByPath(parentPath);
+            const parentFile = this.context.app.vault.getAbstractFileByPath(parentPath);
             if (!(parentFile instanceof TFile)) continue;
 
-            const parentContent = await this.app.vault.read(parentFile).catch(() => '');
+            const parentContent = await this.context.app.vault.read(parentFile).catch(() => '');
 
             // UI YIELDING: Release thread before heavy AI call
             await sleep(0);
@@ -1012,21 +1029,28 @@ export class TopologyAnalyzer {
             // BATCH VALIDATION: Grouped by parent
             const batchResults = await this.llm.validateRelationshipsBatch(
                 parentFile.basename,
-                children.map((c) => ({ name: c.childName, content: '', mtime: c.mtime })), // Content fetched inside LLM or passed if small
+                children.map((c) => ({
+                    name: c.childName,
+                    content: '',
+                    mtime: c.mtime,
+                })), // Content fetched inside LLM or passed if small
                 parentContent,
                 parentFile.stat.mtime,
                 signal,
             );
 
             for (const child of children) {
-                const validation = batchResults[child.childName] || { valid: true, reason: 'Skipped' };
+                const validation = batchResults[child.childName] || {
+                    valid: true,
+                    reason: 'Skipped',
+                };
 
                 if (!validation.valid) {
                     suggestions.push({
                         id: `semantic_child:${parentPath}:${child.childPath}`, // Deterministic ID for duplicate prevention
                         type: 'semantic',
                         category: 'error',
-                        link: `${pathToWikilink(this.app, parentPath, parentPath)} â†’ ${pathToWikilink(this.app, child.childPath, parentPath)}`,
+                        link: `${pathToWikilink(this.context.app, parentPath, parentPath)} â†’ ${pathToWikilink(this.context.app, child.childPath, parentPath)}`,
                         source: `Semantic Mismatch: "${child.childName}" may not be an appropriate child of "${parentFile.basename}". AI Reason: ${validation.reason}`,
                         timestamp: Date.now(),
                         meta: {

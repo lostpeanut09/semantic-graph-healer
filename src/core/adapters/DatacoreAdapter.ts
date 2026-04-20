@@ -181,10 +181,14 @@ function coerceToDateTime(v: unknown, fallbackMillis: number, dv?: { date?: (v: 
         if (!Number.isNaN(d.getTime())) return d;
     }
     const win = window as unknown as {
-        luxon?: { DateTime?: { fromMillis(ms: number, opts?: { zone?: string }): unknown } };
+        luxon?: {
+            DateTime?: { fromMillis(ms: number, opts?: { zone?: string }): unknown };
+        };
     };
     if (win.luxon?.DateTime && typeof win.luxon.DateTime.fromMillis === 'function') {
-        return win.luxon.DateTime.fromMillis(coerceToMillis(v) ?? fallbackMillis, { zone: 'local' });
+        return win.luxon.DateTime.fromMillis(coerceToMillis(v) ?? fallbackMillis, {
+            zone: 'local',
+        });
     }
     return new Date(coerceToMillis(v) ?? fallbackMillis);
 }
@@ -356,7 +360,7 @@ export class DatacoreAdapter implements IMetadataAdapter {
 
             const resolvedPath =
                 typeof dc['resolvePath'] === 'function'
-                    ? (dc as unknown as { resolvePath: (p: string) => string }).resolvePath(input)
+                    ? (dc as { resolvePath: (p: string) => string }).resolvePath(input)
                     : input;
 
             const dcAny = dc as unknown as Record<string, unknown>;
@@ -629,7 +633,9 @@ export class DatacoreAdapter implements IMetadataAdapter {
         }
         const ctimeNum: number = coerceToMillis(ctime) ?? Date.now();
         const mtimeNum: number = coerceToMillis(mtime) ?? Date.now();
-        const dv = this.getDataviewApi() as { date?: (v: string) => unknown } | null;
+        const dv = this.getDataviewApi() as {
+            date?: (v: string) => unknown;
+        } | null;
         const ctimeVal = coerceToDateTime(ctime, ctimeNum, dv);
         const mtimeVal = coerceToDateTime(mtime, mtimeNum, dv);
         const cday = coerceToStartOfDay(ctimeVal, ctimeNum);
@@ -750,7 +756,9 @@ export class DatacoreAdapter implements IMetadataAdapter {
             }
         }
 
-        const dv = this.getDataviewApi() as { date?: (v: string) => unknown } | null;
+        const dv = this.getDataviewApi() as {
+            date?: (v: string) => unknown;
+        } | null;
         if (dv && typeof dv.date === 'function') {
             try {
                 const parsed = dv.date(normalized);
@@ -780,7 +788,9 @@ export class DatacoreAdapter implements IMetadataAdapter {
         for (const candidate of candidates) {
             if (candidate == null) continue;
 
-            const parsed = this.parseDateStrict(candidate, { allowEpochNumbers: false });
+            const parsed = this.parseDateStrict(candidate, {
+                allowEpochNumbers: false,
+            });
             if (parsed == null) continue;
 
             const ms = coerceToMillis(parsed);
@@ -940,7 +950,10 @@ export class DatacoreAdapter implements IMetadataAdapter {
         return { tasks, lists };
     }
 
-    private getPageChildren(path: string): { tasks: unknown[]; lists: unknown[] } {
+    private getPageChildren(path: string): {
+        tasks: unknown[];
+        lists: unknown[];
+    } {
         const cached = this.pageChildrenCache.get(path);
         if (cached) return cached;
         const tasks = this.queryPageChildren('@task', path);

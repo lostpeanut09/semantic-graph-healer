@@ -1,7 +1,7 @@
 import { HealerLogger } from '../HealerUtils';
 import { isThenable } from '../HealerUtils';
-import { ExtendedApp } from '../../types';
-import SemanticGraphHealer from '../../main';
+import type { ExtendedApp, ObsidianSecretStorage } from '../../types';
+import type { KeychainContext } from './PluginContext';
 import { CryptoUtils } from '../utils/CryptoUtils';
 
 type ApiKeyType = 'openai' | 'anthropic' | 'deepseek' | 'infranodus' | 'custom';
@@ -22,29 +22,35 @@ interface LegacyKeychain {
     delete(key: string): void | Promise<void>;
 }
 
+// Extended interface including optional deleteSecret for newer Obsidian versions
+interface ObsidianSecretStorageWithDelete extends ObsidianSecretStorage {
+    deleteSecret?(key: string): Promise<void> | void;
+}
+
 export class KeychainService {
     private storage: SecureStorage | null = null;
     private app: ExtendedApp;
     private isSecureStorageAvailable: boolean = false;
     private readonly MASTER_KEY = 'semantic-healer-sota-2026';
 
-    constructor(private plugin: SemanticGraphHealer) {
-        this.app = plugin.app as ExtendedApp;
+    constructor(private context: KeychainContext) {
+        this.app = context.app as ExtendedApp;
         this.checkKeychainAvailability();
     }
 
     private getStableSalt(): string {
-        const appId = (this.plugin.app as ExtendedApp).appId;
+        const appId = this.context.app.appId;
         if (typeof appId === 'string' && appId) return appId;
 
-        const settings = this.plugin.settings as unknown as Record<string, unknown>;
+        // Settings object accepts dynamic keys for encrypted fields
+        const settings = this.context.settings as unknown as Record<string, string | undefined>;
         const k = 'cryptoSalt';
         const existing = settings[k];
         if (typeof existing === 'string' && existing) return existing;
 
         const salt = `salt_${crypto.getRandomValues(new Uint32Array(1))[0].toString(16)}`;
         settings[k] = salt;
-        void this.plugin.saveSettings();
+        void this.context.saveSettings();
         return salt;
     }
 
@@ -58,9 +64,9 @@ export class KeychainService {
                 get: (key: string) => Promise.resolve(ss.getSecret(key)),
                 set: (key: string, val: string) => Promise.resolve(ss.setSecret(key, val)),
                 delete: async (key: string) => {
-                    const ssAny = ss as unknown as Record<string, unknown>;
-                    if (typeof ssAny.deleteSecret === 'function') {
-                        await (ssAny.deleteSecret as (k: string) => Promise<void>)(key);
+                    const ssWithDelete = ss as ObsidianSecretStorageWithDelete;
+                    if (ssWithDelete.deleteSecret && typeof ssWithDelete.deleteSecret === 'function') {
+                        await ssWithDelete.deleteSecret(key);
                     }
                 },
             };
@@ -71,7 +77,7 @@ export class KeychainService {
         }
 
         // 2. Try Legacy Keychain (Pre-v1.11.4 or UI-only)
-        const kc = app.keychain as unknown as LegacyKeychain;
+        const kc = app.keychain as LegacyKeychain;
         if (kc && typeof kc.get === 'function') {
             this.storage = {
                 get: (key: string) => Promise.resolve(kc.get(key)),
@@ -112,8 +118,8 @@ export class KeychainService {
         }
 
         // Attempt 2: Sync-Resilient Encrypted Settings
-        const settingsKey = `${type}LlmApiKeyEncrypted` as keyof typeof this.plugin.settings;
-        const encrypted = this.plugin.settings[settingsKey];
+        const settingsKey = `${type}LlmApiKeyEncrypted` as keyof typeof this.context.settings;
+        const encrypted = this.context.settings[settingsKey];
         if (encrypted && typeof encrypted === 'string') {
             try {
                 const decrypted = await CryptoUtils.decrypt(encrypted, this.MASTER_KEY, appId);
@@ -124,8 +130,9 @@ export class KeychainService {
         }
 
         // Attempt 3: Legacy Plaintext Settings (Migration Fallback)
-        const settings = this.plugin.settings as unknown as Record<string, unknown>;
-        const potentialKey = settings[`${type}LlmApiKey`] as string | undefined;
+        // Settings object uses dynamic keys for optional encrypted fields
+        const settings = this.context.settings as unknown as Record<string, string | undefined>;
+        const potentialKey = settings[`${type}LlmApiKey`];
         if (potentialKey) {
             HealerLogger.warn(`API Key ${type} found in plaintext settings (INSECURE). Migration triggered.`);
             // Auto-migrate: await encryption so plaintext is cleared only on success.
@@ -133,7 +140,7 @@ export class KeychainService {
             try {
                 await this.setApiKey(type, potentialKey);
                 settings[`${type}LlmApiKey`] = '';
-                await this.plugin.saveSettings();
+                await this.context.saveSettings();
             } catch (migErr) {
                 HealerLogger.error(`Plaintext migration failed for ${type} — key retained in plaintext.`, migErr);
             }
@@ -160,12 +167,13 @@ export class KeychainService {
         // B. Sync-Resilient Storage (Encrypted in data.json)
         try {
             const encrypted = await CryptoUtils.encrypt(key, this.MASTER_KEY, appId);
-            const settingsKey = `${type}LlmApiKeyEncrypted` as keyof typeof this.plugin.settings;
+            const settingsKey = `${type}LlmApiKeyEncrypted` as keyof typeof this.context.settings;
 
-            // Fixed: Intermediate unknown cast to bypass index signature constraint
-            (this.plugin.settings as unknown as Record<string, string | undefined>)[settingsKey] = encrypted;
+            // Use double-cast to access dynamic keys not in type's index signature
+            const settings = this.context.settings as unknown as Record<string, string | undefined>;
+            settings[settingsKey] = encrypted;
 
-            await this.plugin.saveSettings();
+            await this.context.saveSettings();
             HealerLogger.info(`API Key ${type} persisted to sync-resilient encrypted storage.`);
         } catch (e) {
             HealerLogger.error(`Failed to encrypt API Key ${type} for sync.`, e);
@@ -183,7 +191,7 @@ export class KeychainService {
         // Clean up settings: both plaintext (legacy) and encrypted (sync-resilient).
         // IMPORTANT: must clear encrypted field too — getApiKey() Attempt 2 reads
         // ${type}LlmApiKeyEncrypted and would still return the key if left intact.
-        const settings = this.plugin.settings as unknown as Record<string, unknown>;
+        const settings = this.context.settings as unknown as Record<string, string | undefined>;
         let changed = false;
 
         if (settings[`${type}LlmApiKey`]) {
@@ -197,13 +205,13 @@ export class KeychainService {
         }
 
         if (changed) {
-            await this.plugin.saveSettings();
+            await this.context.saveSettings();
         }
     }
 
     async migrateFromSettingsToKeychain(type: ApiKeyType): Promise<boolean> {
-        const settings = this.plugin.settings as unknown as Record<string, unknown>;
-        const settingsKey = settings[`${type}LlmApiKey`] as string | undefined;
+        const settings = this.context.settings as unknown as Record<string, string | undefined>;
+        const settingsKey = settings[`${type}LlmApiKey`];
 
         if (!settingsKey) {
             HealerLogger.info(`No key to migrate for ${type}`);
@@ -219,7 +227,7 @@ export class KeychainService {
 
         // Clean up settings after migration
         settings[`${type}LlmApiKey`] = '';
-        await this.plugin.saveSettings();
+        await this.context.saveSettings();
 
         HealerLogger.info(`Migration for ${type} to secure storage completed`);
         return true;
@@ -247,7 +255,10 @@ export class KeychainService {
                 return { available: false, error: 'Keychain test failed' };
             }
         } catch (error) {
-            return { available: false, error: error instanceof Error ? error.message : String(error) };
+            return {
+                available: false,
+                error: error instanceof Error ? error.message : String(error),
+            };
         }
     }
 }

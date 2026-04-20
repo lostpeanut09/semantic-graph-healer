@@ -20,6 +20,7 @@ import {
 import { HealerLogger as InstanceLogger } from './core/utils/HealerLogger';
 import { KeychainService } from './core/services/KeychainService';
 import { GraphWorkerService } from './core/services/GraphWorkerService';
+import type { AnalysisContext, ExecutionContext } from './core/services/PluginContext';
 import { TopologyAnalyzer } from './core/TopologyAnalyzer';
 import { QualityAnalyzer } from './core/QualityAnalyzer';
 import { LlmService } from './core/LlmService';
@@ -61,14 +62,35 @@ export default class SemanticGraphHealer extends Plugin {
         LegacyLogger.setInstance(this.logger);
         this.logger.info('Semantic Graph Healer Phase 4 loading...');
 
-        this.keychainService = new KeychainService(this);
+        this.keychainService = new KeychainService({
+            app: this.app,
+            settings: this.settings,
+            saveSettings: () => this.saveSettings(),
+        });
         this.graphWorkerService = new GraphWorkerService(this.logger, this);
         await this.graphWorkerService.initialize();
 
         this.engine = new UnifiedMetadataAdapter(this.app as ExtendedApp, this.settings);
-        this.executor = new SuggestionExecutor(this);
+        // Build execution context for SuggestionExecutor (break circular dep)
+        const executorContext: ExecutionContext = {
+            app: this.app,
+            settings: this.settings,
+            cache: this.cache,
+            manifest: this.manifest,
+            graphWorkerService: this.graphWorkerService,
+            saveSettings: () => this.saveSettings(),
+            refreshDashboard: () => this.refreshDashboard(),
+        };
+        this.executor = new SuggestionExecutor(executorContext);
         this.llm = new LlmService(this.settings, (type) => this.getApiKey(type));
-        this.topology = new TopologyAnalyzer(this.app as ExtendedApp, this.settings, this.engine, this.llm, this);
+        // Build analysis context for TopologyAnalyzer (break circular dep)
+        const analysisContext: AnalysisContext = {
+            app: this.app,
+            settings: this.settings,
+            cache: this.cache,
+            graphWorkerService: this.graphWorkerService,
+        };
+        this.topology = new TopologyAnalyzer(analysisContext, this.llm, this.engine);
         this.quality = new QualityAnalyzer(this.app as ExtendedApp, this.settings, this.engine);
         this.reasoner = new ReasoningService(
             this.app as ExtendedApp,
@@ -116,7 +138,14 @@ export default class SemanticGraphHealer extends Plugin {
             // 2. Hot Reload Logic Services
             this.llm = new LlmService(this.settings, (type) => this.getApiKey(type));
             this.quality = new QualityAnalyzer(this.app as ExtendedApp, this.settings, this.engine);
-            this.topology = new TopologyAnalyzer(this.app as ExtendedApp, this.settings, this.engine, this.llm, this);
+            // Build analysis context for TopologyAnalyzer (break circular dep)
+            const analysisContext: AnalysisContext = {
+                app: this.app,
+                settings: this.settings,
+                cache: this.cache,
+                graphWorkerService: this.graphWorkerService,
+            };
+            this.topology = new TopologyAnalyzer(analysisContext, this.llm, this.engine);
 
             // 4. Hot Reload Worker Service (P2 Fix)
             if (this.graphWorkerService) {
@@ -125,8 +154,17 @@ export default class SemanticGraphHealer extends Plugin {
             this.graphWorkerService = new GraphWorkerService(this.logger, this);
             await this.graphWorkerService.initialize();
 
-            // 3. Hot Reload Executor (needs plugin reference)
-            this.executor = new SuggestionExecutor(this);
+            // 3. Hot Reload Executor (break circular dep)
+            const executorContext: ExecutionContext = {
+                app: this.app,
+                settings: this.settings,
+                cache: this.cache,
+                manifest: this.manifest,
+                graphWorkerService: this.graphWorkerService,
+                saveSettings: () => this.saveSettings(),
+                refreshDashboard: () => this.refreshDashboard(),
+            };
+            this.executor = new SuggestionExecutor(executorContext);
 
             new Notice('Settings synchronized successfully.');
             this.logger.info('Hot reload complete. UI refresh triggered.');
@@ -774,7 +812,11 @@ export default class SemanticGraphHealer extends Plugin {
         this.logger.info('Loading Advanced Graph Engine...');
         try {
             const { GraphEngine } = await import('./core/GraphEngine');
-            const engine = new GraphEngine(this);
+            const engine = new GraphEngine({
+                app: this.app,
+                settings: this.settings,
+                graphWorkerService: this.graphWorkerService,
+            });
 
             engine.buildGraph();
             await sleep(10);
@@ -907,7 +949,10 @@ export default class SemanticGraphHealer extends Plugin {
 
         // --- CACHE LOAD & MIGRATION ---
         await this.cache.load(
-            baseSettings as unknown as { pendingSuggestions?: Suggestion[]; history?: HistoryItem[] },
+            baseSettings as unknown as {
+                pendingSuggestions?: Suggestion[];
+                history?: HistoryItem[];
+            },
         );
 
         // --- ZOD VALIDATION ---
@@ -1019,8 +1064,16 @@ export default class SemanticGraphHealer extends Plugin {
                 try {
                     const ebFileContent = await this.app.vault.adapter.read(ebPath);
                     const ebData = JSON.parse(ebFileContent) as {
-                        ontology?: { parent?: string[]; child?: string[]; friend?: string[] };
-                        hierarchy?: { parent?: string[]; child?: string[]; friend?: string[] };
+                        ontology?: {
+                            parent?: string[];
+                            child?: string[];
+                            friend?: string[];
+                        };
+                        hierarchy?: {
+                            parent?: string[];
+                            child?: string[];
+                            friend?: string[];
+                        };
                         propertyMapping?: Record<string, string>;
                     };
 
