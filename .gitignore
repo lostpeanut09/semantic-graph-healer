@@ -33,6 +33,6 @@ main.js
 worker.js
 tsconfig.tsbuildinfo
 lint_output.txt
+
 # GSD & Planning (Agentic Workflow)
-.planning/
 .agent/
