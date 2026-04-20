@@ -2,12 +2,18 @@
     "$schema": "https://unpkg.com/knip@5/schema.json",
     "project": ["**/*.ts"],
     "entry": ["src/main.ts", "src/core/workers/graph-analysis-worker.ts", "tests/**/*.test.ts"],
-    "ignore": [".agent/**"],
+    "ignore": [
+        ".agent/**",
+        "vitest.setup.ts",
+        ".config/esbuild.config.mjs",
+        "src/core/workers/graph-analysis-worker.ts"
+    ],
     "ignoreDependencies": [
         "esbuild",
         "stylelint-config-standard",
         "@typescript-eslint/eslint-plugin",
-        "@typescript-eslint/parser"
+        "@typescript-eslint/parser",
+        "graphology-types"
     ],
     "rules": {
         "files": "error",
