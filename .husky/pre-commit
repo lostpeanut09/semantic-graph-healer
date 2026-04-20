@@ -1,2 +1,25 @@
 #!/usr/bin/env sh
-npx nano-staged
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🔍 Running ESLint..."
+npx eslint -c .config/eslint.config.js . --fix
+if [ $? -ne 0 ]; then
+  echo "❌ ESLint failed"
+  exit 1
+fi
+
+echo "✨ Running Prettier..."
+npx prettier --config .config/.prettierrc --write .
+if [ $? -ne 0 ]; then
+  echo "❌ Prettier failed"
+  exit 1
+fi
+
+echo "🏗️  Building..."
+npm run build
+if [ $? -ne 0 ]; then
+  echo "❌ Build failed"
+  exit 1
+fi
+
+echo "✅ Pre-commit checks passed"

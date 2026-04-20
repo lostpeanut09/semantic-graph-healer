@@ -1,16 +1,19 @@
 /* eslint-disable import/no-nodejs-modules */
-import { defineConfig } from 'vitest/config';
-import { fileURLToPath } from 'url';
+import { defineConfig } from "vitest/config";
+import { fileURLToPath } from "url";
 
 export default defineConfig({
-    resolve: {
-        alias: {
-            obsidian: fileURLToPath(new URL('./tests/obsidian.ts', import.meta.url)),
-        },
+  resolve: {
+    alias: {
+      obsidian: fileURLToPath(new URL("./tests/obsidian.ts", import.meta.url)),
     },
-    test: {
-        environment: 'jsdom',
-        setupFiles: ['@vitest/web-worker'],
-        exclude: ['**/node_modules/**', '**/.kilo/**'],
+  },
+  test: {
+    environment: "jsdom",
+    deps: {
+      inline: ["obsidian"],
     },
+    setupFiles: ["@vitest/web-worker"],
+    exclude: ["**/node_modules/**", "**/.kilo/**"],
+  },
 });
