@@ -6,8 +6,9 @@ import pagerank from 'graphology-metrics/centrality/pagerank';
 import { Suggestion, SemanticGraphHealerSettings } from '../types';
 import { HealerLogger } from './HealerUtils';
 
-import SemanticGraphHealer from '../main';
+import type { GraphContext } from './services/PluginContext';
 
+/** Node attributes for the graphology DirectedGraph */
 interface GraphNodeAttributes {
     label: string;
     size: number;
@@ -20,16 +21,16 @@ export class GraphEngine {
     private lastPagerankVersion = -1;
     private readonly linkContextPath = '';
 
-    constructor(private plugin: SemanticGraphHealer) {
+    constructor(private context: GraphContext) {
         this.graph = new DirectedGraph();
     }
 
     private get app(): App {
-        return this.plugin.app;
+        return this.context.app;
     }
 
     private get settings(): SemanticGraphHealerSettings {
-        return this.plugin.settings;
+        return this.context.settings;
     }
 
     /**
@@ -146,12 +147,20 @@ export class GraphEngine {
                 nodes.push({ key: node, attributes: attrs as Record<string, unknown> });
             });
 
-            const edges: Array<{ source: string; target: string; attributes: Record<string, unknown> }> = [];
+            const edges: Array<{
+                source: string;
+                target: string;
+                attributes: Record<string, unknown>;
+            }> = [];
             this.graph.forEachEdge((edge, attrs, source, target) => {
-                edges.push({ source, target, attributes: attrs as Record<string, unknown> });
+                edges.push({
+                    source,
+                    target,
+                    attributes: attrs as Record<string, unknown>,
+                });
             });
 
-            const worker = this.plugin.graphWorkerService;
+            const worker = this.context.graphWorkerService;
             const scores = await worker.runAnalysis<Record<string, number>>('PAGERANK', nodes, edges, {
                 getEdgeWeight: 'weight',
                 alpha: 0.85,
@@ -225,12 +234,16 @@ export class GraphEngine {
                 nodes.push({ key: node, attributes: attrs });
             });
 
-            const edges: Array<{ source: string; target: string; attributes: Record<string, unknown> }> = [];
+            const edges: Array<{
+                source: string;
+                target: string;
+                attributes: Record<string, unknown>;
+            }> = [];
             this.graph.forEachEdge((edge, attrs, source, target) => {
                 edges.push({ source, target, attributes: attrs });
             });
 
-            const worker = this.plugin.graphWorkerService;
+            const worker = this.context.graphWorkerService;
             const communities = await worker.runAnalysis<Record<string, number>>('COMMUNITY', nodes, edges, {
                 getEdgeWeight: 'weight',
             });
@@ -299,12 +312,20 @@ export class GraphEngine {
                 nodes.push({ key: node, attributes: attrs as Record<string, unknown> });
             });
 
-            const edges: Array<{ source: string; target: string; attributes: Record<string, unknown> }> = [];
+            const edges: Array<{
+                source: string;
+                target: string;
+                attributes: Record<string, unknown>;
+            }> = [];
             this.graph.forEachEdge((edge, attrs, source, target) => {
-                edges.push({ source, target, attributes: attrs as Record<string, unknown> });
+                edges.push({
+                    source,
+                    target,
+                    attributes: attrs as Record<string, unknown>,
+                });
             });
 
-            const worker = this.plugin.graphWorkerService;
+            const worker = this.context.graphWorkerService;
             const scores = await worker.runAnalysis<Record<string, number>>('BETWEENNESS', nodes, edges, {
                 getEdgeWeight: 'weight',
             });
@@ -359,7 +380,7 @@ export class GraphEngine {
         try {
             const nodes = this.getSerializedNodes();
             const edges = this.getSerializedEdges();
-            const worker = this.plugin.graphWorkerService;
+            const worker = this.context.graphWorkerService;
 
             const results = await worker.runAnalysis<Array<{ a: string; b: string; score: number }>>(
                 'COCITATION',
@@ -415,7 +436,7 @@ export class GraphEngine {
         try {
             const nodes = this.getSerializedNodes();
             const edges = this.getSerializedEdges();
-            const worker = this.plugin.graphWorkerService;
+            const worker = this.context.graphWorkerService;
 
             const results = await worker.runAnalysis<Array<{ source: string; target: string; score: number }>>(
                 'SIMILARITY',
@@ -478,9 +499,17 @@ export class GraphEngine {
     }
 
     private getSerializedEdges() {
-        const edges: Array<{ source: string; target: string; attributes: Record<string, unknown> }> = [];
+        const edges: Array<{
+            source: string;
+            target: string;
+            attributes: Record<string, unknown>;
+        }> = [];
         this.graph.forEachEdge((edge, attrs, source, target) => {
-            edges.push({ source, target, attributes: attrs as Record<string, unknown> });
+            edges.push({
+                source,
+                target,
+                attributes: attrs as Record<string, unknown>,
+            });
         });
         return edges;
     }
@@ -521,7 +550,12 @@ export class GraphEngine {
                         source: `Co-Citation (Sync): Shared neighbors detected.`,
                         timestamp: Date.now(),
                         category: 'suggestion',
-                        meta: { sourcePath: a, targetPath: b, sourceNote: fileA.basename, targetNote: fileB.basename },
+                        meta: {
+                            sourcePath: a,
+                            targetPath: b,
+                            sourceNote: fileA.basename,
+                            targetNote: fileB.basename,
+                        },
                     });
                 }
             });

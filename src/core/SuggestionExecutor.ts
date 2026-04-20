@@ -1,15 +1,15 @@
 import { App, Notice, TFile } from 'obsidian';
 import { Suggestion } from '../types';
 import { HealerLogger, resolveTargetFile } from './HealerUtils';
-import SemanticGraphHealer from '../main';
+import type { ExecutionContext } from './services/PluginContext';
 
 export class SuggestionExecutor {
     private queue: Promise<void> = Promise.resolve();
 
-    constructor(private plugin: SemanticGraphHealer) {}
+    constructor(private context: ExecutionContext) {}
 
     private get app(): App {
-        return this.plugin.app;
+        return this.context.app;
     }
 
     async execute(suggestion: Suggestion): Promise<boolean> {
@@ -51,10 +51,10 @@ export class SuggestionExecutor {
                 const sourceFile = this.app.vault.getAbstractFileByPath(sourcePath);
                 const sourceName =
                     sourceFile instanceof TFile
-                        ? this.plugin.app.metadataCache.fileToLinktext(sourceFile, targetFile.path, true)
+                        ? this.context.app.metadataCache.fileToLinktext(sourceFile, targetFile.path, true)
                         : sourcePath;
 
-                await this.plugin.app.fileManager.processFrontMatter(targetFile, (fm: Record<string, unknown>) => {
+                await this.context.app.fileManager.processFrontMatter(targetFile, (fm: Record<string, unknown>) => {
                     let existing = fm[prop];
                     const isTag = prop === 'tags';
                     const newValue = isTag && suggestion.meta?.winner ? suggestion.meta.winner : `[[${sourceName}]]`;
@@ -92,7 +92,7 @@ export class SuggestionExecutor {
                 });
                 new Notice(`Fixed ${targetFile.basename}`);
             } else {
-                await this.plugin.app.workspace.openLinkText(targetFile?.path || suggestion.link, '');
+                await this.context.app.workspace.openLinkText(targetFile?.path || suggestion.link, '');
             }
 
             await this.finalizeSuggestion(suggestion, targetFile?.path || suggestion.link);
@@ -135,7 +135,7 @@ export class SuggestionExecutor {
             const targetFile = this.app.vault.getAbstractFileByPath(targetPath);
             if (!(targetFile instanceof TFile)) return false;
 
-            await this.plugin.app.fileManager.processFrontMatter(targetFile, (fm: Record<string, unknown>) => {
+            await this.context.app.fileManager.processFrontMatter(targetFile, (fm: Record<string, unknown>) => {
                 const existing = fm[prop];
                 if (Array.isArray(existing)) {
                     fm[prop] = (existing as string[]).filter((val: unknown) => {
@@ -201,7 +201,11 @@ export class SuggestionExecutor {
             const fileC = this.app.metadataCache.getFirstLinkpathDest(nodeC_Data.replace(/[[\]]/g, ''), pathB);
 
             if (!(fileA instanceof TFile) || !(fileB instanceof TFile) || !(fileC instanceof TFile)) {
-                HealerLogger.error('Relink failed: missing files in chain.', { pathA, pathB, nodeC_Data });
+                HealerLogger.error('Relink failed: missing files in chain.', {
+                    pathA,
+                    pathB,
+                    nodeC_Data,
+                });
                 return false;
             }
 
@@ -212,18 +216,18 @@ export class SuggestionExecutor {
             const nameC = this.app.metadataCache.fileToLinktext(fileC, fileB.path, true);
 
             // 1. Update A -> B (Standard Set logic for chains)
-            await this.plugin.app.fileManager.processFrontMatter(fileA, (fm: Record<string, unknown>) => {
+            await this.context.app.fileManager.processFrontMatter(fileA, (fm: Record<string, unknown>) => {
                 fm[prop] = `[[${nameB_forA}]]`;
             });
 
             // 2. Update B -> A (prev) & B -> C (next)
-            await this.plugin.app.fileManager.processFrontMatter(fileB, (fm: Record<string, unknown>) => {
+            await this.context.app.fileManager.processFrontMatter(fileB, (fm: Record<string, unknown>) => {
                 fm[invProp] = `[[${nameA}]]`;
                 fm[prop] = `[[${nameC}]]`;
             });
 
             // 3. Update C -> B
-            await this.plugin.app.fileManager.processFrontMatter(fileC, (fm: Record<string, unknown>) => {
+            await this.context.app.fileManager.processFrontMatter(fileC, (fm: Record<string, unknown>) => {
                 fm[invProp] = `[[${nameB_forC}]]`;
             });
 
@@ -241,9 +245,9 @@ export class SuggestionExecutor {
     }
 
     private async finalizeSuggestion(suggestion: Suggestion, targetPath: string, customAction?: string) {
-        this.plugin.cache.suggestions = this.plugin.cache.suggestions.filter((s) => s.id !== suggestion.id);
+        this.context.cache.suggestions = this.context.cache.suggestions.filter((s) => s.id !== suggestion.id);
 
-        this.plugin.cache.pushHistory({
+        this.context.cache.pushHistory({
             action: customAction || `Resolved: ${suggestion.source.substring(0, 50)}`,
             file: targetPath,
             timestamp: Date.now(),
@@ -251,7 +255,7 @@ export class SuggestionExecutor {
         });
 
         // BUG FIX (Bug 4): Await to prevent race conditions during rapid batches
-        await this.plugin.saveSettings();
-        await this.plugin.refreshDashboard();
+        await this.context.saveSettings();
+        await this.context.refreshDashboard();
     }
 }
