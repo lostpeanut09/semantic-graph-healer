@@ -2,26 +2,6 @@ import { z } from 'zod';
 
 // --- Sub-Schemas ---
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- Exported for external validation and runtime schema reflection.
-const SuggestionSchema = z.object({
-    id: z.string(),
-    type: z.string(), // Usiamo string generica per compatibilità con nuovi tipi
-    link: z.string(),
-    source: z.string(),
-    timestamp: z.number().optional().default(Date.now), // ✅ Pass function reference to avoid frozen default
-    category: z.enum(['suggestion', 'error', 'info']).default('suggestion'),
-    reasoning: z.unknown().optional(), // Lasciamo unknown per flessibilità struttura result
-    meta: z.record(z.string(), z.unknown()).optional(),
-});
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- Exported for persistent history monitoring and external audit tools.
-const HistoryItemSchema = z.object({
-    action: z.string(),
-    file: z.string(),
-    timestamp: z.number(),
-    type: z.string(),
-});
-
 const HierarchyDefSchema = z.object({
     up: z.array(z.string()).default([]),
     down: z.array(z.string()).default([]),
