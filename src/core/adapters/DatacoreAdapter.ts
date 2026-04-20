@@ -981,7 +981,10 @@ export class DatacoreAdapter implements IMetadataAdapter {
     }
 
     private escapeDcString(value: string): string {
-        return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        // JSON-safe escaping: gestisce \, ", \n, \r, \t, \u2028, \u2029, ecc.
+        // JSON.stringify(value) restituisce una stringa quoted; slice(1,-1) rimuove le virgolette.
+        // Es: JSON.stringify('a"b\nc') => "\"a\\nb\\nc\"" → slice => "a\\nb\\nc"
+        return JSON.stringify(value).slice(1, -1);
     }
 
     /**
