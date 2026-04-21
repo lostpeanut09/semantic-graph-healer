@@ -203,9 +203,21 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
     this.pageCache.destroy();
     this.hierarchyCache.destroy();
     this.relatedNotesCache.destroy();
-    this.datacore.destroy?.();
-    this.breadcrumbs.destroy?.();
-    this.smartConnections.destroy?.();
+
+    for (const [name, adapter] of [
+      ["datacore", this.datacore],
+      ["breadcrumbs", this.breadcrumbs],
+      ["smartConnections", this.smartConnections],
+    ] as const) {
+      try {
+        adapter.destroy?.();
+      } catch (e) {
+        HealerLogger.error(
+          `UnifiedMetadataAdapter: ${name}.destroy() failed`,
+          e,
+        );
+      }
+    }
     HealerLogger.debug("UnifiedMetadataAdapter destroyed.");
   }
 }
