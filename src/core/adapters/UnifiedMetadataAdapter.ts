@@ -1,6 +1,7 @@
 import { App, TFile, parseLinktext } from 'obsidian';
 import { IMetadataAdapter } from './IMetadataAdapter';
 import { DatacoreAdapter } from './DatacoreAdapter';
+import type { IDataviewPort } from '../ports/IDataviewPort';
 import { BreadcrumbsAdapter } from './BreadcrumbsAdapter';
 import { SmartConnectionsAdapter } from './SmartConnectionsAdapter';
 import { DataviewApi, DataviewPage, HierarchyNode, RelatedNote, SemanticGraphHealerSettings } from '../../types';
@@ -16,7 +17,7 @@ import { HealerLogger } from '../HealerUtils';
  * down to specialized adapters.
  */
 export class UnifiedMetadataAdapter implements IMetadataAdapter {
-    private datacore: IMetadataAdapter;
+    private datacore: IDataviewPort;
     private breadcrumbs: IMetadataAdapter;
     private smartConnections: IMetadataAdapter;
 
