@@ -1,72 +1,72 @@
 {
-    "name": "semantic-graph-healer",
-    "version": "2.4.4",
-    "type": "module",
-    "description": "Topological restoration engine that utilizes Dataview, Breadcrumbs, and ExcaliBrain metadata to identify and resolve structural inconsistencies in the knowledge graph.",
-    "main": "main.js",
-    "scripts": {
-        "dev": "node .config/esbuild.config.mjs",
-        "build": "tsc --noEmit --skipLibCheck && node .config/esbuild.config.mjs production",
-        "lint": "eslint -c .config/eslint.config.js .",
-        "lint:css": "stylelint \"**/*.css\" --config .config/.stylelintrc.json",
-        "format": "prettier --config .config/.prettierrc --ignore-path .config/.prettierignore --write .",
-        "knip": "knip -c .config/knip.json",
-        "prepare": "husky",
-        "nano-staged": "nano-staged",
-        "lint:fix": "eslint -c .config/eslint.config.js . --fix && stylelint \"**/*.css\" --config .config/.stylelintrc.json --fix",
-        "test": "vitest run",
-        "test:adapter": "vitest run tests/core/adapters/DatacoreAdapter.test.ts",
-        "test:breadcrumbs": "vitest run tests/core/adapters/BreadcrumbsAdapter.test.ts",
-        "test:worker": "vitest run tests/core/workers/GraphAnalysisWorkerCore.test.ts"
-    },
-    "keywords": [],
-    "author": "lostpeanut09",
-    "license": "GPL-3.0",
-    "devDependencies": {
-        "@eslint/js": "^9.10.0",
-        "@eslint/json": "^0.14.0",
-        "@types/node": "^24.0.0",
-        "@typescript-eslint/eslint-plugin": "^8.57.2",
-        "@typescript-eslint/parser": "^8.57.2",
-        "@vitest/ui": "^4.1.0",
-        "@vitest/web-worker": "^4.1.4",
-        "esbuild": "^0.20.0",
-        "eslint": "^10.1.0",
-        "eslint-config-prettier": "^10.1.8",
-        "eslint-plugin-obsidianmd": "^0.1.9",
-        "husky": "^9.1.7",
-        "jsdom": "^29.0.2",
-        "knip": "^6.0.5",
-        "nano-staged": "^0.8.0",
-        "obsidian": "latest",
-        "obsidian-typings": "^5.18.0",
-        "p-queue": "^9.1.2",
-        "prettier": "^3.8.1",
-        "stylelint": "^17.5.0",
-        "stylelint-config-standard": "^40.0.0",
-        "tslib": "^2.4.0",
-        "typescript": "^5.0.0",
-        "typescript-eslint": "^8.57.2",
-        "vitest": "^4.1.0"
-    },
-    "dependencies": {
-        "graphology": "^0.26.0",
-        "graphology-communities-louvain": "^2.0.2",
-        "graphology-metrics": "^2.4.0",
-        "graphology-types": "^0.24.8",
-        "zod": "^4.3.6"
-    },
-    "nano-staged": {
-        "*.ts": [
-            "eslint -c .config/eslint.config.js --fix",
-            "prettier --config .config/.prettierrc --ignore-path .config/.prettierignore --write"
-        ],
-        "*.css": [
-            "stylelint --config .config/.stylelintrc.json --fix",
-            "prettier --config .config/.prettierrc --ignore-path .config/.prettierignore --write"
-        ],
-        "*.{json,md}": [
-            "prettier --config .config/.prettierrc --ignore-path .config/.prettierignore --write"
-        ]
-    }
+  "name": "semantic-graph-healer",
+  "version": "2.4.4",
+  "type": "module",
+  "description": "Topological restoration engine that utilizes Dataview, Breadcrumbs, and ExcaliBrain metadata to identify and resolve structural inconsistencies in the knowledge graph.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node .config/esbuild.config.mjs",
+    "build": "tsc --noEmit --skipLibCheck && node .config/esbuild.config.mjs production",
+    "lint": "eslint -c .config/eslint.config.js .",
+    "lint:css": "stylelint \"**/*.css\" --config .config/.stylelintrc.json",
+    "format": "prettier --config .config/.prettierrc --ignore-path .config/.prettierignore --write .",
+    "knip": "knip -c .config/knip.json",
+    "prepare": "husky",
+    "nano-staged": "nano-staged",
+    "lint:fix": "eslint -c .config/eslint.config.js . --fix && stylelint \"**/*.css\" --config .config/.stylelintrc.json --fix",
+    "test": "vitest run",
+    "test:adapter": "vitest run tests/core/adapters/DatacoreAdapter.test.ts",
+    "test:breadcrumbs": "vitest run tests/core/adapters/BreadcrumbsAdapter.test.ts",
+    "test:worker": "vitest run tests/core/workers/GraphAnalysisWorkerCore.test.ts"
+  },
+  "keywords": [],
+  "author": "lostpeanut09",
+  "license": "GPL-3.0",
+  "devDependencies": {
+    "@eslint/js": "^9.10.0",
+    "@eslint/json": "^0.14.0",
+    "@types/node": "^24.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.57.2",
+    "@typescript-eslint/parser": "^8.57.2",
+    "@vitest/ui": "^4.1.0",
+    "@vitest/web-worker": "^4.1.4",
+    "esbuild": "^0.20.0",
+    "eslint": "^10.1.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-obsidianmd": "^0.1.9",
+    "husky": "^9.1.7",
+    "jsdom": "^29.0.2",
+    "knip": "^6.0.5",
+    "nano-staged": "^0.8.0",
+    "obsidian": "latest",
+    "obsidian-typings": "^5.18.0",
+    "p-queue": "^9.1.2",
+    "prettier": "^3.8.1",
+    "stylelint": "^17.5.0",
+    "stylelint-config-standard": "^40.0.0",
+    "tslib": "^2.4.0",
+    "typescript": "^5.0.0",
+    "typescript-eslint": "^8.57.2",
+    "vitest": "^4.1.0"
+  },
+  "dependencies": {
+    "graphology": "^0.26.0",
+    "graphology-communities-louvain": "^2.0.2",
+    "graphology-metrics": "^2.4.0",
+    "graphology-types": "^0.24.8",
+    "zod": "^4.3.6"
+  },
+  "nano-staged": {
+    "*.ts": [
+      "eslint -c .config/eslint.config.js --fix",
+      "prettier --config .config/.prettierrc --ignore-path .config/.prettierignore --write"
+    ],
+    "*.css": [
+      "stylelint --config .config/.stylelintrc.json --fix",
+      "prettier --config .config/.prettierrc --ignore-path .config/.prettierignore --write"
+    ],
+    "*.{json,md}": [
+      "prettier --config .config/.prettierrc --ignore-path .config/.prettierignore --write"
+    ]
+  }
 }

@@ -31,6 +31,18 @@ vi.mock("obsidian", () => ({
   }),
 }));
 
+// Helper for safely stringifying objects with circular references
+function getCircularReplacer() {
+  const seen = new WeakSet();
+  return (key: string, value: any) => {
+    if (typeof value === "object" && value !== null) {
+      if (seen.has(value)) return "[Circular]";
+      seen.add(value);
+    }
+    return value;
+  };
+}
+
 import { SmartConnectionsAdapter } from "../../../src/core/adapters/SmartConnectionsAdapter";
 import { TFile, type App } from "obsidian";
 
@@ -64,7 +76,13 @@ describe("SmartConnectionsAdapter", () => {
       },
       metadataCache: {
         getFirstLinkpathDest: vi.fn((p: string) => {
-          if (p === "folder/note.md") return makeTFile("folder/note.md", 1000);
+          if (
+            p === "folder/note.md" ||
+            p === "folder/other.md" ||
+            p === "folder/good.md"
+          ) {
+            return makeTFile(p, 1000);
+          }
           return null;
         }),
         fileToLinktext: vi.fn((f: TFile) => f.path),
@@ -211,12 +229,15 @@ describe("SmartConnectionsAdapter", () => {
       mockVault.adapter.exists = vi.fn().mockResolvedValue(true);
       mockVault.adapter.stat = vi.fn().mockResolvedValue({ size: 100 });
       mockVault.adapter.read = vi.fn().mockResolvedValue(
-        JSON.stringify({
-          items: {
-            "folder/bad.md": circular,
-            "folder/good.md": { refs: ["folder/note.md"] },
+        JSON.stringify(
+          {
+            items: {
+              "folder/bad.md": circular,
+              "folder/good.md": { refs: ["folder/note.md"] },
+            },
           },
-        }),
+          getCircularReplacer(),
+        ),
       );
       mockVault.adapter.list = vi
         .fn()
