@@ -45,6 +45,7 @@ function getCircularReplacer() {
 
 import { SmartConnectionsAdapter } from '../../../src/core/adapters/SmartConnectionsAdapter';
 import { TFile, type App } from 'obsidian';
+import { HealerLogger } from '../../../src/core/HealerUtils';
 
 const makeTFile = (path: string, mtime = 1000): TFile => new (TFile as any)(path, mtime) as TFile;
 
@@ -249,6 +250,53 @@ describe('SmartConnectionsAdapter', () => {
             expect(mockVault.adapter.stat).toHaveBeenCalledTimes(1);
             expect(mockVault.adapter.read).toHaveBeenCalledTimes(1);
             expect(result.length).toBeGreaterThan(0);
+        });
+
+        it('multiIndex: filesProcessedButNoSuggestions logs warning', async () => {
+            const mockVault = mockApp.vault as any;
+
+            // Mock exists: single-file fallbacks return false; multi-index env exists
+            mockVault.adapter.exists = vi.fn((p: string) => {
+                if (p === '.smart-env/multi') return true;
+                // all other paths (single-file fallbacks, other envs) false
+                return false;
+            });
+
+            // Mock list: one .ajson file in the env directory
+            mockVault.adapter.list = vi.fn().mockResolvedValue({
+                files: ['index.ajson'],
+                folders: [],
+            });
+
+            // Mock stat: small file within limit
+            mockVault.adapter.stat = vi.fn().mockResolvedValue({ size: 1024 });
+
+            // Mock read: AJSON without the sourcePath (so containsExactPath returns false)
+            mockVault.adapter.read = vi.fn().mockResolvedValue(
+                JSON.stringify({
+                    items: {
+                        // no entry containing "folder/note.md" → containsExactPath false
+                        'other/file.md': { refs: ['some/other.md'] },
+                    },
+                }),
+            );
+
+            // getFirstLinkpathDest mock from outer mockApp already returns TFile for certain paths —
+            // but shouldn't be reached due to containsExactPath fail.
+
+            const result = await (adapter as any).queryAjsonFallback('folder/note.md', 5);
+
+            // Expect no suggestions
+            expect(result).toEqual([]);
+
+            // Warning must be logged because at least one file processed (anyFileProcessed = true) and suggestions empty
+            expect(HealerLogger.warn).toHaveBeenCalledTimes(1);
+            expect(HealerLogger.warn).toHaveBeenCalledWith(
+                expect.stringContaining('Processed 1 file(s)'),
+            );
+            expect(HealerLogger.warn).toHaveBeenCalledWith(
+                expect.stringContaining('folder/note.md'),
+            );
         });
     });
 });
