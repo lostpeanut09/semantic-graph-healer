@@ -85,6 +85,10 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
         if (cached !== undefined) return cached;
 
         const page = this.safeExecute(() => this.datacore.getPage(key), null, `getPage(${key})`);
+
+        // FIX: avoid caching null to prevent staleness when adapter becomes ready later
+        if (page === null) return null;
+
         this.pageCache.set(key, page);
         return page;
     }
@@ -122,6 +126,9 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
             null,
             `getHierarchy(${key})`,
         );
+
+        // FIX: avoid caching null to prevent staleness when Breadcrumbs becomes ready
+        if (hierarchy === null) return null;
 
         this.hierarchyCache.set(key, hierarchy);
         return hierarchy;
