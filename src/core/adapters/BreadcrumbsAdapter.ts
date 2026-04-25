@@ -1,6 +1,6 @@
 import { App, TFile, parseLinktext } from 'obsidian';
 import type { MultiGraph } from 'graphology';
-import { IMetadataAdapter } from './IMetadataAdapter';
+import type { IBreadcrumbsPort } from '../ports/IBreadcrumbsPort';
 import { BreadcrumbsApi, DataviewApi, DataviewPage, HierarchyNode, RelatedNote, BCDirection } from '../../types';
 import { HealerLogger, isObsidianInternalApp } from '../HealerUtils';
 
@@ -15,10 +15,10 @@ import { HealerLogger, isObsidianInternalApp } from '../HealerUtils';
  */
 
 type BCAPIV4Like = {
-    get_neighbours: (node?: string) => unknown; // EdgeList | undefined
+	get_neighbours: (node?: string) => unknown; // EdgeList | undefined
 };
 
-export class BreadcrumbsAdapter implements IMetadataAdapter {
+export class BreadcrumbsAdapter implements IBreadcrumbsPort {
     constructor(private app: App) {}
 
     private getV4Api(): BCAPIV4Like | null {
