@@ -11,7 +11,7 @@ import {
     DatacoreApi,
     DataviewLink,
 } from '../../types';
-import { HealerLogger, isObsidianInternalApp } from '../HealerUtils';
+import { HealerLogger, isObsidianInternalApp, normalizeVaultPath } from '../HealerUtils';
 
 /**
  * DatacoreLink internal interface for native Datacore link objects.
@@ -455,22 +455,8 @@ export class DatacoreAdapter implements IMetadataAdapter, IDataviewPort {
         return idx;
     }
 
-    /**
-     * Normalizes a vault path to absolute form for reliable lookup.
-     */
-    private normalizeVaultPath(path: string, sourcePath = ''): string {
-        // Extract linkpath, discard subpath (heading/block)
-        const { path: linkpath } = parseLinktext(path);
-
-        const file = this.app.vault.getAbstractFileByPath(linkpath);
-        if (file instanceof TFile) return file.path;
-
-        const resolved = this.app.metadataCache.getFirstLinkpathDest(linkpath, sourcePath);
-        return resolved?.path ?? linkpath;
-    }
-
     public getBacklinks(targetPath: string): string[] {
-        const normalized = this.normalizeVaultPath(targetPath);
+        const normalized = normalizeVaultPath(this.app, targetPath);
         if (!this.backlinkIndex) {
             this.backlinkIndex = this.buildBacklinkIndex();
         }
