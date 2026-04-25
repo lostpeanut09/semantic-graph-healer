@@ -222,5 +222,33 @@ describe('SmartConnectionsAdapter', () => {
 
             expect(result.length).toBeGreaterThan(0);
         });
+
+        it('singleFile: stat throws but read succeeds returns parsed data', async () => {
+            const mockVault = mockApp.vault as any;
+            // Only .ajson exists; .json returns false to avoid double processing
+            mockVault.adapter.exists = vi.fn((p: string) => {
+                if (p === '.smart-env/smart_sources.ajson') return true;
+                if (p === '.smart-env/smart_sources.json') return false;
+                return false;
+            });
+            // stat throws immediately
+            mockVault.adapter.stat = vi.fn().mockRejectedValue(new Error('stat failed: permission denied'));
+            // read returns valid JSON despite stat failure
+            mockVault.adapter.read = vi.fn().mockResolvedValue(
+                JSON.stringify({
+                    items: {
+                        'folder/other.md': { refs: ['folder/note.md'] },
+                    },
+                }),
+            );
+            mockVault.adapter.list = vi.fn().mockResolvedValue({ files: [], folders: [] });
+
+            const result = await (adapter as any).queryAjsonFallback('folder/note.md', 5);
+
+            // stat failure should be logged and ignored; read still called once
+            expect(mockVault.adapter.stat).toHaveBeenCalledTimes(1);
+            expect(mockVault.adapter.read).toHaveBeenCalledTimes(1);
+            expect(result.length).toBeGreaterThan(0);
+        });
     });
 });
