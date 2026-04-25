@@ -1,5 +1,6 @@
 import { App, EventRef, TAbstractFile, TFile, parseLinktext } from 'obsidian';
 import { IMetadataAdapter } from './IMetadataAdapter';
+import type { IDataviewPort } from '../ports/IDataviewPort';
 import {
     DataviewApi,
     DataviewPage,
@@ -222,7 +223,7 @@ class BoundedMap<K, V> extends Map<K, V> {
 /**
  * DatacoreAdapter: Metadata bridge for Datacore integration.
  */
-export class DatacoreAdapter implements IMetadataAdapter {
+export class DatacoreAdapter implements IMetadataAdapter, IDataviewPort {
     private backlinkIndex: Map<string, Set<string>> | null = null;
     private linkCache = new Map<string, DataviewLink>();
     private pageChildrenCache: BoundedMap<string, { tasks: unknown[]; lists: unknown[] }>;

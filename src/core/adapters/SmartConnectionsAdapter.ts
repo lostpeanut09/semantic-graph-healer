@@ -1,5 +1,6 @@
 import { App, TFile, parseLinktext } from 'obsidian';
 import { IMetadataAdapter } from './IMetadataAdapter';
+import type { ISmartConnectionsPort } from '../ports/ISmartConnectionsPort';
 import { DataviewApi, DataviewPage, RelatedNote, HierarchyNode } from '../../types';
 import { HealerLogger, isObsidianInternalApp, pathToWikilink } from '../HealerUtils';
 
@@ -38,7 +39,7 @@ interface SmartConnectionsPluginShape {
  * Falls back to heuristic Smart Environment file scanning.
  * Not guaranteed against public Smart Connections API stability.
  */
-export class SmartConnectionsAdapter implements IMetadataAdapter {
+export class SmartConnectionsAdapter implements IMetadataAdapter, ISmartConnectionsPort {
     private semanticQueryCache = new Map<string, { mtime: number; query: string }>();
     private static readonly MAX_FALLBACK_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
