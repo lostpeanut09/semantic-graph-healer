@@ -179,4 +179,25 @@ describe('UnifiedMetadataAdapter Hardening', () => {
             expect.any(Error),
         );
     });
+
+    it('should continue destroying caches even if one throws', () => {
+        const pageCache = (adapter as any).pageCache;
+        const hierarchyCache = (adapter as any).hierarchyCache;
+        const relatedNotesCache = (adapter as any).relatedNotesCache;
+
+        // Replace destroy with mock that throws on pageCache only
+        pageCache.destroy = vi.fn(() => {
+            throw new Error('pageCache destroy failed');
+        });
+        hierarchyCache.destroy = vi.fn();
+        relatedNotesCache.destroy = vi.fn();
+
+        // Invoke destroy; should NOT throw overall
+        expect(() => adapter.destroy()).not.toThrow();
+
+        // All caches attempted
+        expect(pageCache.destroy).toHaveBeenCalledTimes(1);
+        expect(hierarchyCache.destroy).toHaveBeenCalledTimes(1);
+        expect(relatedNotesCache.destroy).toHaveBeenCalledTimes(1);
+    });
 });
