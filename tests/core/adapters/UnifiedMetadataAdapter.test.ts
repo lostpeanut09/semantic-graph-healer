@@ -1,5 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { UnifiedMetadataAdapter } from "../../../src/core/adapters/UnifiedMetadataAdapter";
+
+// Mock HealerUtils BEFORE UnifiedMetadataAdapter import
+vi.mock("../../../src/core/HealerUtils", () => ({
+  HealerLogger: {
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  },
+  isObsidianInternalApp: vi.fn(() => true),
+}));
 
 // Mock sub-adapters
 vi.mock("../../../src/core/adapters/DatacoreAdapter", () => {
@@ -46,6 +55,10 @@ vi.mock("obsidian", () => ({
   normalizePath: (p: string) => p,
 }));
 
+// Import AFTER all mocks
+import { UnifiedMetadataAdapter } from "../../../src/core/adapters/UnifiedMetadataAdapter";
+import { HealerLogger } from "../../../src/core/HealerUtils";
+
 describe("UnifiedMetadataAdapter Hardening", () => {
   let adapter: UnifiedMetadataAdapter;
   let mockApp: any;
@@ -55,12 +68,14 @@ describe("UnifiedMetadataAdapter Hardening", () => {
     mockApp = {
       vault: {
         getAbstractFileByPath: vi.fn().mockImplementation((p) => ({ path: p })),
-        on: vi.fn(),
+        on: vi.fn(() => ({})), // return event ref for offref
         off: vi.fn(),
+        offref: vi.fn(), // for StructuralCache.destroy
       },
       metadataCache: {
-        on: vi.fn(),
+        on: vi.fn(() => ({})), // return event ref for offref
         off: vi.fn(),
+        offref: vi.fn(), // for StructuralCache.destroy
         getFirstLinkpathDest: vi.fn(),
       },
     };
@@ -135,7 +150,7 @@ describe("UnifiedMetadataAdapter Hardening", () => {
     expect(res).toBeNull();
   });
 
-  it("should destroy all sub-adapters even if one throws", async () => {
+  it("should destroy all sub-adapters even if one throws", () => {
     const datacore = (adapter as any).datacore;
     const breadcrumbs = (adapter as any).breadcrumbs;
     const smartConnections = (adapter as any).smartConnections;
@@ -145,9 +160,23 @@ describe("UnifiedMetadataAdapter Hardening", () => {
     });
 
     // Should not throw, and other adapters must still be destroyed
-    await expect(adapter.destroy()).resolves.not.toThrow();
+    expect(() => adapter.destroy()).not.toThrow();
     expect(datacore.destroy).toHaveBeenCalled();
     expect(breadcrumbs.destroy).toHaveBeenCalled();
     expect(smartConnections.destroy).toHaveBeenCalled();
+  });
+
+  it("should log errors when sub-adapter destroy throws", () => {
+    const datacore = (adapter as any).datacore;
+    datacore.destroy.mockImplementation(() => {
+      throw new Error("Datacore destroy crash");
+    });
+
+    adapter.destroy();
+
+    expect(HealerLogger.error).toHaveBeenCalledWith(
+      expect.stringContaining("datacore.destroy() failed"),
+      expect.any(Error),
+    );
   });
 });
