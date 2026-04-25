@@ -162,9 +162,18 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
      * Explicit cleanup for hot-reload and shutdown cycles.
      */
     public destroy(): void {
-        this.pageCache.destroy();
-        this.hierarchyCache.destroy();
-        this.relatedNotesCache.destroy();
+        // Isola distruzione cache — se una lancia, procedi comunque con le altre e coi sub-adapter
+        const destroyCache = (name: string, cache: { destroy?: () => void } | undefined): void => {
+            try {
+                cache?.destroy?.();
+            } catch (e) {
+                HealerLogger.error(`[UnifiedMetadataAdapter] cache.destroy failed (${name}):`, e as Error);
+            }
+        };
+
+        destroyCache('pageCache', this.pageCache);
+        destroyCache('hierarchyCache', this.hierarchyCache);
+        destroyCache('relatedNotesCache', this.relatedNotesCache);
 
         for (const [name, adapter] of [
             ['datacore', this.datacore],
@@ -174,7 +183,7 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
             try {
                 adapter.destroy?.();
             } catch (e) {
-                HealerLogger.error(`UnifiedMetadataAdapter: ${name}.destroy() failed`, e);
+                HealerLogger.error(`[UnifiedMetadataAdapter] ${name}.destroy() failed`, e);
             }
         }
         HealerLogger.debug('UnifiedMetadataAdapter destroyed.');

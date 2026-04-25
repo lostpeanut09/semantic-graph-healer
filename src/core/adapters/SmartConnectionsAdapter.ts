@@ -319,10 +319,21 @@ export class SmartConnectionsAdapter implements IMetadataAdapter {
             if (!(await adapter.exists(singleFileFallback))) continue;
             try {
                 // BOUND CHECK: evita spike memoria su file enormi
-                const stat = await adapter.stat(singleFileFallback);
-                if (stat && stat.size > SmartConnectionsAdapter.MAX_FALLBACK_FILE_SIZE) {
+                let statSize: number | null = null;
+                try {
+                    const stat = await adapter.stat(singleFileFallback);
+                    statSize = typeof stat?.size === 'number' ? stat.size : null;
+                } catch (e) {
+                    // stat può fallire per permessi/FS strano, ma read potrebbe ancora funzionare.
+                    HealerLogger.debug?.(
+                        `SmartConnectionsAdapter: stat() failed for ${singleFileFallback}, attempting read() anyway`,
+                        e,
+                    );
+                }
+
+                if (statSize !== null && statSize > SmartConnectionsAdapter.MAX_FALLBACK_FILE_SIZE) {
                     HealerLogger.warn(
-                        `SmartConnectionsAdapter: skipping oversized ${singleFileFallback} (${stat.size} bytes)`,
+                        `SmartConnectionsAdapter: skipping oversized ${singleFileFallback} (${statSize} bytes)`,
                     );
                     continue;
                 }
@@ -392,6 +403,7 @@ export class SmartConnectionsAdapter implements IMetadataAdapter {
                 const files = await adapter.list(envPath);
                 const ajsonFiles = files.files.filter((f) => f.endsWith('.ajson')).slice(0, 200); // Safety cap: avoid unbounded I/O on huge indexes
 
+                let anyFileProcessed = false; // track if at least one file was attempted (not all skipped)
                 for (const f of ajsonFiles) {
                     // Harden: ensure full vault-relative path for adapter.read()
                     const readPath = f.includes('/') ? f : `${envPath}/${f}`;
@@ -408,6 +420,9 @@ export class SmartConnectionsAdapter implements IMetadataAdapter {
                     } catch {
                         /* se stat fallisce, proviamo comunque a leggere */
                     }
+
+                    // Se arriviamo qui, il file viene tentato in lettura (non skippato per size)
+                    anyFileProcessed = true;
 
                     const content = await adapter.read(readPath);
                     if (!this.containsExactPath(content, sourcePath)) continue;
@@ -434,6 +449,14 @@ export class SmartConnectionsAdapter implements IMetadataAdapter {
                     });
 
                     if (suggestions.length >= limit) return suggestions;
+                }
+
+                // Se abbiamo processato almeno un file (nessun skip totale) e suggestions è vuoto, logga warn
+                if (anyFileProcessed && suggestions.length === 0) {
+                    HealerLogger.warn(
+                        `[SmartConnections] Processed ${ajsonFiles.length} file(s) from ${envPath} but found no related notes for ${sourcePath}. ` +
+                            `Check that sourcePath exists in item keys.`,
+                    );
                 }
             } catch (e) {
                 HealerLogger.error('SmartConnectionsAdapter: AJSON fallback failed for dir ' + envPath, e);
