@@ -84,9 +84,9 @@ describe('UnifiedMetadataAdapter Hardening', () => {
             logLevel: 'info',
         };
 
-        adapter = new UnifiedMetadataAdapter(mockApp, mockSettings, {
-            ttlMs: 10000,
-        });
+		adapter = new UnifiedMetadataAdapter(mockApp, mockSettings, {}, {
+			ttlMs: 10000,
+		});
     });
 
     it('should return cached page on repeated calls', () => {

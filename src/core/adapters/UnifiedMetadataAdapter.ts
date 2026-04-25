@@ -1,9 +1,11 @@
 import { App, TFile, parseLinktext } from 'obsidian';
-import { IMetadataAdapter } from './IMetadataAdapter';
+import type { IMetadataAdapter } from './IMetadataAdapter';
 import { DatacoreAdapter } from './DatacoreAdapter';
-import type { IDataviewPort } from '../ports/IDataviewPort';
 import { BreadcrumbsAdapter } from './BreadcrumbsAdapter';
 import { SmartConnectionsAdapter } from './SmartConnectionsAdapter';
+import type { IDataviewPort } from '../ports/IDataviewPort';
+import type { IBreadcrumbsPort } from '../ports/IBreadcrumbsPort';
+import type { ISmartConnectionsPort } from '../ports/ISmartConnectionsPort';
 import { DataviewApi, DataviewPage, HierarchyNode, RelatedNote, SemanticGraphHealerSettings } from '../../types';
 import { StructuralCache } from '../StructuralCache';
 import { HealerLogger } from '../HealerUtils';
@@ -17,38 +19,42 @@ import { HealerLogger } from '../HealerUtils';
  * down to specialized adapters.
  */
 export class UnifiedMetadataAdapter implements IMetadataAdapter {
-    private datacore: IDataviewPort;
-    private breadcrumbs: IMetadataAdapter;
-    private smartConnections: IMetadataAdapter;
+	private datacore: IDataviewPort;
+	private breadcrumbs: IBreadcrumbsPort;
+	private smartConnections: ISmartConnectionsPort;
 
     // Phase 4: Performance Layer
     private pageCache: StructuralCache<DataviewPage | null>;
     private hierarchyCache: StructuralCache<HierarchyNode | null>;
     private relatedNotesCache: StructuralCache<RelatedNote[]>; // Phase 2 Hardening
 
-    constructor(
-        private app: App,
-        private settings: SemanticGraphHealerSettings,
-        options: { maxNodes?: number; ttlMs?: number } = {},
-    ) {
-        this.datacore = new DatacoreAdapter(
-            this.app,
-            this.settings.logLevel === 'debug',
-            this.settings.pageChildrenCacheMaxSize ?? 500,
-        );
-        this.breadcrumbs = new BreadcrumbsAdapter(this.app);
-        this.smartConnections = new SmartConnectionsAdapter(this.app);
+	constructor(
+		private app: App,
+		private settings: SemanticGraphHealerSettings,
+		dependencies: {
+			datacore?: IDataviewPort;
+			breadcrumbs?: IBreadcrumbsPort;
+			smartConnections?: ISmartConnectionsPort;
+		} = {},
+		options: { maxNodes?: number; ttlMs?: number } = {},
+	) {
+		// Dependency injection with fallback to concrete adapters for backward compatibility / tests
+		this.datacore =
+			dependencies.datacore ??
+			new DatacoreAdapter(this.app, this.settings.logLevel === 'debug', this.settings.pageChildrenCacheMaxSize ?? 500);
+		this.breadcrumbs = dependencies.breadcrumbs ?? new BreadcrumbsAdapter(this.app);
+		this.smartConnections = dependencies.smartConnections ?? new SmartConnectionsAdapter(this.app);
 
-        // Initialize Performance Caches
-        this.pageCache = new StructuralCache<DataviewPage | null>(this.app, options);
-        this.hierarchyCache = new StructuralCache<HierarchyNode | null>(this.app, options);
+		// Initialize Performance Caches
+		this.pageCache = new StructuralCache<DataviewPage | null>(this.app, options);
+		this.hierarchyCache = new StructuralCache<HierarchyNode | null>(this.app, options);
 
-        // Related notes are short-lived to reflect embedding updates (2 min TTL)
-        this.relatedNotesCache = new StructuralCache<RelatedNote[]>(this.app, {
-            ...options,
-            ttlMs: 120000,
-        });
-    }
+		// Related notes are short-lived to reflect embedding updates (2 min TTL)
+		this.relatedNotesCache = new StructuralCache<RelatedNote[]>(this.app, {
+			...options,
+			ttlMs: 120000,
+		});
+	}
 
     /**
      * Resiliency Wrapper: Protects the system from unhandled exceptions
