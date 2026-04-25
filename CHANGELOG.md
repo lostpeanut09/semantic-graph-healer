@@ -28,16 +28,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 
 - **Runtime Integrity Layer (OSS Hardening v2)**:
-  - **Zod Validation**: implemented strict schema validation for all cross-thread messages in `graph-analysis-core.ts`. Prevents topological hallucinations by enforcing runtime data integrity.
-  - **Concurrency Management**: integrated `p-queue` in `GraphWorkerService` to serialize heavy graph analysis requests, preventing worker thread contention and resource exhaustion.
-  - **Worker Testing Harness**: configured `@vitest/web-worker` for realistic end-to-end multi-threaded validation.
+    - **Zod Validation**: implemented strict schema validation for all cross-thread messages in `graph-analysis-core.ts`. Prevents topological hallucinations by enforcing runtime data integrity.
+    - **Concurrency Management**: integrated `p-queue` in `GraphWorkerService` to serialize heavy graph analysis requests, preventing worker thread contention and resource exhaustion.
+    - **Worker Testing Harness**: configured `@vitest/web-worker` for realistic end-to-end multi-threaded validation.
 
 ### Improved
 
 - **UnifiedMetadataAdapter Hardening**:
-  - **Safe Execution Wrappers**: implemented `safeExecute` and `safeExecuteAsync` decorators to isolate and gracefully handle third-party adapter failures (Datacore, Breadcrumbs, Smart Connections).
-  - **Semantic Similarity Cache**: added a high-performance cache (TTL: 120s) for semantic relatedness lookups, significantly reducing Obsidian "Substrate" search overhead.
-  - **Unified Invalidation**: synchronized cache clearing across all metadata providers (hierarchical, semantic, and field-based).
+    - **Safe Execution Wrappers**: implemented `safeExecute` and `safeExecuteAsync` decorators to isolate and gracefully handle third-party adapter failures (Datacore, Breadcrumbs, Smart Connections).
+    - **Semantic Similarity Cache**: added a high-performance cache (TTL: 120s) for semantic relatedness lookups, significantly reducing Obsidian "Substrate" search overhead.
+    - **Unified Invalidation**: synchronized cache clearing across all metadata providers (hierarchical, semantic, and field-based).
 
 ### Tests
 
@@ -56,9 +56,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Improved
 
 - **Metadata Bridges Hardening**:
-  - **DatacoreAdapter**: strict isolation of internal `$`-prefixed fields in `extractUserFields` and expanded reserved key protection for Dataview parity.
-  - **BreadcrumbsAdapter**: added ghost-edge protection at the re-indexing layer to filter out null/empty target objects.
-  - **SmartConnectionsAdapter**: implemented mandatory `smart_env.ready` check to prevent semantic search race conditions in the April 2026 "Substrate" update.
+    - **DatacoreAdapter**: strict isolation of internal `$`-prefixed fields in `extractUserFields` and expanded reserved key protection for Dataview parity.
+    - **BreadcrumbsAdapter**: added ghost-edge protection at the re-indexing layer to filter out null/empty target objects.
+    - **SmartConnectionsAdapter**: implemented mandatory `smart_env.ready` check to prevent semantic search race conditions in the April 2026 "Substrate" update.
 - **Repository Cleanliness**: purged temporary audit logs from root and hardened `.gitignore` for zero-noise releases.
 
 ---

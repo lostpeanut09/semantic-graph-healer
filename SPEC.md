@@ -42,15 +42,15 @@ Plugin Obsidian per semantic graph healing. Rileva e risolve automaticamente pro
 
 ```typescript
 interface CacheConfig {
-  maxSize: number;
-  ttlSeconds: number;
-  evictionStrategy: "LRU" | "FIFO";
+    maxSize: number;
+    ttlSeconds: number;
+    evictionStrategy: 'LRU' | 'FIFO';
 }
 
 interface HealerConfig {
-  autoHeal: boolean;
-  confidenceThreshold: number;
-  maxConnectionsPerNode: number;
+    autoHeal: boolean;
+    confidenceThreshold: number;
+    maxConnectionsPerNode: number;
 }
 ```
 
