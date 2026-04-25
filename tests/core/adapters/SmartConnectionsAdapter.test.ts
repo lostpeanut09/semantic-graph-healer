@@ -291,12 +291,8 @@ describe('SmartConnectionsAdapter', () => {
 
             // Warning must be logged because at least one file processed (anyFileProcessed = true) and suggestions empty
             expect(HealerLogger.warn).toHaveBeenCalledTimes(1);
-            expect(HealerLogger.warn).toHaveBeenCalledWith(
-                expect.stringContaining('Processed 1 file(s)'),
-            );
-            expect(HealerLogger.warn).toHaveBeenCalledWith(
-                expect.stringContaining('folder/note.md'),
-            );
+            expect(HealerLogger.warn).toHaveBeenCalledWith(expect.stringContaining('Processed 1 file(s)'));
+            expect(HealerLogger.warn).toHaveBeenCalledWith(expect.stringContaining('folder/note.md'));
         });
     });
 });
