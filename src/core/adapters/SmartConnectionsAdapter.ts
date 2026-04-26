@@ -1,4 +1,4 @@
-import { App, TFile, parseLinktext } from 'obsidian';
+import { App, TFile } from 'obsidian';
 import { IMetadataAdapter } from './IMetadataAdapter';
 import type { ISmartConnectionsPort } from '../ports/ISmartConnectionsPort';
 import { DataviewApi, DataviewPage, RelatedNote, HierarchyNode } from '../../types';
