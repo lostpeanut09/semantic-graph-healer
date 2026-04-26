@@ -1159,7 +1159,7 @@ export default class SemanticGraphHealer extends Plugin {
     onunload() {
         this.logger.info('Semantic Graph Healer unloading...');
 
-        // âœ… Gold Master Refinement: Clear pending analysis timers
+        // ✅ Gold Master Refinement: Clear pending analysis timers
         this.analysisDebounce.forEach((timer) => clearTimeout(timer));
         this.analysisDebounce.clear();
 
@@ -1185,6 +1185,17 @@ export default class SemanticGraphHealer extends Plugin {
         // 3. Clear logger buffer to free memory (SOTA 2026 Audit Fix)
         if (this.logger) {
             this.logger.clearBuffer();
+        }
+    }
+
+    /**
+     * P1 — Called automatically by Obsidian when settings change.
+     * Propagates new settings to engine (hot-reload without full plugin reload).
+     */
+    protected async onSettingsChanged(): Promise<void> {
+        if (this.engine && typeof this.engine.updateSettings === 'function') {
+            this.engine.updateSettings(this.settings);
+            this.logger.info('Settings propagated to metadata engine.');
         }
     }
 }
