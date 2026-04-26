@@ -1,8 +1,8 @@
 import { App, TFile, parseLinktext } from 'obsidian';
 import type { MultiGraph } from 'graphology';
-import { IMetadataAdapter } from './IMetadataAdapter';
+import type { IBreadcrumbsPort } from '../ports/IBreadcrumbsPort';
 import { BreadcrumbsApi, DataviewApi, DataviewPage, HierarchyNode, RelatedNote, BCDirection } from '../../types';
-import { HealerLogger, isObsidianInternalApp } from '../HealerUtils';
+import { HealerLogger, isObsidianInternalApp, normalizeVaultPath } from '../HealerUtils';
 
 /**
  * BreadcrumbsAdapter: Decoupled Navigation Wrapper.
@@ -18,7 +18,7 @@ type BCAPIV4Like = {
     get_neighbours: (node?: string) => unknown; // EdgeList | undefined
 };
 
-export class BreadcrumbsAdapter implements IMetadataAdapter {
+export class BreadcrumbsAdapter implements IBreadcrumbsPort {
     constructor(private app: App) {}
 
     private getV4Api(): BCAPIV4Like | null {
@@ -74,7 +74,7 @@ export class BreadcrumbsAdapter implements IMetadataAdapter {
     invalidate(_path?: string): void {}
 
     async getHierarchy(path: string): Promise<HierarchyNode | null> {
-        const normalizedPath = this.normalizeBreadcrumbPath(path);
+        const normalizedPath = normalizeVaultPath(this.app, path);
 
         // 1) Breadcrumbs V4 path (BCAPI.get_neighbours → outgoing edges)
         const v4 = this.getV4Api();
@@ -90,7 +90,7 @@ export class BreadcrumbsAdapter implements IMetadataAdapter {
                 const prev: string[] = [];
 
                 for (const edge of edges) {
-                    const normalizedTarget = this.normalizeBreadcrumbPath(edge.target, normalizedPath);
+                    const normalizedTarget = normalizeVaultPath(this.app, edge.target, normalizedPath);
                     if (!normalizedTarget || normalizedTarget === normalizedPath) continue;
 
                     if (edge.dir === 'up') parents.push(normalizedTarget);
@@ -147,17 +147,6 @@ export class BreadcrumbsAdapter implements IMetadataAdapter {
             HealerLogger.error(`BreadcrumbsAdapter: hierarchy extraction failed for "${normalizedPath}"`, e);
         }
         return Promise.resolve(null);
-    }
-
-    private normalizeBreadcrumbPath(path: string, sourcePath = ''): string {
-        // Extract linkpath, discard subpath (heading/block)
-        const { path: linkpath } = parseLinktext(path);
-
-        const file = this.app.vault.getAbstractFileByPath(linkpath);
-        if (file instanceof TFile) return file.path;
-
-        const resolved = this.app.metadataCache.getFirstLinkpathDest(linkpath, sourcePath);
-        return resolved?.path ?? linkpath;
     }
 
     private isDirection(x: unknown): x is BCDirection {
@@ -222,7 +211,7 @@ export class BreadcrumbsAdapter implements IMetadataAdapter {
         const visit = (item: unknown) => {
             if (!item) return;
             if (typeof item === 'string') {
-                const normalized = this.normalizeBreadcrumbPath(item);
+                const normalized = normalizeVaultPath(this.app, item);
                 if (!currentPath || normalized !== currentPath) result.push(normalized);
                 return;
             }
@@ -258,7 +247,7 @@ export class BreadcrumbsAdapter implements IMetadataAdapter {
         graph.forEachOutEdge(path, (_edge, attrs, _src, target, _srcAttrs, _tgtAttrs) => {
             const dir = (attrs as Record<string, unknown>)?.dir;
             if (!this.isDirection(dir)) return;
-            const normalizedTarget = this.normalizeBreadcrumbPath(target, path);
+            const normalizedTarget = normalizeVaultPath(this.app, target, path);
             if (!normalizedTarget || normalizedTarget === path) return;
             switch (dir) {
                 case 'up':
@@ -282,7 +271,7 @@ export class BreadcrumbsAdapter implements IMetadataAdapter {
             graph.forEachInEdge(path, (_edge, attrs, source, _target, _srcAttrs, _tgtAttrs) => {
                 const dir = (attrs as Record<string, unknown>)?.dir;
                 if (!this.isDirection(dir)) return;
-                const normalizedSource = this.normalizeBreadcrumbPath(source, path);
+                const normalizedSource = normalizeVaultPath(this.app, source, path);
                 if (!normalizedSource || normalizedSource === path) return;
                 switch (dir) {
                     case 'down':

@@ -2,7 +2,7 @@ import { App, TFile, parseLinktext } from 'obsidian';
 import { IMetadataAdapter } from './IMetadataAdapter';
 import type { ISmartConnectionsPort } from '../ports/ISmartConnectionsPort';
 import { DataviewApi, DataviewPage, RelatedNote, HierarchyNode } from '../../types';
-import { HealerLogger, isObsidianInternalApp, pathToWikilink } from '../HealerUtils';
+import { HealerLogger, isObsidianInternalApp, pathToWikilink, normalizeVaultPath } from '../HealerUtils';
 
 interface LegacyScApi {
     search?: (query: string, opts?: { limit?: number }) => Promise<SearchResult[]> | SearchResult[];
@@ -81,13 +81,6 @@ export class SmartConnectionsAdapter implements IMetadataAdapter, ISmartConnecti
         return plugin?.api ?? plugin?.instance?.api ?? null;
     }
 
-    private normalizeNotePath(path: string, sourcePath = ''): string {
-        const { path: linkpath } = parseLinktext(path);
-        const direct = this.app.vault.getAbstractFileByPath(linkpath);
-        if (direct instanceof TFile) return direct.path;
-        return this.app.metadataCache.getFirstLinkpathDest(linkpath, sourcePath)?.path ?? linkpath;
-    }
-
     getPage(_path: string): DataviewPage | null {
         return null;
     }
@@ -119,7 +112,7 @@ export class SmartConnectionsAdapter implements IMetadataAdapter, ISmartConnecti
             this.semanticQueryCache.clear();
             return;
         }
-        const normalized = this.normalizeNotePath(path, path);
+        const normalized = normalizeVaultPath(this.app, path, path);
         this.semanticQueryCache.delete(normalized);
     }
 
@@ -129,7 +122,7 @@ export class SmartConnectionsAdapter implements IMetadataAdapter, ISmartConnecti
     }
 
     private async buildSemanticQuery(notePath: string): Promise<string> {
-        const normalized = this.normalizeNotePath(notePath, notePath);
+        const normalized = normalizeVaultPath(this.app, notePath, notePath);
         const file = this.app.vault.getAbstractFileByPath(normalized);
         if (!(file instanceof TFile)) return normalized;
 
@@ -195,7 +188,7 @@ export class SmartConnectionsAdapter implements IMetadataAdapter, ISmartConnecti
     }
 
     private async runSmartSearch(notePath: string, limit: number): Promise<SearchResult[]> {
-        const normalizedPath = this.normalizeNotePath(notePath, notePath);
+        const normalizedPath = normalizeVaultPath(this.app, notePath, notePath);
         const semanticQuery = await this.buildSemanticQuery(normalizedPath);
         const searchLimit = limit + 2;
 
@@ -276,7 +269,7 @@ export class SmartConnectionsAdapter implements IMetadataAdapter, ISmartConnecti
     }
 
     async getRelatedNotes(path: string, limit: number): Promise<RelatedNote[]> {
-        const normalizedSource = this.normalizeNotePath(path, path);
+        const normalizedSource = normalizeVaultPath(this.app, path, path);
 
         try {
             const results = await this.runSmartSearch(normalizedSource, limit);
@@ -288,7 +281,7 @@ export class SmartConnectionsAdapter implements IMetadataAdapter, ISmartConnecti
                         const rawTarget = res.path ?? res.item?.path;
                         if (!rawTarget) return null;
 
-                        const targetPath = this.normalizeNotePath(rawTarget, normalizedSource);
+                        const targetPath = normalizeVaultPath(this.app, rawTarget, normalizedSource);
                         if (!targetPath || targetPath === normalizedSource) return null;
                         if (seen.has(targetPath)) return null;
                         if (!(this.app.vault.getAbstractFileByPath(targetPath) instanceof TFile)) return null;
