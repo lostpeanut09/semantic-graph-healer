@@ -1,14 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock HealerUtils BEFORE UnifiedMetadataAdapter import
-vi.mock('../../../src/core/HealerUtils', () => ({
-    HealerLogger: {
-        warn: vi.fn(),
-        error: vi.fn(),
-        debug: vi.fn(),
-    },
-    isObsidianInternalApp: vi.fn(() => true),
-}));
+vi.mock('../../../src/core/HealerUtils', async () => {
+    const actual = await vi.importActual('../../../src/core/HealerUtils');
+    return {
+        ...actual,
+        HealerLogger: {
+            warn: vi.fn(),
+            error: vi.fn(),
+            debug: vi.fn(),
+        },
+        isObsidianInternalApp: vi.fn(() => true),
+    };
+});
 
 // Mock sub-adapters
 vi.mock('../../../src/core/adapters/DatacoreAdapter', () => {
@@ -222,5 +226,40 @@ describe('UnifiedMetadataAdapter Hardening', () => {
         expect(pageCache.destroy).toHaveBeenCalledTimes(1);
         expect(hierarchyCache.destroy).toHaveBeenCalledTimes(1);
         expect(relatedNotesCache.destroy).toHaveBeenCalledTimes(1);
+    });
+
+    describe('stampede protection (coalescing)', () => {
+        it('coalesces concurrent getHierarchy calls into single adapter invocation', async () => {
+            const bc = (adapter as any).breadcrumbs;
+            const mockNode = { parents: [], children: [], siblings: [], next: [], prev: [] };
+            const mockPromise = Promise.resolve(mockNode);
+            bc.getHierarchy.mockReturnValue(mockPromise);
+
+            // Concurrent calls with same key
+            const [res1, res2] = await Promise.all([
+                adapter.getHierarchy('note'),
+                adapter.getHierarchy('note'),
+            ]);
+
+            expect(bc.getHierarchy).toHaveBeenCalledTimes(1);
+            expect(res1).toBe(mockNode);
+            expect(res2).toBe(mockNode);
+        });
+
+        it('coalesces concurrent getRelatedNotes calls into single adapter invocation', async () => {
+            const sc = (adapter as any).smartConnections;
+            const mockNotes = [{ path: 'related.md', score: 0.9 }];
+            const mockPromise = Promise.resolve(mockNotes);
+            sc.getRelatedNotes.mockReturnValue(mockPromise);
+
+            const [res1, res2] = await Promise.all([
+                adapter.getRelatedNotes('note', 5),
+                adapter.getRelatedNotes('note', 5),
+            ]);
+
+            expect(sc.getRelatedNotes).toHaveBeenCalledTimes(1);
+            expect(res1).toEqual(mockNotes);
+            expect(res2).toEqual(mockNotes);
+        });
     });
 });
