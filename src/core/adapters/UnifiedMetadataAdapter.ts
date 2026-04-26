@@ -227,6 +227,10 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
                 HealerLogger.error(`[UnifiedMetadataAdapter] ${name}.destroy() failed`, e);
             }
         }
+
+        // Cleanup: clear any pending coalesced promises to avoid leaks in hot-reload / test suites
+        this.inFlightMap.clear();
+
         HealerLogger.debug('UnifiedMetadataAdapter destroyed.');
     }
 }
