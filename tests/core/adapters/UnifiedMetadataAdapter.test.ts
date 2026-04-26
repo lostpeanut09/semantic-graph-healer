@@ -129,6 +129,24 @@ describe('UnifiedMetadataAdapter Hardening', () => {
         expect(datacore.getPage).toHaveBeenCalledTimes(2);
     });
 
+    it('should not cache null hierarchy results — second call after data becomes available should hit adapter again', async () => {
+        const bc = (adapter as any).breadcrumbs;
+        const mockNode = { parents: [], children: [], siblings: [], next: [], prev: [] };
+
+        // First call returns null (simulating transient miss)
+        bc.getHierarchy.mockResolvedValueOnce(null);
+        let res1 = await adapter.getHierarchy('test.md');
+        expect(res1).toBeNull();
+        expect(bc.getHierarchy).toHaveBeenCalledTimes(1);
+
+        // Second call — adapter now returns a hierarchy
+        bc.getHierarchy.mockResolvedValueOnce(mockNode);
+        let res2 = await adapter.getHierarchy('test.md');
+        expect(res2).toEqual(mockNode);
+        // Should have called adapter twice because null was not cached
+        expect(bc.getHierarchy).toHaveBeenCalledTimes(2);
+    });
+
     it('should be resilient to sub-adapter failures (safeExecute)', () => {
         const datacore = (adapter as any).datacore;
         datacore.getBacklinks.mockImplementation(() => {

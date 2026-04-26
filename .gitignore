@@ -35,5 +35,7 @@ tsconfig.tsbuildinfo
 lint_output.txt
 
 # GSD & Planning (Agentic Workflow)
-# .planning/ is tracked in git for GSD state persistence
+# Local-only workflow artifacts (not committed)
+.planning/
+docs/plans/
 .agent/
