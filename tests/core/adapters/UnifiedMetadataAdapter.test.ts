@@ -300,10 +300,45 @@ describe('UnifiedMetadataAdapter Hardening', () => {
             resolveHierarchy({ parents: [], children: [], siblings: [], next: [], prev: [] });
 
             const result = await resultPromise;
+
+            // Result should still be the resolved value (adapter call already happened)
             expect(result).toEqual({ parents: [], children: [], siblings: [], next: [], prev: [] });
 
             // Cache set should not have been called because destroy happened before write-back
             expect(setSpy).not.toHaveBeenCalled();
+        });
+
+        it('getPage after destroy returns null without touching adapter or cache', () => {
+            const datacore = (adapter as any).datacore;
+            datacore.getPage.mockReturnValue({ file: { path: 'test.md' } });
+
+            adapter.destroy();
+
+            const result = adapter.getPage('test.md');
+            expect(result).toBeNull();
+            expect(datacore.getPage).not.toHaveBeenCalled();
+        });
+
+        it('getHierarchy after destroy returns null without invoking breadcrumbs', async () => {
+            const bc = (adapter as any).breadcrumbs;
+            bc.getHierarchy.mockResolvedValue({ parents: [], children: [], siblings: [], next: [], prev: [] });
+
+            adapter.destroy();
+
+            const result = await adapter.getHierarchy('test.md');
+            expect(result).toBeNull();
+            expect(bc.getHierarchy).not.toHaveBeenCalled();
+        });
+
+        it('getRelatedNotes after destroy returns [] without invoking smartConnections', async () => {
+            const sc = (adapter as any).smartConnections;
+            sc.getRelatedNotes.mockResolvedValue([{ path: 'related.md', score: 0.9 }]);
+
+            adapter.destroy();
+
+            const result = await adapter.getRelatedNotes('test.md', 5);
+            expect(result).toEqual([]);
+            expect(sc.getRelatedNotes).not.toHaveBeenCalled();
         });
     });
 });

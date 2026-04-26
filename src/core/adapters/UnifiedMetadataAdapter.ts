@@ -10,25 +10,15 @@ import { DataviewApi, DataviewPage, HierarchyNode, RelatedNote, SemanticGraphHea
 import { StructuralCache } from '../StructuralCache';
 import { HealerLogger, normalizeVaultPath } from '../HealerUtils';
 
-/**
- * UnifiedMetadataAdapter
- * Implements the Unified interface by delegating to specialized adapters
- * and wrapping them in a high-performance LRU cache.
- *
- * Propagates system settings and lifecycle signals
- * down to specialized adapters.
- */
 export class UnifiedMetadataAdapter implements IMetadataAdapter {
     private datacore: IDataviewPort;
     private breadcrumbs: IBreadcrumbsPort;
     private smartConnections: ISmartConnectionsPort;
 
-    // Phase 4: Performance Layer
     private pageCache: StructuralCache<DataviewPage | null>;
     private hierarchyCache: StructuralCache<HierarchyNode | null>;
-    private relatedNotesCache: StructuralCache<RelatedNote[]>; // Phase 2 Hardening
+    private relatedNotesCache: StructuralCache<RelatedNote[]>;
 
-    // Phase 2b: Cache stampede protection
     private inFlightMap = new Map<string, Promise<unknown>>();
     private _isDestroyed = false;
 
@@ -42,7 +32,6 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
         } = {},
         options: { maxNodes?: number; ttlMs?: number } = {},
     ) {
-        // Dependency injection with fallback to concrete adapters for backward compatibility / tests
         this.datacore =
             dependencies.datacore ??
             new DatacoreAdapter(
@@ -53,21 +42,14 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
         this.breadcrumbs = dependencies.breadcrumbs ?? new BreadcrumbsAdapter(this.app);
         this.smartConnections = dependencies.smartConnections ?? new SmartConnectionsAdapter(this.app);
 
-        // Initialize Performance Caches
         this.pageCache = new StructuralCache<DataviewPage | null>(this.app, options);
         this.hierarchyCache = new StructuralCache<HierarchyNode | null>(this.app, options);
-
-        // Related notes are short-lived to reflect embedding updates (2 min TTL)
         this.relatedNotesCache = new StructuralCache<RelatedNote[]>(this.app, {
             ...options,
             ttlMs: 120000,
         });
     }
 
-    /**
-     * Resiliency Wrapper: Protects the system from unhandled exceptions
-     * in third-party plugin adapters.
-     */
     private safeExecute<T>(fn: () => T, fallback: T, context: string): T {
         try {
             return fn();
@@ -86,10 +68,6 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
         }
     }
 
-    /**
-     * Cache stampede protection: coalesces concurrent requests for the same key
-     * into a single in-flight promise, avoiding duplicate expensive operations.
-     */
     private async withCoalescing<T>(key: string, factory: () => Promise<T>): Promise<T> {
         const existing = this.inFlightMap.get(key);
         if (existing) return existing as Promise<T>;
@@ -109,16 +87,18 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
     }
 
     getPage(path: string): DataviewPage | null {
+        if (this._isDestroyed) {
+            HealerLogger.debug(`getPage(${path}) called after destroy — skipped`);
+            return null;
+        }
         const key = this.normalizeCacheKey(path, path);
         const cached = this.pageCache.get(key);
         if (cached !== undefined) return cached;
 
         const page = this.safeExecute(() => this.datacore.getPage(key), null, `getPage(${key})`);
 
-        // FIX: avoid caching null to prevent staleness when adapter becomes ready later
         if (page === null) return null;
 
-        // Guard: do not write to cache if destroyed (prevent write-back on destroyed StructuralCache)
         if (!this._isDestroyed) {
             this.pageCache.set(key, page);
         }
@@ -149,6 +129,10 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
     }
 
     async getHierarchy(path: string): Promise<HierarchyNode | null> {
+        if (this._isDestroyed) {
+            HealerLogger.debug(`getHierarchy(${path}) called after destroy — skipped`);
+            return null;
+        }
         const key = this.normalizeCacheKey(path, path);
         const cached = this.hierarchyCache.get(key);
         if (cached !== undefined) return cached;
@@ -159,11 +143,9 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
                 null,
                 `getHierarchy(${key})`,
             );
-            if (hierarchy !== null) {
-                // Guard: do not write to cache if destroyed
-                if (!this._isDestroyed) {
-                    this.hierarchyCache.set(key, hierarchy);
-                }
+            // Write to cache only if adapter is still alive
+            if (hierarchy !== null && !this._isDestroyed) {
+                this.hierarchyCache.set(key, hierarchy);
             }
             return hierarchy;
         });
@@ -172,7 +154,10 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
     }
 
     async getRelatedNotes(path: string, limit: number): Promise<RelatedNote[]> {
-        // Normalize path once and use consistently for both cache-key and adapter call
+        if (this._isDestroyed) {
+            HealerLogger.debug(`getRelatedNotes(${path}) called after destroy — skipped`);
+            return [];
+        }
         const keyPath = this.normalizeCacheKey(path, path);
         const key = `${keyPath}|limit=${limit}`;
         const cached = this.relatedNotesCache.get(key);
@@ -184,7 +169,7 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
                 [],
                 `getRelatedNotes(${keyPath})`,
             );
-            // Cache always (related notes never null — empty array on miss)
+            // Write to cache only if adapter is still alive
             if (!this._isDestroyed) {
                 this.relatedNotesCache.set(key, related);
             }
@@ -198,24 +183,21 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
         const key = path ? this.normalizeCacheKey(path, path) : undefined;
         this.pageCache.invalidate(key);
         this.hierarchyCache.invalidate(key);
-
-        // Related notes use composite keys, so we full-invalidate on specific path change
-        // to ensure semantic updates are picked up.
         this.relatedNotesCache.invalidate();
-
         this.datacore.invalidate(path);
         this.breadcrumbs.invalidate(path);
         this.smartConnections.invalidate(path);
     }
 
-    /**
-     * Explicit cleanup for hot-reload and shutdown cycles.
-     */
-    public destroy(): void {
-        // Mark as destroyed first — prevents any further cache writes from coalesced promises
-        this._isDestroyed = true;
+    public updateSettings(newSettings: SemanticGraphHealerSettings): void {
+        this.settings = newSettings;
+        this.invalidate();
+    }
 
-        // Isola distruzione cache — se una lancia, procedi comunque con le altre e coi sub-adapter
+    public destroy(): void {
+        this._isDestroyed = true;
+        this.inFlightMap.clear();
+
         const destroyCache = (name: string, cache: { destroy?: () => void } | undefined): void => {
             try {
                 cache?.destroy?.();
@@ -239,9 +221,6 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
                 HealerLogger.error(`[UnifiedMetadataAdapter] ${name}.destroy() failed`, e);
             }
         }
-
-        // Cleanup: clear any pending coalesced promises to avoid leaks in hot-reload / test suites
-        this.inFlightMap.clear();
 
         HealerLogger.debug('UnifiedMetadataAdapter destroyed.');
     }

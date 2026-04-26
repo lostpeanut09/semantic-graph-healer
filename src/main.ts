@@ -1192,7 +1192,7 @@ export default class SemanticGraphHealer extends Plugin {
      * P1 — Called automatically by Obsidian when settings change.
      * Propagates new settings to engine (hot-reload without full plugin reload).
      */
-    protected async onSettingsChanged(): Promise<void> {
+    protected onSettingsChanged(): void {
         if (this.engine && typeof this.engine.updateSettings === 'function') {
             this.engine.updateSettings(this.settings);
             this.logger.info('Settings propagated to metadata engine.');
