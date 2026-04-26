@@ -30,6 +30,7 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
 
     // Phase 2b: Cache stampede protection
     private inFlightMap = new Map<string, Promise<unknown>>();
+    private _isDestroyed = false;
 
     constructor(
         private app: App,
@@ -117,7 +118,10 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
         // FIX: avoid caching null to prevent staleness when adapter becomes ready later
         if (page === null) return null;
 
-        this.pageCache.set(key, page);
+        // Guard: do not write to cache if destroyed (prevent write-back on destroyed StructuralCache)
+        if (!this._isDestroyed) {
+            this.pageCache.set(key, page);
+        }
         return page;
     }
 
@@ -156,7 +160,10 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
                 `getHierarchy(${key})`,
             );
             if (hierarchy !== null) {
-                this.hierarchyCache.set(key, hierarchy);
+                // Guard: do not write to cache if destroyed
+                if (!this._isDestroyed) {
+                    this.hierarchyCache.set(key, hierarchy);
+                }
             }
             return hierarchy;
         });
@@ -178,7 +185,9 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
                 `getRelatedNotes(${keyPath})`,
             );
             // Cache always (related notes never null — empty array on miss)
-            this.relatedNotesCache.set(key, related);
+            if (!this._isDestroyed) {
+                this.relatedNotesCache.set(key, related);
+            }
             return related;
         });
 
@@ -203,6 +212,9 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
      * Explicit cleanup for hot-reload and shutdown cycles.
      */
     public destroy(): void {
+        // Mark as destroyed first — prevents any further cache writes from coalesced promises
+        this._isDestroyed = true;
+
         // Isola distruzione cache — se una lancia, procedi comunque con le altre e coi sub-adapter
         const destroyCache = (name: string, cache: { destroy?: () => void } | undefined): void => {
             try {
