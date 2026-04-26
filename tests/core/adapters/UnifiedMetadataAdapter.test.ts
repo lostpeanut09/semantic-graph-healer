@@ -277,4 +277,33 @@ describe('UnifiedMetadataAdapter Hardening', () => {
             expect(res2).toEqual(mockNotes);
         });
     });
+
+    describe('destroy() lifecycle guard', () => {
+        it('does not write to cache after destroy with pending coalesced promise', async () => {
+            const bc = (adapter as any).breadcrumbs;
+            const hierarchyCache = (adapter as any).hierarchyCache;
+            const setSpy = vi.spyOn(hierarchyCache, 'set');
+
+            let resolveHierarchy!: (v: any) => void;
+            const pendingPromise = new Promise((res) => {
+                resolveHierarchy = res;
+            });
+            bc.getHierarchy.mockReturnValue(pendingPromise);
+
+            // Start the call (coalescing begins, factory awaits breadcrumbs.getHierarchy)
+            const resultPromise = adapter.getHierarchy('a.md');
+
+            // Destroy before resolution — sets _isDestroyed = true and clears inFlightMap
+            adapter.destroy();
+
+            // Resolve the underlying promise
+            resolveHierarchy({ parents: [], children: [], siblings: [], next: [], prev: [] });
+
+            const result = await resultPromise;
+            expect(result).toEqual({ parents: [], children: [], siblings: [], next: [], prev: [] });
+
+            // Cache set should not have been called because destroy happened before write-back
+            expect(setSpy).not.toHaveBeenCalled();
+        });
+    });
 });
