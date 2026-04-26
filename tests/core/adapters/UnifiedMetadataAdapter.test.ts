@@ -236,10 +236,7 @@ describe('UnifiedMetadataAdapter Hardening', () => {
             bc.getHierarchy.mockReturnValue(mockPromise);
 
             // Concurrent calls with same key
-            const [res1, res2] = await Promise.all([
-                adapter.getHierarchy('note'),
-                adapter.getHierarchy('note'),
-            ]);
+            const [res1, res2] = await Promise.all([adapter.getHierarchy('note'), adapter.getHierarchy('note')]);
 
             expect(bc.getHierarchy).toHaveBeenCalledTimes(1);
             expect(res1).toBe(mockNode);
