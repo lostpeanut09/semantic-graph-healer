@@ -28,6 +28,9 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
     private hierarchyCache: StructuralCache<HierarchyNode | null>;
     private relatedNotesCache: StructuralCache<RelatedNote[]>; // Phase 2 Hardening
 
+    // Phase 2b: Cache stampede protection
+    private inFlightMap = new Map<string, Promise<unknown>>();
+
     constructor(
         private app: App,
         private settings: SemanticGraphHealerSettings,
@@ -82,6 +85,24 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
         }
     }
 
+    /**
+     * Cache stampede protection: coalesces concurrent requests for the same key
+     * into a single in-flight promise, avoiding duplicate expensive operations.
+     */
+    private async withCoalescing<T>(key: string, factory: () => Promise<T>): Promise<T> {
+        const existing = this.inFlightMap.get(key);
+        if (existing) return existing as Promise<T>;
+        const p = (async () => {
+            try {
+                return await factory();
+            } finally {
+                this.inFlightMap.delete(key);
+            }
+        })();
+        this.inFlightMap.set(key, p);
+        return p;
+    }
+
     private normalizeCacheKey(path: string, sourcePath = ''): string {
         return normalizeVaultPath(this.app, path, sourcePath);
     }
@@ -128,17 +149,19 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
         const cached = this.hierarchyCache.get(key);
         if (cached !== undefined) return cached;
 
-        const hierarchy = await this.safeExecuteAsync(
-            () => this.breadcrumbs.getHierarchy(key),
-            null,
-            `getHierarchy(${key})`,
-        );
+        const result = await this.withCoalescing(`hierarchy:${key}`, async () => {
+            const hierarchy = await this.safeExecuteAsync(
+                () => this.breadcrumbs.getHierarchy(key),
+                null,
+                `getHierarchy(${key})`,
+            );
+            if (hierarchy !== null) {
+                this.hierarchyCache.set(key, hierarchy);
+            }
+            return hierarchy;
+        });
 
-        // FIX: avoid caching null to prevent staleness when Breadcrumbs becomes ready
-        if (hierarchy === null) return null;
-
-        this.hierarchyCache.set(key, hierarchy);
-        return hierarchy;
+        return result;
     }
 
     async getRelatedNotes(path: string, limit: number): Promise<RelatedNote[]> {
@@ -148,15 +171,18 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
         const cached = this.relatedNotesCache.get(key);
         if (cached !== undefined) return cached;
 
-        // Pass normalized path to adapter to ensure consistency
-        const related = await this.safeExecuteAsync(
-            () => this.smartConnections.getRelatedNotes(keyPath, limit),
-            [],
-            `getRelatedNotes(${keyPath})`,
-        );
+        const result = await this.withCoalescing(`related:${key}`, async () => {
+            const related = await this.safeExecuteAsync(
+                () => this.smartConnections.getRelatedNotes(keyPath, limit),
+                [],
+                `getRelatedNotes(${keyPath})`,
+            );
+            // Cache always (related notes never null — empty array on miss)
+            this.relatedNotesCache.set(key, related);
+            return related;
+        });
 
-        this.relatedNotesCache.set(key, related);
-        return related;
+        return result;
     }
 
     invalidate(path?: string): void {

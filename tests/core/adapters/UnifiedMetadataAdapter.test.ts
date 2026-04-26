@@ -84,9 +84,14 @@ describe('UnifiedMetadataAdapter Hardening', () => {
             logLevel: 'info',
         };
 
-		adapter = new UnifiedMetadataAdapter(mockApp, mockSettings, {}, {
-			ttlMs: 10000,
-		});
+        adapter = new UnifiedMetadataAdapter(
+            mockApp,
+            mockSettings,
+            {},
+            {
+                ttlMs: 10000,
+            },
+        );
     });
 
     it('should return cached page on repeated calls', () => {
@@ -100,6 +105,24 @@ describe('UnifiedMetadataAdapter Hardening', () => {
         expect(res1).toBe(mockPage);
         expect(res2).toBe(mockPage);
         expect(datacore.getPage).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not cache null — second call after data becomes available should hit adapter again', () => {
+        const datacore = (adapter as any).datacore;
+        const mockPage = { file: { path: 'test.md' } };
+
+        // First call returns null (simulating transient miss)
+        datacore.getPage.mockReturnValueOnce(null);
+        let res1 = adapter.getPage('test.md');
+        expect(res1).toBeNull();
+        expect(datacore.getPage).toHaveBeenCalledTimes(1);
+
+        // Second call — adapter now returns a page
+        datacore.getPage.mockReturnValueOnce(mockPage);
+        let res2 = adapter.getPage('test.md');
+        expect(res2).toBe(mockPage);
+        // Should have called adapter twice because null was not cached
+        expect(datacore.getPage).toHaveBeenCalledTimes(2);
     });
 
     it('should be resilient to sub-adapter failures (safeExecute)', () => {
