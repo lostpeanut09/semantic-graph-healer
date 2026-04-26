@@ -1,21 +1,21 @@
 import { Plugin, Notice, WorkspaceLeaf, requestUrl, TFile } from 'obsidian';
 import {
-    DASHBOARD_VIEW_TYPE,
-    SemanticGraphHealerSettings,
-    DEFAULT_SETTINGS,
-    Suggestion,
-    HistoryItem,
-    SuggestionType,
-    InfraGap,
-    ExtendedApp,
+	DASHBOARD_VIEW_TYPE,
+	SemanticGraphHealerSettings,
+	DEFAULT_SETTINGS,
+	Suggestion,
+	HistoryItem,
+	SuggestionType,
+	InfraGap,
+	ExtendedApp,
 } from './types';
 import {
-    formatRagPrompt,
-    generateId,
-    sleep,
-    isThenable,
-    isObsidianInternalApp,
-    HealerLogger as LegacyLogger,
+	formatRagPrompt,
+	generateId,
+	sleep,
+	isThenable,
+	isObsidianInternalApp,
+	HealerLogger as LegacyLogger,
 } from './core/HealerUtils';
 import { HealerLogger as InstanceLogger } from './core/utils/HealerLogger';
 import { KeychainService } from './core/services/KeychainService';
@@ -25,6 +25,9 @@ import { TopologyAnalyzer } from './core/TopologyAnalyzer';
 import { QualityAnalyzer } from './core/QualityAnalyzer';
 import { LlmService } from './core/LlmService';
 import { UnifiedMetadataAdapter } from './core/adapters/UnifiedMetadataAdapter';
+import { DatacoreAdapter } from './core/adapters/DatacoreAdapter';
+import { BreadcrumbsAdapter } from './core/adapters/BreadcrumbsAdapter';
+import { SmartConnectionsAdapter } from './core/adapters/SmartConnectionsAdapter';
 import { SuggestionExecutor } from './core/SuggestionExecutor';
 import { ReasoningService } from './core/ReasoningService';
 import { QuarantineDashboardView, ReasoningView, REASONING_VIEW_TYPE } from './views/DashboardView';
@@ -53,24 +56,38 @@ export default class SemanticGraphHealer extends Plugin {
     private analysisDebounce = new Map<string, ReturnType<typeof setTimeout>>();
     private currentAnalysisController: AbortController | null = null;
 
-    async onload() {
-        this.cache = new CacheService(this);
-        await this.loadSettings();
+	async onload() {
+		this.cache = new CacheService(this);
+		await this.loadSettings();
 
-        // 1. Initialize Infrastructure & Services
-        this.logger = new InstanceLogger('SemanticGraphHealer', this, this.settings);
-        LegacyLogger.setInstance(this.logger);
-        this.logger.info('Semantic Graph Healer Phase 4 loading...');
+		// 1. Initialize Infrastructure & Services
+		this.logger = new InstanceLogger('SemanticGraphHealer', this, this.settings);
+		LegacyLogger.setInstance(this.logger);
+		this.logger.info('Semantic Graph Healer Phase 4 loading...');
 
-        this.keychainService = new KeychainService({
-            app: this.app,
-            settings: this.settings,
-            saveSettings: () => this.saveSettings(),
-        });
-        this.graphWorkerService = new GraphWorkerService(this.logger, this);
-        await this.graphWorkerService.initialize();
+		this.keychainService = new KeychainService({
+			app: this.app,
+			settings: this.settings,
+			saveSettings: () => this.saveSettings(),
+		});
+		this.graphWorkerService = new GraphWorkerService(this.logger, this);
+		await this.graphWorkerService.initialize();
 
-        this.engine = new UnifiedMetadataAdapter(this.app as ExtendedApp, this.settings);
+		// 1.5. Instantiate Adapters (Composition Root) — DIP: core depends on ports, not concrete classes
+		const datacore = new DatacoreAdapter(
+			this.app as ExtendedApp,
+			this.settings.logLevel === 'debug',
+			this.settings.pageChildrenCacheMaxSize ?? 500,
+		);
+		const breadcrumbs = new BreadcrumbsAdapter(this.app as ExtendedApp);
+		const smartConnections = new SmartConnectionsAdapter(this.app as ExtendedApp);
+
+		// 2. Initialize Core Engine with injected dependencies
+		this.engine = new UnifiedMetadataAdapter(this.app as ExtendedApp, this.settings, {
+			datacore,
+			breadcrumbs,
+			smartConnections,
+		});
         // Build execution context for SuggestionExecutor (break circular dep)
         const executorContext: ExecutionContext = {
             app: this.app,
@@ -124,16 +141,30 @@ export default class SemanticGraphHealer extends Plugin {
      * Sharing & Sync Integrity: React to external data.json changes (e.g. Obsidian Sync).
      * SOTA 2026 Resilience: Full hot-reload of all analytical dependencies.
      */
-    async onExternalSettingsChange() {
-        try {
-            this.logger.info('External settings change detected. Re-initializing engine...');
-            await this.loadSettings();
+	async onExternalSettingsChange() {
+		try {
+			this.logger.info('External settings change detected. Re-initializing engine...');
+			await this.loadSettings();
 
-            // 1. Hot Reload Infrastructure
-            if (this.engine) {
-                this.engine.destroy();
-            }
-            this.engine = new UnifiedMetadataAdapter(this.app as ExtendedApp, this.settings);
+			// 1. Hot Reload Infrastructure
+			if (this.engine) {
+				this.engine.destroy();
+			}
+
+			// Recreate adapters with new settings and inject
+			const datacore = new DatacoreAdapter(
+				this.app as ExtendedApp,
+				this.settings.logLevel === 'debug',
+				this.settings.pageChildrenCacheMaxSize ?? 500,
+			);
+			const breadcrumbs = new BreadcrumbsAdapter(this.app as ExtendedApp);
+			const smartConnections = new SmartConnectionsAdapter(this.app as ExtendedApp);
+
+			this.engine = new UnifiedMetadataAdapter(this.app as ExtendedApp, this.settings, {
+				datacore,
+				breadcrumbs,
+				smartConnections,
+			});
 
             // 2. Hot Reload Logic Services
             this.llm = new LlmService(this.settings, (type) => this.getApiKey(type));

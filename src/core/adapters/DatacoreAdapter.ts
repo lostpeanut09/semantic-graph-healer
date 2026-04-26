@@ -11,7 +11,7 @@ import {
     DatacoreApi,
     DataviewLink,
 } from '../../types';
-import { HealerLogger, isObsidianInternalApp } from '../HealerUtils';
+import { HealerLogger, isObsidianInternalApp, normalizeVaultPath } from '../HealerUtils';
 
 /**
  * DatacoreLink internal interface for native Datacore link objects.
@@ -211,6 +211,17 @@ class BoundedMap<K, V> extends Map<K, V> {
     constructor(private maxSize: number) {
         super();
     }
+
+    get(key: K): V | undefined {
+        const value = super.get(key);
+        if (value !== undefined) {
+            // Touch-on-get: move key to end (most-recently used) to implement LRU-like eviction
+            super.delete(key);
+            super.set(key, value);
+        }
+        return value;
+    }
+
     set(key: K, value: V): this {
         if (this.size >= this.maxSize && !this.has(key)) {
             const first = this.keys().next().value as K | undefined;
@@ -444,22 +455,8 @@ export class DatacoreAdapter implements IMetadataAdapter, IDataviewPort {
         return idx;
     }
 
-    /**
-     * Normalizes a vault path to absolute form for reliable lookup.
-     */
-    private normalizeVaultPath(path: string, sourcePath = ''): string {
-        // Extract linkpath, discard subpath (heading/block)
-        const { path: linkpath } = parseLinktext(path);
-
-        const file = this.app.vault.getAbstractFileByPath(linkpath);
-        if (file instanceof TFile) return file.path;
-
-        const resolved = this.app.metadataCache.getFirstLinkpathDest(linkpath, sourcePath);
-        return resolved?.path ?? linkpath;
-    }
-
     public getBacklinks(targetPath: string): string[] {
-        const normalized = this.normalizeVaultPath(targetPath);
+        const normalized = normalizeVaultPath(this.app, targetPath);
         if (!this.backlinkIndex) {
             this.backlinkIndex = this.buildBacklinkIndex();
         }

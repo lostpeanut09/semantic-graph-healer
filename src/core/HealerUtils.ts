@@ -1,4 +1,4 @@
-import { App, TFile } from 'obsidian';
+import { App, TFile, parseLinktext } from 'obsidian';
 import { ObsidianInternalApp } from '../types';
 
 /**
@@ -91,11 +91,23 @@ function uuidFallbackV4(): string {
  * SOTA ID Generator (RFC 4122 UUID) with fallback.
  */
 export function generateId(prefix: string): string {
-    const cryptoObj = globalThis.crypto as unknown as {
-        randomUUID?: () => string;
-    };
-    const uuid = cryptoObj?.randomUUID?.() || uuidFallbackV4();
-    return `${prefix}_${uuid}`;
+	const cryptoObj = globalThis.crypto as unknown as {
+		randomUUID?: () => string;
+	};
+	const uuid = cryptoObj?.randomUUID?.() || uuidFallbackV4();
+	return `${prefix}_${uuid}`;
+}
+
+/**
+ * Normalizes a vault path string to its absolute, resolved form.
+ * Follows Obsidian best practice (parseLinktext + vault + metadataCache).
+ */
+export function normalizeVaultPath(app: App, path: string, sourcePath = ''): string {
+	const { path: linkpath } = parseLinktext(path);
+	const file = app.vault.getAbstractFileByPath(linkpath);
+	if (file instanceof TFile) return file.path;
+	const resolved = app.metadataCache.getFirstLinkpathDest(linkpath, sourcePath);
+	return resolved?.path ?? linkpath;
 }
 
 /**
