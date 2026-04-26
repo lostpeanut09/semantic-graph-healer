@@ -1,4 +1,4 @@
-import { App, TFile, parseLinktext } from 'obsidian';
+import { App } from 'obsidian';
 import type { IMetadataAdapter } from './IMetadataAdapter';
 import { DatacoreAdapter } from './DatacoreAdapter';
 import { BreadcrumbsAdapter } from './BreadcrumbsAdapter';

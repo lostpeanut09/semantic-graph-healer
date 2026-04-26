@@ -2,14 +2,18 @@
 
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../../src/core/HealerUtils', () => ({
-    HealerLogger: {
-        warn: vi.fn(),
-        error: vi.fn(),
-        debug: vi.fn(),
-    },
-    isObsidianInternalApp: vi.fn(() => true),
-}));
+vi.mock('../../../src/core/HealerUtils', async () => {
+    const actual = await vi.importActual('../../../src/core/HealerUtils');
+    return {
+        ...actual,
+        HealerLogger: {
+            warn: vi.fn(),
+            error: vi.fn(),
+            debug: vi.fn(),
+        },
+        isObsidianInternalApp: vi.fn(() => true),
+    };
+});
 
 vi.mock('obsidian', () => ({
     App: class MockApp {},
