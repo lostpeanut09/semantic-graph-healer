@@ -1,13 +1,6 @@
 import { App, TFile, parseLinktext } from 'obsidian';
 import type { IDataviewPort } from '../ports/IDataviewPort';
-import {
-    DataviewApi,
-    DataviewPage,
-    MarkdownPage,
-    ExtendedApp,
-    DatacoreApi,
-    DataviewLink,
-} from '../../types';
+import { DataviewApi, DataviewPage, MarkdownPage, ExtendedApp, DatacoreApi, DataviewLink } from '../../types';
 import { HealerLogger, isObsidianInternalApp, normalizeVaultPath } from '../HealerUtils';
 
 import { BoundedMap } from '../utils/BoundedMap';
