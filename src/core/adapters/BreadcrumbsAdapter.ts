@@ -1,7 +1,7 @@
 import { App } from 'obsidian';
 import type { MultiGraph } from 'graphology';
 import type { IBreadcrumbsPort } from '../ports/IBreadcrumbsPort';
-import { BreadcrumbsApi, DataviewApi, DataviewPage, HierarchyNode, RelatedNote, BCDirection } from '../../types';
+import { BreadcrumbsApi, HierarchyNode, BCDirection } from '../../types';
 import { HealerLogger, isObsidianInternalApp, normalizeVaultPath } from '../HealerUtils';
 
 /**

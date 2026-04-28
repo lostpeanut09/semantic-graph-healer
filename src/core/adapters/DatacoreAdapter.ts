@@ -1,11 +1,9 @@
-import { App, EventRef, TAbstractFile, TFile, parseLinktext } from 'obsidian';
+import { App, TFile, parseLinktext } from 'obsidian';
 import type { IDataviewPort } from '../ports/IDataviewPort';
 import {
     DataviewApi,
     DataviewPage,
-    HierarchyNode,
     MarkdownPage,
-    RelatedNote,
     ExtendedApp,
     DatacoreApi,
     DataviewLink,
