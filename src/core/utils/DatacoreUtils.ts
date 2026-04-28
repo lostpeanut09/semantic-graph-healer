@@ -1,4 +1,3 @@
-
 /**
  * DatacoreLink internal interface for native Datacore link objects.
  */
