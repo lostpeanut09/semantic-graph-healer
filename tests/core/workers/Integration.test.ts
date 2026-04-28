@@ -1,62 +1,62 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { GraphWorkerService } from '../../../src/core/services/GraphWorkerService';
-import { HealerLogger } from '../../../src/core/utils/HealerLogger';
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { GraphWorkerService } from "../../../src/core/services/GraphWorkerService";
+import { HealerLogger } from "../../../src/core/utils/HealerLogger";
 
 // We use a custom MockWorker instead of @vitest/web-worker due to NodeJS blob URL limitations (`blob:nodedata:`).
 
-describe('GraphWorkerService Integration (Real Worker)', () => {
-    let service: GraphWorkerService;
-    let mockLogger: any;
-    let mockPlugin: any;
+describe("GraphWorkerService Integration (Real Worker)", () => {
+  let service: GraphWorkerService;
+  let mockLogger: any;
+  let mockPlugin: any;
 
-    beforeEach(() => {
-        class MockWorker {
-            onmessage: ((e: MessageEvent) => void) | null = null;
-            onerror: ((e: ErrorEvent) => void) | null = null;
-            postMessage(msg: any) {
-                setTimeout(() => {
-                    const { type, payload } = msg;
-                    const requestId = payload?.requestId;
-                    if (!payload.nodes || !Array.isArray(payload.nodes)) {
-                        this.onmessage?.({
-                            data: {
-                                type: 'ERROR',
-                                payload: {
-                                    requestId,
-                                    message: 'Invalid payload: nodes required',
-                                },
-                            },
-                        } as MessageEvent);
-                        return;
-                    }
-                    if (type === 'PAGERANK') {
-                        const results: any = {};
-                        payload.nodes.forEach((n: any) => (results[n.key] = 0.5));
-                        this.onmessage?.({
-                            data: { type: 'RESULT', payload: { requestId, data: results } },
-                        } as MessageEvent);
-                    }
-                }, 10);
-            }
-            terminate() {}
-        }
-        vi.stubGlobal('Worker', MockWorker);
+  beforeEach(() => {
+    class MockWorker {
+      onmessage: ((e: MessageEvent) => void) | null = null;
+      onerror: ((e: ErrorEvent) => void) | null = null;
+      postMessage(msg: any) {
+        setTimeout(() => {
+          const { type, payload } = msg;
+          const requestId = payload?.requestId;
+          if (!payload.nodes || !Array.isArray(payload.nodes)) {
+            this.onmessage?.({
+              data: {
+                type: "ERROR",
+                payload: {
+                  requestId,
+                  message: "Invalid payload: nodes required",
+                },
+              },
+            } as MessageEvent);
+            return;
+          }
+          if (type === "PAGERANK") {
+            const results: any = {};
+            payload.nodes.forEach((n: any) => (results[n.key] = 0.5));
+            this.onmessage?.({
+              data: { type: "RESULT", payload: { requestId, data: results } },
+            } as MessageEvent);
+          }
+        }, 10);
+      }
+      terminate() {}
+    }
+    vi.stubGlobal("Worker", MockWorker);
 
-        mockLogger = {
-            info: vi.fn(),
-            warn: vi.fn(),
-            error: vi.fn(),
-            debug: vi.fn(),
-        };
+    mockLogger = {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+    };
 
-        mockPlugin = {
-            manifest: { dir: 'plugin-dir' },
-            settings: { workerTimeout: 5 },
-            app: {
-                vault: {
-                    adapter: {
-                        // Mock the worker code - we point to a minimal version that uses our core logic
-                        read: vi.fn().mockResolvedValue(`
+    mockPlugin = {
+      manifest: { dir: "plugin-dir" },
+      settings: { workerTimeout: 5 },
+      app: {
+        vault: {
+          adapter: {
+            // Mock the worker code - we point to a minimal version that uses our core logic
+            read: vi.fn().mockResolvedValue(`
                         self.onmessage = (e) => {
                             const { type, payload } = e.data;
                             const requestId = payload.requestId;
@@ -80,71 +80,77 @@ describe('GraphWorkerService Integration (Real Worker)', () => {
                             }
                         };
                     `),
-                    },
-                },
-            },
-        };
+          },
+        },
+      },
+    };
 
-        service = new GraphWorkerService(mockLogger, mockPlugin);
-    });
+    service = new GraphWorkerService(mockLogger, mockPlugin);
+  });
 
-    it('should successfully run a PageRank analysis in a real background thread', async () => {
-        // Note: In Vitest environment, we might need a direct string or a real file path
-        // For this integration test, we'll assume the environment can handle the mock read.
+  it("should successfully run a PageRank analysis in a real background thread", async () => {
+    // Note: In Vitest environment, we might need a direct string or a real file path
+    // For this integration test, we'll assume the environment can handle the mock read.
 
-        // We actually need to initialize the worker. Since we mocked the read, it should work.
-        await service.initialize();
+    // We actually need to initialize the worker. Since we mocked the read, it should work.
+    await service.initialize();
 
-        const nodes = [
-            { key: 'A', attributes: {} },
-            { key: 'B', attributes: {} },
-        ];
-        const edges = [{ source: 'A', target: 'B', attributes: {} }];
+    const nodes = [
+      { key: "A", attributes: {} },
+      { key: "B", attributes: {} },
+    ];
+    const edges = [{ source: "A", target: "B", attributes: {} }];
 
-        const result = await service.runAnalysis<Record<string, number>>('PAGERANK', nodes, edges);
+    const result = await service.runAnalysis<Record<string, number>>(
+      "PAGERANK",
+      nodes,
+      edges,
+    );
 
-        expect(result).toBeDefined();
-        expect(result['A']).toBeGreaterThan(0);
+    expect(result).toBeDefined();
+    expect(result["A"]).toBeGreaterThan(0);
 
-        service.terminate();
-    });
+    service.terminate();
+  });
 
-    it('should fail if Zod validation rejects the message', async () => {
-        await service.initialize();
-        // Send invalid nodes (null) to trigger Zod error in the worker
-        const nodes = null as any;
-        const edges: Array<{
-            source: string;
-            target: string;
-            attributes: Record<string, unknown>;
-        }> = [];
+  it("should fail if Zod validation rejects the message", async () => {
+    await service.initialize();
+    // Send invalid nodes (null) to trigger Zod error in the worker
+    const nodes = null as any;
+    const edges: Array<{
+      source: string;
+      target: string;
+      attributes: Record<string, unknown>;
+    }> = [];
 
-        await expect(service.runAnalysis('PAGERANK', nodes, edges)).rejects.toThrow();
+    await expect(
+      service.runAnalysis("PAGERANK", nodes, edges),
+    ).rejects.toThrow();
 
-        service.terminate();
-    });
+    service.terminate();
+  });
 
-    it('should process requests sequentially using p-queue', async () => {
-        await service.initialize();
+  it("should process requests sequentially using p-queue", async () => {
+    await service.initialize();
 
-        const nodes = [{ key: 'A', attributes: {} }];
-        const edges: Array<{
-            source: string;
-            target: string;
-            attributes: Record<string, unknown>;
-        }> = [];
+    const nodes = [{ key: "A", attributes: {} }];
+    const edges: Array<{
+      source: string;
+      target: string;
+      attributes: Record<string, unknown>;
+    }> = [];
 
-        // Launch two analyses simultaneously
-        const p1 = service.runAnalysis('PAGERANK', nodes, edges);
-        const p2 = service.runAnalysis('PAGERANK', nodes, edges);
+    // Launch two analyses simultaneously
+    const p1 = service.runAnalysis("PAGERANK", nodes, edges);
+    const p2 = service.runAnalysis("PAGERANK", nodes, edges);
 
-        const results = await Promise.all([p1, p2]);
+    const results = await Promise.all([p1, p2]);
 
-        expect(results.length).toBe(2);
-        // p-queue logic is internal, but if it didn't work,
-        // the singleton worker might get confused or race.
-        // Successful completion of both implies the service handled the flow.
+    expect(results.length).toBe(2);
+    // p-queue logic is internal, but if it didn't work,
+    // the singleton worker might get confused or race.
+    // Successful completion of both implies the service handled the flow.
 
-        service.terminate();
-    });
+    service.terminate();
+  });
 });
