@@ -3,6 +3,9 @@ import type { IMetadataAdapter } from './IMetadataAdapter';
 import { DatacoreAdapter } from './DatacoreAdapter';
 import { BreadcrumbsAdapter } from './BreadcrumbsAdapter';
 import { SmartConnectionsAdapter } from './SmartConnectionsAdapter';
+import { NativeVaultAdapter } from './NativeVaultAdapter';
+import { BaseAdapter } from './BaseAdapter';
+import { SemanticLinkEdge } from './types';
 import type { IDataviewPort } from '../ports/IDataviewPort';
 import type { IBreadcrumbsPort } from '../ports/IBreadcrumbsPort';
 import type { ISmartConnectionsPort } from '../ports/ISmartConnectionsPort';
@@ -11,9 +14,10 @@ import { StructuralCache } from '../StructuralCache';
 import { HealerLogger, normalizeVaultPath } from '../HealerUtils';
 
 export class UnifiedMetadataAdapter implements IMetadataAdapter {
-    private datacore: IDataviewPort;
-    private breadcrumbs: IBreadcrumbsPort;
-    private smartConnections: ISmartConnectionsPort;
+    private datacore: DatacoreAdapter;
+    private breadcrumbs: BreadcrumbsAdapter;
+    private smartConnections: SmartConnectionsAdapter;
+    private nativeVault: NativeVaultAdapter;
 
     private pageCache: StructuralCache<DataviewPage | null>;
     private hierarchyCache: StructuralCache<HierarchyNode | null>;
@@ -26,21 +30,20 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
         private app: App,
         private settings: SemanticGraphHealerSettings,
         dependencies: {
-            datacore?: IDataviewPort;
-            breadcrumbs?: IBreadcrumbsPort;
-            smartConnections?: ISmartConnectionsPort;
+            datacore?: DatacoreAdapter;
+            breadcrumbs?: BreadcrumbsAdapter;
+            smartConnections?: SmartConnectionsAdapter;
+            nativeVault?: NativeVaultAdapter;
         } = {},
         options: { maxNodes?: number; ttlMs?: number } = {},
     ) {
+        const debug = this.settings.logLevel === 'debug';
         this.datacore =
             dependencies.datacore ??
-            new DatacoreAdapter(
-                this.app,
-                this.settings.logLevel === 'debug',
-                this.settings.pageChildrenCacheMaxSize ?? 500,
-            );
-        this.breadcrumbs = dependencies.breadcrumbs ?? new BreadcrumbsAdapter(this.app);
-        this.smartConnections = dependencies.smartConnections ?? new SmartConnectionsAdapter(this.app);
+            new DatacoreAdapter(this.app, debug, this.settings.pageChildrenCacheMaxSize ?? 500);
+        this.breadcrumbs = dependencies.breadcrumbs ?? new BreadcrumbsAdapter(this.app, debug);
+        this.smartConnections = dependencies.smartConnections ?? new SmartConnectionsAdapter(this.app, debug);
+        this.nativeVault = dependencies.nativeVault ?? new NativeVaultAdapter(this.app, debug);
 
         this.pageCache = new StructuralCache<DataviewPage | null>(this.app, options);
         this.hierarchyCache = new StructuralCache<HierarchyNode | null>(this.app, options);
@@ -48,6 +51,30 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
             ...options,
             ttlMs: 120000,
         });
+    }
+
+    public isAvailable(): boolean {
+        return !this._isDestroyed;
+    }
+
+    public async getLinks(): Promise<SemanticLinkEdge[]> {
+        const allEdges: SemanticLinkEdge[] = [];
+
+        // Aggregate from all available adapters
+        const adapters = [this.datacore, this.breadcrumbs, this.smartConnections, this.nativeVault];
+
+        for (const adapter of adapters) {
+            if (adapter.isAvailable()) {
+                try {
+                    const links = await adapter.getLinks();
+                    allEdges.push(...links);
+                } catch (e) {
+                    HealerLogger.error(`UnifiedMetadataAdapter: Failed to get links from ${adapter.constructor.name}`, e);
+                }
+            }
+        }
+
+        return allEdges;
     }
 
     private safeExecute<T>(fn: () => T, fallback: T, context: string): T {
@@ -216,6 +243,7 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
             ['datacore', this.datacore],
             ['breadcrumbs', this.breadcrumbs],
             ['smartConnections', this.smartConnections],
+            ['nativeVault', this.nativeVault],
         ] as const) {
             try {
                 adapter.destroy?.();

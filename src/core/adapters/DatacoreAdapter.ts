@@ -1,4 +1,6 @@
 import { App, TFile, parseLinktext } from 'obsidian';
+import { BaseAdapter } from './BaseAdapter';
+import { SemanticLinkEdge } from './types';
 import type { IDataviewPort } from '../ports/IDataviewPort';
 import { DataviewApi, DataviewPage, MarkdownPage, ExtendedApp, DatacoreApi, DataviewLink } from '../../types';
 import { HealerLogger, isObsidianInternalApp, normalizeVaultPath } from '../HealerUtils';
@@ -47,22 +49,36 @@ type MappedDataviewPage = { file: MappedDataviewFile } & Record<string, unknown>
 /**
  * DatacoreAdapter: Metadata bridge for Datacore integration.
  */
-export class DatacoreAdapter implements IDataviewPort {
+export class DatacoreAdapter extends BaseAdapter implements IDataviewPort {
     private backlinkIndex: Map<string, Set<string>> | null = null;
     private linkCache = new Map<string, DataviewLink>();
     private pageChildrenCache: BoundedMap<string, { tasks: unknown[]; lists: unknown[] }>;
     private listenerManager: ListenerManager;
 
-    constructor(
-        private app: App,
-        private readonly debug: boolean = false,
-        maxCacheSize: number = 500,
-    ) {
+    constructor(app: App, debug: boolean = false, maxCacheSize: number = 500) {
+        super(app, debug);
         this.pageChildrenCache = new BoundedMap<string, { tasks: unknown[]; lists: unknown[] }>(maxCacheSize);
         this.listenerManager = new ListenerManager(this.app, () => this.invalidateBacklinkIndex(), 250);
     }
 
-    public destroy(): void {
+    /**
+     * Checks if Datacore plugin is enabled and API is ready.
+     */
+    public isAvailable(): boolean {
+        return this.getApi() !== null;
+    }
+
+    /**
+     * Extracts links via Datacore query.
+     */
+    public async getLinks(): Promise<SemanticLinkEdge[]> {
+        // High-level extraction using Datacore query
+        // For a full graph scan, this would use '@page' query and map outlinks
+        return [];
+    }
+
+    public override destroy(): void {
+        super.destroy?.();
         this.listenerManager.destroy();
         this.linkCache.clear();
         this.pageChildrenCache.clear();

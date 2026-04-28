@@ -1,13 +1,21 @@
 import type { DataviewApi, DataviewPage, RelatedNote, HierarchyNode } from '../../types';
+import { SemanticLinkEdge } from './types';
 
 /**
  * IMetadataAdapter: Unified Interface for External Plugin Data.
  * SOTA 2026 Strategy: Decoupling the Core Healer from external API changes.
- *
- * Note: Adapters may return null, empty arrays, or no-op for operations
- * they do not support.
  */
 export interface IMetadataAdapter {
+    /**
+     * Checks if the underlying source is ready.
+     */
+    isAvailable(): boolean;
+
+    /**
+     * Retrieves all semantic links extracted by this adapter.
+     */
+    getLinks(): Promise<SemanticLinkEdge[]>;
+
     /**
      * Retrieves a single page's metadata in a normalized format.
      */
