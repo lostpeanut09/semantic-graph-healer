@@ -180,13 +180,15 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
     }
 
     invalidate(path?: string): void {
-        const key = path ? this.normalizeCacheKey(path, path) : undefined;
-        this.pageCache.invalidate(key);
-        this.hierarchyCache.invalidate(key);
+        const normalizedKey = path ? this.normalizeCacheKey(path, path) : undefined;
+        this.pageCache.invalidate(normalizedKey);
+        this.hierarchyCache.invalidate(normalizedKey);
         this.relatedNotesCache.invalidate();
-        this.datacore.invalidate(path);
-        this.breadcrumbs.invalidate(path);
-        this.smartConnections.invalidate(path);
+        // Adapter caches: use normalized key to prevent stale cache due to path format mismatches
+        const keyForAdapters = normalizedKey ?? path;
+        this.datacore.invalidate(keyForAdapters);
+        this.breadcrumbs.invalidate(keyForAdapters);
+        this.smartConnections.invalidate(keyForAdapters);
     }
 
     public updateSettings(newSettings: SemanticGraphHealerSettings): void {

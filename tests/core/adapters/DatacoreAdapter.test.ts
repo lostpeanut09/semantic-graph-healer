@@ -561,4 +561,20 @@ describe('DatacoreAdapter', () => {
             expect(map.get('b')).toEqual({ tasks: [2], lists: [] });
         });
     });
+
+    describe('backlink index normalization (Fix 2)', () => {
+        it('buildBacklinkIndex normalizes both source and target paths symmetrically with getBacklinks', () => {
+            // Simulate resolvedLinks with mixed-format keys (raw from Obsidian)
+            (metadataCache.resolvedLinks as Record<string, Record<string, number>>) = {
+                'src.md': { 'TARGET.MD': 1 },          // uppercase target
+                'folder/note.md': { 'folder/../folder/note.md': 2 },  // non-normalized target with ../
+            };
+
+            // Force rebuild (by default built on first getBacklinks)
+            const result = adapter.getBacklinks('TARGET.MD');
+
+            // Normalization should make the lookup succeed despite uppercase in index
+            expect(result).toContain('src.md');
+        });
+    });
 });

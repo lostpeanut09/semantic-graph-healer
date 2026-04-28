@@ -298,5 +298,60 @@ describe('SmartConnectionsAdapter', () => {
             expect(HealerLogger.warn).toHaveBeenCalledWith(expect.stringContaining('Processed 1 file(s)'));
             expect(HealerLogger.warn).toHaveBeenCalledWith(expect.stringContaining('folder/note.md'));
         });
+
+        it('returns SearchResult[] objects without link field (Fix 3 typing separation)', async () => {
+            const mockVault = mockApp.vault as any;
+            mockVault.adapter.exists = vi.fn().mockResolvedValue(true);
+            mockVault.adapter.stat = vi.fn().mockResolvedValue({ size: 100 });
+            mockVault.adapter.read = vi.fn().mockResolvedValue(
+                JSON.stringify({
+                    items: {
+                        'folder/other.md': { refs: ['folder/note.md'] },
+                    },
+                }),
+            );
+            mockVault.adapter.list = vi.fn().mockResolvedValue({ files: [], folders: [] });
+
+            const result = await (adapter as any).queryAjsonFallback('folder/note.md', 5);
+
+            expect(Array.isArray(result)).toBe(true);
+            expect(result.length).toBeGreaterThan(0);
+            // Each item must have path and optionally score, but NOT link
+            for (const item of result) {
+                expect(item).toHaveProperty('path');
+                expect(typeof item.path).toBe('string');
+                // link must be undefined (not present)
+                expect(item).not.toHaveProperty('link');
+            }
+        });
+
+        it('tolerates malformed JSON in .ajson file and continues to next fallback', async () => {
+            const mockVault = mockApp.vault as any;
+            // .json exists and is valid; .ajson exists but malformed
+            mockVault.adapter.exists = vi.fn((p: string) => {
+                return p.endsWith('.json') || p.endsWith('.ajson');
+            });
+            mockVault.adapter.stat = vi.fn().mockResolvedValue({ size: 100 });
+            mockVault.adapter.read = vi.fn(async (path: string) => {
+                if (path.endsWith('.json')) {
+                    return JSON.stringify({ items: { 'folder/other.md': { refs: ['folder/note.md'] } } });
+                }
+                if (path.endsWith('.ajson')) {
+                    return 'not valid json {{{{'; // malformed
+                }
+                return '{}';
+            });
+            mockVault.adapter.list = vi.fn().mockResolvedValue({ files: [], folders: [] });
+
+            const result = await (adapter as any).queryAjsonFallback('folder/note.md', 5);
+
+            // Should get results from the .json fallback despite .ajson failure
+            expect(result.length).toBeGreaterThan(0);
+            // Debug log should have been called for the malformed file
+            expect(HealerLogger.debug).toHaveBeenCalledWith(
+                expect.stringContaining('not valid JSON'),
+                expect.any(Error),
+            );
+        });
     });
 });

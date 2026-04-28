@@ -300,12 +300,33 @@ export class SmartConnectionsAdapter implements IMetadataAdapter, ISmartConnecti
             HealerLogger.error('SmartConnectionsAdapter: search pipeline failed for ' + normalizedSource, e);
         }
 
-        return this.queryAjsonFallback(normalizedSource, limit);
+        // Fallback returns SearchResult[]; convert to RelatedNote[]
+        const fallbackResults = await this.queryAjsonFallback(normalizedSource, limit);
+        const seen = new Set<string>();
+        return fallbackResults
+            .map((res) => {
+                const rawTarget = res.path ?? res.item?.path;
+                if (!rawTarget) return null;
+
+                const targetPath = normalizeVaultPath(this.app, rawTarget, normalizedSource);
+                if (!targetPath || targetPath === normalizedSource) return null;
+                if (seen.has(targetPath)) return null;
+                if (!(this.app.vault.getAbstractFileByPath(targetPath) instanceof TFile)) return null;
+
+                seen.add(targetPath);
+                return {
+                    path: targetPath,
+                    score: res.score ?? 0,
+                    link: pathToWikilink(this.app, targetPath, normalizedSource),
+                } satisfies RelatedNote;
+            })
+            .filter((x): x is RelatedNote => x !== null)
+            .slice(0, limit);
     }
 
-    private async queryAjsonFallback(sourcePath: string, limit: number): Promise<RelatedNote[]> {
+    private async queryAjsonFallback(sourcePath: string, limit: number): Promise<SearchResult[]> {
         const adapter = this.app.vault.adapter;
-        const suggestions: RelatedNote[] = [];
+        const results: SearchResult[] = [];
         const seen = new Set<string>();
 
         const singleFileFallbacks = ['.smart-env/smart_sources.json', '.smart-env/smart_sources.ajson'];
@@ -318,7 +339,6 @@ export class SmartConnectionsAdapter implements IMetadataAdapter, ISmartConnecti
                     const stat = await adapter.stat(singleFileFallback);
                     statSize = typeof stat?.size === 'number' ? stat.size : null;
                 } catch (e) {
-                    // stat può fallire per permessi/FS strano, ma read potrebbe ancora funzionare.
                     HealerLogger.debug?.(
                         `SmartConnectionsAdapter: stat() failed for ${singleFileFallback}, attempting read() anyway`,
                         e,
@@ -333,7 +353,19 @@ export class SmartConnectionsAdapter implements IMetadataAdapter, ISmartConnecti
                 }
 
                 const content = await adapter.read(singleFileFallback);
-                const data = JSON.parse(content) as Record<string, unknown>;
+
+                // TOLERANT PARSING: if .ajson is not valid JSON, don't abort entire fallback
+                let data: Record<string, unknown>;
+                try {
+                    data = JSON.parse(content) as Record<string, unknown>;
+                } catch (parseErr) {
+                    HealerLogger.debug?.(
+                        `SmartConnectionsAdapter: ${singleFileFallback} is not valid JSON, skipping JSON parse path`,
+                        parseErr,
+                    );
+                    // Continue to next fallback file instead of failing completely
+                    break;
+                }
 
                 // Se il file esiste ma contiene un oggetto/array vuoto, salta e prova il prossimo fallback
                 if (this.isEmptyCollection(data)) {
@@ -365,12 +397,12 @@ export class SmartConnectionsAdapter implements IMetadataAdapter, ISmartConnecti
                             if (seen.has(targetFile.path)) continue;
 
                             seen.add(targetFile.path);
-                            suggestions.push({
+                            // Return SearchResult (path + score), NOT RelatedNote (link will be built in getRelatedNotes)
+                            results.push({
                                 path: targetFile.path,
                                 score: 0.5,
-                                link: '[[' + this.app.metadataCache.fileToLinktext(targetFile, sourcePath, true) + ']]',
                             });
-                            if (suggestions.length >= limit) return suggestions;
+                            if (results.length >= limit) return results;
                         }
                     } catch (entryErr) {
                         HealerLogger.debug?.(
@@ -379,15 +411,14 @@ export class SmartConnectionsAdapter implements IMetadataAdapter, ISmartConnecti
                         );
                     }
                 }
-                // FIX: non uscire qui se suggestions è vuoto; lascia che il ciclo provi il prossimo file
-                if (suggestions.length >= limit) return suggestions;
+                // Non uscire qui se suggestions è vuoto; lascia che il ciclo provi il prossimo file
+                if (results.length >= limit) return results;
             } catch (e) {
                 HealerLogger.error('SmartConnectionsAdapter: failed reading ' + singleFileFallback, e);
             }
         }
 
-        // Best-effort heuristic looking for Smart Environment multi-indexes, which
-        // are undocumented and not formally guaranteed by the Smart Connections API.
+        // Best-effort heuristic looking for Smart Environment multi-indexes
         const envPaths = ['.smart-env/multi', '.smart-connections', '.smart-connections/multi'];
 
         for (const envPath of envPaths) {
@@ -395,14 +426,12 @@ export class SmartConnectionsAdapter implements IMetadataAdapter, ISmartConnecti
 
             try {
                 const files = await adapter.list(envPath);
-                const ajsonFiles = files.files.filter((f) => f.endsWith('.ajson')).slice(0, 200); // Safety cap: avoid unbounded I/O on huge indexes
+                const ajsonFiles = files.files.filter((f) => f.endsWith('.ajson')).slice(0, 200);
 
-                let anyFileProcessed = false; // track if at least one file was attempted (not all skipped)
+                let anyFileProcessed = false;
                 for (const f of ajsonFiles) {
-                    // Harden: ensure full vault-relative path for adapter.read()
                     const readPath = f.includes('/') ? f : `${envPath}/${f}`;
 
-                    // BOUND CHECK: evita spike memoria su singoli file AJSON molto grandi
                     try {
                         const fstat = await adapter.stat(readPath);
                         if (fstat && fstat.size > SmartConnectionsAdapter.MAX_FALLBACK_FILE_SIZE) {
@@ -415,7 +444,6 @@ export class SmartConnectionsAdapter implements IMetadataAdapter, ISmartConnecti
                         /* se stat fallisce, proviamo comunque a leggere */
                     }
 
-                    // Se arriviamo qui, il file viene tentato in lettura (non skippato per size)
                     anyFileProcessed = true;
 
                     const content = await adapter.read(readPath);
@@ -426,7 +454,6 @@ export class SmartConnectionsAdapter implements IMetadataAdapter, ISmartConnecti
                             .split('/')
                             .pop()
                             ?.replace(/\.ajson$/i, '')
-                            // SOTA 2026: Handle potential base64 or URL-encoded path segments in fallback
                             .replace(/--[a-zA-Z0-9+/=]+$/, '') ?? '';
                     if (!targetBase) continue;
 
@@ -436,17 +463,15 @@ export class SmartConnectionsAdapter implements IMetadataAdapter, ISmartConnecti
                     if (seen.has(targetFile.path)) continue;
 
                     seen.add(targetFile.path);
-                    suggestions.push({
+                    results.push({
                         path: targetFile.path,
                         score: 0.5,
-                        link: '[[' + this.app.metadataCache.fileToLinktext(targetFile, sourcePath, true) + ']]',
                     });
 
-                    if (suggestions.length >= limit) return suggestions;
+                    if (results.length >= limit) return results;
                 }
 
-                // Se abbiamo processato almeno un file (nessun skip totale) e suggestions è vuoto, logga warn
-                if (anyFileProcessed && suggestions.length === 0) {
+                if (anyFileProcessed && results.length === 0) {
                     HealerLogger.warn(
                         `[SmartConnections] Processed ${ajsonFiles.length} file(s) from ${envPath} but found no related notes for ${sourcePath}. ` +
                             `Check that sourcePath exists in item keys.`,
@@ -457,6 +482,6 @@ export class SmartConnectionsAdapter implements IMetadataAdapter, ISmartConnecti
             }
         }
 
-        return suggestions;
+        return results;
     }
 }

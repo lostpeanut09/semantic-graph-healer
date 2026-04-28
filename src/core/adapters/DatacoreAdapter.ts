@@ -446,8 +446,13 @@ export class DatacoreAdapter implements IMetadataAdapter, IDataviewPort {
     private buildBacklinkIndex(): Map<string, Set<string>> {
         const idx = new Map<string, Set<string>>();
         const resolvedLinks = this.app.metadataCache.resolvedLinks;
-        for (const [sourcePath, targets] of Object.entries(resolvedLinks)) {
-            for (const targetPath of Object.keys(targets)) {
+        for (const [rawSourcePath, targets] of Object.entries(resolvedLinks)) {
+            // Normalize sourcePath for consistent indexing
+            const sourcePath = normalizeVaultPath(this.app, rawSourcePath, rawSourcePath);
+            for (const rawTargetPath of Object.keys(targets)) {
+                // Normalize targetPath to match getBacklinks() normalization
+                const targetPath = normalizeVaultPath(this.app, rawTargetPath, sourcePath);
+                if (!targetPath) continue;
                 if (!idx.has(targetPath)) idx.set(targetPath, new Set());
                 idx.get(targetPath)!.add(sourcePath);
             }
