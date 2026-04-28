@@ -1,4 +1,3 @@
-import { DataviewLink } from '../../types';
 
 /**
  * DatacoreLink internal interface for native Datacore link objects.
