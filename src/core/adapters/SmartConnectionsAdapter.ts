@@ -1,5 +1,4 @@
 import { App, TFile } from 'obsidian';
-import { IMetadataAdapter } from './IMetadataAdapter';
 import type { ISmartConnectionsPort } from '../ports/ISmartConnectionsPort';
 import { DataviewApi, DataviewPage, RelatedNote, HierarchyNode } from '../../types';
 import { HealerLogger, isObsidianInternalApp, pathToWikilink, normalizeVaultPath } from '../HealerUtils';
@@ -39,7 +38,7 @@ interface SmartConnectionsPluginShape {
  * Falls back to heuristic Smart Environment file scanning.
  * Not guaranteed against public Smart Connections API stability.
  */
-export class SmartConnectionsAdapter implements IMetadataAdapter, ISmartConnectionsPort {
+export class SmartConnectionsAdapter implements ISmartConnectionsPort {
     private semanticQueryCache = new Map<string, { mtime: number; query: string }>();
     private static readonly MAX_FALLBACK_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -81,32 +80,6 @@ export class SmartConnectionsAdapter implements IMetadataAdapter, ISmartConnecti
         return plugin?.api ?? plugin?.instance?.api ?? null;
     }
 
-    getPage(_path: string): DataviewPage | null {
-        return null;
-    }
-
-    public invalidateBacklinkIndex(): void {}
-
-    public getPages(_query: string): DataviewPage[] {
-        return [];
-    }
-
-    public getBacklinks(_path: string): string[] {
-        return [];
-    }
-
-    public getDataviewApi(): DataviewApi | null {
-        return null;
-    }
-
-    queryPages(_query: string): Promise<DataviewPage[]> {
-        return Promise.resolve([]);
-    }
-
-    getHierarchy(_path: string): Promise<HierarchyNode | null> {
-        return Promise.resolve(null);
-    }
-
     invalidate(path?: string): void {
         if (!path) {
             this.semanticQueryCache.clear();
@@ -127,14 +100,14 @@ export class SmartConnectionsAdapter implements IMetadataAdapter, ISmartConnecti
         if (!(file instanceof TFile)) return normalized;
 
         const mtime = file.stat.mtime;
-        const cached = this.semanticQueryCache.get(file.path);
+        const cached = this.semanticQueryCache.get(normalized);
         if (cached && cached.mtime === mtime) return cached.query;
 
         try {
             const fileContent = await this.app.vault.cachedRead(file);
             const head = fileContent.slice(0, 1500).trim();
             const query = (file.basename + ' ' + head).trim();
-            this.semanticQueryCache.set(file.path, { mtime, query });
+            this.semanticQueryCache.set(normalized, { mtime, query });
             return query;
         } catch {
             return normalized;
@@ -268,6 +241,11 @@ export class SmartConnectionsAdapter implements IMetadataAdapter, ISmartConnecti
         ]);
     }
 
+    /**
+     * Retrieves semantically related notes.
+     * Best-effort implementation using undocumented/private Smart Connections APIs.
+     * Fallback sequence: API -> Global Sources -> JSON Index Fallbacks.
+     */
     async getRelatedNotes(path: string, limit: number): Promise<RelatedNote[]> {
         const normalizedSource = normalizeVaultPath(this.app, path, path);
 
@@ -324,6 +302,10 @@ export class SmartConnectionsAdapter implements IMetadataAdapter, ISmartConnecti
             .slice(0, limit);
     }
 
+    /**
+     * Fallback mechanism to parse Smart Connections JSON/AJSON index files directly.
+     * Used when the plugin API is unavailable or not ready.
+     */
     private async queryAjsonFallback(sourcePath: string, limit: number): Promise<SearchResult[]> {
         const adapter = this.app.vault.adapter;
         const results: SearchResult[] = [];
@@ -364,7 +346,7 @@ export class SmartConnectionsAdapter implements IMetadataAdapter, ISmartConnecti
                         parseErr,
                     );
                     // Continue to next fallback file instead of failing completely
-                    break;
+                    continue;
                 }
 
                 // Se il file esiste ma contiene un oggetto/array vuoto, salta e prova il prossimo fallback

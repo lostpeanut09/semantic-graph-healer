@@ -1,5 +1,4 @@
 import { App, EventRef, TAbstractFile, TFile, parseLinktext } from 'obsidian';
-import { IMetadataAdapter } from './IMetadataAdapter';
 import type { IDataviewPort } from '../ports/IDataviewPort';
 import {
     DataviewApi,
@@ -57,7 +56,7 @@ type MappedDataviewPage = { file: MappedDataviewFile } & Record<string, unknown>
 /**
  * DatacoreAdapter: Metadata bridge for Datacore integration.
  */
-export class DatacoreAdapter implements IMetadataAdapter, IDataviewPort {
+export class DatacoreAdapter implements IDataviewPort {
     private backlinkIndex: Map<string, Set<string>> | null = null;
     private linkCache = new Map<string, DataviewLink>();
     private pageChildrenCache: BoundedMap<string, { tasks: unknown[]; lists: unknown[] }>;
@@ -262,7 +261,7 @@ export class DatacoreAdapter implements IMetadataAdapter, IDataviewPort {
             uniquePaths.map((p) => [p, { tasks: [], lists: [] }]),
         );
         const successful = new Set<string>();
-        const pathChunks = this.chunkPathsForPrefetch(uniquePaths, 100);
+        const pathChunks = this.chunkPathsForPrefetch(uniquePaths, 25);
         for (const chunk of pathChunks) {
             const pageFilter = chunk.map((p) => `$path = "${this.escapeDcString(p)}"`).join(' or ');
             const queryContext = `childof(@page and (${pageFilter}))`;
@@ -301,7 +300,7 @@ export class DatacoreAdapter implements IMetadataAdapter, IDataviewPort {
         }
     }
 
-    private chunkPathsForPrefetch(paths: string[], max = 100): string[][] {
+    private chunkPathsForPrefetch(paths: string[], max = 25): string[][] {
         const chunks: string[][] = [];
         for (let i = 0; i < paths.length; i += max) {
             chunks.push(paths.slice(i, i + max));
@@ -311,14 +310,6 @@ export class DatacoreAdapter implements IMetadataAdapter, IDataviewPort {
 
     queryPages(_query: string): Promise<DataviewPage[]> {
         return Promise.resolve(this.getPages(_query));
-    }
-
-    getHierarchy(_path: string): Promise<HierarchyNode | null> {
-        return Promise.resolve(null);
-    }
-
-    getRelatedNotes(_path: string, _limit: number): Promise<RelatedNote[]> {
-        return Promise.resolve([]);
     }
 
     invalidate(_path?: string): void {
