@@ -431,42 +431,50 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
                     const readPath = f.includes('/') ? f : `${envPath}/${f}`;
 
                     try {
-                        const fstat = await adapter.stat(readPath);
-                        if (fstat && fstat.size > SmartConnectionsAdapter.MAX_FALLBACK_FILE_SIZE) {
-                            HealerLogger.warn(
-                                `SmartConnectionsAdapter: skipping oversized ${readPath} (${fstat.size} bytes)`,
-                            );
-                            continue;
+                        try {
+                            const fstat = await adapter.stat(readPath);
+                            if (fstat && fstat.size > SmartConnectionsAdapter.MAX_FALLBACK_FILE_SIZE) {
+                                HealerLogger.warn(
+                                    `SmartConnectionsAdapter: skipping oversized ${readPath} (${fstat.size} bytes)`,
+                                );
+                                continue;
+                            }
+                        } catch {
+                            /* se stat fallisce, proviamo comunque a leggere */
                         }
-                    } catch {
-                        /* se stat fallisce, proviamo comunque a leggere */
+
+                        anyFileProcessed = true;
+
+                        const content = await adapter.read(readPath);
+                        if (!this.containsExactPath(content, sourcePath)) continue;
+
+                        const targetBase =
+                            f
+                                .split('/')
+                                .pop()
+                                ?.replace(/\.ajson$/i, '')
+                                .replace(/--[a-zA-Z0-9+/=]+$/, '') ?? '';
+                        if (!targetBase) continue;
+
+                        const targetFile = this.app.metadataCache.getFirstLinkpathDest(targetBase, sourcePath);
+                        if (!(targetFile instanceof TFile)) continue;
+                        if (targetFile.path === sourcePath) continue;
+                        if (seen.has(targetFile.path)) continue;
+
+                        seen.add(targetFile.path);
+                        results.push({
+                            path: targetFile.path,
+                            score: 0.5,
+                        });
+
+                        if (results.length >= limit) return results;
+                    } catch (fileErr) {
+                        HealerLogger.debug?.(
+                            `SmartConnectionsAdapter: skipping failed file ${readPath}`,
+                            fileErr,
+                        );
+                        continue;
                     }
-
-                    anyFileProcessed = true;
-
-                    const content = await adapter.read(readPath);
-                    if (!this.containsExactPath(content, sourcePath)) continue;
-
-                    const targetBase =
-                        f
-                            .split('/')
-                            .pop()
-                            ?.replace(/\.ajson$/i, '')
-                            .replace(/--[a-zA-Z0-9+/=]+$/, '') ?? '';
-                    if (!targetBase) continue;
-
-                    const targetFile = this.app.metadataCache.getFirstLinkpathDest(targetBase, sourcePath);
-                    if (!(targetFile instanceof TFile)) continue;
-                    if (targetFile.path === sourcePath) continue;
-                    if (seen.has(targetFile.path)) continue;
-
-                    seen.add(targetFile.path);
-                    results.push({
-                        path: targetFile.path,
-                        score: 0.5,
-                    });
-
-                    if (results.length >= limit) return results;
                 }
 
                 if (anyFileProcessed && results.length === 0) {
