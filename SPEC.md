@@ -98,9 +98,9 @@ interface HealerConfig {
 
 | ID    | Title                                  | Priority | Status | Notes                    |
 | ----- | -------------------------------------- | -------- | ------ | ------------------------ |
-| T-015 | Add JSDoc to BoundedMap class          | P2       | ⏸️     | Deferred                 |
+| T-015 | Add JSDoc to BoundedMap class          | P2       | ✅     | Done                     |
 | T-016 | Load test: 1000-file vault performance | P2       | ⏸️     | Requires benchmark suite |
-| T-017 | Document adapter architecture in docs/ | P1       | ⏸️     | Pending                  |
+| T-017 | Document adapter architecture in docs/ | P1       | ✅     | Done                     |
 
 ---
 

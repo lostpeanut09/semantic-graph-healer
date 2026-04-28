@@ -13,20 +13,17 @@ import {
 } from '../../types';
 import { HealerLogger, isObsidianInternalApp, normalizeVaultPath } from '../HealerUtils';
 
-/**
- * DatacoreLink internal interface for native Datacore link objects.
- */
-interface DatacoreLink {
-    path: string;
-    display?: string;
-    subpath?: string | null;
-    embed?: boolean;
-    type?: 'file' | 'header' | 'block';
-    withDisplay?: (d: string) => DatacoreLink;
-    toEmbed?: () => DatacoreLink;
-    toObject?: () => Record<string, unknown>;
-    toString?: () => string;
-}
+import { BoundedMap } from '../utils/BoundedMap';
+import { ListenerManager } from '../utils/ListenerManager';
+import { coerceToMillis, coerceToStartOfDay, coerceToDateTime, parseDateStrict } from '../utils/DateCoercer';
+import {
+    isRecord,
+    isDatacoreLink,
+    unwrapInternalPluginInstance,
+    isPathBookmarked,
+    normalizeDataviewFieldName,
+    DatacoreLink,
+} from '../utils/DatacoreUtils';
 
 /**
  * Structural bridge types for Dataview parity.
@@ -58,193 +55,13 @@ type MappedDataviewFile = {
 type MappedDataviewPage = { file: MappedDataviewFile } & Record<string, unknown>;
 
 /**
- * Coerces unknown values (number or Luxon DateTime) to milliseconds without
- * requiring a runtime dependency on Luxon.
- */
-function coerceToMillis(v: unknown): number | null {
-    if (typeof v === 'number') {
-        if (!Number.isFinite(v)) return null;
-        return v < 10000000000 ? v * 1000 : v;
-    }
-    if (v instanceof Date) {
-        const ms = v.getTime();
-        return Number.isFinite(ms) ? ms : null;
-    }
-    if (!isRecord(v)) return null;
-    const fn = v['toMillis'];
-    if (typeof fn !== 'function') return null;
-    const result: unknown = Reflect.apply(fn, v, []);
-    return typeof result === 'number' && Number.isFinite(result) ? result : null;
-}
-
-/**
- * Consolidates Dataview's field name sanitization logic (Docs-Aligned).
- */
-function normalizeDataviewFieldName(key: string): string {
-    return key
-        .normalize('NFKC')
-        .trim()
-        .toLowerCase()
-        .replace(/[^\p{L}\p{N}\s-]+/gu, '')
-        .replace(/\s+/g, '-')
-        .replace(/-+/g, '-')
-        .replace(/^-|-$/g, '');
-}
-
-/**
- * Type Guard: Safely identifies a value as a Record<string, unknown>.
- */
-function isRecord(v: unknown): v is Record<string, unknown> {
-    return !!v && typeof v === 'object' && !Array.isArray(v);
-}
-
-/**
- * Type Guard: Safely identifies a native Datacore link object.
- */
-function isDatacoreLink(v: unknown): v is DatacoreLink {
-    return isRecord(v) && typeof v['path'] === 'string';
-}
-
-/**
- * Defensive unwrap for internal Obsidian plugins.
- */
-function unwrapInternalPluginInstance(raw: unknown): unknown {
-    if (!isRecord(raw)) return null;
-    return raw['instance'] ?? raw;
-}
-
-/**
- * Recursively searches a bookmark tree for a specific file path.
- */
-function isPathBookmarked(items: unknown[], targetPath: string): boolean {
-    for (const item of items) {
-        if (!isRecord(item)) continue;
-        if (item['type'] === 'file' && typeof item['path'] === 'string' && item['path'] === targetPath) {
-            return true;
-        }
-        const subItems = item['items'];
-        if ((item['type'] === 'group' || item['type'] === 'folder') && Array.isArray(subItems)) {
-            if (isPathBookmarked(subItems, targetPath)) return true;
-        }
-    }
-    return false;
-}
-
-/**
- * Truncate a date to midnight while preserving Luxon identity when possible.
- */
-function coerceToStartOfDay(v: unknown, fallbackMillis: number): unknown {
-    if (isRecord(v)) {
-        const fn = v['startOf'];
-        if (typeof fn === 'function') {
-            const result: unknown = Reflect.apply(fn, v, ['day']);
-            if (isRecord(result) && typeof result['toMillis'] === 'function') return result;
-        }
-    }
-    const win = window as unknown as {
-        luxon?: {
-            DateTime?: {
-                fromMillis(ms: number, opts?: { zone?: string }): { startOf(unit: string): unknown };
-            };
-        };
-    };
-    if (win.luxon?.DateTime && typeof win.luxon.DateTime.fromMillis === 'function') {
-        const dt = win.luxon.DateTime.fromMillis(coerceToMillis(v) ?? fallbackMillis, { zone: 'local' });
-        const startOfFn = dt['startOf'] as (unit: string) => unknown;
-        return Reflect.apply(startOfFn, dt, ['day']);
-    }
-    const d = new Date(coerceToMillis(v) ?? fallbackMillis);
-    d.setHours(0, 0, 0, 0);
-    return d;
-}
-
-/**
- * Preserves Luxon identity for "Date with Time" objects when possible.
- */
-function coerceToDateTime(v: unknown, fallbackMillis: number, dv?: { date?: (v: string) => unknown } | null): unknown {
-    if (v instanceof Date) return Number.isNaN(v.getTime()) ? new Date(fallbackMillis) : v;
-    if (isRecord(v) && typeof v['toMillis'] === 'function') return v;
-    if (typeof v === 'string') {
-        const normalized = /^\d{8}$/.test(v) ? `${v.slice(0, 4)}-${v.slice(4, 6)}-${v.slice(6, 8)}` : v;
-        if (dv && typeof dv.date === 'function') {
-            try {
-                const parsed = dv.date(normalized);
-                if (parsed != null) return parsed;
-            } catch {
-                /* no-op */
-            }
-        }
-        if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
-            const d = new Date(`${normalized}T00:00:00`);
-            if (!Number.isNaN(d.getTime())) return d;
-        }
-        const d = new Date(normalized);
-        if (!Number.isNaN(d.getTime())) return d;
-    }
-    const win = window as unknown as {
-        luxon?: {
-            DateTime?: { fromMillis(ms: number, opts?: { zone?: string }): unknown };
-        };
-    };
-    if (win.luxon?.DateTime && typeof win.luxon.DateTime.fromMillis === 'function') {
-        return win.luxon.DateTime.fromMillis(coerceToMillis(v) ?? fallbackMillis, {
-            zone: 'local',
-        });
-    }
-    return new Date(coerceToMillis(v) ?? fallbackMillis);
-}
-
-/**
- * Bounded Map con FIFO eviction per prevenire crescita illimitata.
- *
- * Politica:
- * - Inserimento nuova chiave: se size >= maxSize, evicta la entry più vecchia (first inserted).
- * - Update di chiave esistente: NON modifica l'ordine di inserimento → la chiave rimane nella posizione originale.
- *   Questo significa che una chiave frequentemente aggiornata potrebbe essere evictata prima di altre meno accessate,
- *   poiché FIFO non tiene conto della frequenza di accesso. Per politiche LRU serve un'implementazione diversa.
- *
- * La condizione di eviction `size >= maxSize && !this.has(key)` garantisce:
- * - Gli update non attivano eviction (la dimensione non aumenta).
- * - Solo le nuove chiavi triggerano rimozione della più vecchia.
- */
-class BoundedMap<K, V> extends Map<K, V> {
-    constructor(private maxSize: number) {
-        super();
-    }
-
-    get(key: K): V | undefined {
-        const value = super.get(key);
-        if (value !== undefined) {
-            // Touch-on-get: move key to end (most-recently used) to implement LRU-like eviction
-            super.delete(key);
-            super.set(key, value);
-        }
-        return value;
-    }
-
-    set(key: K, value: V): this {
-        if (this.size >= this.maxSize && !this.has(key)) {
-            const first = this.keys().next().value as K | undefined;
-            if (first !== undefined) this.delete(first);
-        }
-        return super.set(key, value);
-    }
-}
-
-/**
  * DatacoreAdapter: Metadata bridge for Datacore integration.
  */
 export class DatacoreAdapter implements IMetadataAdapter, IDataviewPort {
     private backlinkIndex: Map<string, Set<string>> | null = null;
     private linkCache = new Map<string, DataviewLink>();
     private pageChildrenCache: BoundedMap<string, { tasks: unknown[]; lists: unknown[] }>;
-    private resolveListenerRef: EventRef | null = null;
-    private deletedListenerRef: EventRef | null = null;
-    private cacheListenerRef: EventRef | null = null;
-    private renameListenerRef: EventRef | null = null;
-    private changedListenerRef: EventRef | null = null;
-    private deleteVaultListenerRef: EventRef | null = null;
-    private invalidationTimer: number | null = null;
+    private listenerManager: ListenerManager;
 
     constructor(
         private app: App,
@@ -252,72 +69,11 @@ export class DatacoreAdapter implements IMetadataAdapter, IDataviewPort {
         maxCacheSize: number = 500,
     ) {
         this.pageChildrenCache = new BoundedMap<string, { tasks: unknown[]; lists: unknown[] }>(maxCacheSize);
-        // 'resolve' fires when individual files are resolved
-        this.resolveListenerRef = this.app.metadataCache.on('resolve', () => {
-            this.scheduleInvalidation();
-        });
-        // 'resolved' fires when all metadata is fully resolved (global batch complete)
-        this.cacheListenerRef = this.app.metadataCache.on('resolved', () => {
-            this.scheduleInvalidation();
-        });
-        // 'deleted' fires when a file is deleted
-        this.deletedListenerRef = this.app.metadataCache.on('deleted', () => {
-            this.scheduleInvalidation();
-        });
-        this.renameListenerRef = this.app.vault.on('rename', (_file: TAbstractFile, _oldPath: string) => {
-            this.scheduleInvalidation();
-        });
-
-        // When file metadata changes (content edit), invalidate caches.
-        this.changedListenerRef = this.app.metadataCache.on('changed', () => {
-            this.scheduleInvalidation();
-        });
-
-        // When files are deleted, invalidate caches (vault-level event is usually reliable).
-        this.deleteVaultListenerRef = this.app.vault.on('delete', () => {
-            this.scheduleInvalidation();
-        });
-    }
-
-    private scheduleInvalidation(): void {
-        if (this.invalidationTimer !== null) {
-            window.clearTimeout(this.invalidationTimer);
-        }
-        this.invalidationTimer = window.setTimeout(() => {
-            this.invalidateBacklinkIndex();
-            this.invalidationTimer = null;
-        }, 250);
+        this.listenerManager = new ListenerManager(this.app, () => this.invalidateBacklinkIndex(), 250);
     }
 
     public destroy(): void {
-        if (this.invalidationTimer !== null) {
-            window.clearTimeout(this.invalidationTimer);
-            this.invalidationTimer = null;
-        }
-        if (this.resolveListenerRef) {
-            this.app.metadataCache.offref(this.resolveListenerRef);
-            this.resolveListenerRef = null;
-        }
-        if (this.cacheListenerRef) {
-            this.app.metadataCache.offref(this.cacheListenerRef);
-            this.cacheListenerRef = null;
-        }
-        if (this.deletedListenerRef) {
-            this.app.metadataCache.offref(this.deletedListenerRef);
-            this.deletedListenerRef = null;
-        }
-        if (this.renameListenerRef) {
-            this.app.vault.offref(this.renameListenerRef);
-            this.renameListenerRef = null;
-        }
-        if (this.changedListenerRef) {
-            this.app.metadataCache.offref(this.changedListenerRef);
-            this.changedListenerRef = null;
-        }
-        if (this.deleteVaultListenerRef) {
-            this.app.vault.offref(this.deleteVaultListenerRef);
-            this.deleteVaultListenerRef = null;
-        }
+        this.listenerManager.destroy();
         this.linkCache.clear();
         this.pageChildrenCache.clear();
         this.backlinkIndex = null;
@@ -743,72 +499,6 @@ export class DatacoreAdapter implements IMetadataAdapter, IDataviewPort {
     }
 
     /**
-     * Strict Date Parsing aligned with Dataview inference.
-     */
-    private normalizeStrictDateString(value: string): string | null {
-        const v = value.trim();
-        if (/^\d{8}$/.test(v)) {
-            return `${v.slice(0, 4)}-${v.slice(4, 6)}-${v.slice(6, 8)}`;
-        }
-        if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
-        if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})?$/.test(v)) {
-            return v;
-        }
-        return null;
-    }
-
-    private parseDateStrict(value: unknown, opts: { allowEpochNumbers?: boolean } = {}): unknown {
-        if (value == null) return undefined;
-        if (value instanceof Date) {
-            return Number.isNaN(value.getTime()) ? undefined : value;
-        }
-        if (typeof value === 'number') {
-            if (!Number.isFinite(value)) return undefined;
-            if (!opts.allowEpochNumbers) return undefined;
-            const ms = value < 10000000000 ? value * 1000 : value;
-            return coerceToDateTime(ms, ms);
-        }
-        if (isRecord(value) && typeof value['toMillis'] === 'function') {
-            return value;
-        }
-        if (typeof value !== 'string') return undefined;
-
-        const normalized = this.normalizeStrictDateString(value);
-        if (!normalized) return undefined;
-
-        const dc = this.getApi();
-        const coerce = isRecord(dc) ? dc['coerce'] : null;
-        if (isRecord(coerce) && typeof coerce['date'] === 'function') {
-            try {
-                const parsed = Reflect.apply(coerce['date'] as (...args: unknown[]) => unknown, coerce, [normalized]);
-                if (parsed != null) return parsed;
-            } catch {
-                /* no-op */
-            }
-        }
-
-        const dv = this.getDataviewApi() as {
-            date?: (v: string) => unknown;
-        } | null;
-        if (dv && typeof dv.date === 'function') {
-            try {
-                const parsed = dv.date(normalized);
-                if (parsed != null) return parsed;
-            } catch {
-                /* no-op */
-            }
-        }
-
-        if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
-            const d = new Date(`${normalized}T00:00:00`);
-            return Number.isNaN(d.getTime()) ? undefined : d;
-        }
-
-        const d = new Date(normalized);
-        return Number.isNaN(d.getTime()) ? undefined : d;
-    }
-
-    /**
      * Resolves file.day with robust fallback (Filename -> Date field).
      * Tries both filename date AND Date field to handle invalid date-like text in filename.
      */
@@ -819,7 +509,7 @@ export class DatacoreAdapter implements IMetadataAdapter, IDataviewPort {
         for (const candidate of candidates) {
             if (candidate == null) continue;
 
-            const parsed = this.parseDateStrict(candidate, {
+            const parsed = parseDateStrict(candidate, this.getApi(), this.getDataviewApi(), {
                 allowEpochNumbers: false,
             });
             if (parsed == null) continue;

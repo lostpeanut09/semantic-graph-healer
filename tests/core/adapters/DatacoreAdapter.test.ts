@@ -513,55 +513,6 @@ describe('DatacoreAdapter', () => {
         expect(queryOnlyApi.query).toHaveBeenCalled();
     });
 
-    describe('BoundedMap eviction', () => {
-        it('does not exceed max size and evicts oldest entry (FIFO)', () => {
-            const BoundedMap = (adapter as any).pageChildrenCache.constructor;
-            const map = new BoundedMap(3);
-
-            map.set('a', { tasks: [], lists: [] });
-            map.set('b', { tasks: [], lists: [] });
-            map.set('c', { tasks: [], lists: [] });
-            expect(map.size).toBe(3);
-
-            map.set('d', { tasks: [], lists: [] });
-            expect(map.size).toBe(3);
-            expect(map.has('a')).toBe(false); // oldest evicted
-            expect(map.has('d')).toBe(true);
-        });
-
-        it('evicts least recently used after access pattern (touch-on-get)', () => {
-            const BoundedMap = (adapter as any).pageChildrenCache.constructor;
-            const map = new BoundedMap(3);
-
-            // Insert a, b, c
-            map.set('a', 1);
-            map.set('b', 2);
-            map.set('c', 3);
-            // Access a to make it recently used
-            expect(map.get('a')).toBe(1);
-            // Insert d — should evict b (least recently accessed), not a nor c
-            map.set('d', 4);
-
-            expect(map.has('a')).toBe(true); // touched → still present
-            expect(map.has('b')).toBe(false); // LRU → evicted
-            expect(map.has('c')).toBe(true); // not accessed but inserted after b
-            expect(map.has('d')).toBe(true);
-        });
-
-        it('does not evict on update of existing key', () => {
-            const BoundedMap = (adapter as any).pageChildrenCache.constructor;
-            const map = new BoundedMap(2);
-
-            map.set('a', { tasks: [1], lists: [] });
-            map.set('b', { tasks: [2], lists: [] });
-            map.set('a', { tasks: [3], lists: [] }); // update
-
-            expect(map.size).toBe(2);
-            expect(map.get('a')).toEqual({ tasks: [3], lists: [] });
-            expect(map.get('b')).toEqual({ tasks: [2], lists: [] });
-        });
-    });
-
     describe('backlink index normalization (Fix 2)', () => {
         it('buildBacklinkIndex normalizes both source and target paths symmetrically with getBacklinks', () => {
             // Simulate resolvedLinks with mixed-format keys (raw from Obsidian)
