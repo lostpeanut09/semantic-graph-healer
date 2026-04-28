@@ -1,6 +1,6 @@
 import { App, TFile } from 'obsidian';
 import type { ISmartConnectionsPort } from '../ports/ISmartConnectionsPort';
-import { DataviewApi, DataviewPage, RelatedNote, HierarchyNode } from '../../types';
+import { RelatedNote } from '../../types';
 import { HealerLogger, isObsidianInternalApp, pathToWikilink, normalizeVaultPath } from '../HealerUtils';
 
 interface LegacyScApi {
