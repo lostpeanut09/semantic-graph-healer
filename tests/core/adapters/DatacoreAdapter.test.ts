@@ -566,8 +566,8 @@ describe('DatacoreAdapter', () => {
         it('buildBacklinkIndex normalizes both source and target paths symmetrically with getBacklinks', () => {
             // Simulate resolvedLinks with mixed-format keys (raw from Obsidian)
             (metadataCache.resolvedLinks as Record<string, Record<string, number>>) = {
-                'src.md': { 'TARGET.MD': 1 },          // uppercase target
-                'folder/note.md': { 'folder/../folder/note.md': 2 },  // non-normalized target with ../
+                'src.md': { 'TARGET.MD': 1 }, // uppercase target
+                'folder/note.md': { 'folder/../folder/note.md': 2 }, // non-normalized target with ../
             };
 
             // Force rebuild (by default built on first getBacklinks)
