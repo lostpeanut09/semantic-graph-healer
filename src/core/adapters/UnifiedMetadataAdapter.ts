@@ -1,4 +1,4 @@
-import { App } from 'obsidian';
+import { App, debounce, Notice, TFile } from 'obsidian';
 import type { IMetadataAdapter } from './IMetadataAdapter';
 import { DatacoreAdapter } from './DatacoreAdapter';
 import { BreadcrumbsAdapter } from './BreadcrumbsAdapter';
@@ -25,6 +25,8 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
 
     private inFlightMap = new Map<string, Promise<unknown>>();
     private _isDestroyed = false;
+    private debouncedRefresh: () => void;
+    private initialized: boolean = false;
 
     constructor(
         private app: App,
@@ -51,6 +53,36 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
             ...options,
             ttlMs: 120000,
         });
+
+        this.debouncedRefresh = debounce(() => {
+            if (this._isDestroyed) return;
+            this.invalidate();
+            HealerLogger.debug('UnifiedMetadataAdapter: debounced refresh complete');
+        }, 500);
+    }
+
+    public async initialize(): Promise<void> {
+        if (this.initialized) return;
+
+        // Check availability and notify if critical adapters are missing
+        const adapters = [
+            { name: 'Datacore', adapter: this.datacore },
+            { name: 'Breadcrumbs', adapter: this.breadcrumbs },
+        ];
+
+        for (const { name, adapter } of adapters) {
+            if (!adapter.isAvailable()) {
+                new Notice(`Semantic Graph Healer: ${name} is not available. Some semantic links may be missing.`);
+                HealerLogger.warn(`UnifiedMetadataAdapter: ${name} is not available.`);
+            }
+        }
+
+        this.app.metadataCache.on('resolved', () => {
+            HealerLogger.debug('UnifiedMetadataAdapter: metadataCache resolved, triggering debounced refresh');
+            this.debouncedRefresh();
+        });
+
+        this.initialized = true;
     }
 
     public isAvailable(): boolean {
@@ -128,6 +160,12 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
         const page = this.safeExecute(() => this.datacore.getPage(key), null, `getPage(${key})`);
 
         if (page === null) return null;
+
+        // Harden: support both Datacore $path and legacy path
+        const pagePath = (page as any).path || (page as any).$path;
+        if (pagePath && pagePath !== key) {
+            HealerLogger.debug(`UnifiedMetadataAdapter: path mismatch for ${key} (got ${pagePath})`);
+        }
 
         if (!this._isDestroyed) {
             this.pageCache.set(key, page);

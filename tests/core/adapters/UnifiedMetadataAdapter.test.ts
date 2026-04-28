@@ -57,6 +57,8 @@ vi.mock('obsidian', () => ({
     parseLinktext: (t: string) => ({ path: t }),
     TFolder: vi.fn(),
     normalizePath: (p: string) => p,
+    debounce: (fn: any) => fn, // pass-through for testing
+    Notice: vi.fn(),
 }));
 
 // Import AFTER all mocks
