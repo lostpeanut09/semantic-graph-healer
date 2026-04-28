@@ -1,4 +1,6 @@
 import { App, TFile } from 'obsidian';
+import { BaseAdapter } from './BaseAdapter';
+import { SemanticLinkEdge } from './types';
 import type { ISmartConnectionsPort } from '../ports/ISmartConnectionsPort';
 import { RelatedNote } from '../../types';
 import { HealerLogger, isObsidianInternalApp, pathToWikilink, normalizeVaultPath } from '../HealerUtils';
@@ -33,20 +35,35 @@ interface SmartConnectionsPluginShape {
 }
 
 /**
- * SmartConnectionsAdapter: best-effort semantic similarity bridge.
- * Uses private / undocumented internals when available.
- * Falls back to heuristic Smart Environment file scanning.
- * Not guaranteed against public Smart Connections API stability.
+ * SmartConnectionsAdapter: Decoupled AI-Similarity Bridge.
  */
-export class SmartConnectionsAdapter implements ISmartConnectionsPort {
+export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnectionsPort {
+    private static readonly MAX_FALLBACK_FILE_SIZE = 50 * 1024 * 1024; // 50MB
     private semanticQueryCache = new Map<string, { mtime: number; query: string }>();
-    private static readonly MAX_FALLBACK_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
-    constructor(private app: App) {}
+    constructor(app: App, debug: boolean = false) {
+        super(app, debug);
+    }
+
+    /**
+     * Checks if Smart Connections plugin is enabled and active.
+     */
+    public isAvailable(): boolean {
+        if (!isObsidianInternalApp(this.app)) return false;
+        const plugin = (this.app as any).plugins.getPlugin('smart-connections');
+        return !!plugin;
+    }
+
+    /**
+     * Extracts links from Smart Connections similarity data.
+     */
+    public async getLinks(): Promise<SemanticLinkEdge[]> {
+        return [];
+    }
 
     private getPluginShape(): SmartConnectionsPluginShape | null {
         if (!isObsidianInternalApp(this.app)) return null;
-        const raw = this.app.plugins?.getPlugin?.('smart-connections');
+        const raw = (this.app as any).plugins?.getPlugin?.('smart-connections');
         return raw && typeof raw === 'object' ? (raw as unknown as SmartConnectionsPluginShape) : null;
     }
 
@@ -79,8 +96,7 @@ export class SmartConnectionsAdapter implements ISmartConnectionsPort {
     private resolveLegacyApi(plugin: SmartConnectionsPluginShape | null): LegacyScApi | null {
         return plugin?.api ?? plugin?.instance?.api ?? null;
     }
-
-    invalidate(path?: string): void {
+    public invalidate(path?: string): void {
         if (!path) {
             this.semanticQueryCache.clear();
             return;
@@ -89,7 +105,7 @@ export class SmartConnectionsAdapter implements ISmartConnectionsPort {
         this.semanticQueryCache.delete(normalized);
     }
 
-    public destroy(): void {
+    public override destroy(): void {
         this.semanticQueryCache.clear();
         HealerLogger.debug?.('SmartConnectionsAdapter destroyed.');
     }

@@ -171,7 +171,7 @@ describe('SmartConnectionsAdapter', () => {
         it('skips oversized files via stat bound (pre-read)', async () => {
             const mockVault = mockApp.vault as any;
             mockVault.adapter.exists = vi.fn().mockResolvedValue(true);
-            mockVault.adapter.stat = vi.fn().mockResolvedValue({ size: 11 * 1024 * 1024 }); // 11MB > 10MB
+            mockVault.adapter.stat = vi.fn().mockResolvedValue({ size: 51 * 1024 * 1024 }); // 51MB > 50MB
 
             const result = await (adapter as any).queryAjsonFallback('folder/note.md', 5);
 

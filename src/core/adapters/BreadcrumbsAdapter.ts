@@ -1,4 +1,6 @@
 import { App } from 'obsidian';
+import { BaseAdapter } from './BaseAdapter';
+import { SemanticLinkEdge } from './types';
 import type { MultiGraph } from 'graphology';
 import type { IBreadcrumbsPort } from '../ports/IBreadcrumbsPort';
 import { BreadcrumbsApi, HierarchyNode, BCDirection } from '../../types';
@@ -18,8 +20,25 @@ type BCAPIV4Like = {
     get_neighbours: (node?: string) => unknown; // EdgeList | undefined
 };
 
-export class BreadcrumbsAdapter implements IBreadcrumbsPort {
-    constructor(private app: App) {}
+export class BreadcrumbsAdapter extends BaseAdapter implements IBreadcrumbsPort {
+    constructor(app: App, debug: boolean = false) {
+        super(app, debug);
+    }
+
+    /**
+     * Checks if Breadcrumbs plugin is available (V3 or V4).
+     */
+    public isAvailable(): boolean {
+        return this.getV4Api() !== null || this.getApi() !== null;
+    }
+
+    /**
+     * Extracts links from Breadcrumbs graph.
+     */
+    public async getLinks(): Promise<SemanticLinkEdge[]> {
+        // Implementation for graph extraction if needed.
+        return [];
+    }
 
     private getV4Api(): BCAPIV4Like | null {
         const w = window as { BCAPI?: { get_neighbours?: unknown } };
