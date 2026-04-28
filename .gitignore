@@ -40,3 +40,5 @@ lint_output.txt
 docs/plans/
 .agent/
 docs/
+SPEC.md
+CHANGELOG.md
