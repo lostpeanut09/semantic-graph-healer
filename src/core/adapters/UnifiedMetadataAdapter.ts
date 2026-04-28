@@ -69,7 +69,10 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
                     const links = await adapter.getLinks();
                     allEdges.push(...links);
                 } catch (e) {
-                    HealerLogger.error(`UnifiedMetadataAdapter: Failed to get links from ${adapter.constructor.name}`, e);
+                    HealerLogger.error(
+                        `UnifiedMetadataAdapter: Failed to get links from ${adapter.constructor.name}`,
+                        e,
+                    );
                 }
             }
         }

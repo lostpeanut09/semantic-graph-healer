@@ -8,7 +8,7 @@ import { SemanticLinkEdge } from './types';
 export abstract class BaseAdapter {
     constructor(
         protected app: App,
-        protected debug: boolean = false
+        protected debug: boolean = false,
     ) {}
 
     /**

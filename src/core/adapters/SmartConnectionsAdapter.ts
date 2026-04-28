@@ -2,7 +2,7 @@ import { App, TFile } from 'obsidian';
 import { BaseAdapter } from './BaseAdapter';
 import { SemanticLinkEdge } from './types';
 import type { ISmartConnectionsPort } from '../ports/ISmartConnectionsPort';
-import { RelatedNote } from '../../types';
+import { RelatedNote, ExtendedApp } from '../../types';
 import { HealerLogger, isObsidianInternalApp, pathToWikilink, normalizeVaultPath } from '../HealerUtils';
 
 interface LegacyScApi {
@@ -50,7 +50,7 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
      */
     public isAvailable(): boolean {
         if (!isObsidianInternalApp(this.app)) return false;
-        const plugin = (this.app as any).plugins.getPlugin('smart-connections');
+        const plugin = (this.app as ExtendedApp).plugins.getPlugin('smart-connections');
         return !!plugin;
     }
 
@@ -63,7 +63,7 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
 
     private getPluginShape(): SmartConnectionsPluginShape | null {
         if (!isObsidianInternalApp(this.app)) return null;
-        const raw = (this.app as any).plugins?.getPlugin?.('smart-connections');
+        const raw = (this.app as ExtendedApp).plugins?.getPlugin?.('smart-connections');
         return raw && typeof raw === 'object' ? (raw as unknown as SmartConnectionsPluginShape) : null;
     }
 
