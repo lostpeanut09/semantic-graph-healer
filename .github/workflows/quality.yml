@@ -2,44 +2,44 @@ name: Quality Pipeline
 # Trigger: v2.3.1 production gate audit
 
 on:
-  push:
-    branches: [main, master]
-  pull_request:
-    branches: [main, master]
+    push:
+        branches: [main, master]
+    pull_request:
+        branches: [main, master]
 
 permissions:
-  contents: read
+    contents: read
 
 jobs:
-  quality:
-    name: Lint, Test & Audit
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
+    quality:
+        name: Lint, Test & Audit
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v6
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: "22"
-          cache: "npm"
+            - name: Setup Node.js
+              uses: actions/setup-node@v6
+              with:
+                  node-version: '22'
+                  cache: 'npm'
 
-      - name: Install Dependencies
-        run: npm install --legacy-peer-deps
+            - name: Install Dependencies
+              run: npm install --legacy-peer-deps
 
-      - name: Format Check
-        run: npx prettier --config .config/.prettierrc --ignore-path .config/.prettierignore --check .
+            - name: Format Check
+              run: npx prettier --config .config/.prettierrc --ignore-path .config/.prettierignore --check .
 
-      - name: Lint (TS/JS)
-        run: npm run lint
+            - name: Lint (TS/JS)
+              run: npm run lint
 
-      - name: Lint (CSS)
-        run: npm run lint:css
+            - name: Lint (CSS)
+              run: npm run lint:css
 
-      - name: Dependency Audit (Knip)
-        run: npm run knip
+            - name: Dependency Audit (Knip)
+              run: npm run knip
 
-      - name: Run Tests
-        run: npm run test
+            - name: Run Tests
+              run: npm run test
 
-      - name: Build Check
-        run: npm run build
+            - name: Build Check
+              run: npm run build
