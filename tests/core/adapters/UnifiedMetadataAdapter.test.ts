@@ -341,4 +341,37 @@ describe('UnifiedMetadataAdapter Hardening', () => {
             expect(sc.getRelatedNotes).not.toHaveBeenCalled();
         });
     });
+
+    describe('invalidate key normalization propagation', () => {
+        it('passes normalized key to all adapters when path is provided', () => {
+            const datacore = (adapter as any).datacore;
+            const bc = (adapter as any).breadcrumbs;
+            const sc = (adapter as any).smartConnections;
+
+            // Use a path with trailing slash and uppercase to test normalization
+            adapter.invalidate('Test.md/');
+
+            // All adapters should receive the SAME normalized key (whatever normalizeVaultPath produces)
+            const callsDatacore = datacore.invalidate.mock.calls[0][0];
+            const callsBc = bc.invalidate.mock.calls[0][0];
+            const callsSc = sc.invalidate.mock.calls[0][0];
+
+            expect(callsDatacore).toBe(callsBc);
+            expect(callsBc).toBe(callsSc);
+            // Additionally, the key passed should be the one produced by normalizeCacheKey
+            // We can compare against adapter's internal normalizedCacheKey if we expose it, but here we just check consistency.
+        });
+
+        it('passes undefined to adapters when no path given (global invalidate)', () => {
+            const datacore = (adapter as any).datacore;
+            const bc = (adapter as any).breadcrumbs;
+            const sc = (adapter as any).smartConnections;
+
+            adapter.invalidate();
+
+            expect(datacore.invalidate).toHaveBeenCalledWith(undefined);
+            expect(bc.invalidate).toHaveBeenCalledWith(undefined);
+            expect(sc.invalidate).toHaveBeenCalledWith(undefined);
+        });
+    });
 });
