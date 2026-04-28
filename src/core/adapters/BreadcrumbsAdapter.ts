@@ -52,27 +52,13 @@ export class BreadcrumbsAdapter implements IBreadcrumbsPort {
         }
     }
 
-    getPage(_path: string): DataviewPage | null {
-        return null;
-    }
-    getPages(_query: string): DataviewPage[] {
-        return [];
-    }
-    getBacklinks(_path: string): string[] {
-        return [];
-    }
-    getDataviewApi(): DataviewApi | null {
-        return null;
-    }
-    queryPages(_query: string): Promise<DataviewPage[]> {
-        return Promise.resolve([]);
-    }
-    getRelatedNotes(_path: string, _limit: number): Promise<RelatedNote[]> {
-        return Promise.resolve([]);
-    }
-    invalidateBacklinkIndex(): void {}
     invalidate(_path?: string): void {}
 
+    /**
+     * Retrieves the navigation hierarchy (parents, children, siblings, next, prev)
+     * for the given note path.
+     * Fallback chain: Breadcrumbs V4 API -> Legacy Matrix -> Closed Graph -> Main Graph
+     */
     async getHierarchy(path: string): Promise<HierarchyNode | null> {
         const normalizedPath = normalizeVaultPath(this.app, path);
 
