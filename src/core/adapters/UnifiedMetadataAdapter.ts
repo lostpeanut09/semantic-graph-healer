@@ -162,7 +162,7 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
         if (page === null) return null;
 
         // Harden: support both Datacore $path and legacy path
-        const pagePath = (page as any).path || (page as any).$path;
+        const pagePath = (page as unknown).path || (page as unknown).$path;
         if (pagePath && pagePath !== key) {
             HealerLogger.debug(`UnifiedMetadataAdapter: path mismatch for ${key} (got ${pagePath})`);
         }

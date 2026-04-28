@@ -469,10 +469,7 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
 
                         if (results.length >= limit) return results;
                     } catch (fileErr) {
-                        HealerLogger.debug?.(
-                            `SmartConnectionsAdapter: skipping failed file ${readPath}`,
-                            fileErr,
-                        );
+                        HealerLogger.debug?.(`SmartConnectionsAdapter: skipping failed file ${readPath}`, fileErr);
                         continue;
                     }
                 }
