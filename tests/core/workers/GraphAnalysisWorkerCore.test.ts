@@ -172,6 +172,121 @@ describe('GraphAnalysisWorkerCore', () => {
         });
     });
 
+    describe('Topological Diagnostics', () => {
+        it('should detect bridge gaps (Depth 2)', () => {
+            const message: WorkerMessage = {
+                type: 'TOPOLOGY_DIAGNOSTICS',
+                payload: {
+                    nodes: [
+                        { key: 'A', attributes: {} },
+                        { key: 'B', attributes: {} },
+                        { key: 'C', attributes: {} },
+                    ],
+                    edges: [
+                        { source: 'A', target: 'B', attributes: { type: 'up' } },
+                        { source: 'B', target: 'C', attributes: { type: 'up' } },
+                    ],
+                    requestId: 'test-req',
+                },
+            };
+
+            const response = handleGraphWorkerMessage(message, mockReporter);
+            expect(response.type).toBe('RESULT');
+            const data = response.payload.data as any;
+            expect(data.bridges).toBeDefined();
+            expect(data.bridges).toHaveLength(1);
+            expect(data.bridges[0]).toMatchObject({ source: 'A', target: 'C', via: 'B', type: 'up' });
+        });
+
+        it('should not detect bridge gaps if the edge already exists', () => {
+            const message: WorkerMessage = {
+                type: 'TOPOLOGY_DIAGNOSTICS',
+                payload: {
+                    nodes: [
+                        { key: 'A', attributes: {} },
+                        { key: 'B', attributes: {} },
+                        { key: 'C', attributes: {} },
+                    ],
+                    edges: [
+                        { source: 'A', target: 'B', attributes: { type: 'up' } },
+                        { source: 'B', target: 'C', attributes: { type: 'up' } },
+                        { source: 'A', target: 'C', attributes: { type: 'up' } },
+                    ],
+                    requestId: 'test-req',
+                },
+            };
+
+            const response = handleGraphWorkerMessage(message, mockReporter);
+            expect(response.type).toBe('RESULT');
+            const data = response.payload.data as any;
+            expect(data.bridges).toHaveLength(0);
+        });
+
+        it('should detect cycles (Ouroboros)', () => {
+            const message: WorkerMessage = {
+                type: 'TOPOLOGY_DIAGNOSTICS',
+                payload: {
+                    nodes: [
+                        { key: 'A', attributes: {} },
+                        { key: 'B', attributes: {} },
+                        { key: 'C', attributes: {} },
+                    ],
+                    edges: [
+                        { source: 'A', target: 'B', attributes: {} },
+                        { source: 'B', target: 'C', attributes: {} },
+                        { source: 'C', target: 'A', attributes: {} },
+                    ],
+                    requestId: 'test-req',
+                },
+            };
+
+            const response = handleGraphWorkerMessage(message, mockReporter);
+            expect(response.type).toBe('RESULT');
+            const data = response.payload.data as any;
+            expect(data.cycles).toBeDefined();
+            expect(data.cycles.length).toBeGreaterThan(0);
+        });
+
+        it('should detect Black Holes (Sinks)', () => {
+            const message: WorkerMessage = {
+                type: 'TOPOLOGY_DIAGNOSTICS',
+                payload: {
+                    nodes: [
+                        { key: 'SINK', attributes: {} },
+                        { key: 'N1', attributes: {} },
+                        { key: 'N2', attributes: {} },
+                        { key: 'N3', attributes: {} },
+                    ],
+                    edges: [
+                        { source: 'N1', target: 'SINK', attributes: {} },
+                        { source: 'N2', target: 'SINK', attributes: {} },
+                        { source: 'N3', target: 'SINK', attributes: {} },
+                    ],
+                    requestId: 'test-req',
+                },
+                options: { blackHoleThreshold: 3 }
+            };
+
+            const response = handleGraphWorkerMessage(message, mockReporter);
+            expect(response.type).toBe('RESULT');
+            const data = response.payload.data as any;
+            expect(data.sinks).toBeDefined();
+            expect(data.sinks).toContain('SINK');
+        });
+
+        it('should enforce Max Edges guardrail for topology analysis', () => {
+            const message: WorkerMessage = {
+                type: 'TOPOLOGY_DIAGNOSTICS',
+                payload: basePayload,
+                options: { maxEdges: 1 }
+            };
+
+            const response = handleGraphWorkerMessage(message, mockReporter);
+            expect(response.type).toBe('ERROR');
+            expect(response.payload.message).toContain('Graph too dense');
+        });
+    });
+
     describe('Factory: createProgressReporter', () => {
         it('should create a reporter that calls the postMessage callback', () => {
             const postMessageFn = vi.fn();
