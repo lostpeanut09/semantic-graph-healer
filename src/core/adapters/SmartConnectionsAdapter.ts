@@ -383,7 +383,9 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
 
                 for (const [targetKey, targetVal] of entries) {
                     if (++scanned > maxEntries) {
-                        HealerLogger.warn(`SmartConnectionsAdapter: hit max scan limit (${maxEntries}) in ${singleFileFallback}`);
+                        HealerLogger.warn(
+                            `SmartConnectionsAdapter: hit max scan limit (${maxEntries}) in ${singleFileFallback}`,
+                        );
                         break;
                     }
                     if (targetKey === sourcePath) continue;
