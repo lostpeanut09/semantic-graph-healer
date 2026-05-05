@@ -88,16 +88,48 @@ export class GraphEngine {
             }
         }
 
-        // 2. Add Weighted Edges (with guardrails)
+        // 2. Add Typed and Weighted Edges (with guardrails)
         let edgeCount = 0;
         for (const [sourcePath, targets] of Object.entries(resolvedLinks)) {
             if (!this.graph.hasNode(sourcePath)) continue;
             if (useGuardrails && edgeCount >= maxEdges) break;
 
+            const sourceFile = this.app.vault.getAbstractFileByPath(sourcePath);
+            const frontmatterLinks: Record<string, string[]> = {};
+            if (sourceFile instanceof TFile) {
+                const cache = this.app.metadataCache.getFileCache(sourceFile);
+                if (cache?.frontmatterLinks) {
+                    for (const flink of cache.frontmatterLinks) {
+                        if (!frontmatterLinks[flink.key]) {
+                            frontmatterLinks[flink.key] = [];
+                        }
+                        const targetDest = this.app.metadataCache.getFirstLinkpathDest(flink.link, sourcePath)?.path;
+                        if (targetDest) {
+                            frontmatterLinks[flink.key].push(targetDest);
+                        }
+                    }
+                }
+            }
+
             for (const [targetPath, rawCount] of Object.entries(targets)) {
                 if (useGuardrails && edgeCount >= maxEdges) break;
                 if (!this.graph.hasNode(targetPath)) continue;
                 if (sourcePath === targetPath) continue;
+
+                let edgeType = 'related'; // default
+                for (const [key, paths] of Object.entries(frontmatterLinks)) {
+                    if (paths.includes(targetPath)) {
+                        for (const h of this.settings.hierarchies) {
+                            if (h.up?.includes(key)) edgeType = 'up';
+                            else if (h.down?.includes(key)) edgeType = 'down';
+                            else if (h.next?.includes(key)) edgeType = 'next';
+                            else if (h.prev?.includes(key)) edgeType = 'prev';
+                            else if (h.same?.includes(key)) edgeType = 'same';
+                            if (edgeType !== 'related') break;
+                        }
+                    }
+                    if (edgeType !== 'related') break;
+                }
 
                 const count = Number(rawCount ?? 1);
                 const weight = Math.log1p(count);
@@ -105,8 +137,11 @@ export class GraphEngine {
                 if (this.graph.hasEdge(sourcePath, targetPath)) {
                     const prev = this.graph.getEdgeAttribute(sourcePath, targetPath, 'weight') as number;
                     this.graph.setEdgeAttribute(sourcePath, targetPath, 'weight', prev + weight);
+                    if (edgeType !== 'related') {
+                        this.graph.setEdgeAttribute(sourcePath, targetPath, 'type', edgeType);
+                    }
                 } else {
-                    this.graph.addEdge(sourcePath, targetPath, { weight });
+                    this.graph.addEdge(sourcePath, targetPath, { weight, type: edgeType });
                     edgeCount++;
                 }
             }
@@ -560,6 +595,34 @@ export class GraphEngine {
                 }
             });
         return suggestions;
+    }
+
+    /**
+     * ✅ NEW: Topological Diagnostics (Worker-Delegate).
+     * Offloads Bridge, Cycle, and Black Hole detection to the background worker.
+     */
+    public async runTopologicalAnalysis(options?: Record<string, unknown>): Promise<{
+        bridges: Array<{ source: string; target: string; via: string; type: string }>;
+        cycles: Array<{ path: string[]; type: string }>;
+        blackHoles: Array<{ path: string; inDegree: number }>;
+    }> {
+        HealerLogger.info('Running Topological Diagnostics (Worker offloaded)...');
+        try {
+            const nodes = this.getSerializedNodes();
+            const edges = this.getSerializedEdges();
+            const worker = this.context.graphWorkerService;
+
+            const results = await worker.runAnalysis<{
+                bridges: Array<{ source: string; target: string; via: string; type: string }>;
+                cycles: Array<{ path: string[]; type: string }>;
+                blackHoles: Array<{ path: string; inDegree: number }>;
+            }>('TOPOLOGY_DIAGNOSTICS', nodes, edges, options);
+
+            return results || { bridges: [], cycles: [], blackHoles: [] };
+        } catch (e) {
+            HealerLogger.error('Topological Diagnostics failed in worker.', e);
+            return { bridges: [], cycles: [], blackHoles: [] };
+        }
     }
 
     /**
