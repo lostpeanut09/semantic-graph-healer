@@ -4,7 +4,10 @@ export class TAbstractFile {}
 export class TFile {}
 export class TFolder {}
 export class Plugin {}
-export const parseLinktext = () => ({});
+export const parseLinktext = (linktext: string) => {
+    const [path, subpath] = linktext.split('#');
+    return { path, subpath };
+};
 export const normalizePath = (p: string) => p;
 export const requestUrl = (url: string, options?: RequestInit) =>
     Promise.resolve({

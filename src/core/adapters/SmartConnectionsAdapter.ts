@@ -375,8 +375,17 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
                 }
 
                 const items = data.items && typeof data.items === 'object' ? data.items : data;
+                const entries = Object.entries(items as Record<string, unknown>);
 
-                for (const [targetKey, targetVal] of Object.entries(items as Record<string, unknown>)) {
+                // SOTA 2026: Early break for performance on extremely dense indexes
+                const maxEntries = 5000;
+                let scanned = 0;
+
+                for (const [targetKey, targetVal] of entries) {
+                    if (++scanned > maxEntries) {
+                        HealerLogger.warn(`SmartConnectionsAdapter: hit max scan limit (${maxEntries}) in ${singleFileFallback}`);
+                        break;
+                    }
                     if (targetKey === sourcePath) continue;
 
                     try {

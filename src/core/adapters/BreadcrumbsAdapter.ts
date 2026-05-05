@@ -43,11 +43,13 @@ export class BreadcrumbsAdapter extends BaseAdapter implements IBreadcrumbsPort 
      * Extracts links from Breadcrumbs graph.
      */
     public async getLinks(): Promise<SemanticLinkEdge[]> {
+        this.ensureInitialized();
         // Implementation for graph extraction if needed.
         return [];
     }
 
     private getV4Api(): BCAPIV4Like | null {
+        // No guard here as it's private and used by public methods that have guards
         const w = window as { BCAPI?: { get_neighbours?: unknown } };
         if (w?.BCAPI && typeof w.BCAPI.get_neighbours === 'function') return w.BCAPI as BCAPIV4Like;
 
@@ -86,6 +88,7 @@ export class BreadcrumbsAdapter extends BaseAdapter implements IBreadcrumbsPort 
      * Fallback chain: Breadcrumbs V4 API -> Legacy Matrix -> Closed Graph -> Main Graph
      */
     async getHierarchy(path: string): Promise<HierarchyNode | null> {
+        this.ensureInitialized();
         const normalizedPath = normalizeVaultPath(this.app, path);
 
         // 1) Breadcrumbs V4 path (BCAPI.get_neighbours → outgoing edges)
