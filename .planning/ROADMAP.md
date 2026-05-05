@@ -1,0 +1,154 @@
+# Roadmap
+
+## Phases
+
+- [x] **Phase 1: Core Foundation & Adapter Architecture** - Establish a stable, modular data ingestion layer.
+- [x] **Phase 2: Concurrency & Performance Hardening** - Ensure the plugin doesn't freeze the UI during heavy computations.
+- [x] **Phase 3: Setting Resilience & UX Stability** - Robust settings management and basic user feedback.
+- [/] **Phase 4: BaseAdapter Ultra-Hardening** - Address residual audit findings and edge cases in the adapter layer.
+- [/] **Phase 5: Topological Diagnostics: Gaps & Loops** - Detect structural issues like missing links and infinite hierarchies.
+- [ ] **Phase 6: Advanced Topological Metrics** - Implement sophisticated graph algorithms for link prediction and centrality.
+- [ ] **Phase 7: AI Tribunal & Similarity Analysis** - Integrate AI for verification and vector-based discovery.
+- [ ] **Phase 8: Semantic Tag Propagation** - Automate tag management using graph context and AI.
+- [ ] **Phase 9: High-Fidelity Graph UI** - Provide a specialized view for visualizing graph issues.
+- [ ] **Phase 10: Reactive Healing Dashboard** - A central hub for managing all graph suggestions.
+- [ ] **Phase 11: Complex Suggestion Execution** - One-click repair for sophisticated topological issues.
+- [ ] **Phase 12: v1 Finalization & Stress Testing** - Ensure production readiness for large-scale digital gardens.
+
+## Phase Details
+
+### Phase 1: Core Foundation & Adapter Architecture
+**Goal**: Establish a stable, modular data ingestion layer.
+**Depends on**: Nothing
+**Requirements**: INFRA-01, INFRA-02, INFRA-03, INFRA-05, ADAPTER-01, ADAPTER-02, ARCH-01, ARCH-02, ARCH-03, UTIL-01, UTIL-02, COMPAT-01
+**Success Criteria** (what must be TRUE):
+  1. Plugin successfully initializes and loads metadata via Datacore.
+  2. Multiple adapters (Breadcrumbs, Smart Connections) can be injected into the UnifiedMetadataAdapter.
+  3. Vault path normalization is centralized and consistent across all adapters.
+  4. Secure keychain can store and retrieve API keys with AES-256 fallback.
+**Plans**: Completed
+
+### Phase 2: Concurrency & Performance Hardening
+**Goal**: Ensure the plugin doesn't freeze the UI during heavy computations.
+**Depends on**: Phase 1
+**Requirements**: INFRA-04, HARDEN-01, HARDEN-02, UX-01 (PROJECT: Hardening), EXTRACT-01, TEST-01
+**Success Criteria** (what must be TRUE):
+  1. Graph computations (Graphology) run in a background Web Worker.
+  2. Cache stampede protection prevents redundant metadata fetches.
+  3. BoundedMap correctly evicts items using true LRU logic.
+  4. UI notices provide feedback for long-running operations.
+**Plans**: Completed
+
+### Phase 3: Setting Resilience & UX Stability
+**Goal**: Robust settings management and basic user feedback.
+**Depends on**: Phase 2
+**Requirements**: UX-03, UX-04
+**Success Criteria** (what must be TRUE):
+  1. Settings hot-reload automatically when `data.json` is modified externally.
+  2. Debounced metadata updates prevent excessive re-analysis during typing.
+  3. Plugin remains stable and type-safe across all supported Obsidian versions.
+**Plans**: Completed
+
+### Phase 4: BaseAdapter Ultra-Hardening
+**Goal**: Address residual audit findings and edge cases in the adapter layer.
+**Depends on**: Phase 3
+**Requirements**: HARDEN-03
+**Success Criteria** (what must be TRUE):
+  1. `BaseAdapter` handles all identified null-caching edge cases.
+  2. Resilience against unexpected vault states (e.g., rapid file deletion) is verified.
+  3. Internal cache invalidation is 100% consistent with Obsidian event bus.
+**Plans**: TBD
+
+### Phase 5: Topological Diagnostics: Gaps & Loops
+**Goal**: Detect structural issues like missing links and infinite hierarchies.
+**Depends on**: Phase 4
+**Requirements**: TOPOL-01, TOPOL-04, TOPOL-05
+**Success Criteria** (what must be TRUE):
+  1. User can identify "Bridge Gaps" where sequential notes (A -> B -> C) are missing connections.
+  2. Circular dependencies in hierarchies (Ouroboros) are detected and flagged.
+  3. "Black Holes" (notes with many incoming but no outgoing links) are surfaced.
+**Plans**: TBD
+
+### Phase 6: Advanced Topological Metrics
+**Goal**: Implement sophisticated graph algorithms for link prediction and centrality.
+**Depends on**: Phase 5
+**Requirements**: TOPOL-02, TOPOL-03
+**Success Criteria** (what must be TRUE):
+  1. Plugin suggests new links based on Jaccard and Adamic-Adar indices.
+  2. PageRank and Betweenness Centrality metrics are available for all notes.
+  3. Louvain Community Detection identifies natural MOC clusters.
+**Plans**: TBD
+
+### Phase 7: AI Tribunal & Similarity Analysis
+**Goal**: Integrate AI for verification and vector-based discovery.
+**Depends on**: Phase 6
+**Requirements**: AI-01, AI-03
+**Success Criteria** (what must be TRUE):
+  1. AI Tribunal (dual-LLM) provides consensus on whether a suggested link is semantically valid.
+  2. Vector similarity scores from Smart Connections are integrated into the healing logic.
+  3. Primary and Secondary models can be configured for the tribunal.
+**Plans**: TBD
+
+### Phase 8: Semantic Tag Propagation
+**Goal**: Automate tag management using graph context and AI.
+**Depends on**: Phase 7
+**Requirements**: AI-02
+**Success Criteria** (what must be TRUE):
+  1. User receives tag suggestions based on parent MOC cluster semantics.
+  2. Tags can be propagated down hierarchies automatically.
+**Plans**: TBD
+
+### Phase 9: High-Fidelity Graph UI
+**Goal**: Provide a specialized view for visualizing graph issues.
+**Depends on**: Phase 5
+**Requirements**: UI-01, UI-02
+**Success Criteria** (what must be TRUE):
+  1. A custom graph view highlights detected topological errors (gaps, loops, sinks).
+  2. The "Reasoning Explainer" UI explains WHY a specific healing action is suggested.
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 10: Reactive Healing Dashboard
+**Goal**: A central hub for managing all graph suggestions.
+**Depends on**: Phase 9
+**Requirements**: UX-01 (REQUIREMENTS: Dashboard), UI-03
+**Success Criteria** (what must be TRUE):
+  1. A Svelte 5 (Runes) dashboard displays all suggested repairs in real-time.
+  2. Partial re-rendering ensures the dashboard remains responsive with 100+ suggestions.
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 11: Complex Suggestion Execution
+**Goal**: One-click repair for sophisticated topological issues.
+**Depends on**: Phase 10
+**Requirements**: UX-02
+**Success Criteria** (what must be TRUE):
+  1. "Triple Relink Executor" can fix multiple missing links in a chain with one click.
+  2. Multi-file edits for healing are atomic and reversible.
+**Plans**: TBD
+
+### Phase 12: v1 Finalization & Stress Testing
+**Goal**: Ensure production readiness for large-scale digital gardens.
+**Depends on**: Phase 11
+**Requirements**: None
+**Success Criteria** (what must be TRUE):
+  1. Plugin performance remains acceptable on vaults with 10,000+ nodes.
+  2. All v1 requirements are verified and documented.
+**Plans**: TBD
+
+## Progress Table
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 1. Core Foundation & Adapter Architecture | 1/1 | Completed | 2026-05-05 |
+| 2. Concurrency & Performance Hardening | 1/1 | Completed | 2026-05-05 |
+| 3. Setting Resilience & UX Stability | 1/1 | Completed | 2026-05-05 |
+| 4. BaseAdapter Ultra-Hardening | 0/1 | Active | - |
+| 5. Topological Diagnostics: Gaps & Loops | 0/1 | Active | - |
+| 6. Advanced Topological Metrics | 0/1 | Not started | - |
+| 7. AI Tribunal & Similarity Analysis | 0/1 | Not started | - |
+| 8. Semantic Tag Propagation | 0/1 | Not started | - |
+| 9. High-Fidelity Graph UI | 0/1 | Not started | - |
+| 10. Reactive Healing Dashboard | 0/1 | Not started | - |
+| 11. Complex Suggestion Execution | 0/1 | Not started | - |
+| 12. v1 Finalization & Stress Testing | 0/1 | Not started | - |
