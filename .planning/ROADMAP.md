@@ -20,7 +20,7 @@
 ### Phase 1: Core Foundation & Adapter Architecture
 **Goal**: Establish a stable, modular data ingestion layer.
 **Depends on**: Nothing
-**Requirements**: INFRA-01, INFRA-02, INFRA-03, INFRA-05, ADAPTER-01, ADAPTER-02, ARCH-01, ARCH-02, ARCH-03, UTIL-01, UTIL-02, COMPAT-01
+**Requirements**: INFRA-01, INFRA-02, INFRA-03, INFRA-05, ADAPTER-01, ADAPTER-02, ARCH-01, ARCH-02, ARCH-03, UTIL-01, UTIL-02, COMPAT-01  
 **Success Criteria** (what must be TRUE):
   1. Plugin successfully initializes and loads metadata via Datacore.
   2. Multiple adapters (Breadcrumbs, Smart Connections) can be injected into the UnifiedMetadataAdapter.
@@ -52,7 +52,7 @@
 ### Phase 4: BaseAdapter Ultra-Hardening
 **Goal**: Address residual audit findings and edge cases in the adapter layer.
 **Depends on**: Phase 3
-**Requirements**: HARDEN-03 (a-g)
+**Requirements**: HARDEN-03a, HARDEN-03b, HARDEN-03c, HARDEN-03d, HARDEN-03e, HARDEN-03f, HARDEN-03g
 **Success Criteria** (what must be TRUE):
   1. `UnifiedMetadataAdapter` correctly removes `metadataCache` listeners in `destroy()`.
   2. `NativeVaultAdapter` normalizes paths and filters self-links/non-file targets in `getLinks()`.
@@ -60,7 +60,12 @@
   4. All adapters implement `ensureInitialized()` guards to prevent race conditions.
   5. Type safety is improved across all adapters by removing implicit `any` in `Promise` returns.
   6. SmartConnections fallback optimization reduces CPU overhead on dense vaults.
-**Plans**: TBD
+**Plans**:
+- [ ] 04-01-PLAN.md — Core Architecture Hardening (IMetadataAdapter, BaseAdapter)
+- [ ] 04-02-PLAN.md — NativeVaultAdapter Ultra-Hardening (Paths, Filtering)
+- [ ] 04-03-PLAN.md — UnifiedMetadataAdapter Lifecycle & Performance (Deduplication, Leaks)
+- [ ] 04-04-PLAN.md — Supporting Adapters Hardening (Datacore, Breadcrumbs)
+- [ ] 04-05-PLAN.md — SmartConnections Optimization & Settings Integration
 
 ### Phase 5: Topological Diagnostics: Gaps & Loops
 **Goal**: Detect structural issues like missing links and infinite hierarchies.
@@ -146,7 +151,7 @@
 | 1. Core Foundation & Adapter Architecture | 1/1 | Completed | 2026-05-05 |
 | 2. Concurrency & Performance Hardening | 1/1 | Completed | 2026-05-05 |
 | 3. Setting Resilience & UX Stability | 1/1 | Completed | 2026-05-05 |
-| 4. BaseAdapter Ultra-Hardening | 0/1 | Active | - |
+| 4. BaseAdapter Ultra-Hardening | 5/5 | Active | - |
 | 5. Topological Diagnostics: Gaps & Loops | 0/1 | Active | - |
 | 6. Advanced Topological Metrics | 0/1 | Not started | - |
 | 7. AI Tribunal & Similarity Analysis | 0/1 | Not started | - |
