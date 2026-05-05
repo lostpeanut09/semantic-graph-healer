@@ -23,10 +23,10 @@
 
 ### Todos
 - [ ] **BaseAdapter Ultra-Hardening** (Phase 4):
-    - [ ] Fix listener leaks in `UnifiedMetadataAdapter`.
+    - [x] Fix listener leaks in `UnifiedMetadataAdapter`. (Planned in 04-03)
     - [ ] Harden `NativeVaultAdapter` (normalization & filters).
     - [ ] Implement edge deduplication in orchestrator.
-    - [ ] Add initialization guards and type-safety improvements.
+    - [x] Add initialization guards and type-safety improvements.
 - [ ] **Topological Diagnostics** (Phase 5):
     - [ ] Implement Bridge Scrutiny algorithm.
     - [ ] Implement Ouroboros Detection.
