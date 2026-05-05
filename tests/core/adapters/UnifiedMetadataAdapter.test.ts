@@ -143,16 +143,16 @@ describe('UnifiedMetadataAdapter Hardening', () => {
             // Mock getLinksSafe for all adapters
             datacore.getLinksSafe = vi
                 .fn()
-                .mockResolvedValue([{ source: 'a', target: 'b', type: 'link', confidence: 1 }]);
+                .mockResolvedValue([{ sourcePath: 'a', targetPath: 'b', type: 'link', confidence: 1 }]);
             breadcrumbs.getLinksSafe = vi
                 .fn()
-                .mockResolvedValue([{ source: 'a', target: 'c', type: 'link', confidence: 1 }]);
+                .mockResolvedValue([{ sourcePath: 'a', targetPath: 'c', type: 'link', confidence: 1 }]);
             smartConnections.getLinksSafe = vi
                 .fn()
-                .mockResolvedValue([{ source: 'b', target: 'c', type: 'link', confidence: 1 }]);
+                .mockResolvedValue([{ sourcePath: 'b', targetPath: 'c', type: 'link', confidence: 1 }]);
             nativeVault.getLinksSafe = vi
                 .fn()
-                .mockResolvedValue([{ source: 'c', target: 'd', type: 'link', confidence: 1 }]);
+                .mockResolvedValue([{ sourcePath: 'c', targetPath: 'd', type: 'link', confidence: 1 }]);
 
             const links = await adapter.getLinks();
 
@@ -170,8 +170,8 @@ describe('UnifiedMetadataAdapter Hardening', () => {
             // Same link, different confidence
             datacore.getLinksSafe = vi.fn().mockResolvedValue([
                 {
-                    source: 'a',
-                    target: 'b',
+                    sourcePath: 'a',
+                    targetPath: 'b',
                     type: 'link',
                     confidence: 0.5,
                     context: 'low',
@@ -179,8 +179,8 @@ describe('UnifiedMetadataAdapter Hardening', () => {
             ]);
             breadcrumbs.getLinksSafe = vi.fn().mockResolvedValue([
                 {
-                    source: 'a',
-                    target: 'b',
+                    sourcePath: 'a',
+                    targetPath: 'b',
                     type: 'link',
                     confidence: 0.9,
                     context: 'high',
@@ -200,8 +200,8 @@ describe('UnifiedMetadataAdapter Hardening', () => {
 
             datacore.getLinksSafe = vi.fn().mockResolvedValue([
                 {
-                    source: 'a',
-                    target: 'b',
+                    sourcePath: 'a',
+                    targetPath: 'b',
                     type: 'link',
                     confidence: 1,
                     context: 'ctx1',
@@ -210,8 +210,8 @@ describe('UnifiedMetadataAdapter Hardening', () => {
             ]);
             breadcrumbs.getLinksSafe = vi.fn().mockResolvedValue([
                 {
-                    source: 'a',
-                    target: 'b',
+                    sourcePath: 'a',
+                    targetPath: 'b',
                     type: 'link',
                     confidence: 1,
                     context: 'ctx2',

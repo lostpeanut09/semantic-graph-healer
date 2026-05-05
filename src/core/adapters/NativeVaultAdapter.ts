@@ -1,6 +1,7 @@
 import { App, TFile } from 'obsidian';
 import { BaseAdapter } from './BaseAdapter';
 import { SemanticLinkEdge } from './types';
+import { normalizeVaultPath } from '../HealerUtils';
 
 /**
  * NativeVaultAdapter: High-performance bridge to Obsidian's core MetadataCache.
@@ -28,12 +29,29 @@ export class NativeVaultAdapter extends BaseAdapter {
         this.ensureInitialized();
         const edges: SemanticLinkEdge[] = [];
         const resolvedLinks = this.app.metadataCache.resolvedLinks;
+        const includeNonMarkdown = (this.app as any).settings?.includeNonMarkdownHubs ?? false;
 
-        for (const [sourcePath, targets] of Object.entries(resolvedLinks)) {
-            for (const [targetPath, count] of Object.entries(targets)) {
+        this.logDebug(`getLinks: resolvedLinks count: ${Object.keys(resolvedLinks).length}`);
+        for (const [rawSource, targets] of Object.entries(resolvedLinks)) {
+            const sourcePath = normalizeVaultPath(this.app, rawSource);
+            this.logDebug(`getLinks: sourcePath: ${sourcePath}, targets: ${Object.keys(targets).length}`);
+            for (const [rawTarget, count] of Object.entries(targets)) {
                 // If count > 1, we might want to extract individual positions,
                 // but resolvedLinks is an aggregate. For precision, we'd need getFileCache.
                 // For now, we return the aggregate edge.
+                const targetPath = normalizeVaultPath(this.app, rawTarget, sourcePath);
+                this.logDebug(`getLinks: checking targetPath: ${targetPath}`);
+
+                if (sourcePath === targetPath) {
+                    this.logDebug(`getLinks: skipping self-link: ${sourcePath}`);
+                    continue;
+                }
+                if (!includeNonMarkdown && !targetPath.toLowerCase().endsWith('.md')) {
+                    this.logDebug(`getLinks: skipping non-markdown: ${targetPath}`);
+                    continue;
+                }
+
+                this.logDebug(`getLinks: pushing edge: ${sourcePath} -> ${targetPath}`);
                 edges.push({
                     sourcePath,
                     targetPath,
