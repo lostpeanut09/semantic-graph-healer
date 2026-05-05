@@ -18,7 +18,7 @@ const EdgeSchema = z.object({
 });
 
 const WorkerMessageSchema = z.looseObject({
-    type: z.enum(['PAGERANK', 'COMMUNITY', 'BETWEENNESS', 'FULL_ANALYSIS', 'SIMILARITY', 'COCITATION']),
+    type: z.enum(['PAGERANK', 'COMMUNITY', 'BETWEENNESS', 'FULL_ANALYSIS', 'SIMILARITY', 'COCITATION', 'TOPOLOGY_DIAGNOSTICS']),
     payload: z.object({
         nodes: z.array(NodeSchema),
         edges: z.array(EdgeSchema),
@@ -39,6 +39,7 @@ const WorkerMessageSchema = z.looseObject({
             edgePolicy: z.enum(['strict', 'tolerant']).optional(),
             maxEdges: z.number().optional(),
             maxNodes: z.number().optional(),
+            blackHoleThreshold: z.number().optional(),
         })
         .optional(),
 });
@@ -75,6 +76,7 @@ const DEFAULT_LIMITS = {
     SIMILARITY: 5000,
     FULL_ANALYSIS: 8000,
     COCITATION: 8000,
+    TOPOLOGY_DIAGNOSTICS: 10000,
     MAX_EDGES: 100_000,
 } as const;
 
@@ -169,6 +171,11 @@ export function handleGraphWorkerMessage(message: WorkerMessage, reporter?: Prog
                     nodeCount: graph.order,
                     edgeCount: graph.size,
                 };
+                break;
+
+            case 'TOPOLOGY_DIAGNOSTICS':
+                validateGraphSize('TOPOLOGY_DIAGNOSTICS', options, DEFAULT_LIMITS.TOPOLOGY_DIAGNOSTICS);
+                result = runTopologicalDiagnostics(graph, options, requestId, reporter);
                 break;
 
             default:
@@ -352,4 +359,90 @@ function runCoCitationAnalysis(graph: DirectedGraph, options: unknown, requestId
     });
 
     return results;
+}
+
+interface TopologyDiagnosticsOptions {
+    blackHoleThreshold?: number;
+}
+
+function runTopologicalDiagnostics(graph: DirectedGraph, options: unknown, requestId: string, reporter?: ProgressReporter) {
+    const opts = options as TopologyDiagnosticsOptions | undefined;
+    const blackHoleThreshold = opts?.blackHoleThreshold || 7;
+
+    const bridges: Array<{ source: string; target: string; via: string; type: string }> = [];
+    const sinks: string[] = [];
+    const cycles: string[][] = [];
+
+    const nodeCount = graph.order;
+    let processedNodes = 0;
+
+    // 1. Black Holes & Bridges
+    graph.forEachNode((a) => {
+        processedNodes++;
+        if (processedNodes % 50 === 0 && reporter) {
+            reporter.postProgress(requestId, processedNodes / nodeCount, `Diagnosing topology for ${a}...`);
+        }
+
+        // Black Hole detection
+        if (graph.inDegree(a) >= blackHoleThreshold && graph.outDegree(a) === 0) {
+            sinks.push(a);
+        }
+
+        // Bridge Scrutiny (Depth 2)
+        graph.outEdges(a).forEach((edgeAB) => {
+            const b = graph.target(edgeAB);
+            const typeAB = graph.getEdgeAttribute(edgeAB, 'type');
+
+            if (typeAB) {
+                graph.outEdges(b).forEach((edgeBC) => {
+                    const c = graph.target(edgeBC);
+                    const typeBC = graph.getEdgeAttribute(edgeBC, 'type');
+
+                    if (typeAB === typeBC && a !== c && !graph.hasEdge(a, c)) {
+                        bridges.push({
+                            source: a,
+                            target: c,
+                            via: b,
+                            type: typeAB as string,
+                        });
+                    }
+                });
+            }
+        });
+    });
+
+    // 2. Cycle Detection (DFS)
+    const visited = new Set<string>();
+    const recursionStack = new Set<string>();
+    const path: string[] = [];
+
+    const dfs = (node: string) => {
+        visited.add(node);
+        recursionStack.add(node);
+        path.push(node);
+
+        graph.outNeighbors(node).forEach((neighbor) => {
+            if (!visited.has(neighbor)) {
+                dfs(neighbor);
+            } else if (recursionStack.has(neighbor)) {
+                const cycleStartIndex = path.indexOf(neighbor);
+                cycles.push(path.slice(cycleStartIndex));
+            }
+        });
+
+        recursionStack.delete(node);
+        path.pop();
+    };
+
+    graph.forEachNode((node) => {
+        if (!visited.has(node)) {
+            dfs(node);
+        }
+    });
+
+    return {
+        bridges,
+        sinks,
+        cycles,
+    };
 }
