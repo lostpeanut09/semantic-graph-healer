@@ -75,7 +75,10 @@
   1. User can identify "Bridge Gaps" where sequential notes (A -> B -> C) are missing connections.
   2. Circular dependencies in hierarchies (Ouroboros) are detected and flagged.
   3. "Black Holes" (notes with many incoming but no outgoing links) are surfaced.
-**Plans**: TBD
+**Plans**:
+- [ ] 05-01-PLAN.md — Extend Graph Worker (Bridges, Cycles, Sinks)
+- [ ] 05-02-PLAN.md — Service & Engine Integration (Typed Edges, Unified Analysis)
+- [ ] 05-03-PLAN.md — TopologyAnalyzer Refactor & Settings Implementation
 
 ### Phase 6: Advanced Topological Metrics
 **Goal**: Implement sophisticated graph algorithms for link prediction and centrality.
@@ -153,7 +156,7 @@
 | 3. Setting Resilience & UX Stability | 1/1 | Completed | 2026-05-05 |
 | 4. BaseAdapter Ultra-Hardening | 1/1 | Completed | 2026-05-05 |
 
-| 5. Topological Diagnostics: Gaps & Loops | 0/1 | Active | - |
+| 5. Topological Diagnostics: Gaps & Loops | 0/3 | Active | - |
 | 6. Advanced Topological Metrics | 0/1 | Not started | - |
 | 7. AI Tribunal & Similarity Analysis | 0/1 | Not started | - |
 | 8. Semantic Tag Propagation | 0/1 | Not started | - |
