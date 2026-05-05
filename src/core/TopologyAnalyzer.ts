@@ -966,7 +966,9 @@ export class TopologyAnalyzer {
      */
     public async runSemanticChildValidation(signal?: AbortSignal): Promise<Suggestion[]> {
         if (!this.context.settings.enableSemanticAudit) {
-            HealerLogger.debug('Semantic child validation disabled in settings.');
+            if (this.context.settings.logLevel === 'debug') {
+                HealerLogger.debug('Semantic child validation disabled in settings.');
+            }
             return [];
         }
 

@@ -79,8 +79,11 @@ export default class SemanticGraphHealer extends Plugin {
             this.settings.logLevel === 'debug',
             this.settings.pageChildrenCacheMaxSize ?? 500,
         );
-        const breadcrumbs = new BreadcrumbsAdapter(this.app as ExtendedApp);
-        const smartConnections = new SmartConnectionsAdapter(this.app as ExtendedApp);
+        const breadcrumbs = new BreadcrumbsAdapter(this.app as ExtendedApp, this.settings.logLevel === 'debug');
+        const smartConnections = new SmartConnectionsAdapter(
+            this.app as ExtendedApp,
+            this.settings.logLevel === 'debug',
+        );
 
         // 2. Initialize Core Engine with injected dependencies
         this.engine = new UnifiedMetadataAdapter(this.app as ExtendedApp, this.settings, {
@@ -157,8 +160,11 @@ export default class SemanticGraphHealer extends Plugin {
                 this.settings.logLevel === 'debug',
                 this.settings.pageChildrenCacheMaxSize ?? 500,
             );
-            const breadcrumbs = new BreadcrumbsAdapter(this.app as ExtendedApp);
-            const smartConnections = new SmartConnectionsAdapter(this.app as ExtendedApp);
+            const breadcrumbs = new BreadcrumbsAdapter(this.app as ExtendedApp, this.settings.logLevel === 'debug');
+            const smartConnections = new SmartConnectionsAdapter(
+                this.app as ExtendedApp,
+                this.settings.logLevel === 'debug',
+            );
 
             this.engine = new UnifiedMetadataAdapter(this.app as ExtendedApp, this.settings, {
                 datacore,
