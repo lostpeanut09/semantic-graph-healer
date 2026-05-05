@@ -46,6 +46,10 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
         super(app, debug);
     }
 
+    protected async onInitialize(): Promise<void> {
+        return Promise.resolve();
+    }
+
     /**
      * Checks if Smart Connections plugin is enabled and active.
      */

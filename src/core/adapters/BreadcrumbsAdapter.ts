@@ -27,6 +27,10 @@ export class BreadcrumbsAdapter extends BaseAdapter implements IBreadcrumbsPort 
         super(app, debug);
     }
 
+    protected async onInitialize(): Promise<void> {
+        return Promise.resolve();
+    }
+
     /**
      * Checks if Breadcrumbs plugin is available (V3 or V4).
      */

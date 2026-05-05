@@ -11,6 +11,13 @@ class TestAdapter extends BaseAdapter {
 
     public getLinksCalls = 0;
     public destroyCalls = 0;
+    public onInitializeCalls = 0;
+
+    protected async onInitialize(): Promise<void> {
+        this.onInitializeCalls++;
+        // Simulate async work
+        await new Promise((resolve) => setTimeout(resolve, 10));
+    }
 
     public isAvailable(): boolean {
         if (this.throwOnAvailable) throw new Error('boom-available');
@@ -18,6 +25,7 @@ class TestAdapter extends BaseAdapter {
     }
 
     public async getLinks() {
+        this.ensureInitialized();
         this.getLinksCalls++;
         if (this.throwOnGetLinks) throw new Error('boom-links');
         return [];
@@ -31,13 +39,15 @@ class TestAdapter extends BaseAdapter {
 
     // expose protected for test
     public _isPluginAvailable(id: string): boolean {
-        // @ts-expect-error testing protected
-        return this.isPluginAvailable(id);
+        return (this as any).isPluginAvailable(id);
     }
 
     public _logDebug(msg: string): void {
-        // @ts-expect-error testing protected
-        return this.logDebug(msg);
+        return (this as any).logDebug(msg);
+    }
+
+    public _ensureInitialized(): void {
+        return (this as any).ensureInitialized();
     }
 }
 
@@ -50,6 +60,38 @@ describe('BaseAdapter', () => {
 
     afterEach(() => {
         debugSpy.mockRestore();
+    });
+
+    it('initialize() calls onInitialize exactly once and handles concurrency', async () => {
+        const a = new TestAdapter({} as any);
+        const p1 = a.initialize();
+        const p2 = a.initialize();
+
+        await Promise.all([p1, p2]);
+
+        expect(a.onInitializeCalls).toBe(1);
+    });
+
+    it('ensureInitialized() throws if called before initialize', () => {
+        const a = new TestAdapter({} as any);
+        expect(() => a._ensureInitialized()).toThrow('test-adapter adapter: not initialized');
+    });
+
+    it('ensureInitialized() throws if called while initialize is in flight', () => {
+        const a = new TestAdapter({} as any);
+        void a.initialize();
+        expect(() => a._ensureInitialized()).toThrow('test-adapter adapter: not initialized');
+    });
+
+    it('ensureInitialized() does not throw after initialize completes', async () => {
+        const a = new TestAdapter({} as any);
+        await a.initialize();
+        expect(() => a._ensureInitialized()).not.toThrow();
+    });
+
+    it('getLinks throws if not initialized (via ensureInitialized)', async () => {
+        const a = new TestAdapter({} as any);
+        await expect(a.getLinks()).rejects.toThrow('test-adapter adapter: not initialized');
     });
 
     it('destroy() is idempotent and calls onDestroy exactly once', () => {
@@ -78,6 +120,7 @@ describe('BaseAdapter', () => {
 
     it('getLinksSafe returns [] if getLinks throws', async () => {
         const a = new TestAdapter({} as any);
+        await a.initialize();
         a.throwOnGetLinks = true;
         const res = await a.getLinksSafe();
         expect(res).toEqual([]);
