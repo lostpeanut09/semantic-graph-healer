@@ -26,6 +26,8 @@ vi.mock('../../../src/core/adapters/DatacoreAdapter', () => {
             invalidate = vi.fn();
             destroy = vi.fn();
             invalidateBacklinkIndex = vi.fn();
+            isAvailable = vi.fn(() => true);
+            getLinksSafe = vi.fn(async () => []);
         },
     };
 });
@@ -36,6 +38,8 @@ vi.mock('../../../src/core/adapters/BreadcrumbsAdapter', () => {
             getHierarchy = vi.fn();
             invalidate = vi.fn();
             destroy = vi.fn();
+            isAvailable = vi.fn(() => true);
+            getLinksSafe = vi.fn(async () => []);
         },
     };
 });
@@ -46,6 +50,19 @@ vi.mock('../../../src/core/adapters/SmartConnectionsAdapter', () => {
             getRelatedNotes = vi.fn();
             invalidate = vi.fn();
             destroy = vi.fn();
+            isAvailable = vi.fn(() => true);
+            getLinksSafe = vi.fn(async () => []);
+        },
+    };
+});
+
+vi.mock('../../../src/core/adapters/NativeVaultAdapter', () => {
+    return {
+        NativeVaultAdapter: class {
+            invalidate = vi.fn();
+            destroy = vi.fn();
+            isAvailable = vi.fn(() => true);
+            getLinksSafe = vi.fn(async () => []);
         },
     };
 });
@@ -79,7 +96,7 @@ describe('UnifiedMetadataAdapter Hardening', () => {
                 offref: vi.fn(), // for StructuralCache.destroy
             },
             metadataCache: {
-                on: vi.fn(() => ({})), // return event ref for offref
+                on: vi.fn(() => ({ event: 'metadata-resolved' })), // return event ref for offref
                 off: vi.fn(),
                 offref: vi.fn(), // for StructuralCache.destroy
                 getFirstLinkpathDest: vi.fn(),
@@ -98,6 +115,118 @@ describe('UnifiedMetadataAdapter Hardening', () => {
                 ttlMs: 10000,
             },
         );
+    });
+
+    describe('Task 1: EventRef Cleanup', () => {
+        it('should register metadataCache listener on initialize and unregister on destroy', async () => {
+            await adapter.initialize();
+
+            const resolvedCall = mockApp.metadataCache.on.mock.calls.find((call: any) => call[0] === 'resolved');
+            expect(resolvedCall).toBeDefined();
+
+            const resolvedCallIndex = mockApp.metadataCache.on.mock.calls.indexOf(resolvedCall);
+            const eventRef = mockApp.metadataCache.on.mock.results[resolvedCallIndex].value;
+
+            adapter.destroy();
+
+            expect(mockApp.metadataCache.offref).toHaveBeenCalledWith(eventRef);
+        });
+    });
+
+    describe('Task 2: Parallel Link Aggregation and Deduplication', () => {
+        it('aggregates links from multiple adapters in parallel', async () => {
+            const datacore = (adapter as any).datacore;
+            const breadcrumbs = (adapter as any).breadcrumbs;
+            const smartConnections = (adapter as any).smartConnections;
+            const nativeVault = (adapter as any).nativeVault;
+
+            // Mock getLinksSafe for all adapters
+            datacore.getLinksSafe = vi
+                .fn()
+                .mockResolvedValue([{ source: 'a', target: 'b', type: 'link', confidence: 1 }]);
+            breadcrumbs.getLinksSafe = vi
+                .fn()
+                .mockResolvedValue([{ source: 'a', target: 'c', type: 'link', confidence: 1 }]);
+            smartConnections.getLinksSafe = vi
+                .fn()
+                .mockResolvedValue([{ source: 'b', target: 'c', type: 'link', confidence: 1 }]);
+            nativeVault.getLinksSafe = vi
+                .fn()
+                .mockResolvedValue([{ source: 'c', target: 'd', type: 'link', confidence: 1 }]);
+
+            const links = await adapter.getLinks();
+
+            expect(links).toHaveLength(4);
+            expect(datacore.getLinksSafe).toHaveBeenCalled();
+            expect(breadcrumbs.getLinksSafe).toHaveBeenCalled();
+            expect(smartConnections.getLinksSafe).toHaveBeenCalled();
+            expect(nativeVault.getLinksSafe).toHaveBeenCalled();
+        });
+
+        it('deduplicates links based on source|target|type and prioritizes higher confidence', async () => {
+            const datacore = (adapter as any).datacore;
+            const breadcrumbs = (adapter as any).breadcrumbs;
+
+            // Same link, different confidence
+            datacore.getLinksSafe = vi.fn().mockResolvedValue([
+                {
+                    source: 'a',
+                    target: 'b',
+                    type: 'link',
+                    confidence: 0.5,
+                    context: 'low',
+                },
+            ]);
+            breadcrumbs.getLinksSafe = vi.fn().mockResolvedValue([
+                {
+                    source: 'a',
+                    target: 'b',
+                    type: 'link',
+                    confidence: 0.9,
+                    context: 'high',
+                },
+            ]);
+
+            const links = await adapter.getLinks();
+
+            expect(links).toHaveLength(1);
+            expect(links[0].confidence).toBe(0.9);
+            expect(links[0].context).toBe('high');
+        });
+
+        it('merges context and keeps first position when confidence is tied', async () => {
+            const datacore = (adapter as any).datacore;
+            const breadcrumbs = (adapter as any).breadcrumbs;
+
+            datacore.getLinksSafe = vi.fn().mockResolvedValue([
+                {
+                    source: 'a',
+                    target: 'b',
+                    type: 'link',
+                    confidence: 1,
+                    context: 'ctx1',
+                    position: { start: 1, end: 2 },
+                },
+            ]);
+            breadcrumbs.getLinksSafe = vi.fn().mockResolvedValue([
+                {
+                    source: 'a',
+                    target: 'b',
+                    type: 'link',
+                    confidence: 1,
+                    context: 'ctx2',
+                    position: { start: 3, end: 4 },
+                },
+            ]);
+
+            const links = await adapter.getLinks();
+
+            expect(links).toHaveLength(1);
+            expect(links[0].confidence).toBe(1);
+            expect(links[0].context).toContain('ctx1');
+            expect(links[0].context).toContain('ctx2');
+            expect(links[0].position).toEqual({ start: 1, end: 2 });
+        });
     });
 
     it('should return cached page on repeated calls', () => {

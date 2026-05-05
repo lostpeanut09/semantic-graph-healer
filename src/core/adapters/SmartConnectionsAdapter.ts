@@ -39,7 +39,6 @@ interface SmartConnectionsPluginShape {
  */
 export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnectionsPort {
     public readonly id = 'smart-connections';
-    private static readonly MAX_FALLBACK_FILE_SIZE = 50 * 1024 * 1024; // 50MB
     private semanticQueryCache = new Map<string, { mtime: number; query: string }>();
 
     constructor(app: App, debug: boolean = false) {
@@ -47,6 +46,7 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
     }
 
     protected async onInitialize(): Promise<void> {
+        this.logDebug('SmartConnectionsAdapter: initialized');
         return Promise.resolve();
     }
 
@@ -61,6 +61,7 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
      * Extracts links from Smart Connections similarity data.
      */
     public async getLinks(): Promise<SemanticLinkEdge[]> {
+        this.ensureInitialized();
         return [];
     }
 
@@ -261,6 +262,7 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
      * Fallback sequence: API -> Global Sources -> JSON Index Fallbacks.
      */
     async getRelatedNotes(path: string, limit: number): Promise<RelatedNote[]> {
+        this.ensureInitialized();
         const normalizedSource = normalizeVaultPath(this.app, path, path);
 
         try {
@@ -325,6 +327,9 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
         const results: SearchResult[] = [];
         const seen = new Set<string>();
 
+        // Phase 4: Use configurable size cap
+        const sizeCap = (this.app as ExtendedApp).settings?.smartConnectionsAjsonSizeCap ?? 1024 * 1024;
+
         const singleFileFallbacks = ['.smart-env/smart_sources.json', '.smart-env/smart_sources.ajson'];
         for (const singleFileFallback of singleFileFallbacks) {
             if (!(await adapter.exists(singleFileFallback))) continue;
@@ -341,9 +346,9 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
                     );
                 }
 
-                if (statSize !== null && statSize > SmartConnectionsAdapter.MAX_FALLBACK_FILE_SIZE) {
+                if (statSize !== null && statSize > sizeCap) {
                     HealerLogger.warn(
-                        `SmartConnectionsAdapter: skipping oversized ${singleFileFallback} (${statSize} bytes)`,
+                        `SmartConnectionsAdapter: skipping oversized ${singleFileFallback} (${statSize} bytes) > cap (${sizeCap})`,
                     );
                     continue;
                 }
@@ -424,9 +429,9 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
                     try {
                         try {
                             const fstat = await adapter.stat(readPath);
-                            if (fstat && fstat.size > SmartConnectionsAdapter.MAX_FALLBACK_FILE_SIZE) {
+                            if (fstat && fstat.size > sizeCap) {
                                 HealerLogger.warn(
-                                    `SmartConnectionsAdapter: skipping oversized ${readPath} (${fstat.size} bytes)`,
+                                    `SmartConnectionsAdapter: skipping oversized ${readPath} (${fstat.size} bytes) > cap (${sizeCap})`,
                                 );
                                 continue;
                             }

@@ -130,7 +130,7 @@ describe('DatacoreAdapter', () => {
     let getPlugin: ReturnType<typeof vi.fn>;
     let getEnabledPluginById: ReturnType<typeof vi.fn>;
 
-    beforeEach(() => {
+    beforeEach(async () => {
         vi.useFakeTimers();
 
         metadataHub = createListenerHub();
@@ -201,6 +201,7 @@ describe('DatacoreAdapter', () => {
         } as unknown as App;
 
         adapter = new DatacoreAdapter(mockApp);
+        await adapter.initialize();
     });
 
     afterEach(() => {

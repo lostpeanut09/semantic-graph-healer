@@ -209,10 +209,14 @@ export abstract class BaseAdapter {
         try {
             if (enabledPlugins instanceof Set) {
                 enabled = enabledPlugins.has(pluginId);
-            } else if (Array.isArray(enabledPlugins)) {
-                enabled = enabledPlugins.includes(pluginId);
-            } else if (enabledPlugins && typeof (enabledPlugins as unknown).has === 'function') {
-                enabled = !!(enabledPlugins as unknown).has(pluginId);
+            } else if (typeof (enabledPlugins as unknown) === 'object' && enabledPlugins !== null) {
+                // Defensive fallback for non-Set shapes if any
+                const ep = enabledPlugins as unknown as any;
+                if (typeof ep.has === 'function') {
+                    enabled = ep.has(pluginId);
+                } else if (Array.isArray(ep)) {
+                    enabled = ep.includes(pluginId);
+                }
             }
         } catch (e) {
             this.logDebug(`enabledPlugins check failed for ${pluginId}`, e);

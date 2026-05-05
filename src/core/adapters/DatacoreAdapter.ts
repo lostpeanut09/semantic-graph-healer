@@ -78,6 +78,7 @@ export class DatacoreAdapter extends BaseAdapter implements IDataviewPort {
      * Extracts links via Datacore query.
      */
     public async getLinks(): Promise<SemanticLinkEdge[]> {
+        this.ensureInitialized();
         // High-level extraction using Datacore query
         // For a full graph scan, this would use '@page' query and map outlinks
         return [];
@@ -157,6 +158,7 @@ export class DatacoreAdapter extends BaseAdapter implements IDataviewPort {
      * Retrieves a single page by path using a robust query-first fallback strategy.
      */
     getPage(path: string): DataviewPage | null {
+        this.ensureInitialized();
         const dc = this.getApi();
         if (!dc) return null;
 
@@ -228,6 +230,7 @@ export class DatacoreAdapter extends BaseAdapter implements IDataviewPort {
     }
 
     public getBacklinks(targetPath: string): string[] {
+        this.ensureInitialized();
         const normalized = normalizeVaultPath(this.app, targetPath);
         if (!this.backlinkIndex) {
             this.backlinkIndex = this.buildBacklinkIndex();
@@ -239,6 +242,7 @@ export class DatacoreAdapter extends BaseAdapter implements IDataviewPort {
      * Executes a metadata query with strict result filtering and error handling.
      */
     public getPages(query: string): DataviewPage[] {
+        this.ensureInitialized();
         const api = this.getApi();
         if (!api) return [];
         try {

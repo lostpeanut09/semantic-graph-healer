@@ -60,6 +60,9 @@ export default class SemanticGraphHealer extends Plugin {
         this.cache = new CacheService(this);
         await this.loadSettings();
 
+        // Attach settings to app for adapter access (Phase 4 Hardening)
+        (this.app as ExtendedApp).settings = this.settings;
+
         // 1. Initialize Infrastructure & Services
         this.logger = new InstanceLogger('SemanticGraphHealer', this, this.settings);
         LegacyLogger.setInstance(this.logger);
@@ -148,6 +151,7 @@ export default class SemanticGraphHealer extends Plugin {
         try {
             this.logger.info('External settings change detected. Re-initializing engine...');
             await this.loadSettings();
+            (this.app as ExtendedApp).settings = this.settings;
 
             // 1. Hot Reload Infrastructure
             if (this.engine) {
