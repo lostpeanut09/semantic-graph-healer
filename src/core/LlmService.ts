@@ -261,7 +261,9 @@ export class LlmService {
         const cached = this.verificationCache.get(cacheKey);
 
         if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
-            HealerLogger.debug(`Tag validation cache hit: ${cacheKey}`);
+            if (this.settings.logLevel === 'debug') {
+                HealerLogger.debug(`Tag validation cache hit: ${cacheKey}`);
+            }
             return cached.result as boolean;
         }
 
@@ -318,7 +320,9 @@ Respond ONLY with: YES or NO`.trim();
         const cached = this.verificationCache.get(cacheKey);
 
         if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
-            HealerLogger.debug(`Branch validation cache hit: ${cacheKey}`);
+            if (this.settings.logLevel === 'debug') {
+                HealerLogger.debug(`Branch validation cache hit: ${cacheKey}`);
+            }
             return cached.result as boolean;
         }
 
@@ -395,7 +399,9 @@ Respond ONLY with: VALID or CONTRADICTION
         const cached = this.verificationCache.get(cacheKey);
 
         if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
-            HealerLogger.debug(`Relation validation cache hit (Content Aware): ${cacheKey}`);
+            if (this.settings.logLevel === 'debug') {
+                HealerLogger.debug(`Relation validation cache hit (Content Aware): ${cacheKey}`);
+            }
             return cached.result as { valid: boolean; reason: string };
         }
 

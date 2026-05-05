@@ -66,6 +66,7 @@ export class DatacoreAdapter extends BaseAdapter implements IDataviewPort {
      * Checks if Datacore plugin is enabled and API is ready.
      */
     public isAvailable(): boolean {
+        if (!this.isPluginAvailable('datacore')) return false;
         return this.getApi() !== null;
     }
 
@@ -86,12 +87,12 @@ export class DatacoreAdapter extends BaseAdapter implements IDataviewPort {
     }
 
     private getApi(): DatacoreApi | null {
-        if (!isObsidianInternalApp(this.app)) return null;
+        if (!this.isPluginAvailable('datacore')) return null;
         const app = this.app as ExtendedApp;
         const plugin = app.plugins.getPlugin('datacore');
         const api = plugin && 'api' in plugin ? (plugin as { api: DatacoreApi }).api : null;
         if (api && (typeof api.tryQuery === 'function' || typeof api.query === 'function')) return api;
-        if (this.debug) HealerLogger.warn('DatacoreAdapter: Datacore API not ready yet.');
+        this.logDebug('DatacoreAdapter: Datacore API not ready yet.');
         return null;
     }
 
@@ -112,7 +113,7 @@ export class DatacoreAdapter extends BaseAdapter implements IDataviewPort {
                 return r.value ?? [];
             } catch (e) {
                 if (this.debug) {
-                    HealerLogger.error(`DatacoreAdapter: tryQuery threw exception for "${q}"`, e);
+                    this.logDebug(`DatacoreAdapter: tryQuery threw exception for "${q}"`, e);
                 }
                 // Fallback to query() if tryQuery throws
             }

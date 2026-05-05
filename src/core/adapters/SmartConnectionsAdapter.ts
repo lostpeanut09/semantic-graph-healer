@@ -50,9 +50,7 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
      * Checks if Smart Connections plugin is enabled and active.
      */
     public isAvailable(): boolean {
-        if (!isObsidianInternalApp(this.app)) return false;
-        const plugin = (this.app as ExtendedApp).plugins.getPlugin('smart-connections');
-        return !!plugin;
+        return this.isPluginAvailable('smart-connections');
     }
 
     /**
@@ -159,19 +157,14 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
             try {
                 const res = await attempt.run();
                 if (Array.isArray(res) && res.length > 0) {
-                    HealerLogger.debug?.(
-                        `SmartConnectionsAdapter: using surface "${attempt.label}" for "${contextPath}"`,
-                    );
+                    this.logDebug(`SmartConnectionsAdapter: using surface "${attempt.label}" for "${contextPath}"`);
                     return res;
                 }
-                HealerLogger.debug?.(
+                this.logDebug(
                     `SmartConnectionsAdapter: surface "${attempt.label}" returned no results for "${contextPath}"`,
                 );
             } catch (e) {
-                HealerLogger.debug?.(
-                    `SmartConnectionsAdapter: surface "${attempt.label}" failed for "${contextPath}"`,
-                    e,
-                );
+                this.logDebug(`SmartConnectionsAdapter: surface "${attempt.label}" failed for "${contextPath}"`, e);
             }
         }
         return [];
@@ -338,7 +331,7 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
                     const stat = await adapter.stat(singleFileFallback);
                     statSize = typeof stat?.size === 'number' ? stat.size : null;
                 } catch (e) {
-                    HealerLogger.debug?.(
+                    this.logDebug(
                         `SmartConnectionsAdapter: stat() failed for ${singleFileFallback}, attempting read() anyway`,
                         e,
                     );
@@ -358,7 +351,7 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
                 try {
                     data = JSON.parse(content) as Record<string, unknown>;
                 } catch (parseErr) {
-                    HealerLogger.debug?.(
+                    this.logDebug(
                         `SmartConnectionsAdapter: ${singleFileFallback} is not valid JSON, skipping JSON parse path`,
                         parseErr,
                     );
@@ -368,9 +361,7 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
 
                 // Se il file esiste ma contiene un oggetto/array vuoto, salta e prova il prossimo fallback
                 if (this.isEmptyCollection(data)) {
-                    HealerLogger.debug?.(
-                        `SmartConnectionsAdapter: fallback file ${singleFileFallback} is empty, trying next`,
-                    );
+                    this.logDebug(`SmartConnectionsAdapter: fallback file ${singleFileFallback} is empty, trying next`);
                     continue;
                 }
 
@@ -385,9 +376,7 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
                         try {
                             serialized = JSON.stringify(targetVal);
                         } catch {
-                            HealerLogger.debug?.(
-                                `SmartConnectionsAdapter: skipping circular/malformed entry "${targetKey}"`,
-                            );
+                            this.logDebug(`SmartConnectionsAdapter: skipping circular/malformed entry "${targetKey}"`);
                             continue;
                         }
                         if (this.containsExactPath(serialized, sourcePath)) {
@@ -404,10 +393,7 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
                             if (results.length >= limit) return results;
                         }
                     } catch (entryErr) {
-                        HealerLogger.debug?.(
-                            `SmartConnectionsAdapter: skipping malformed entry "${targetKey}"`,
-                            entryErr,
-                        );
+                        this.logDebug(`SmartConnectionsAdapter: skipping malformed entry "${targetKey}"`, entryErr);
                     }
                 }
                 // Non uscire qui se suggestions è vuoto; lascia che il ciclo provi il prossimo file
@@ -470,7 +456,7 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
 
                         if (results.length >= limit) return results;
                     } catch (fileErr) {
-                        HealerLogger.debug?.(`SmartConnectionsAdapter: skipping failed file ${readPath}`, fileErr);
+                        this.logDebug(`SmartConnectionsAdapter: skipping failed file ${readPath}`, fileErr);
                         continue;
                     }
                 }

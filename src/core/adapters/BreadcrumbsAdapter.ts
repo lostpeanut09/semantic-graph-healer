@@ -31,6 +31,7 @@ export class BreadcrumbsAdapter extends BaseAdapter implements IBreadcrumbsPort 
      * Checks if Breadcrumbs plugin is available (V3 or V4).
      */
     public isAvailable(): boolean {
+        if (!this.isPluginAvailable('breadcrumbs')) return false;
         return this.getV4Api() !== null || this.getApi() !== null;
     }
 
@@ -63,7 +64,7 @@ export class BreadcrumbsAdapter extends BaseAdapter implements IBreadcrumbsPort 
             const api = plugin.api;
             const graph = api.closedG ?? api.mainG;
             if (graph && graph.order === 0) {
-                HealerLogger.debug?.('BreadcrumbsAdapter: graph order=0 (empty).');
+                this.logDebug('BreadcrumbsAdapter: graph order=0 (empty).');
             } else if (!graph) {
                 HealerLogger.warn('BreadcrumbsAdapter: graphs are null.');
             }
@@ -106,7 +107,7 @@ export class BreadcrumbsAdapter extends BaseAdapter implements IBreadcrumbsPort 
                     else if (edge.dir === 'prev') prev.push(normalizedTarget);
                     else if (edge.dir === 'down') children.push(normalizedTarget);
                     else {
-                        HealerLogger.debug?.(
+                        this.logDebug(
                             `BreadcrumbsAdapter: Unknown or missing edge direction for target "${normalizedTarget}". Ignoring.`,
                         );
                     }
@@ -132,7 +133,7 @@ export class BreadcrumbsAdapter extends BaseAdapter implements IBreadcrumbsPort 
             if (typeof api.getMatrixNeighbours === 'function') {
                 const fromMatrix = this.fromMatrixNeighbours(api, normalizedPath);
                 if (fromMatrix) return Promise.resolve(fromMatrix);
-                HealerLogger.debug?.(
+                this.logDebug(
                     `BreadcrumbsAdapter: getMatrixNeighbours returned null for "${normalizedPath}", falling back to graph.`,
                 );
             }
@@ -243,7 +244,7 @@ export class BreadcrumbsAdapter extends BaseAdapter implements IBreadcrumbsPort 
 
     private fromGraph(graph: MultiGraph, path: string, reverseIn: boolean): HierarchyNode | null {
         if (!graph.hasNode(path)) {
-            HealerLogger.debug(`BreadcrumbsAdapter: "${path}" not found in graph (${graph.order} nodes).`);
+            this.logDebug(`BreadcrumbsAdapter: "${path}" not found in graph (${graph.order} nodes).`);
             return null;
         }
         const parents: string[] = [],

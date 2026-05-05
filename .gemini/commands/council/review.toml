@@ -1,0 +1,14 @@
+description = "Run external review via Kilo Gateway (kilo-auto/free) on staged diff, then apply fixes."
+prompt = """
+You are the main coder. You must:
+- Read the external review below.
+- Apply high/medium fixes only.
+- Add/adjust tests for every fix.
+- Re-run the project's test command.
+- Summarize what changed and remaining risks.
+
+External review (Kilo, kilo-auto/free):
+```text
+!{node scripts/kilo_review.mjs}
+```
+"""

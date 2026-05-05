@@ -90,7 +90,7 @@ describe('SmartConnectionsAdapter', () => {
             },
         } as unknown as App;
 
-        adapter = new SmartConnectionsAdapter(mockApp);
+        adapter = new SmartConnectionsAdapter(mockApp, true);
     });
 
     afterEach(() => {

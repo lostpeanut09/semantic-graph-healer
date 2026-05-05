@@ -109,7 +109,9 @@ export class GraphWorkerService {
                 this.pendingCallbacks.delete(requestId);
             }
         } else if (type === 'PROGRESS') {
-            this.logger.debug('Progress:', payload);
+            if (this.plugin.settings.logLevel === 'debug') {
+                this.logger.debug('Progress:', payload);
+            }
         }
     }
 
