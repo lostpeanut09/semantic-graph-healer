@@ -38,6 +38,13 @@ A production-grade graph analysis engine and suggestion executor for Obsidian. I
 ### Active
 
 - [ ] **HARDEN-03**: BaseAdapter Ultra-Hardening (Audit Findings)
+    - [ ] Fix listener leak in `UnifiedMetadataAdapter` (EventRef cleanup)
+    - [ ] Harden `NativeVaultAdapter` edges (normalization, filters, rich links)
+    - [ ] Add deterministic deduplication to `getLinks()` in `UnifiedMetadataAdapter`
+    - [ ] Add `ensureInitialized()` guard across all adapters
+    - [ ] Parametrize `Promise<...>` for stronger type-safety in adapter interfaces
+    - [ ] Optimize `UnifiedMetadataAdapter.getLinks()` with `Promise.all`
+    - [ ] Optimize SmartConnections fallback (size cap, early break)
 - [ ] **UI-01**: UI Integration: High-Fidelity Graph
 - [ ] **UI-02**: UI Component: Reasoning Explainer
 - [ ] **UI-03**: Real-time Healing Dashboard
@@ -69,3 +76,15 @@ This document evolves at phase transitions and milestone boundaries.
 
 ---
 *Last updated: 2026-05-05 after initialization*
+
+## Domain Glossary
+
+| Term | Definition |
+|------|------------|
+| **Adapter** | Integration layer translating external plugin APIs (Datacore, Breadcrumbs, Smart Connections) into a stable internal format. |
+| **Port** | Vertical interface (e.g., `IDataviewPort`) that a specific adapter implements to avoid monolithic interfaces. |
+| **IMetadataAdapter** | Unified interface exposed by the orchestrator (`UnifiedMetadataAdapter`) combining multiple sources. |
+| **SemanticLinkEdge** | Normalized representation of a graph link (source → target) with metadata (context, position, confidence). |
+| **AI Tribunal** | Dual-LLM verification system (Primary + Secondary) to ensure consensus and prevent hallucinations. |
+| **StructuralCache** | LRU caching layer with event-based invalidation and stampede protection. |
+| **Docs Aligned** | Behavioral and data shape consistency with repository documentation and Obsidian API expectations. |

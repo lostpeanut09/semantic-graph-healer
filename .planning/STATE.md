@@ -22,9 +22,16 @@
 - Unified Metadata Adapter for multi-plugin integration (Phase 1).
 
 ### Todos
-- [ ] Implement BaseAdapter Ultra-Hardening (Phase 4).
-- [ ] Implement Bridge Scrutiny algorithm (Phase 5).
-- [ ] Implement Ouroboros Detection (Phase 5).
+- [ ] **BaseAdapter Ultra-Hardening** (Phase 4):
+    - [ ] Fix listener leaks in `UnifiedMetadataAdapter`.
+    - [ ] Harden `NativeVaultAdapter` (normalization & filters).
+    - [ ] Implement edge deduplication in orchestrator.
+    - [ ] Add initialization guards and type-safety improvements.
+- [ ] **Topological Diagnostics** (Phase 5):
+    - [ ] Implement Bridge Scrutiny algorithm.
+    - [ ] Implement Ouroboros Detection.
+- [ ] **Reactive UI** (Phase 10):
+    - [ ] High-Fidelity Graph UI Integration.
 
 ### Blockers
 - None.
