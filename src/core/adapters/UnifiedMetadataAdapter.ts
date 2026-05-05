@@ -1,4 +1,4 @@
-import { App, debounce, Notice, TFile } from 'obsidian';
+import { App, debounce, EventRef, Notice, TFile } from 'obsidian';
 import type { IMetadataAdapter } from './IMetadataAdapter';
 import { DatacoreAdapter } from './DatacoreAdapter';
 import { BreadcrumbsAdapter } from './BreadcrumbsAdapter';
@@ -31,6 +31,7 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
     }
     private debouncedRefresh: () => void;
     private initialized: boolean = false;
+    private eventRefs: EventRef[] = [];
 
     constructor(
         private app: App,
@@ -81,10 +82,11 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
             }
         }
 
-        this.app.metadataCache.on('resolved', () => {
+        const ref = this.app.metadataCache.on('resolved', () => {
             HealerLogger.debug('UnifiedMetadataAdapter: metadataCache resolved, triggering debounced refresh');
             this.debouncedRefresh();
         });
+        this.eventRefs.push(ref);
 
         this.initialized = true;
     }
@@ -94,17 +96,42 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
     }
 
     public async getLinks(): Promise<SemanticLinkEdge[]> {
-        const allEdges: SemanticLinkEdge[] = [];
-
-        // Aggregate from all available adapters
+        // Aggregate from all available adapters in parallel
         const adapters = [this.datacore, this.breadcrumbs, this.smartConnections, this.nativeVault];
+        const results = await Promise.all(adapters.map((a) => a.getLinksSafe()));
+        const flatLinks = results.flat();
 
-        for (const adapter of adapters) {
-            const links = await adapter.getLinksSafe();
-            allEdges.push(...links);
+        // Deduplicate using source|target|type key
+        const linkMap = new Map<string, SemanticLinkEdge>();
+
+        for (const link of flatLinks) {
+            const key = `${link.sourcePath}|${link.targetPath}|${link.type}`;
+            const existing = linkMap.get(key);
+
+            if (!existing) {
+                linkMap.set(key, { ...link });
+                continue;
+            }
+
+            // Confidence priority
+            const linkConfidence = link.confidence ?? 0;
+            const existingConfidence = existing.confidence ?? 0;
+
+            if (linkConfidence > existingConfidence) {
+                linkMap.set(key, { ...link });
+            } else if (linkConfidence === existingConfidence) {
+                // Merge context on tie, keep first position
+                if (link.context && existing.context) {
+                    if (!existing.context.includes(link.context)) {
+                        existing.context = `${existing.context}\n${link.context}`;
+                    }
+                } else if (link.context) {
+                    existing.context = link.context;
+                }
+            }
         }
 
-        return allEdges;
+        return Array.from(linkMap.values());
     }
 
     public async getLinksSafe(): Promise<SemanticLinkEdge[]> {
@@ -273,6 +300,12 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
     public destroy(): void {
         this._isDestroyed = true;
         this.inFlightMap.clear();
+
+        // Cleanup tracked EventRefs
+        for (const ref of this.eventRefs) {
+            this.app.metadataCache.offref(ref);
+        }
+        this.eventRefs = [];
 
         const destroyCache = (name: string, cache: { destroy?: () => void } | undefined): void => {
             try {

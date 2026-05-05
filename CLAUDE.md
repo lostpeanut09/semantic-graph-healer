@@ -11,19 +11,19 @@ Welcome to the **Semantic Graph Healer** project. This file provides critical ar
 Every modification MUST strictly follow this pipeline before completion:
 
 1. **Validation Suite:**
-   - `npm run lint` (ESLint) — Zero warnings allowed.
-   - `npm run format` (Prettier).
-   - `npx knip` (Dead code analysis).
-   - `npm run test` (Vitest suite).
-   - `npm run build` (TSC & ESBuild).
+    - `npm run lint` (ESLint) — Zero warnings allowed.
+    - `npm run format` (Prettier).
+    - `npx knip` (Dead code analysis).
+    - `npm run test` (Vitest suite).
+    - `npm run build` (TSC & ESBuild).
 
 2. **Council Workflow:**
-   - **Plan:** Update `.planning/` artifacts (Phase Plans, REQUIREMENTS.md).
-   - **Implement:** Perform the changes surgically.
-   - **Internal Test:** Run project tests.
-   - **External Review:** Run `/council:review` for Kilo AI feedback.
-   - **Fix & Harden:** Address all High/Medium findings.
-   - **Final Verification:** Re-run all tests.
+    - **Plan:** Update `.planning/` artifacts (Phase Plans, REQUIREMENTS.md).
+    - **Implement:** Perform the changes surgically.
+    - **Internal Test:** Run project tests.
+    - **External Review:** Run `/council:review` for Kilo AI feedback.
+    - **Fix & Harden:** Address all High/Medium findings.
+    - **Final Verification:** Re-run all tests.
 
 ## Architectural Conventions
 
@@ -46,4 +46,5 @@ Current roadmap and requirements are maintained in `.planning/`.
 Refer to `.planning/ROADMAP.md` for the current execution state.
 
 ---
-*Environment: Gemini CLI / Obsidian Plugin*
+
+_Environment: Gemini CLI / Obsidian Plugin_

@@ -17,6 +17,7 @@ export interface ObsidianSecretStorage {
 
 export interface ObsidianInternalApp {
     appId?: string;
+    settings: SemanticGraphHealerSettings;
     secretStorage?: ObsidianSecretStorage;
     keychain?: ObsidianKeychain;
     plugins: {
@@ -258,6 +259,7 @@ export interface SemanticGraphHealerSettings {
     pageChildrenCacheMaxSize?: number; // Max entries in Datacore pageChildrenCache (default 500)
     enableSmartConnections: boolean;
     smartConnectionsLimit: number;
+    smartConnectionsAjsonSizeCap: number; // Max size of AJSON files to parse in fallback (bytes)
     enableTagHierarchySync: boolean;
     strictDownCheck: boolean;
     scanFolder: string;
@@ -370,6 +372,7 @@ export const DEFAULT_SETTINGS: SemanticGraphHealerSettings = {
     pageChildrenCacheMaxSize: 500,
     enableSmartConnections: false,
     smartConnectionsLimit: 10,
+    smartConnectionsAjsonSizeCap: 1024 * 1024, // 1MB
     enableTagHierarchySync: true,
     strictDownCheck: true,
     scanFolder: '',

@@ -25,6 +25,7 @@ export class NativeVaultAdapter extends BaseAdapter {
      * Note: This primarily returns 'wikilink' and 'property' types as tracked by Obsidian.
      */
     public async getLinks(): Promise<SemanticLinkEdge[]> {
+        this.ensureInitialized();
         const edges: SemanticLinkEdge[] = [];
         const resolvedLinks = this.app.metadataCache.resolvedLinks;
 
@@ -49,6 +50,7 @@ export class NativeVaultAdapter extends BaseAdapter {
      * Use this for the "Precision Healing" phase.
      */
     public async getRichLinksForFile(file: TFile): Promise<SemanticLinkEdge[]> {
+        this.ensureInitialized();
         const cache = this.app.metadataCache.getFileCache(file);
         if (!cache) return [];
 
