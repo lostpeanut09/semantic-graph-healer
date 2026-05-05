@@ -123,6 +123,9 @@ export default class SemanticGraphHealer extends Plugin {
         );
         this.tagPropagator = new SemanticTagPropagator(this.app as ExtendedApp, this.settings, this.engine, this.llm);
 
+        // 1.5. Initialize Engine (HARDEN-03d Wiring)
+        await this.engine.initialize();
+
         // 2. Setup Security & Identity
         await this.initializeSecurity();
 
@@ -175,6 +178,7 @@ export default class SemanticGraphHealer extends Plugin {
                 breadcrumbs,
                 smartConnections,
             });
+            await this.engine.initialize();
 
             // 2. Hot Reload Logic Services
             this.llm = new LlmService(this.settings, (type) => this.getApiKey(type));
