@@ -264,7 +264,7 @@ describe('GraphAnalysisWorkerCore', () => {
                     ],
                     requestId: 'test-req',
                 },
-                options: { blackHoleThreshold: 3 }
+                options: { blackHoleThreshold: 3 },
             };
 
             const response = handleGraphWorkerMessage(message, mockReporter);
@@ -278,7 +278,7 @@ describe('GraphAnalysisWorkerCore', () => {
             const message: WorkerMessage = {
                 type: 'TOPOLOGY_DIAGNOSTICS',
                 payload: basePayload,
-                options: { maxEdges: 1 }
+                options: { maxEdges: 1 },
             };
 
             const response = handleGraphWorkerMessage(message, mockReporter);

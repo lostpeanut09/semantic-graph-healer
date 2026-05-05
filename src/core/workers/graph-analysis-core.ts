@@ -18,7 +18,15 @@ const EdgeSchema = z.object({
 });
 
 const WorkerMessageSchema = z.looseObject({
-    type: z.enum(['PAGERANK', 'COMMUNITY', 'BETWEENNESS', 'FULL_ANALYSIS', 'SIMILARITY', 'COCITATION', 'TOPOLOGY_DIAGNOSTICS']),
+    type: z.enum([
+        'PAGERANK',
+        'COMMUNITY',
+        'BETWEENNESS',
+        'FULL_ANALYSIS',
+        'SIMILARITY',
+        'COCITATION',
+        'TOPOLOGY_DIAGNOSTICS',
+    ]),
     payload: z.object({
         nodes: z.array(NodeSchema),
         edges: z.array(EdgeSchema),
@@ -365,7 +373,12 @@ interface TopologyDiagnosticsOptions {
     blackHoleThreshold?: number;
 }
 
-function runTopologicalDiagnostics(graph: DirectedGraph, options: unknown, requestId: string, reporter?: ProgressReporter) {
+function runTopologicalDiagnostics(
+    graph: DirectedGraph,
+    options: unknown,
+    requestId: string,
+    reporter?: ProgressReporter,
+) {
     const opts = options as TopologyDiagnosticsOptions | undefined;
     const blackHoleThreshold = opts?.blackHoleThreshold || 7;
 

@@ -3,7 +3,14 @@ import { Platform, App } from 'obsidian';
 import { SemanticGraphHealerSettings } from '../../types';
 import PQueue from 'p-queue';
 
-type AnalysisType = 'PAGERANK' | 'COMMUNITY' | 'BETWEENNESS' | 'FULL_ANALYSIS' | 'COCITATION' | 'SIMILARITY' | 'TOPOLOGY_DIAGNOSTICS';
+type AnalysisType =
+    | 'PAGERANK'
+    | 'COMMUNITY'
+    | 'BETWEENNESS'
+    | 'FULL_ANALYSIS'
+    | 'COCITATION'
+    | 'SIMILARITY'
+    | 'TOPOLOGY_DIAGNOSTICS';
 
 interface PluginWithSettings {
     manifest: { dir?: string };

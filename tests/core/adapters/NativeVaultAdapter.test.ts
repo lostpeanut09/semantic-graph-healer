@@ -37,23 +37,23 @@ describe('NativeVaultAdapter', () => {
     it('should normalize paths, filter self-links and non-markdown if configured', async () => {
         // Mock app.settings
         (app as any).settings = { includeNonMarkdownHubs: false };
-        
+
         const debugAdapter = new NativeVaultAdapter(app, true);
-        
+
         // Mock metadataCache.resolvedLinks
         (app.metadataCache as any).resolvedLinks = {
-            "source.md": {
-                "target.md": 1,
-                "source.md": 1, // Self-link
-                "image.png": 1  // Non-markdown
-            }
+            'source.md': {
+                'target.md': 1,
+                'source.md': 1, // Self-link
+                'image.png': 1, // Non-markdown
+            },
         };
 
         await debugAdapter.initialize();
         const links = await debugAdapter.getLinks();
-        
+
         expect(links).toHaveLength(1);
-        expect(links[0].sourcePath).toBe("source.md");
-        expect(links[0].targetPath).toBe("target.md");
+        expect(links[0].sourcePath).toBe('source.md');
+        expect(links[0].targetPath).toBe('target.md');
     });
 });
