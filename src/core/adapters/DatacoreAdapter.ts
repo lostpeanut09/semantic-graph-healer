@@ -62,6 +62,10 @@ export class DatacoreAdapter extends BaseAdapter implements IDataviewPort {
         this.listenerManager = new ListenerManager(this.app, () => this.invalidateBacklinkIndex(), 250);
     }
 
+    protected async onInitialize(): Promise<void> {
+        return Promise.resolve();
+    }
+
     /**
      * Checks if Datacore plugin is enabled and API is ready.
      */

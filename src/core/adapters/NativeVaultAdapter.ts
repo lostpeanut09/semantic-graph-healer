@@ -8,6 +8,11 @@ import { SemanticLinkEdge } from './types';
  */
 export class NativeVaultAdapter extends BaseAdapter {
     public readonly id = 'native-vault';
+
+    protected async onInitialize(): Promise<void> {
+        return Promise.resolve();
+    }
+
     /**
      * Native vault metadata is always available.
      */

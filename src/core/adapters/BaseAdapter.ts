@@ -14,6 +14,12 @@ export abstract class BaseAdapter {
     /** Guard to prevent work after shutdown/hot-reload. */
     private _isDestroyed = false;
 
+    /** Tracks whether initialization has completed successfully. */
+    protected initialized = false;
+
+    /** Guard for concurrent initialization calls. */
+    private initPromise: Promise<void> | null = null;
+
     /**
      * @param app   - The Obsidian App instance, injected at construction time.
      * @param debug - When true, verbose diagnostic logs are emitted via `HealerLogger.debug`.
@@ -27,6 +33,40 @@ export abstract class BaseAdapter {
     /** Public view of the destroyed state (useful for orchestrators). */
     public get isDestroyed(): boolean {
         return this._isDestroyed;
+    }
+
+    /**
+     * Initializes the adapter. Idempotent: safe to call multiple times.
+     * Subsequent calls return the same promise as the first call.
+     */
+    public async initialize(): Promise<void> {
+        if (this.initPromise) return this.initPromise;
+
+        this.initPromise = (async () => {
+            this.logDebug('initializing...');
+            await this.onInitialize();
+            this.initialized = true;
+            this.logDebug('initialized.');
+        })();
+
+        return this.initPromise;
+    }
+
+    /**
+     * Subclasses must implement this to perform their specific async initialization.
+     * Called exactly once by `initialize()`.
+     */
+    protected abstract onInitialize(): Promise<void>;
+
+    /**
+     * Throws an error if the adapter is not yet initialized.
+     * Use this in all data-retrieval methods (like `getLinks`) to prevent
+     * access to uninitialized state.
+     */
+    protected ensureInitialized(): void {
+        if (!this.initialized) {
+            throw new Error(`${this.id} adapter: not initialized`);
+        }
     }
 
     /**
