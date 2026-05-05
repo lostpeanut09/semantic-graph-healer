@@ -52,11 +52,14 @@
 ### Phase 4: BaseAdapter Ultra-Hardening
 **Goal**: Address residual audit findings and edge cases in the adapter layer.
 **Depends on**: Phase 3
-**Requirements**: HARDEN-03
+**Requirements**: HARDEN-03 (a-g)
 **Success Criteria** (what must be TRUE):
-  1. `BaseAdapter` handles all identified null-caching edge cases.
-  2. Resilience against unexpected vault states (e.g., rapid file deletion) is verified.
-  3. Internal cache invalidation is 100% consistent with Obsidian event bus.
+  1. `UnifiedMetadataAdapter` correctly removes `metadataCache` listeners in `destroy()`.
+  2. `NativeVaultAdapter` normalizes paths and filters self-links/non-file targets in `getLinks()`.
+  3. `UnifiedMetadataAdapter` deduplicates edges and preserves the highest confidence score.
+  4. All adapters implement `ensureInitialized()` guards to prevent race conditions.
+  5. Type safety is improved across all adapters by removing implicit `any` in `Promise` returns.
+  6. SmartConnections fallback optimization reduces CPU overhead on dense vaults.
 **Plans**: TBD
 
 ### Phase 5: Topological Diagnostics: Gaps & Loops

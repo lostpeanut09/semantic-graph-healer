@@ -22,10 +22,22 @@
 - [ ] **AI-03**: **Semantic Vector Discovery** â€” Integration with Smart Connections for vector-similarity scores.
 
 ### UX & Visualization (UX)
-- [ ] **UX-01**: **Reactive Healing Dashboard** â€” Svelte 5 (Runes) based interface with partial re-rendering.
-- [ ] **UX-02**: **Triple Relink Executor** â€” One-click complex repair for sequential bridge gaps.
-- [x] **UX-03**: **Sync-Safe Hot Reload** â€” Detect external `data.json` changes and hot-reload settings.
-- [x] **UX-04**: **Performance Hardening** â€” Debouncing, notices, and UI responsiveness.
+- [ ] **UX-01**: **Reactive Healing Dashboard** Ã¢â‚¬â€ Svelte 5 (Runes) based interface with partial re-rendering.
+- [ ] **UX-02**: **Triple Relink Executor** Ã¢â‚¬â€ One-click complex repair for sequential bridge gaps.
+- [x] **UX-03**: **Sync-Safe Hot Reload** Ã¢â‚¬â€ Detect external `data.json` changes and hot-reload settings.
+- [x] **UX-04**: **Performance Hardening** Ã¢â‚¬â€ Debouncing, notices, and UI responsiveness.
+
+### Hardening (HARDEN)
+- [x] **HARDEN-01**: **Cache Stampede Protection** Ã¢â‚¬â€ In-flight promise coalescing to prevent redundant fetches.
+- [x] **HARDEN-02**: **Unit Testing (Negative/LRU)** Ã¢â‚¬â€ Explicit tests for null-caching behavior and LRU eviction order.
+- [ ] **HARDEN-03**: **BaseAdapter Ultra-Hardening (Audit Findings)**
+    - [ ] **HARDEN-03a**: Fix lifecycle: remove `metadataCache` listener in `UnifiedMetadataAdapter.destroy()`.
+    - [ ] **HARDEN-03b**: Harden `NativeVaultAdapter` edges: normalize paths, skip self/non-file targets.
+    - [ ] **HARDEN-03c**: Add deterministic deduplication to `getLinks()` in `UnifiedMetadataAdapter`.
+    - [ ] **HARDEN-03d**: Add `ensureInitialized()` guard across all adapters.
+    - [ ] **HARDEN-03e**: Parametrize `Promise<...>` for stronger type-safety in adapter interfaces.
+    - [ ] **HARDEN-03f**: Optimize `UnifiedMetadataAdapter.getLinks()` with `Promise.all`.
+    - [ ] **HARDEN-03g**: Optimize SmartConnections fallback (size cap, early break).
 
 ## v2 Requirements (Deferred)
 - **INFRA-06**: **WASM Graph Engine** â€” Migrate to Kuzu-WASM for vaults exceeding 50,000 nodes.
@@ -68,6 +80,13 @@
 | HARDEN-01 | Phase 2 | âœ“ Validated |
 | HARDEN-02 | Phase 2 | âœ“ Validated |
 | HARDEN-03 | Phase 4 | Active |
+| HARDEN-03a | Phase 4 | Pending |
+| HARDEN-03b | Phase 4 | Pending |
+| HARDEN-03c | Phase 4 | Pending |
+| HARDEN-03d | Phase 4 | Pending |
+| HARDEN-03e | Phase 4 | Pending |
+| HARDEN-03f | Phase 4 | Pending |
+| HARDEN-03g | Phase 4 | Pending |
 | UX-01 (Hardening) | Phase 2 | âœ“ Validated |
 | EXTRACT-01 | Phase 2 | âœ“ Validated |
 | TEST-01 | Phase 2 | âœ“ Validated |
