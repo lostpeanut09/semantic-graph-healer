@@ -185,6 +185,14 @@ export type SuggestionType =
     | 'topology_gap'
     | 'semantic_inference';
 
+export interface TopologicalMetrics {
+    pageRank: Record<string, number>;
+    betweenness: Record<string, number>;
+    communities: Record<string, number>;
+    lastAnalysisTimestamp: number;
+    graphVersion: string;
+}
+
 export interface SuggestionMeta {
     property?: string; // Logical type: 'up', 'down', 'next', 'prev', 'same'
     propertyKey?: string; // Actual YAML key: 'parent', 'right', 'procedural-next', etc.
@@ -207,6 +215,10 @@ export interface ReasoningResult {
     runnerUpScore: number;
     runnerUpWhy: string;
     rawResponse: string;
+    verdict?: 'STABLE' | 'CONFLICT' | 'UNCERTAIN';
+    confidenceScore?: number;
+    primaryReasoning?: string;
+    secondaryReasoning?: string;
 }
 
 export interface Suggestion {
@@ -242,6 +254,10 @@ export interface SemanticGraphHealerSettings {
     infraNodusApiKey: string;
     llmModelName: string;
     secondaryLlmModelName: string;
+    primaryModel: string;
+    secondaryModel: string;
+    safeZoneThreshold: number;
+    htrStructuralWeight: number;
     llmEndpoint: string;
     secondaryLlmEndpoint: string;
     primaryTimeout: number;
@@ -325,6 +341,10 @@ export interface SemanticGraphHealerSettings {
     logBufferSize: number;
     workerTimeout: number;
 
+    // Topological Diagnostics
+    ouroborosScope: 'universal' | 'boundary';
+    blackHoleThreshold: number;
+
     // Encrypted Keys
     openaiLlmApiKeyEncrypted?: string;
     anthropicLlmApiKeyEncrypted?: string;
@@ -355,6 +375,10 @@ export const DEFAULT_SETTINGS: SemanticGraphHealerSettings = {
     infraNodusApiKey: '',
     llmModelName: 'gpt-4o',
     secondaryLlmModelName: 'claude-3-5-sonnet',
+    primaryModel: 'gpt-4o',
+    secondaryModel: 'claude-3-5-sonnet',
+    safeZoneThreshold: 80,
+    htrStructuralWeight: 0.6,
     llmEndpoint: 'https://api.openai.com/v1',
     secondaryLlmEndpoint: 'https://api.anthropic.com/v1',
     primaryTimeout: 30,
@@ -432,4 +456,6 @@ export const DEFAULT_SETTINGS: SemanticGraphHealerSettings = {
     cloudModelFallbacks: ['gpt-4o', 'claude-3-5-sonnet-latest', 'gemini-1.5-pro', 'deepseek-chat'],
     logBufferSize: 1000,
     workerTimeout: 120,
+    ouroborosScope: 'universal',
+    blackHoleThreshold: 7,
 };
