@@ -7,8 +7,8 @@
 - [x] **Phase 3: Setting Resilience & UX Stability** - Robust settings management and basic user feedback.
 - [x] **Phase 4: BaseAdapter Ultra-Hardening** - Address residual audit findings and edge cases in the adapter layer. [2026-05-05]
 - [x] **Phase 5: Topological Diagnostics: Gaps & Loops** - Detect structural issues like missing links and infinite hierarchies. [2026-05-08]
-- [/] **Phase 6: Advanced Topological Metrics** - Implement sophisticated graph algorithms for link prediction and centrality.
-- [ ] **Phase 7: AI Tribunal & Similarity Analysis** - Integrate AI for verification and vector-based discovery.
+- [x] **Phase 6: Advanced Topological Metrics** - Implement sophisticated graph algorithms for link prediction and centrality. [2026-05-08]
+- [/] **Phase 7: AI Tribunal & Similarity Analysis** - Integrate AI for verification and vector-based discovery.
 - [ ] **Phase 8: Semantic Tag Propagation** - Automate tag management using graph context and AI.
 - [ ] **Phase 9: High-Fidelity Graph UI** - Provide a specialized view for visualizing graph issues.
 - [ ] **Phase 10: Reactive Healing Dashboard** - A central hub for managing all graph suggestions.
@@ -93,7 +93,10 @@
   1. AI Tribunal (dual-LLM) provides consensus on whether a suggested link is semantically valid.
   2. Vector similarity scores from Smart Connections are integrated into the healing logic.
   3. Primary and Secondary models can be configured for the tribunal.
-**Plans**: TBD
+**Plans**: 3 plans
+- [ ] 07-01-PLAN.md — Foundation & AI Tribunal Core
+- [ ] 07-02-PLAN.md — Vector Similarity & HTR
+- [ ] 07-03-PLAN.md — UI Hardening & Consensus Visualization
 
 ### Phase 8: Semantic Tag Propagation
 **Goal**: Automate tag management using graph context and AI.
@@ -143,7 +146,6 @@
 **Plans**: TBD
 
 ## Progress Table
-
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Core Foundation & Adapter Architecture | 1/1 | Completed | 2026-05-05 |
@@ -151,9 +153,9 @@
 | 3. Setting Resilience & UX Stability | 1/1 | Completed | 2026-05-05 |
 | 4. BaseAdapter Ultra-Hardening | 1/1 | Completed | 2026-05-05 |
 | 5. Topological Diagnostics: Gaps & Loops | 1/1 | Completed | 2026-05-08 |
+| 6. Advanced Topological Metrics | 1/1 | Completed | 2026-05-08 |
 
-| 6. Advanced Topological Metrics | 2/2 | In Progress | - |
-| 7. AI Tribunal & Similarity Analysis | 0/1 | Not started | - |
+| 7. AI Tribunal & Similarity Analysis | 0/3 | Not started | - |
 | 8. Semantic Tag Propagation | 0/1 | Not started | - |
 | 9. High-Fidelity Graph UI | 0/1 | Not started | - |
 | 10. Reactive Healing Dashboard | 0/1 | Not started | - |
