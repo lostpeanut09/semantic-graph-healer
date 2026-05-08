@@ -62,6 +62,14 @@ export class LlmService {
         }
     }
 
+    private getProviderFromEndpoint(endpoint: string): 'openai' | 'anthropic' | 'deepseek' | 'custom' {
+        const ep = endpoint.toLowerCase();
+        if (ep.includes('anthropic.com')) return 'anthropic';
+        if (ep.includes('openai.com')) return 'openai';
+        if (ep.includes('deepseek')) return 'deepseek';
+        return 'custom';
+    }
+
     /**
      * Executes an AI query against the configured provider.
      */
@@ -205,7 +213,9 @@ export class LlmService {
             }
         };
 
-        const primaryApiKey = await this.getKey('openai');
+        const primaryProvider = this.getProviderFromEndpoint(this.settings.llmEndpoint);
+        const primaryApiKey = await this.getKey(primaryProvider === 'openai' ? 'openai' : primaryProvider);
+
         const result = await queryModel(
             this.settings.llmEndpoint,
             primaryApiKey,
@@ -225,7 +235,9 @@ export class LlmService {
         }
 
         // TRIBUNAL LOGIC (SOTA 2026 Consensus Verification)
-        const secondaryApiKey = await this.getKey('anthropic');
+        const secondaryProvider = this.getProviderFromEndpoint(this.settings.secondaryLlmEndpoint);
+        const secondaryApiKey = await this.getKey(secondaryProvider === 'openai' ? 'openai' : secondaryProvider);
+
         let secondResult = '';
         let secondWinner = '';
         let consensusState: 'STABLE' | 'CONFLICT' | 'UNCERTAIN' = 'STABLE';
