@@ -65,7 +65,8 @@ export function renderPrimaryModelSettings(containerEl: HTMLElement, ctx: Sectio
             (plugin.settings.detectedModels || []).forEach((m: string) => {
                 dropdown.addOption(m, m);
             });
-            dropdown.setValue(plugin.settings.llmModelName).onChange((value) => {
+            dropdown.setValue(plugin.settings.primaryModel || plugin.settings.llmModelName).onChange((value) => {
+                plugin.settings.primaryModel = value;
                 plugin.settings.llmModelName = value;
                 void (async () => {
                     await plugin.saveSettings();
@@ -78,4 +79,68 @@ export function renderPrimaryModelSettings(containerEl: HTMLElement, ctx: Sectio
         .setName('Detect primary models')
         .setDesc('Scan the primary endpoint for available models.')
         .addButton((btn) => btn.setButtonText('Scan primary').onClick(async () => await runModelDetection(btn, true)));
+
+    // --- Secondary Model ---
+    createHeader(
+        'Secondary model configuration',
+        'Secondary intelligence engine used for the Verification Tribunal.',
+    );
+
+    new Setting(containerEl)
+        .setName('Secondary endpoint address')
+        .setDesc('Independent server for the secondary model verification.')
+        .addText((text) =>
+            text.setValue(plugin.settings.secondaryLlmEndpoint).onChange((value) => {
+                plugin.settings.secondaryLlmEndpoint = value;
+                void plugin.saveSettings();
+            }),
+        );
+
+    new Setting(containerEl)
+        .setName('Secondary model key')
+        .setDesc(
+            'Secure key for the verification endpoint. For local models, enter "sk-local". For cloud apis, enter the real key.',
+        )
+        .addText((text) => {
+            text.setPlaceholder('Enter key...').setValue(plugin.settings.secondaryLlmApiKey);
+            text.inputEl.type = 'password';
+            text.onChange(async (value) => {
+                const internalApp = plugin.app;
+                if (isObsidianInternalApp(internalApp)) {
+                    const isSkLocal = value === 'sk-local';
+                    if (internalApp.keychain && value !== '' && !isSkLocal) {
+                        await internalApp.keychain.set('semantic-healer-secondary', value);
+                        plugin.settings.secondaryLlmApiKey = '';
+                    } else {
+                        plugin.settings.secondaryLlmApiKey = value;
+                    }
+                    await plugin.saveSettings();
+                }
+            });
+        });
+
+    new Setting(containerEl)
+        .setName('Secondary model selection')
+        .setDesc('Select the target verification model explicitly.')
+        .addDropdown((dropdown) => {
+            const models = plugin.settings.secondaryDetectedModels || [];
+            models.forEach((m: string) => {
+                dropdown.addOption(m, m);
+            });
+            dropdown.setValue(plugin.settings.secondaryModel || plugin.settings.secondaryLlmModelName).onChange((value) => {
+                plugin.settings.secondaryModel = value;
+                plugin.settings.secondaryLlmModelName = value;
+                void (async () => {
+                    await plugin.saveSettings();
+                    refresh(); // Refresh to update diversity check
+                })();
+            });
+        });
+
+    new Setting(containerEl)
+        .setName('Detect secondary models')
+        .setDesc('Scan the provided secondary endpoint for verification models.')
+        .addButton((btn) =>
+            btn.setButtonText('Scan secondary').onClick(async () => await ctx.runModelDetection(btn, false)),
+        );
 }
