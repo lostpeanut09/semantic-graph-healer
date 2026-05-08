@@ -62,9 +62,9 @@
 | TOPOL-03 | Phase 6 | Ã¢Å“â€œ Validated |
 | TOPOL-04 | Phase 5 | Ã¢Å“â€œ Validated |
 | TOPOL-05 | Phase 5 | Ã¢Å“â€œ Validated |
-| AI-01 | Phase 7 | Pending |
+| AI-01 | Phase 7 | Ã¢Å“â€œ Validated |
 | AI-02 | Phase 8 | Pending |
-| AI-03 | Phase 7 | Pending |
+| AI-03 | Phase 7 | Ã¢Å“â€œ Validated |
 | UX-01 | Phase 10 | Pending |
 | UX-02 | Phase 11 | Pending |
 | UX-03 | Phase 3 | Ã¢Å“â€œ Validated |
