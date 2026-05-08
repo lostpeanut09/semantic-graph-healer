@@ -119,10 +119,15 @@ export function renderDeepAnalyticsSettings(containerEl: HTMLElement, ctx: Secti
                 .setButtonText('Clear analytical cache')
                 .setWarning()
                 .onClick(() => {
-                    if (plugin.engine) {
-                        plugin.engine.clearTopologicalCache();
-                        new Notice('Topological cache cleared.');
-                    }
+                    plugin.cache.topologicalScores = {
+                        pageRank: {},
+                        betweenness: {},
+                        communities: {},
+                        lastAnalysisTimestamp: 0,
+                        graphVersion: '',
+                    };
+                    plugin.cache.save();
+                    new Notice('Topological cache cleared.');
                 }),
         );
 }

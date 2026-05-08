@@ -270,8 +270,8 @@ describe('GraphAnalysisWorkerCore', () => {
             const response = handleGraphWorkerMessage(message, mockReporter);
             expect(response.type).toBe('RESULT');
             const data = response.payload.data as any;
-            expect(data.sinks).toBeDefined();
-            expect(data.sinks).toContain('SINK');
+            expect(data.blackHoles).toBeDefined();
+            expect(data.blackHoles.map((bh: any) => bh.path)).toContain('SINK');
         });
 
         it('should enforce Max Edges guardrail for topology analysis', () => {

@@ -215,11 +215,22 @@ export class LlmService {
 
         if (!useTribunal || !this.settings.enableAiTribunal) return result;
 
+        const primaryParsed = this.parseReasoningResult(result);
+        const primaryConfidence = primaryParsed.winnerScore || 0;
+        const firstWinner = primaryParsed.winner?.toLowerCase() || '';
+        const safeThreshold = this.settings.safeZoneThreshold ?? 80;
+
+        if (primaryConfidence >= safeThreshold) {
+            return `${result}\n\n<tribunal_audit>\nStatus: STABLE\nConfidenceScore: ${primaryConfidence}\nPrimaryReasoning: ${primaryParsed.winnerWhy || 'N/A'}\n</tribunal_audit>`;
+        }
+
         // TRIBUNAL LOGIC (SOTA 2026 Consensus Verification)
         const secondaryApiKey = await this.getKey('anthropic');
         let secondResult = '';
         let secondWinner = '';
-        let consensusState = 'STABLE';
+        let consensusState: 'STABLE' | 'CONFLICT' | 'UNCERTAIN' = 'STABLE';
+        let secondaryConfidence = 0;
+        let secondaryWhy = '';
 
         try {
             secondResult = await queryModel(
@@ -228,21 +239,28 @@ export class LlmService {
                 this.settings.secondaryLlmModelName,
                 this.settings.secondaryTimeout,
             );
-            secondWinner = this.parseReasoningResult(secondResult).winner?.toLowerCase() || '';
+            const secondaryParsed = this.parseReasoningResult(secondResult);
+            secondWinner = secondaryParsed.winner?.toLowerCase() || '';
+            secondaryConfidence = secondaryParsed.winnerScore || 0;
+            secondaryWhy = secondaryParsed.winnerWhy || 'N/A';
         } catch (e) {
             HealerLogger.warn('AI Tribunal secondary model failed. Falling back to primary result.', e);
-            return result; // Graceful fallback
+            return `${result}\n\n<tribunal_audit>\nStatus: STABLE\nConfidenceScore: ${primaryConfidence}\nPrimaryReasoning: ${primaryParsed.winnerWhy || 'N/A'}\n</tribunal_audit>`;
         }
 
-        const firstWinner = this.parseReasoningResult(result).winner?.toLowerCase();
-
+        let finalConfidence = primaryConfidence;
         if (firstWinner && secondWinner && firstWinner !== secondWinner) {
             consensusState = 'CONFLICT';
+            finalConfidence = Math.floor((primaryConfidence + secondaryConfidence) / 2);
         } else if (!firstWinner || !secondWinner) {
             consensusState = 'UNCERTAIN';
+            finalConfidence = Math.floor((primaryConfidence + secondaryConfidence) / 2);
+        } else {
+            consensusState = 'STABLE';
+            finalConfidence = Math.max(primaryConfidence, secondaryConfidence);
         }
 
-        return `${result}\n\n<tribunal_audit>\nStatus: ${consensusState}\nSecondary Model Output: ${secondResult}\n</tribunal_audit>`;
+        return `${result}\n\n<tribunal_audit>\nStatus: ${consensusState}\nConfidenceScore: ${finalConfidence}\nPrimaryReasoning: ${primaryParsed.winnerWhy || 'N/A'}\nSecondaryReasoning: ${secondaryWhy}\nSecondary Model Output: ${secondResult.replace(/\n/g, ' ')}\n</tribunal_audit>`;
     }
 
     /**
@@ -626,17 +644,34 @@ Only return the JSON. No markdown or meta-talk.
     /**
      * Parses the LLM reasoning response into structured data.
      */
-    public parseReasoningResult(raw: string): Omit<ReasoningResult, 'rawResponse'> {
-        const result: Omit<ReasoningResult, 'rawResponse'> = {
-            winner: '',
+    public parseReasoningResult(raw: string): ReasoningResult {
+        const result: ReasoningResult = {
+            winner: null,
             winnerScore: 0,
             winnerWhy: '',
-            runnerUp: '',
+            runnerUp: null,
             runnerUpScore: 0,
             runnerUpWhy: '',
+            rawResponse: raw,
         };
 
         try {
+            const auditMatch = raw.match(/<tribunal_audit>([\s\S]*?)<\/tribunal_audit>/);
+            if (auditMatch) {
+                const auditContent = auditMatch[1];
+                const statusMatch = auditContent.match(/Status:\s*([A-Z]+)/i);
+                if (statusMatch) result.verdict = statusMatch[1].toUpperCase() as 'STABLE' | 'CONFLICT' | 'UNCERTAIN';
+
+                const confMatch = auditContent.match(/ConfidenceScore:\s*(\d+)/i);
+                if (confMatch) result.confidenceScore = parseInt(confMatch[1], 10);
+
+                const priMatch = auditContent.match(/PrimaryReasoning:\s*(.*)/i);
+                if (priMatch) result.primaryReasoning = priMatch[1].trim();
+
+                const secMatch = auditContent.match(/SecondaryReasoning:\s*(.*)/i);
+                if (secMatch) result.secondaryReasoning = secMatch[1].trim();
+            }
+
             // SOTA 2026: Strip audit tags before parsing to ensure we only look at primary reasoning
             const mainContent = raw.replace(/<tribunal_audit>[\s\S]*?<\/tribunal_audit>/g, '').trim();
 
