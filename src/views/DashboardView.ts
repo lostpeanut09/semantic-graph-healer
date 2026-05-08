@@ -440,53 +440,68 @@ export class QuarantineDashboardView extends ItemView {
 
     private renderChoiceUI(card: HTMLElement, suggestion: Suggestion) {
         const values = suggestion.meta?.competingValues ?? suggestion.meta?.losers ?? [];
-        if (values.length === 0) return;
+        if (values.length === 0 && !suggestion.reasoning) return;
 
         const choiceContainer = card.createDiv({ cls: 'healer-choice-container' });
-        const menuContainer = choiceContainer.createDiv({
-            cls: 'healer-dropdown-container',
-        });
-        menuContainer.createSpan({ text: 'Select option: ' });
-        const dropdown = new DropdownComponent(menuContainer);
-        dropdown.addOption('', 'Choose...');
-        values.forEach((v) => {
-            dropdown.addOption(v, v);
-        });
-        dropdown.onChange((val: string) => {
-            if (!val) return;
-            const losers = values.filter((v) => v !== val);
-            this.handleResolveChoice(suggestion, val, losers).catch((e) =>
-                HealerLogger.error('Dropdown resolve failed', e),
-            );
-        });
 
-        const grid = choiceContainer.createDiv({ cls: 'healer-choice-grid' });
-        values.forEach((val) => {
-            const cleanVal = val.replace(/[[\]]/g, '');
-            const isWinner = suggestion.reasoning?.winner?.includes(cleanVal);
-            const isRunnerUp = suggestion.reasoning?.runnerUp?.includes(cleanVal);
-            const score = isWinner
-                ? suggestion.reasoning?.winnerScore
-                : isRunnerUp
-                  ? suggestion.reasoning?.runnerUpScore
-                  : null;
-
-            const item = grid.createDiv({ cls: 'healer-choice-item' });
-            const btn = item.createEl('button', {
-                text: val,
-                cls: 'healer-choice-btn',
+        // --- TRIBUNAL VERDICT BADGE ---
+        if (suggestion.reasoning) {
+            const verdict = suggestion.reasoning.verdict ?? (suggestion.reasoning.winner ? 'STABLE' : 'UNCERTAIN');
+            const verdictBadge = choiceContainer.createDiv({
+                cls: `healer-verdict-badge healer-verdict-${verdict.toLowerCase()}`,
+                text: `Tribunal: ${verdict}`,
             });
-            if (isWinner) btn.addClass('is-winner');
-            if (isRunnerUp) btn.addClass('is-runner-up');
-            if (score != null) item.createDiv({ text: `${score}%`, cls: 'healer-confidence-meter' });
+            if (suggestion.reasoning.confidenceScore) {
+                verdictBadge.appendText(` (${suggestion.reasoning.confidenceScore}%)`);
+            }
+        }
 
-            btn.onclick = () => {
+        if (values.length > 0) {
+            const menuContainer = choiceContainer.createDiv({
+                cls: 'healer-dropdown-container',
+            });
+            menuContainer.createSpan({ text: 'Select option: ' });
+            const dropdown = new DropdownComponent(menuContainer);
+            dropdown.addOption('', 'Choose...');
+            values.forEach((v) => {
+                dropdown.addOption(v, v);
+            });
+            dropdown.onChange((val: string) => {
+                if (!val) return;
                 const losers = values.filter((v) => v !== val);
                 this.handleResolveChoice(suggestion, val, losers).catch((e) =>
-                    HealerLogger.error('Button resolve failed', e),
+                    HealerLogger.error('Dropdown resolve failed', e),
                 );
-            };
-        });
+            });
+
+            const grid = choiceContainer.createDiv({ cls: 'healer-choice-grid' });
+            values.forEach((val) => {
+                const cleanVal = val.replace(/[[\]]/g, '');
+                const isWinner = suggestion.reasoning?.winner?.includes(cleanVal);
+                const isRunnerUp = suggestion.reasoning?.runnerUp?.includes(cleanVal);
+                const score = isWinner
+                    ? suggestion.reasoning?.winnerScore
+                    : isRunnerUp
+                      ? suggestion.reasoning?.runnerUpScore
+                      : null;
+
+                const item = grid.createDiv({ cls: 'healer-choice-item' });
+                const btn = item.createEl('button', {
+                    text: val,
+                    cls: 'healer-choice-btn',
+                });
+                if (isWinner) btn.addClass('is-winner');
+                if (isRunnerUp) btn.addClass('is-runner-up');
+                if (score != null) item.createDiv({ text: `${score}%`, cls: 'healer-confidence-meter' });
+
+                btn.onclick = () => {
+                    const losers = values.filter((v) => v !== val);
+                    this.handleResolveChoice(suggestion, val, losers).catch((e) =>
+                        HealerLogger.error('Button resolve failed', e),
+                    );
+                };
+            });
+        }
 
         const whyLink = card.createDiv({
             text: 'View Ai reasoning log',
@@ -610,17 +625,43 @@ export class ReasoningView extends ItemView {
             return;
         }
         const { reasoning, link } = this.suggestion;
-        new Setting(contentEl).setName(`Reasoning: ${link}`).setHeading();
-        const winnerDiv = contentEl.createDiv({ cls: 'healer-reasoning-winner' });
-        winnerDiv.createEl('b', { text: 'Verdict: ' });
-        winnerDiv.appendText(reasoning.winner || 'Unknown');
-        winnerDiv.createSpan({
-            text: ` (${reasoning.winnerScore ?? 0}%)`,
+        new Setting(contentEl).setName(`Tribunal audit: ${link}`).setHeading();
+
+        // --- VERDICT INDICATOR ---
+        const verdict = reasoning.verdict ?? (reasoning.winner ? 'STABLE' : 'UNCERTAIN');
+        const confidence = reasoning.confidenceScore ?? reasoning.winnerScore ?? 0;
+
+        const verdictDiv = contentEl.createDiv({
+            cls: `healer-verdict-banner healer-verdict-${verdict.toLowerCase()}`,
+        });
+        verdictDiv.createEl('b', { text: `VERDICT: ${verdict}` });
+        verdictDiv.createSpan({
+            text: ` (${confidence}%)`,
             cls: 'healer-confidence-badge',
         });
-        contentEl.createEl('p', { text: reasoning.winnerWhy || '' });
+
+        // --- PRIMARY REASONING ---
+        const primaryArea = contentEl.createDiv({ cls: 'healer-reasoning-section' });
+        primaryArea.createEl('h3', { text: 'Primary model reasoning' });
+        primaryArea.createEl('p', {
+            text: reasoning.primaryReasoning ?? reasoning.winnerWhy ?? '',
+            cls: 'healer-reasoning-text',
+        });
+
+        // --- SECONDARY REASONING (Tribunal Audit) ---
+        if (reasoning.secondaryReasoning) {
+            const secondaryDetails = contentEl.createEl('details', {
+                cls: 'healer-secondary-reasoning-details',
+            });
+            secondaryDetails.createEl('summary', { text: 'View secondary model audit' });
+            secondaryDetails.createEl('p', {
+                text: reasoning.secondaryReasoning,
+                cls: 'healer-reasoning-text',
+            });
+        }
+
         contentEl.createEl('hr', { cls: 'healer-hr-subtle' });
-        new Setting(contentEl).setName('Full log').setHeading();
+        new Setting(contentEl).setName('Raw model responses').setHeading();
         const pre = contentEl.createEl('pre', { cls: 'healer-reasoning-pre' });
         pre.setText(reasoning.rawResponse);
     }
