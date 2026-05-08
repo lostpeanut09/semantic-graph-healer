@@ -81,10 +81,7 @@ export function renderPrimaryModelSettings(containerEl: HTMLElement, ctx: Sectio
         .addButton((btn) => btn.setButtonText('Scan primary').onClick(async () => await runModelDetection(btn, true)));
 
     // --- Secondary Model ---
-    createHeader(
-        'Secondary model configuration',
-        'Secondary intelligence engine used for the Verification Tribunal.',
-    );
+    createHeader('Secondary model configuration', 'Secondary intelligence engine used for the Verification Tribunal.');
 
     new Setting(containerEl)
         .setName('Secondary endpoint address')
@@ -127,14 +124,16 @@ export function renderPrimaryModelSettings(containerEl: HTMLElement, ctx: Sectio
             models.forEach((m: string) => {
                 dropdown.addOption(m, m);
             });
-            dropdown.setValue(plugin.settings.secondaryModel || plugin.settings.secondaryLlmModelName).onChange((value) => {
-                plugin.settings.secondaryModel = value;
-                plugin.settings.secondaryLlmModelName = value;
-                void (async () => {
-                    await plugin.saveSettings();
-                    refresh(); // Refresh to update diversity check
-                })();
-            });
+            dropdown
+                .setValue(plugin.settings.secondaryModel || plugin.settings.secondaryLlmModelName)
+                .onChange((value) => {
+                    plugin.settings.secondaryModel = value;
+                    plugin.settings.secondaryLlmModelName = value;
+                    void (async () => {
+                        await plugin.saveSettings();
+                        refresh(); // Refresh to update diversity check
+                    })();
+                });
         });
 
     new Setting(containerEl)

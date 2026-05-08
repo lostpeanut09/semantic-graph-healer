@@ -3,8 +3,9 @@ import { DirectedGraph } from 'graphology';
 import pagerank from 'graphology-metrics/centrality/pagerank';
 // louvain: Refactored to Web Worker
 // betweennessCentrality: Refactored to Web Worker
-import { Suggestion, SemanticGraphHealerSettings } from '../types';
+import { Suggestion, SemanticGraphHealerSettings, TopologicalMetrics } from '../types';
 import { HealerLogger } from './HealerUtils';
+import { LinkPredictionEngine } from './LinkPredictionEngine';
 
 import type { GraphContext } from './services/PluginContext';
 
@@ -16,13 +17,13 @@ interface GraphNodeAttributes {
 
 export class GraphEngine {
     private graph: DirectedGraph;
-    private graphVersion = 0;
-    private lastPagerankResult: Record<string, number> | null = null;
-    private lastPagerankVersion = -1;
+    private graphVersionNum = 0;
+    private predictionEngine: LinkPredictionEngine;
     private readonly linkContextPath = '';
 
     constructor(private context: GraphContext) {
         this.graph = new DirectedGraph();
+        this.predictionEngine = new LinkPredictionEngine(context);
     }
 
     private get app(): App {
@@ -33,14 +34,35 @@ export class GraphEngine {
         return this.context.settings;
     }
 
+    private get cache(): TopologicalMetrics {
+        return this.context.cache.topologicalScores;
+    }
+
+    private set cache(value: TopologicalMetrics) {
+        this.context.cache.topologicalScores = value;
+        this.context.cache.save();
+    }
+
     /**
      * ✅ NEW: Explicit memory management for large graphs.
      */
     public dispose() {
         this.graph.clear();
-        this.lastPagerankResult = null;
-        this.lastPagerankVersion = -1;
         HealerLogger.info('GraphEngine disposed, memory released.');
+    }
+
+    /**
+     * Force clearing of the topological cache.
+     */
+    public clearTopologicalCache() {
+        this.cache = {
+            pageRank: {},
+            betweenness: {},
+            communities: {},
+            lastAnalysisTimestamp: 0,
+            graphVersion: '',
+        };
+        HealerLogger.info('Topological cache cleared.');
     }
 
     /**
@@ -48,11 +70,23 @@ export class GraphEngine {
      */
     public getCacheStatus() {
         return {
-            valid: this.lastPagerankResult !== null && this.lastPagerankVersion === this.graphVersion,
-            version: this.graphVersion,
+            valid: this.isCacheValid(),
+            version: this.graphVersionNum,
             nodes: this.graph.order,
             edges: this.graph.size,
         };
+    }
+
+    private isCacheValid(): boolean {
+        const c = this.cache;
+        if (!c.graphVersion || c.graphVersion !== this.getGraphFingerprint()) return false;
+        // Expire after 1 hour
+        if (Date.now() - c.lastAnalysisTimestamp > 3600000) return false;
+        return true;
+    }
+
+    private getGraphFingerprint(): string {
+        return `${this.graph.order}:${this.graph.size}:${this.graphVersionNum}`;
     }
 
     /**
@@ -147,10 +181,7 @@ export class GraphEngine {
             }
         }
 
-        this.graphVersion++;
-        this.lastPagerankResult = null;
-        this.lastPagerankVersion = -1;
-
+        this.graphVersionNum++;
         HealerLogger.info(`Graph built: ${this.graph.order} nodes, ${this.graph.size} edges.`);
 
         if (useGuardrails && (nodeCount >= maxNodes || edgeCount >= maxEdges)) {
@@ -164,6 +195,11 @@ export class GraphEngine {
     public async runPageRankAnalysis(): Promise<Suggestion[]> {
         HealerLogger.info('Running Weighted PageRank (Log-Transformed) in background worker...');
 
+        if (this.isCacheValid() && Object.keys(this.cache.pageRank).length > 0) {
+            HealerLogger.info('Using cached PageRank scores.');
+            return this.processScores(this.cache.pageRank, 'pagerank_auth', 'PageRank authority (cached)');
+        }
+
         // SOTA 2026: Proactive Fallback for fragmented graphs
         const isolatedNodes = this.graph.nodes().filter((n) => this.graph.degree(n) === 0).length;
         const isolatedRatio = isolatedNodes / (this.graph.order || 1);
@@ -176,25 +212,8 @@ export class GraphEngine {
         }
 
         try {
-            // Serialize graph for the worker
-            const nodes: Array<{ key: string; attributes: Record<string, unknown> }> = [];
-            this.graph.forEachNode((node, attrs) => {
-                nodes.push({ key: node, attributes: attrs as Record<string, unknown> });
-            });
-
-            const edges: Array<{
-                source: string;
-                target: string;
-                attributes: Record<string, unknown>;
-            }> = [];
-            this.graph.forEachEdge((edge, attrs, source, target) => {
-                edges.push({
-                    source,
-                    target,
-                    attributes: attrs as Record<string, unknown>,
-                });
-            });
-
+            const nodes = this.getSerializedNodes();
+            const edges = this.getSerializedEdges();
             const worker = this.context.graphWorkerService;
             const scores = await worker.runAnalysis<Record<string, number>>('PAGERANK', nodes, edges, {
                 getEdgeWeight: 'weight',
@@ -203,8 +222,12 @@ export class GraphEngine {
                 tolerance: 1e-6,
             });
 
-            this.lastPagerankResult = scores;
-            this.lastPagerankVersion = this.graphVersion;
+            this.cache = {
+                ...this.cache,
+                pageRank: scores,
+                lastAnalysisTimestamp: Date.now(),
+                graphVersion: this.getGraphFingerprint(),
+            };
             return this.processScores(scores, 'pagerank_auth', 'PageRank authority (log-weighted)');
         } catch (e) {
             HealerLogger.warn('Background PageRank failed. Falling back to sync total degree.', e);
@@ -263,21 +286,15 @@ export class GraphEngine {
      */
     public async runCommunityDetection(): Promise<Suggestion[]> {
         HealerLogger.info('Running Weighted Louvain Clustering (Worker)...');
+
+        if (this.isCacheValid() && Object.keys(this.cache.communities).length > 0) {
+            HealerLogger.info('Using cached community data.');
+            return this.processCommunities(this.cache.communities);
+        }
+
         try {
-            const nodes: Array<{ key: string; attributes: Record<string, unknown> }> = [];
-            this.graph.forEachNode((node, attrs) => {
-                nodes.push({ key: node, attributes: attrs });
-            });
-
-            const edges: Array<{
-                source: string;
-                target: string;
-                attributes: Record<string, unknown>;
-            }> = [];
-            this.graph.forEachEdge((edge, attrs, source, target) => {
-                edges.push({ source, target, attributes: attrs });
-            });
-
+            const nodes = this.getSerializedNodes();
+            const edges = this.getSerializedEdges();
             const worker = this.context.graphWorkerService;
             const communities = await worker.runAnalysis<Record<string, number>>('COMMUNITY', nodes, edges, {
                 getEdgeWeight: 'weight',
@@ -285,54 +302,105 @@ export class GraphEngine {
 
             if (!communities) return [];
 
-            const suggestions: Suggestion[] = [];
-            const isCacheValid = this.lastPagerankResult && this.lastPagerankVersion === this.graphVersion;
+            this.cache = {
+                ...this.cache,
+                communities,
+                lastAnalysisTimestamp: Date.now(),
+                graphVersion: this.getGraphFingerprint(),
+            };
 
-            // Still uses sync pagerank for small clusters if cache is missing, but pagerank is fast.
-            // Full PageRank is offloaded separately.
-            const prScores = isCacheValid
-                ? (this.lastPagerankResult as Record<string, number>)
-                : pagerank(this.graph, {
-                      getEdgeWeight: 'weight',
-                      alpha: 0.85,
-                      maxIterations: 100,
-                  });
-
-            const clusters: Record<string, string[]> = {};
-            Object.entries(communities).forEach(([path, commId]) => {
-                const id = String(commId);
-                if (!clusters[id]) clusters[id] = [];
-                clusters[id].push(path);
-            });
-
-            Object.entries(clusters).forEach(([commId, paths]) => {
-                if (paths.length < 5) return;
-
-                const sortedPaths = paths.sort((a, b) => (prScores[b] || 0) - (prScores[a] || 0));
-                const representativePath = sortedPaths[0];
-                const file = this.app.vault.getAbstractFileByPath(representativePath);
-                const link = this.pathToLink(representativePath);
-
-                suggestions.push({
-                    id: `cluster:${commId}:${representativePath}`,
-                    type: 'quality',
-                    link: link,
-                    source: `Thematic Cluster #${commId} detected (${paths.length} notes).`,
-                    timestamp: Date.now(),
-                    category: 'info',
-                    meta: {
-                        confidence: 70,
-                        sourceNote: file instanceof TFile ? file.basename : representativePath,
-                        description: `Conceptual group centered around ${file instanceof TFile ? file.basename : representativePath}.`,
-                    },
-                });
-            });
-
-            return suggestions;
+            return this.processCommunities(communities);
         } catch (e) {
             HealerLogger.error('Community detection failed in worker', e);
             return [];
         }
+    }
+
+    private processCommunities(communities: Record<string, number>): Suggestion[] {
+        const suggestions: Suggestion[] = [];
+        const isCacheValid = this.isCacheValid() && Object.keys(this.cache.pageRank).length > 0;
+
+        const prScores = isCacheValid
+            ? this.cache.pageRank
+            : pagerank(this.graph, {
+                  getEdgeWeight: 'weight',
+                  alpha: 0.85,
+                  maxIterations: 100,
+              });
+
+        const clusters: Record<string, string[]> = {};
+        Object.entries(communities).forEach(([path, commId]) => {
+            const id = String(commId);
+            if (!clusters[id]) clusters[id] = [];
+            clusters[id].push(path);
+        });
+
+        const saturationThreshold = this.settings.mocSaturationThreshold || 20;
+
+        Object.entries(clusters).forEach(([commId, paths]) => {
+            if (paths.length < 5) return;
+
+            const sortedPaths = paths.sort((a, b) => (prScores[b] || 0) - (prScores[a] || 0));
+            const representativePath = sortedPaths[0];
+            const file = this.app.vault.getAbstractFileByPath(representativePath);
+            if (!(file instanceof TFile)) return;
+
+            const link = this.pathToLink(representativePath);
+
+            // 1. Basic Cluster Info
+            suggestions.push({
+                id: `cluster:${commId}:${representativePath}`,
+                type: 'quality',
+                link: link,
+                source: `Thematic Cluster #${commId} detected (${paths.length} notes).`,
+                timestamp: Date.now(),
+                category: 'info',
+                meta: {
+                    confidence: 70,
+                    sourceNote: file.basename,
+                    description: `Conceptual group centered around ${file.basename}.`,
+                },
+            });
+
+            // 2. MOC Suggestion (if cluster is large and saturated)
+            if (paths.length >= saturationThreshold) {
+                // Check if any note in the cluster is already an MOC
+                const hasExistingMoc = paths.some((p) => {
+                    const f = this.app.vault.getAbstractFileByPath(p);
+                    if (!(f instanceof TFile)) return false;
+                    const basename = f.basename || '';
+                    const name = f.name || '';
+                    return (
+                        basename.toLowerCase().includes('moc') ||
+                        name.toLowerCase().includes('moc') ||
+                        (this.app.metadataCache.getFileCache(f)?.tags || []).some((t) =>
+                            t.tag.toLowerCase().includes('moc'),
+                        )
+                    );
+                });
+
+                if (!hasExistingMoc) {
+                    suggestions.push({
+                        id: `moc_suggestion:${commId}`,
+                        type: 'quality',
+                        link: link,
+                        source: `Structural Gap: Large conceptual cluster (${paths.length} notes) lacks a dedicated Map of Content (MOC).`,
+                        timestamp: Date.now(),
+                        category: 'suggestion',
+                        meta: {
+                            confidence: 85,
+                            sourcePath: representativePath,
+                            sourceNote: file.basename,
+                            description: `Suggest creating 'MOC: ${file.basename} Cluster' to organize these notes.`,
+                            winner: `MOC: ${file.basename} Cluster`,
+                            losers: sortedPaths.slice(0, 5), // Top 5 members
+                        },
+                    });
+                }
+            }
+        });
+
+        return suggestions;
     }
 
     /**
@@ -341,25 +409,15 @@ export class GraphEngine {
      */
     public async runBetweennessAnalysis(): Promise<Suggestion[]> {
         HealerLogger.info('Running Weighted Betweenness Centrality (Worker Bridges)...');
+
+        if (this.isCacheValid() && Object.keys(this.cache.betweenness).length > 0) {
+            HealerLogger.info('Using cached betweenness scores.');
+            return this.processBetweenness(this.cache.betweenness);
+        }
+
         try {
-            const nodes: Array<{ key: string; attributes: Record<string, unknown> }> = [];
-            this.graph.forEachNode((node, attrs) => {
-                nodes.push({ key: node, attributes: attrs as Record<string, unknown> });
-            });
-
-            const edges: Array<{
-                source: string;
-                target: string;
-                attributes: Record<string, unknown>;
-            }> = [];
-            this.graph.forEachEdge((edge, attrs, source, target) => {
-                edges.push({
-                    source,
-                    target,
-                    attributes: attrs as Record<string, unknown>,
-                });
-            });
-
+            const nodes = this.getSerializedNodes();
+            const edges = this.getSerializedEdges();
             const worker = this.context.graphWorkerService;
             const scores = await worker.runAnalysis<Record<string, number>>('BETWEENNESS', nodes, edges, {
                 getEdgeWeight: 'weight',
@@ -367,37 +425,48 @@ export class GraphEngine {
 
             if (!scores) return [];
 
-            const suggestions: Suggestion[] = [];
-            const sorted = Object.entries(scores)
-                .sort(([, a], [, b]) => b - a)
-                .slice(0, 10);
+            this.cache = {
+                ...this.cache,
+                betweenness: scores,
+                lastAnalysisTimestamp: Date.now(),
+                graphVersion: this.getGraphFingerprint(),
+            };
 
-            sorted.forEach(([path, score]) => {
-                if (score <= 0) return;
-
-                const file = this.app.vault.getAbstractFileByPath(path);
-                const link = this.pathToLink(path);
-
-                suggestions.push({
-                    id: `betweenness_bridge:${path}`,
-                    type: 'quality',
-                    link: link,
-                    source: `Critical Bridge Detected (Betweenness: ${score.toFixed(2)}). Connects disparate topics.`,
-                    timestamp: Date.now(),
-                    category: 'info',
-                    meta: {
-                        description: 'Key connectivity node bridging different clusters (weighted).',
-                        confidence: 85,
-                        sourceNote: file instanceof TFile ? file.basename : path,
-                    },
-                });
-            });
-
-            return suggestions;
+            return this.processBetweenness(scores);
         } catch (e) {
             HealerLogger.error('Betweenness Centrality failed in worker', e);
             return [];
         }
+    }
+
+    private processBetweenness(scores: Record<string, number>): Suggestion[] {
+        const suggestions: Suggestion[] = [];
+        const sorted = Object.entries(scores)
+            .sort(([, a], [, b]) => b - a)
+            .slice(0, 10);
+
+        sorted.forEach(([path, score]) => {
+            if (score <= 0) return;
+
+            const file = this.app.vault.getAbstractFileByPath(path);
+            const link = this.pathToLink(path);
+
+            suggestions.push({
+                id: `betweenness_bridge:${path}`,
+                type: 'quality',
+                link: link,
+                source: `Critical Bridge Detected (Betweenness: ${score.toFixed(2)}). Connects disparate topics.`,
+                timestamp: Date.now(),
+                category: 'info',
+                meta: {
+                    description: 'Key connectivity node bridging different clusters (weighted).',
+                    confidence: 85,
+                    sourceNote: file instanceof TFile ? file.basename : path,
+                },
+            });
+        });
+
+        return suggestions;
     }
 
     /**
@@ -466,53 +535,15 @@ export class GraphEngine {
      * Async via Worker with Candidate Generation (O(E) instead of O(V^2)).
      */
     public async runSimilarityAnalysis(options?: { limit?: number }): Promise<Suggestion[]> {
-        HealerLogger.info('Running Deep Topology Similarity Analysis (Worker offloaded)...');
+        HealerLogger.info('Running Deep Topology Similarity Analysis (Engine-delegated)...');
 
         try {
             const nodes = this.getSerializedNodes();
             const edges = this.getSerializedEdges();
-            const worker = this.context.graphWorkerService;
 
-            const results = await worker.runAnalysis<Array<{ source: string; target: string; score: number }>>(
-                'SIMILARITY',
-                nodes,
-                edges,
-                {
-                    weights: this.settings.linkPredictionWeights,
-                    limit: options?.limit || 5,
-                    fileStats: this.getFileStats(),
-                },
-            );
-
-            if (!results) return [];
-
-            const suggestions: Suggestion[] = [];
-            for (const res of results) {
-                const fileS = this.app.vault.getAbstractFileByPath(res.source);
-                const fileT = this.app.vault.getAbstractFileByPath(res.target);
-                if (!(fileS instanceof TFile) || !(fileT instanceof TFile)) continue;
-
-                suggestions.push({
-                    id: `predicted_link:${res.source}:${res.target}`,
-                    type: 'semantic_inference',
-                    link: this.pathToLink(res.target),
-                    source: `Predicted Semantic Connection: [[${fileS.basename}]] and [[${fileT.basename}]] share high topological similarity (Score: ${res.score.toFixed(2)}).`,
-                    timestamp: Date.now(),
-                    category: 'suggestion',
-                    meta: {
-                        confidence: Math.round(res.score * 100),
-                        sourcePath: res.source,
-                        targetPath: res.target,
-                        sourceNote: fileS.basename,
-                        targetNote: fileT.basename,
-                        description: `Topological similarity predicted via Jaccard/AA/RA hybrid.`,
-                    },
-                });
-            }
-
-            return suggestions;
+            return await this.predictionEngine.predictLinks(nodes, edges, options);
         } catch (e) {
-            HealerLogger.error('Similarity analysis failed in worker.', e);
+            HealerLogger.error('Similarity analysis failed in engine delegation.', e);
             return [];
         }
     }

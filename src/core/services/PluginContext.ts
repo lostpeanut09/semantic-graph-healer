@@ -11,7 +11,7 @@ import type { GraphWorkerService } from './GraphWorkerService';
 export interface AnalysisContext {
     app: App;
     settings: SemanticGraphHealerSettings;
-    cache: Pick<CacheService, 'suggestions' | 'save' | 'pushHistory'>;
+    cache: Pick<CacheService, 'suggestions' | 'save' | 'pushHistory' | 'topologicalScores'>;
     graphWorkerService: GraphWorkerService;
 }
 
@@ -26,6 +26,7 @@ export interface ExecutionContext extends AnalysisContext {
 export interface GraphContext {
     app: App;
     settings: SemanticGraphHealerSettings;
+    cache: Pick<CacheService, 'topologicalScores' | 'save'>;
     graphWorkerService: GraphWorkerService;
 }
 

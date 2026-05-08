@@ -860,6 +860,7 @@ export default class SemanticGraphHealer extends Plugin {
             const engine = new GraphEngine({
                 app: this.app,
                 settings: this.settings,
+                cache: this.cache,
                 graphWorkerService: this.graphWorkerService,
             });
 
@@ -1006,7 +1007,7 @@ export default class SemanticGraphHealer extends Plugin {
             const result = SettingsSchema.safeParse(baseSettings);
 
             if (result.success) {
-                this.settings = result.data as SemanticGraphHealerSettings;
+                this.settings = result.data as unknown as SemanticGraphHealerSettings;
             } else {
                 const errorMessage = JSON.stringify(result.error.issues, null, 2);
                 this.logger.warn(

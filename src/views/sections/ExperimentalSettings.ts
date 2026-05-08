@@ -58,4 +58,22 @@ export function renderExperimentalSettings(containerEl: HTMLElement, ctx: Sectio
                 void plugin.saveSettings();
             }),
         );
+
+    new Setting(containerEl)
+        .setName('Ouroboros scope')
+        .setDesc(
+            'Define the boundary for cycle detection. "Boundary" only flags cycles crossing folders or hierarchies.',
+        )
+        .addDropdown((dropdown) =>
+            dropdown
+                .addOptions({
+                    universal: 'Universal (Any cycle)',
+                    boundary: 'Boundary (Cross-context only)',
+                })
+                .setValue(plugin.settings.ouroborosScope)
+                .onChange((value: 'universal' | 'boundary') => {
+                    plugin.settings.ouroborosScope = value;
+                    void plugin.saveSettings();
+                }),
+        );
 }

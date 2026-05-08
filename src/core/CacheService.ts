@@ -1,5 +1,5 @@
 import { Plugin, normalizePath } from 'obsidian';
-import { Suggestion, HistoryItem } from '../types';
+import { Suggestion, HistoryItem, TopologicalMetrics } from '../types';
 import { HealerLogger } from './HealerUtils';
 
 /**
@@ -20,18 +20,24 @@ const SAVE_DEBOUNCE_MS = 500;
 interface HealerCache {
     pendingSuggestions: Suggestion[];
     history: HistoryItem[];
+    topologicalScores: TopologicalMetrics;
 }
 
 const DEFAULT_CACHE: HealerCache = {
     pendingSuggestions: [],
     history: [],
+    topologicalScores: {
+        pageRank: {},
+        betweenness: {},
+        communities: {},
+        lastAnalysisTimestamp: 0,
+        graphVersion: '',
+    },
 };
 
 export class CacheService {
     private _cache: HealerCache = {
         ...DEFAULT_CACHE,
-        pendingSuggestions: [],
-        history: [],
     };
     private _saveTimer: ReturnType<typeof setTimeout> | null = null;
     private _cacheFilePath: string;
@@ -57,6 +63,14 @@ export class CacheService {
         return this._cache.history;
     }
 
+    get topologicalScores(): TopologicalMetrics {
+        return this._cache.topologicalScores;
+    }
+
+    set topologicalScores(value: TopologicalMetrics) {
+        this._cache.topologicalScores = value;
+    }
+
     // ─── Core Operations ────────────────────────────────────────────────────────
 
     /**
@@ -75,6 +89,7 @@ export class CacheService {
                     this._cache = {
                         pendingSuggestions: Array.isArray(parsed.pendingSuggestions) ? parsed.pendingSuggestions : [],
                         history: Array.isArray(parsed.history) ? parsed.history : [],
+                        topologicalScores: parsed.topologicalScores || { ...DEFAULT_CACHE.topologicalScores },
                     };
                 } catch (parseError) {
                     // PRESERVE CORRUPTION: Rename bad file instead of deleting
@@ -94,6 +109,7 @@ export class CacheService {
                 this._cache = {
                     pendingSuggestions: legacySettings.pendingSuggestions ?? [],
                     history: legacySettings.history ?? [],
+                    topologicalScores: { ...DEFAULT_CACHE.topologicalScores },
                 };
                 await this.saveImmediate();
                 HealerLogger.info(
@@ -101,11 +117,11 @@ export class CacheService {
                 );
             } else {
                 HealerLogger.info('CacheService: No cache file found, starting fresh.');
-                this._cache = { pendingSuggestions: [], history: [] };
+                this._cache = { ...DEFAULT_CACHE };
             }
         } catch (e) {
             HealerLogger.error('CacheService: Failed to load cache, starting fresh.', e);
-            this._cache = { pendingSuggestions: [], history: [] };
+            this._cache = { ...DEFAULT_CACHE };
         }
     }
 

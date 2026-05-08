@@ -52,23 +52,23 @@
 
 | Req ID | Phase | Status |
 |--------|-------|--------|
-| INFRA-01 | Phase 1 | âœ“ Validated |
-| INFRA-02 | Phase 1 | âœ“ Validated |
-| INFRA-03 | Phase 1 | âœ“ Validated |
-| INFRA-04 | Phase 2 | âœ“ Validated |
-| INFRA-05 | Phase 1 | âœ“ Validated |
-| TOPOL-01 | Phase 5 | Active |
-| TOPOL-02 | Phase 6 | Pending |
-| TOPOL-03 | Phase 6 | Pending |
-| TOPOL-04 | Phase 5 | Active |
-| TOPOL-05 | Phase 5 | Active |
+| INFRA-01 | Phase 1 | Ã¢Å“â€œ Validated |
+| INFRA-02 | Phase 1 | Ã¢Å“â€œ Validated |
+| INFRA-03 | Phase 1 | Ã¢Å“â€œ Validated |
+| INFRA-04 | Phase 2 | Ã¢Å“â€œ Validated |
+| INFRA-05 | Phase 1 | Ã¢Å“â€œ Validated |
+| TOPOL-01 | Phase 5 | Ã¢Å“â€œ Validated |
+| TOPOL-02 | Phase 6 | Ã¢Å“â€œ Validated |
+| TOPOL-03 | Phase 6 | Ã¢Å“â€œ Validated |
+| TOPOL-04 | Phase 5 | Ã¢Å“â€œ Validated |
+| TOPOL-05 | Phase 5 | Ã¢Å“â€œ Validated |
 | AI-01 | Phase 7 | Pending |
 | AI-02 | Phase 8 | Pending |
 | AI-03 | Phase 7 | Pending |
 | UX-01 | Phase 10 | Pending |
 | UX-02 | Phase 11 | Pending |
-| UX-03 | Phase 3 | âœ“ Validated |
-| UX-04 | Phase 3 | âœ“ Validated |
+| UX-03 | Phase 3 | Ã¢Å“â€œ Validated |
+| UX-04 | Phase 3 | Ã¢Å“â€œ Validated |
 | ADAPTER-01 | Phase 1 | âœ“ Validated |
 | ADAPTER-02 | Phase 1 | âœ“ Validated |
 | ARCH-01 | Phase 1 | âœ“ Validated |

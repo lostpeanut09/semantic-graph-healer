@@ -383,8 +383,8 @@ function runTopologicalDiagnostics(
     const blackHoleThreshold = opts?.blackHoleThreshold || 7;
 
     const bridges: Array<{ source: string; target: string; via: string; type: string }> = [];
-    const sinks: string[] = [];
-    const cycles: string[][] = [];
+    const blackHoles: Array<{ path: string; inDegree: number }> = [];
+    const cycles: Array<{ path: string[]; type: string }> = [];
 
     const nodeCount = graph.order;
     let processedNodes = 0;
@@ -397,8 +397,9 @@ function runTopologicalDiagnostics(
         }
 
         // Black Hole detection
-        if (graph.inDegree(a) >= blackHoleThreshold && graph.outDegree(a) === 0) {
-            sinks.push(a);
+        const inDeg = graph.inDegree(a);
+        if (inDeg >= blackHoleThreshold && graph.outDegree(a) === 0) {
+            blackHoles.push({ path: a, inDegree: inDeg });
         }
 
         // Bridge Scrutiny (Depth 2)
@@ -439,7 +440,22 @@ function runTopologicalDiagnostics(
                 dfs(neighbor);
             } else if (recursionStack.has(neighbor)) {
                 const cycleStartIndex = path.indexOf(neighbor);
-                cycles.push(path.slice(cycleStartIndex));
+                const cyclePath = path.slice(cycleStartIndex);
+
+                // Identify cycle type (if all edges in cycle share a type)
+                let cycleType = 'universal';
+                const edgeTypes = new Set<string>();
+                for (let i = 0; i < cyclePath.length; i++) {
+                    const src = cyclePath[i];
+                    const tgt = i === cyclePath.length - 1 ? cyclePath[0] : cyclePath[i + 1];
+                    const edgeType = graph.getEdgeAttribute(src, tgt, 'type');
+                    if (edgeType) edgeTypes.add(edgeType as string);
+                }
+                if (edgeTypes.size === 1) {
+                    cycleType = Array.from(edgeTypes)[0];
+                }
+
+                cycles.push({ path: cyclePath, type: cycleType });
             }
         });
 
@@ -455,7 +471,7 @@ function runTopologicalDiagnostics(
 
     return {
         bridges,
-        sinks,
+        blackHoles,
         cycles,
     };
 }

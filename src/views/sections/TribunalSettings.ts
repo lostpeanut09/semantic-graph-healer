@@ -55,7 +55,9 @@ export function renderTribunalSettings(containerEl: HTMLElement, ctx: SectionCon
 
     new Setting(containerEl)
         .setName('HTR structural weight')
-        .setDesc('Weight (0.0 to 1.0) of structural graph metrics vs semantic vectors (Vector-Topological Merging). Default > 0.5 prioritizes structure.')
+        .setDesc(
+            'Weight (0.0 to 1.0) of structural graph metrics vs semantic vectors (Vector-Topological Merging). Default > 0.5 prioritizes structure.',
+        )
         .addSlider((slider) => {
             slider
                 .setLimits(0.0, 1.0, 0.05)
