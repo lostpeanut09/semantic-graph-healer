@@ -108,6 +108,10 @@ export const SettingsSchema = z
         logBufferSize: z.number().default(1000),
         workerTimeout: z.number().default(120),
 
+        // Phase 5: Topological Diagnostics
+        ouroborosScope: z.enum(['universal', 'boundary']).default('universal'),
+        blackHoleThreshold: z.number().default(7),
+
         // --- Encrypted Keys (P0 Audit Fix) ---
         openaiLlmApiKeyEncrypted: z.string().optional(),
         anthropicLlmApiKeyEncrypted: z.string().optional(),
@@ -115,5 +119,5 @@ export const SettingsSchema = z
         infranodusLlmApiKeyEncrypted: z.string().optional(),
         customLlmApiKeyEncrypted: z.string().optional(),
     })
-    // ✅ Prevent data loss of unknown keys during load/save cycles
+    // âœ… Prevent data loss of unknown keys during load/save cycles
     .catchall(z.unknown());

@@ -6,8 +6,8 @@
 - [x] **Phase 2: Concurrency & Performance Hardening** - Ensure the plugin doesn't freeze the UI during heavy computations.
 - [x] **Phase 3: Setting Resilience & UX Stability** - Robust settings management and basic user feedback.
 - [x] **Phase 4: BaseAdapter Ultra-Hardening** - Address residual audit findings and edge cases in the adapter layer. [2026-05-05]
-- [/] **Phase 5: Topological Diagnostics: Gaps & Loops** - Detect structural issues like missing links and infinite hierarchies.
-- [ ] **Phase 6: Advanced Topological Metrics** - Implement sophisticated graph algorithms for link prediction and centrality.
+- [x] **Phase 5: Topological Diagnostics: Gaps & Loops** - Detect structural issues like missing links and infinite hierarchies. [2026-05-08]
+- [/] **Phase 6: Advanced Topological Metrics** - Implement sophisticated graph algorithms for link prediction and centrality.
 - [ ] **Phase 7: AI Tribunal & Similarity Analysis** - Integrate AI for verification and vector-based discovery.
 - [ ] **Phase 8: Semantic Tag Propagation** - Automate tag management using graph context and AI.
 - [ ] **Phase 9: High-Fidelity Graph UI** - Provide a specialized view for visualizing graph issues.
@@ -60,12 +60,7 @@
   4. All adapters implement `ensureInitialized()` guards to prevent race conditions.
   5. Type safety is improved across all adapters by removing implicit `any` in `Promise` returns.
   6. SmartConnections fallback optimization reduces CPU overhead on dense vaults.
-**Plans**:
-- [ ] 04-01-PLAN.md — Core Architecture Hardening (IMetadataAdapter, BaseAdapter)
-- [ ] 04-02-PLAN.md — NativeVaultAdapter Ultra-Hardening (Paths, Filtering)
-- [ ] 04-03-PLAN.md — UnifiedMetadataAdapter Lifecycle & Performance (Deduplication, Leaks)
-- [ ] 04-04-PLAN.md — Supporting Adapters Hardening (Datacore, Breadcrumbs)
-- [ ] 04-05-PLAN.md — SmartConnections Optimization & Settings Integration
+**Plans**: Completed
 
 ### Phase 5: Topological Diagnostics: Gaps & Loops
 **Goal**: Detect structural issues like missing links and infinite hierarchies.
@@ -75,10 +70,7 @@
   1. User can identify "Bridge Gaps" where sequential notes (A -> B -> C) are missing connections.
   2. Circular dependencies in hierarchies (Ouroboros) are detected and flagged.
   3. "Black Holes" (notes with many incoming but no outgoing links) are surfaced.
-**Plans**:
-- [ ] 05-01-PLAN.md — Extend Graph Worker (Bridges, Cycles, Sinks)
-- [ ] 05-02-PLAN.md — Service & Engine Integration (Typed Edges, Unified Analysis)
-- [ ] 05-03-PLAN.md — TopologyAnalyzer Refactor & Settings Implementation
+**Plans**: Completed
 
 ### Phase 6: Advanced Topological Metrics
 **Goal**: Implement sophisticated graph algorithms for link prediction and centrality.
@@ -88,7 +80,10 @@
   1. Plugin suggests new links based on Jaccard and Adamic-Adar indices.
   2. PageRank and Betweenness Centrality metrics are available for all notes.
   3. Louvain Community Detection identifies natural MOC clusters.
-**Plans**: TBD
+  4. Topological scores are persisted in the cache.
+**Plans**:
+- [ ] 06-01-PLAN.md — Engine Formalization & Persistence (Link Prediction, Cache)
+- [ ] 06-02-PLAN.md — Advanced UI & MOC Suggestions (Settings, Clusters)
 
 ### Phase 7: AI Tribunal & Similarity Analysis
 **Goal**: Integrate AI for verification and vector-based discovery.
@@ -155,10 +150,9 @@
 | 2. Concurrency & Performance Hardening | 1/1 | Completed | 2026-05-05 |
 | 3. Setting Resilience & UX Stability | 1/1 | Completed | 2026-05-05 |
 | 4. BaseAdapter Ultra-Hardening | 1/1 | Completed | 2026-05-05 |
+| 5. Topological Diagnostics: Gaps & Loops | 1/1 | Completed | 2026-05-08 |
 
-| 5. Topological Diagnostics: Gaps & Loops | 1/1 | Ready to execute | - |
-
-| 6. Advanced Topological Metrics | 0/1 | Not started | - |
+| 6. Advanced Topological Metrics | 2/2 | In Progress | - |
 | 7. AI Tribunal & Similarity Analysis | 0/1 | Not started | - |
 | 8. Semantic Tag Propagation | 0/1 | Not started | - |
 | 9. High-Fidelity Graph UI | 0/1 | Not started | - |
