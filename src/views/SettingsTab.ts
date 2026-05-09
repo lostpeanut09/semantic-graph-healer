@@ -3,6 +3,7 @@ import type { ButtonComponent } from 'obsidian';
 import type SemanticGraphHealer from '../main';
 import type { SectionContext } from './SectionContext';
 import type { ExtendedApp } from '../types';
+import { getProviderFromEndpoint } from '../core/HealerUtils';
 
 // Import section renderers
 import { renderCoreSettings } from './sections/CoreSettings';
@@ -92,7 +93,10 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
 
     async runModelDetection(button: ButtonComponent, isPrimary: boolean) {
         const endpoint = isPrimary ? this.plugin.settings.llmEndpoint : this.plugin.settings.secondaryLlmEndpoint;
-        const apiKey = isPrimary ? await this.plugin.getApiKey('openai') : await this.plugin.getApiKey('anthropic');
+
+        const provider = getProviderFromEndpoint(endpoint);
+        const apiKey = await this.plugin.getApiKey(provider);
+
         const cloudFallbacks = ['gpt-4o', 'claude-3-5-sonnet-latest', 'gemini-1.5-pro', 'deepseek-chat', 'o3-mini'];
 
         try {

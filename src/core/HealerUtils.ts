@@ -1,6 +1,8 @@
 import { App, TFile, parseLinktext } from 'obsidian';
 import { ObsidianInternalApp } from '../types';
 
+export type ApiKeyType = 'openai' | 'anthropic' | 'deepseek' | 'infranodus' | 'custom';
+
 /**
  * HealerLogger: Centralized logging for SOTA compliance.
  * Redesigned for Phase 1 as a bridge to the instance-based logger.
@@ -50,6 +52,17 @@ export class HealerLogger {
             console.debug(`[SemanticHealer][DEBUG] ${message}`, ...args);
         }
     }
+}
+
+/**
+ * Detects LLM provider from endpoint URL.
+ */
+export function getProviderFromEndpoint(endpoint: string): ApiKeyType {
+    const ep = (endpoint || '').toLowerCase();
+    if (ep.includes('anthropic.com')) return 'anthropic';
+    if (ep.includes('openai.com')) return 'openai';
+    if (ep.includes('deepseek')) return 'deepseek';
+    return 'custom';
 }
 
 /**

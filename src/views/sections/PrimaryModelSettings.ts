@@ -1,6 +1,7 @@
 import { Setting } from 'obsidian';
 import type { SectionContext } from '../SectionContext';
-import { isObsidianInternalApp } from '../../core/HealerUtils';
+import { getProviderFromEndpoint } from '../../core/HealerUtils';
+
 export function renderPrimaryModelSettings(containerEl: HTMLElement, ctx: SectionContext) {
     const { plugin, refresh, runModelDetection } = ctx;
 
@@ -45,14 +46,13 @@ export function renderPrimaryModelSettings(containerEl: HTMLElement, ctx: Sectio
             text.setPlaceholder('Enter key...').setValue(plugin.settings.llmApiKey);
             text.inputEl.type = 'password';
             text.onChange(async (value) => {
-                const internalApp = plugin.app;
-                if (internalApp && isObsidianInternalApp(internalApp)) {
-                    if (internalApp.keychain && value !== 'sk-local' && value !== '') {
-                        await internalApp.keychain.set('semantic-healer-primary', value);
-                        plugin.settings.llmApiKey = '';
-                    } else {
-                        plugin.settings.llmApiKey = value;
-                    }
+                if (value === 'sk-local' || value === '') {
+                    plugin.settings.llmApiKey = value;
+                    await plugin.saveSettings();
+                } else {
+                    const provider = getProviderFromEndpoint(plugin.settings.llmEndpoint);
+                    await plugin.keychainService.setApiKey(provider, value);
+                    plugin.settings.llmApiKey = '';
                     await plugin.saveSettings();
                 }
             });
@@ -102,15 +102,13 @@ export function renderPrimaryModelSettings(containerEl: HTMLElement, ctx: Sectio
             text.setPlaceholder('Enter key...').setValue(plugin.settings.secondaryLlmApiKey);
             text.inputEl.type = 'password';
             text.onChange(async (value) => {
-                const internalApp = plugin.app;
-                if (isObsidianInternalApp(internalApp)) {
-                    const isSkLocal = value === 'sk-local';
-                    if (internalApp.keychain && value !== '' && !isSkLocal) {
-                        await internalApp.keychain.set('semantic-healer-secondary', value);
-                        plugin.settings.secondaryLlmApiKey = '';
-                    } else {
-                        plugin.settings.secondaryLlmApiKey = value;
-                    }
+                if (value === 'sk-local' || value === '') {
+                    plugin.settings.secondaryLlmApiKey = value;
+                    await plugin.saveSettings();
+                } else {
+                    const provider = getProviderFromEndpoint(plugin.settings.secondaryLlmEndpoint);
+                    await plugin.keychainService.setApiKey(provider, value);
+                    plugin.settings.secondaryLlmApiKey = '';
                     await plugin.saveSettings();
                 }
             });

@@ -19,6 +19,8 @@ describe('LlmService - AI Tribunal Logic', () => {
             safeZoneThreshold: 80,
             llmModelName: 'primary',
             secondaryLlmModelName: 'secondary',
+            llmEndpoint: 'https://api.openai.com/v1',
+            secondaryLlmEndpoint: 'https://api.anthropic.com/v1',
         };
         mockGetKey = vi.fn().mockResolvedValue('test-key');
         service = new LlmService(mockSettings, mockGetKey as any);
