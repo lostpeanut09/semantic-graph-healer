@@ -48,17 +48,26 @@ export class ReasoningService {
         }
 
         try {
+            HealerLogger.info(`ReasoningService: Analyzing suggestion ${suggestion.id} for note ${noteName}`);
             const targetFile = resolveTargetFile(this.app, suggestion);
 
             if (!(targetFile instanceof TFile)) {
-                HealerLogger.warn(`Target file not found or invalid for suggestion ${suggestion.id}`);
+                HealerLogger.error(
+                    `ReasoningService: Target file not found or invalid for suggestion ${suggestion.id}`,
+                    {
+                        link: suggestion.link,
+                        meta: suggestion.meta,
+                    },
+                );
                 return null;
             }
 
             const content = await this.app.vault.read(targetFile);
+            HealerLogger.debug('ReasoningService: Target file read successfully.');
 
             // 1. Gather candidate metadata
             const candidateData = await this.gatherCandidateData(suggestion, values, targetFile.path);
+            HealerLogger.debug('ReasoningService: Candidate data gathered.', candidateData);
 
             // 2. Build prompt
             const isInfraNodus = suggestion.source.toLowerCase().includes('infranodus');
@@ -70,10 +79,23 @@ export class ReasoningService {
                 candidateData,
                 isInfraNodus,
             );
+            HealerLogger.debug('ReasoningService: Prompt generated.');
 
             // 3. Call LLM
+            HealerLogger.info('ReasoningService: Dispatching call to LlmService...');
             const response = await this.llm.callLlm(prompt, this.settings.enableAiTribunal);
+
+            if (!response || response.startsWith('Error:')) {
+                HealerLogger.error(`ReasoningService: LLM call returned error or empty response: ${response}`);
+                return null;
+            }
+
+            HealerLogger.info('ReasoningService: LLM response received. Parsing...');
             const parsed = this.llm.parseReasoningResult(response);
+
+            if (!parsed.winner) {
+                HealerLogger.warn('ReasoningService: LLM response parsed but no WINNER identified.', { response });
+            }
 
             // 4. Return result (no side-effects on input suggestion)
             return {
@@ -81,7 +103,10 @@ export class ReasoningService {
                 rawResponse: response,
             };
         } catch (error) {
-            HealerLogger.error(`Error during analysis for suggestion ${suggestion.id}:`, error);
+            HealerLogger.error(
+                `ReasoningService: UNCAUGHT EXCEPTION during analysis for suggestion ${suggestion.id}:`,
+                error,
+            );
             return null;
         }
     }

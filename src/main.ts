@@ -143,7 +143,7 @@ export default class SemanticGraphHealer extends Plugin {
         });
 
         this.addSettingTab(new SemanticHealerSettingTab(this.app, this));
-        this.logger.info('Semantic Graph Healer Phase 4 ready');
+        this.logger.info('Semantic Graph Healer Phase 7 ready');
     }
 
     /**

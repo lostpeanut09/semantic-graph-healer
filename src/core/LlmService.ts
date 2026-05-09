@@ -1,6 +1,6 @@
 import { requestUrl, RequestUrlParam } from 'obsidian';
 import { SemanticGraphHealerSettings, ReasoningResult } from '../types';
-import { HealerLogger } from './HealerUtils';
+import { HealerLogger, getProviderFromEndpoint, ApiKeyType } from './HealerUtils';
 
 /**
  * Custom Error for LLM operations.
@@ -28,6 +28,7 @@ interface LlmResponse {
     response?: string;
     data?: unknown;
     models?: unknown;
+    error?: string | { message?: string };
 }
 
 /**
@@ -41,7 +42,7 @@ export class LlmService {
 
     constructor(
         private settings: SemanticGraphHealerSettings,
-        private getKey: (type: 'openai' | 'anthropic' | 'deepseek' | 'infranodus' | 'custom') => Promise<string>,
+        private getKey: (type: ApiKeyType) => Promise<string>,
     ) {
         // Run cleanup periodically
         this.cacheCleanupInterval = setInterval(() => this.cleanupCache(), 600000);
@@ -62,20 +63,26 @@ export class LlmService {
         }
     }
 
-    private getProviderFromEndpoint(endpoint: string): 'openai' | 'anthropic' | 'deepseek' | 'custom' {
-        const ep = endpoint.toLowerCase();
-        if (ep.includes('anthropic.com')) return 'anthropic';
-        if (ep.includes('openai.com')) return 'openai';
-        if (ep.includes('deepseek')) return 'deepseek';
-        return 'custom';
-    }
-
     /**
      * Executes an AI query against the configured provider.
      */
     public async callLlm(prompt: string, useTribunal: boolean = false, signal?: AbortSignal): Promise<string> {
         if (signal?.aborted) throw new Error('AbortError');
-        HealerLogger.info(`AI Call initiated for model: ${this.settings.llmModelName}`);
+
+        const primaryProvider = getProviderFromEndpoint(this.settings.llmEndpoint);
+        const primaryKeyType = primaryProvider === 'openai' ? 'openai' : primaryProvider;
+
+        HealerLogger.info(
+            `LlmService: Call initiated. Primary model: ${this.settings.llmModelName}, Provider: ${primaryProvider}`,
+        );
+
+        const primaryApiKey = await this.getKey(primaryKeyType);
+
+        if (primaryProvider === 'custom' && (!primaryApiKey || primaryApiKey === 'sk-local')) {
+            HealerLogger.info(
+                'LlmService: Local/Custom model detected. If this is Ollama, ensure it is running and the model is pulled.',
+            );
+        }
 
         const queryModel = async (
             endpoint: string,
@@ -84,6 +91,8 @@ export class LlmService {
             timeoutSec: number,
             retryCount: number = 0,
         ): Promise<string> => {
+            HealerLogger.debug(`LlmService: Querying model ${model} at ${endpoint} (Attempt ${retryCount + 1})`);
+
             const timeoutMs = (timeoutSec || 30) * 1000;
             const MAX_RETRIES = this.settings.llmMaxRetries || 2;
             const RETRYABLE_STATUSES = this.settings.llmRetryableStatuses || [429, 408, 503];
@@ -103,11 +112,16 @@ export class LlmService {
                 } as Record<string, unknown>;
 
                 const normalizeEndpoint = (ep: string, tgtPath: 'responses' | 'chat/completions') => {
-                    const base = ep.replace(/\/+$/, ''); // trim trailing /
-                    if (base.endsWith(`/v1/${tgtPath}`)) return base;
+                    let base = ep.trim().replace(/\/+$/, '');
+
+                    if (!base.includes('.com') && !base.includes('.ai') && !base.includes('/v1')) {
+                        if (base.match(/^(http:\/\/)?(\d{1,3}\.){3}\d{1,3}(:\d+)?$/) || base.includes('localhost')) {
+                            base = `${base}/v1`;
+                        }
+                    }
+
+                    if (base.endsWith(`/${tgtPath}`)) return base;
                     if (base.endsWith('/v1')) return `${base}/${tgtPath}`;
-                    if (tgtPath === 'responses' && base.endsWith('/v1/responses')) return base;
-                    if (tgtPath === 'chat/completions' && base.endsWith('/v1/chat/completions')) return base;
                     return `${base}/${tgtPath}`;
                 };
 
@@ -120,13 +134,17 @@ export class LlmService {
                     bodyJson['messages'] = [{ role: 'user', content: prompt }];
                 }
 
-                /**
-                 * ✅ NEW: SOTA 2026 Type Extension.
-                 * Extends native RequestUrlParam to include the 'timeout' property (Obsidian v1.11.8+).
-                 * Resolves TS2353 build errors for environments with lagging type definitions.
-                 */
                 interface HealerRequestUrlParam extends RequestUrlParam {
                     timeout?: number;
+                }
+
+                const headers: Record<string, string> = {
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'SemanticGraphHealer/2026.3',
+                };
+
+                if (apiKey && apiKey !== 'sk-local') {
+                    headers['Authorization'] = `Bearer ${apiKey}`;
                 }
 
                 let timeoutTimer: ReturnType<typeof setTimeout>;
@@ -136,14 +154,15 @@ export class LlmService {
                     }, timeoutMs);
                 });
 
+                const targetUrl = normalizeEndpoint(endpoint, apiPath);
+                HealerLogger.debug(
+                    `LlmService: Fetching from ${targetUrl} with ${apiKey === 'sk-local' ? 'NO' : 'Bearer'} token`,
+                );
+
                 const fetchPromise = requestUrl({
-                    url: normalizeEndpoint(endpoint, apiPath),
+                    url: targetUrl,
                     method: 'POST',
-                    headers: {
-                        Authorization: `Bearer ${apiKey}`,
-                        'Content-Type': 'application/json',
-                        'User-Agent': 'SemanticGraphHealer/2026.3',
-                    },
+                    headers: headers,
                     body: JSON.stringify(bodyJson),
                     throw: false,
                     timeout: timeoutMs,
@@ -154,7 +173,6 @@ export class LlmService {
                         status: number;
                         json: LlmResponse;
                     };
-                    if (signal?.aborted) throw new Error('AbortError');
                     return response;
                 } finally {
                     if (timeoutTimer!) clearTimeout(timeoutTimer);
@@ -163,8 +181,8 @@ export class LlmService {
 
             try {
                 const response = await makeRequest();
+                HealerLogger.debug(`LlmService: Response status from ${model}: ${response.status}`);
 
-                // ✅ UNIFIED RETRY LOGIC: Single point for all retry reasoning
                 const shouldRetry =
                     (RETRYABLE_STATUSES.includes(response.status) || response.status >= 500) &&
                     retryCount < MAX_RETRIES;
@@ -179,14 +197,23 @@ export class LlmService {
                 }
 
                 if (response.status !== 200) {
-                    throw new LlmError(model, response.status, 'Endpoint rejected request');
+                    const json = response.json as LlmResponse;
+                    const errorMsg =
+                        (typeof json.error === 'string' ? json.error : json.error?.message) ||
+                        json.message?.content ||
+                        'Endpoint rejected request';
+                    HealerLogger.error(
+                        `LlmService: ${model} query failed with status ${response.status}: ${errorMsg}`,
+                        response.json,
+                    );
+                    throw new LlmError(model, response.status, errorMsg);
                 }
 
                 const json = response.json;
-
-                // ✅ VALIDATION: Ensure response structure is valid
                 if (!this.validateLlmResponse(json, isResponsesApi)) {
-                    HealerLogger.warn(`Invalid LLM response structure: ${JSON.stringify(json).slice(0, 200)}`);
+                    HealerLogger.warn(
+                        `LlmService: Invalid LLM response structure from ${model}: ${JSON.stringify(json).slice(0, 200)}`,
+                    );
                     return '';
                 }
 
@@ -198,23 +225,19 @@ export class LlmService {
                     ''
                 );
             } catch (e) {
-                // ✅ RETRY ON EXCEPTION (e.g. Timeout)
                 if (retryCount < MAX_RETRIES) {
                     const delay = Math.pow(2, retryCount) * 1000;
                     HealerLogger.warn(
-                        `LLM [${model}] exception. Retry ${retryCount + 1}/${MAX_RETRIES} in ${delay}ms...`,
+                        `LLM [${model}] exception: ${e instanceof Error ? e.message : 'Unknown'}. Retry ${retryCount + 1}/${MAX_RETRIES} in ${delay}ms...`,
                     );
                     await new Promise((r) => setTimeout(r, delay));
                     return queryModel(endpoint, apiKey, model, timeoutSec, retryCount + 1);
                 }
 
-                HealerLogger.error(`LLM error [${model}] (final attempt ${retryCount + 1}):`, e);
+                HealerLogger.error(`LlmService: Final failure for model [${model}] (attempt ${retryCount + 1}):`, e);
                 return `Error: ${e instanceof Error ? e.message : 'Unknown communication failure'}`;
             }
         };
-
-        const primaryProvider = this.getProviderFromEndpoint(this.settings.llmEndpoint);
-        const primaryApiKey = await this.getKey(primaryProvider === 'openai' ? 'openai' : primaryProvider);
 
         const result = await queryModel(
             this.settings.llmEndpoint,
@@ -223,7 +246,10 @@ export class LlmService {
             this.settings.primaryTimeout,
         );
 
-        if (!useTribunal || !this.settings.enableAiTribunal) return result;
+        if (!useTribunal || !this.settings.enableAiTribunal) {
+            HealerLogger.debug('LlmService: Tribunal disabled or not requested. Returning primary result.');
+            return result;
+        }
 
         const primaryParsed = this.parseReasoningResult(result);
         const primaryConfidence = primaryParsed.winnerScore || 0;
@@ -231,12 +257,31 @@ export class LlmService {
         const safeThreshold = this.settings.safeZoneThreshold ?? 80;
 
         if (primaryConfidence >= safeThreshold) {
+            HealerLogger.info(
+                `LlmService: Primary confidence (${primaryConfidence}) >= Safe Zone (${safeThreshold}). Bypassing tribunal.`,
+            );
             return `${result}\n\n<tribunal_audit>\nStatus: STABLE\nConfidenceScore: ${primaryConfidence}\nPrimaryReasoning: ${primaryParsed.winnerWhy || 'N/A'}\n</tribunal_audit>`;
         }
 
+        HealerLogger.info(
+            `LlmService: Primary confidence (${primaryConfidence}) < Safe Zone (${safeThreshold}). Initiating Tribunal...`,
+        );
+
         // TRIBUNAL LOGIC (SOTA 2026 Consensus Verification)
-        const secondaryProvider = this.getProviderFromEndpoint(this.settings.secondaryLlmEndpoint);
-        const secondaryApiKey = await this.getKey(secondaryProvider === 'openai' ? 'openai' : secondaryProvider);
+        const secondaryEp = this.settings.secondaryLlmEndpoint;
+        const secondaryModel = this.settings.secondaryLlmModelName;
+
+        if (!secondaryEp || !secondaryModel) {
+            HealerLogger.warn(
+                'LlmService: AI Tribunal enabled but secondary model not configured. Returning primary result.',
+            );
+            return `${result}\n\n<tribunal_audit>\nStatus: STABLE\nConfidenceScore: ${primaryConfidence}\nPrimaryReasoning: ${primaryParsed.winnerWhy || 'N/A'}\nNote: Secondary model not configured for verification.\n</tribunal_audit>`;
+        }
+
+        const secondaryProvider = getProviderFromEndpoint(secondaryEp);
+        const secondaryKeyType = secondaryProvider === 'openai' ? 'openai' : secondaryProvider;
+        HealerLogger.debug(`LlmService: Fetching secondary key for type: ${secondaryKeyType}`);
+        const secondaryApiKey = await this.getKey(secondaryKeyType);
 
         let secondResult = '';
         let secondWinner = '';
@@ -246,15 +291,18 @@ export class LlmService {
 
         try {
             secondResult = await queryModel(
-                this.settings.secondaryLlmEndpoint,
+                secondaryEp,
                 secondaryApiKey,
-                this.settings.secondaryLlmModelName,
+                secondaryModel,
                 this.settings.secondaryTimeout,
             );
             const secondaryParsed = this.parseReasoningResult(secondResult);
             secondWinner = secondaryParsed.winner?.toLowerCase() || '';
             secondaryConfidence = secondaryParsed.winnerScore || 0;
             secondaryWhy = secondaryParsed.winnerWhy || 'N/A';
+            HealerLogger.info(
+                `LlmService: Tribunal complete. Consensus: ${consensusState}, SecWinner: ${secondWinner}`,
+            );
         } catch (e) {
             HealerLogger.warn('AI Tribunal secondary model failed. Falling back to primary result.', e);
             return `${result}\n\n<tribunal_audit>\nStatus: STABLE\nConfidenceScore: ${primaryConfidence}\nPrimaryReasoning: ${primaryParsed.winnerWhy || 'N/A'}\n</tribunal_audit>`;
@@ -377,8 +425,8 @@ Content Preview: ${targetContents?.[i]?.substring(0, 300) || 'Not provided'}
 ${existingRelations || 'No existing relationships found'}
 
 === VALIDATION TASK ===
-Question: Is it logically VALID for "${sourceName}" to have multiple sequential 
-continuations (${targetNames.join(', ')}), or is this a CONTRADICTION that breaks 
+Question: Is it logically VALID for "${sourceName}" to have multiple sequential
+continuations (${targetNames.join(', ')}), or is this a CONTRADICTION that breaks
 temporal/narrative linearity?
 
 Consider:
@@ -614,27 +662,31 @@ Only return the JSON. No markdown or meta-talk.
         return !!(json.message?.content || json.response);
     }
 
-    /**
-     * Intelligent model detection for local/cloud endpoints.
-     */
     public async runModelDetection(endpoint: string, apiKey: string): Promise<string[]> {
         const tryEndpoints = [
-            endpoint.endsWith('/') ? `${endpoint}models` : `${endpoint}/models`,
             endpoint.endsWith('/') ? `${endpoint}v1/models` : `${endpoint}/v1/models`,
+            endpoint.endsWith('/') ? `${endpoint}models` : `${endpoint}/models`,
+            endpoint.endsWith('/') ? `${endpoint}api/tags` : `${endpoint}/api/tags`, // Ollama native
         ];
 
         for (const url of tryEndpoints) {
             try {
+                const headers: Record<string, string> = {};
+                if (apiKey && apiKey !== 'sk-local') {
+                    headers['Authorization'] = `Bearer ${apiKey}`;
+                }
+
+                HealerLogger.debug(`LlmService: Attempting model detection at ${url}`);
                 const response = await requestUrl({
                     url,
                     method: 'GET',
-                    headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
+                    headers,
                 });
 
                 if (response.status === 200) {
                     interface ModelResponse {
                         data?: { id: string }[];
-                        models?: { name: string }[];
+                        models?: Array<{ name: string; model?: string }>;
                     }
                     const data = response.json as ModelResponse;
                     const models: string[] = [];
@@ -642,12 +694,19 @@ Only return the JSON. No markdown or meta-talk.
                     if (data.data && Array.isArray(data.data)) {
                         data.data.forEach((m) => models.push(m.id));
                     } else if (data.models && Array.isArray(data.models)) {
-                        data.models.forEach((m) => models.push(m.name));
+                        data.models.forEach((m) => {
+                            const name = m.name || m.model;
+                            if (name) models.push(name);
+                        });
                     }
-                    if (models.length > 0) return models;
+
+                    if (models.length > 0) {
+                        HealerLogger.info(`LlmService: Detected ${models.length} models at ${url}`);
+                        return models;
+                    }
                 }
-            } catch {
-                HealerLogger.warn(`Endpoint path ${url} failed, trying fallback...`);
+            } catch (e) {
+                HealerLogger.debug(`LlmService: Endpoint path ${url} failed or timed out.`);
             }
         }
         return [];

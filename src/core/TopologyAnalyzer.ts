@@ -318,6 +318,13 @@ export class TopologyAnalyzer {
                         source: `${isVerifiableBranching ? '[AI Verifiable] ' : ''}Topology incongruence: ${pathToWikilink(this.context.app, file.path, file.path)} has multiple conflicting '${dir.type}' references: ${competitorLinks.join(', ')}.`,
                         timestamp: Date.now(),
                         category: isVerifiableBranching ? 'suggestion' : 'error',
+                        meta: {
+                            property: dir.type,
+                            sourcePath: file.path,
+                            sourceNote: file.basename,
+                            competingValues: competingSorted,
+                            description: `Conflicting '${dir.type}' relations detected.`,
+                        },
                     });
                 }
             }

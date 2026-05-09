@@ -559,17 +559,26 @@ export class QuarantineDashboardView extends ItemView {
     }
 
     private async handleReasoning(suggestion: Suggestion) {
-        new Notice('Gathering context for AI reasoning...');
-        const result = await this.plugin.reasoner.analyze(suggestion);
-        if (!result) {
-            new Notice('Could not perform reasoning. Check logs.');
-            return;
+        const notice = new Notice('Gathering context for AI reasoning...', 0);
+        try {
+            const result = await this.plugin.reasoner.analyze(suggestion);
+            notice.hide();
+
+            if (!result) {
+                new Notice('AI Reasoning failed (v02:15). Check Obsidian console (Ctrl+Shift+I) for details.', 10000);
+                return;
+            }
+
+            suggestion.reasoning = result;
+            this.plugin.cache.save();
+            await this.plugin.saveSettings();
+            this.renderList();
+            new Notice('AI reasoning complete.');
+        } catch (e) {
+            notice.hide();
+            HealerLogger.error('Dashboard: Unexpected error during reasoning', e);
+            new Notice('Fatal error during reasoning. See console.');
         }
-        suggestion.reasoning = result;
-        this.plugin.cache.save();
-        await this.plugin.saveSettings();
-        this.renderList();
-        new Notice('AI reasoning complete.');
     }
 
     private async showReasoningSidebar(suggestion: Suggestion) {
