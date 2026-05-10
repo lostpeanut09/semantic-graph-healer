@@ -31,6 +31,7 @@ import { SmartConnectionsAdapter } from './core/adapters/SmartConnectionsAdapter
 import { SuggestionExecutor } from './core/SuggestionExecutor';
 import { ReasoningService } from './core/ReasoningService';
 import { QuarantineDashboardView, ReasoningView, REASONING_VIEW_TYPE } from './views/DashboardView';
+import { GraphVisualizerView, GRAPH_VIEW_TYPE } from './views/GraphVisualizerView';
 import { SemanticHealerSettingTab } from './views/SettingsTab';
 import { CacheService } from './core/CacheService';
 import { SemanticTagPropagator } from './core/SemanticTagPropagator';
@@ -180,9 +181,14 @@ export default class SemanticGraphHealer extends Plugin {
             });
             await this.engine.initialize();
 
-            // 2. Hot Reload Logic Services
             this.llm = new LlmService(this.settings, (type) => this.getApiKey(type));
             this.quality = new QualityAnalyzer(this.app as ExtendedApp, this.settings, this.engine);
+            this.reasoner = new ReasoningService(
+                this.app as ExtendedApp,
+                this.settings,
+                this.llm,
+                this.engine.getDataviewApi(),
+            );
             // Build analysis context for TopologyAnalyzer (break circular dep)
             const analysisContext: AnalysisContext = {
                 app: this.app,
@@ -407,6 +413,7 @@ export default class SemanticGraphHealer extends Plugin {
     private registerViews() {
         this.registerView(DASHBOARD_VIEW_TYPE, (leaf) => new QuarantineDashboardView(leaf, this));
         this.registerView(REASONING_VIEW_TYPE, (leaf) => new ReasoningView(leaf));
+        this.registerView(GRAPH_VIEW_TYPE, (leaf) => new GraphVisualizerView(leaf, this));
     }
 
     private registerUI() {
@@ -425,6 +432,19 @@ export default class SemanticGraphHealer extends Plugin {
                 } catch (e) {
                     this.logger.error('Failed to open Graph Healer Dashboard', e);
                     new Notice('Error opening the dashboard.');
+                }
+            },
+        });
+
+        this.addCommand({
+            id: 'open-healer-graph',
+            name: 'Open Healer Graph',
+            callback: async () => {
+                try {
+                    await this.activateGraphView();
+                } catch (e) {
+                    this.logger.error('Failed to open Healer Graph', e);
+                    new Notice('Error opening the graph view.');
                 }
             },
         });
@@ -713,6 +733,20 @@ export default class SemanticGraphHealer extends Plugin {
         } else {
             leaf = workspace.getRightLeaf(false);
             if (leaf) await leaf.setViewState({ type: DASHBOARD_VIEW_TYPE, active: true });
+        }
+        if (leaf) await workspace.revealLeaf(leaf);
+    }
+
+    async activateGraphView() {
+        const { workspace } = this.app;
+        let leaf: WorkspaceLeaf | null = null;
+        const leaves = workspace.getLeavesOfType(GRAPH_VIEW_TYPE);
+
+        if (leaves.length > 0) {
+            leaf = leaves[0];
+        } else {
+            leaf = workspace.getLeaf('tab'); // Open in a new tab by default for better experience
+            if (leaf) await leaf.setViewState({ type: GRAPH_VIEW_TYPE, active: true });
         }
         if (leaf) await workspace.revealLeaf(leaf);
     }
