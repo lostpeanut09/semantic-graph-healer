@@ -31,6 +31,7 @@
         "@vitest/ui": "^4.1.0",
         "@vitest/web-worker": "^4.1.4",
         "esbuild": "^0.20.0",
+        "esbuild-svelte": "^0.9.5",
         "eslint": "^10.1.0",
         "eslint-config-prettier": "^10.1.8",
         "eslint-plugin-obsidianmd": "^0.1.9",
@@ -44,6 +45,7 @@
         "prettier": "^3.8.1",
         "stylelint": "^17.5.0",
         "stylelint-config-standard": "^40.0.0",
+        "svelte-preprocess": "^6.0.3",
         "tslib": "^2.4.0",
         "typescript": "^5.0.0",
         "typescript-eslint": "^8.57.2",
@@ -57,6 +59,7 @@
         "graphology-dag": "^0.4.1",
         "graphology-metrics": "^2.4.0",
         "graphology-types": "^0.24.8",
+        "svelte": "^5.55.5",
         "three": "^0.174.0",
         "zod": "^4.3.6"
     },
