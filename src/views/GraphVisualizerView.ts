@@ -1,9 +1,10 @@
 // @ts-nocheck
-import { ItemView, WorkspaceLeaf } from 'obsidian';
+import { ItemView, WorkspaceLeaf, Notice } from 'obsidian';
 import ForceGraph3D from '3d-force-graph';
 import type SemanticGraphHealer from '../main';
 import { mapToForceGraph } from '../core/utils/GraphMapper';
 import { GraphEngine } from '../core/GraphEngine';
+import { GraphPopup } from './components/GraphPopup';
 
 export const GRAPH_VIEW_TYPE = 'healer-graph-view';
 
@@ -13,9 +14,10 @@ export const GRAPH_VIEW_TYPE = 'healer-graph-view';
  */
 export class GraphVisualizerView extends ItemView {
     plugin: SemanticGraphHealer;
-    private graph: any = null;
+    private graph: unknown = null;
     private startTime: number;
     private animationId: number | null = null;
+    private popup: GraphPopup;
 
     constructor(leaf: WorkspaceLeaf, plugin: SemanticGraphHealer) {
         super(leaf);
@@ -41,24 +43,71 @@ export class GraphVisualizerView extends ItemView {
             attr: { style: 'width: 100%; height: 100%;' },
         });
 
+        // Initialize Popup
+        this.popup = new GraphPopup(container, async (suggestion) => {
+            this.plugin.logger.info(`Executing fix for: ${suggestion.id}`);
+            const success = await this.plugin.executor.execute(suggestion);
+            if (success) {
+                new Notice('Fix executed successfully.');
+                await this.refresh();
+            } else {
+                new Notice('Fix execution failed.');
+            }
+        });
+
         // Initialize 3D Force Graph
         this.graph = ForceGraph3D()(container)
-            .nodeLabel((n: any) => n.label || n.id)
+            .nodeLabel((n: unknown) => n.label || n.id)
             .nodeAutoColorBy('group')
-            .nodeColor((node: any) => {
+            .nodeColor((node: unknown) => {
                 if (node && node.isCycle) {
                     const pulse = Math.sin((Date.now() - this.startTime) / 200) * 0.5 + 0.5;
                     return `rgba(255, 0, 0, ${pulse})`;
                 }
                 return node?.color || '#1f77b4';
             })
-            .linkWidth((link: any) => (link?.isGhost ? 0 : 1))
-            .linkDash((link: any) => (link?.isGhost ? [5, 2] : null))
-            .linkColor((link: any) => (link?.isGhost ? '#ff9900' : '#ffffff'))
-            .onNodeClick((node: any) => {
+            .linkWidth((link: unknown) => (link?.isGhost ? 0 : 1))
+            .linkDash((link: unknown) => (link?.isGhost ? [5, 2] : null))
+            .linkColor((link: unknown) => (link?.isGhost ? '#ff9900' : '#ffffff'))
+            .onNodeClick((node: unknown, event: MouseEvent) => {
                 this.plugin.logger.info(`Node clicked: ${node?.label || node?.id}`);
-                // Future: show popup for fixes
-            });
+                
+                // Find suggestion for this node (priority to errors)
+                const suggestions = this.plugin.cache.suggestions.filter(s => 
+                    s.link === node.id || 
+                    s.meta?.targetPath === node.id || 
+                    s.meta?.sourcePath === node.id
+                );
+                
+                // Sort by severity (error > suggestion > info)
+                const severityMap: Record<string, number> = { error: 0, suggestion: 1, info: 2 };
+                suggestions.sort((a, b) => (severityMap[a.category] ?? 3) - (severityMap[b.category] ?? 3));
+                
+                const rect = container.getBoundingClientRect();
+                this.popup.show(
+                    event.clientX - rect.left, 
+                    event.clientY - rect.top, 
+                    node?.label || node?.id, 
+                    suggestions[0]
+                );
+            })
+            .onLinkClick((link: unknown, event: MouseEvent) => {
+                this.plugin.logger.info(`Link clicked: ${link.source.id} -> ${link.target.id}`);
+                
+                // Find suggestion for this link (e.g. topology gaps/bridges)
+                const suggestion = this.plugin.cache.suggestions.find(s => 
+                   (s.meta?.sourcePath === link.source.id && s.meta?.targetPath === link.target.id) ||
+                   (s.meta?.sourcePath === link.target.id && s.meta?.targetPath === link.source.id)
+                );
+                
+                const rect = container.getBoundingClientRect();
+                this.popup.show(
+                   event.clientX - rect.left, 
+                   event.clientY - rect.top, 
+                   `Link: ${link.source.label || link.source.id} → ${link.target.label || link.target.id}`, 
+                   suggestion
+                );
+           });
 
         // Initialize animation loop for pulsing effect on cycle nodes
         this.animate();
@@ -97,7 +146,7 @@ export class GraphVisualizerView extends ItemView {
 
         // 3. Decorate graph with topological markers
         // Mark nodes that are part of a hierarchical cycle
-        diagnostics.cycles.forEach((cycle: any) => {
+        diagnostics.cycles.forEach((cycle: unknown) => {
             cycle.path.forEach((nodeId: string) => {
                 if (g.hasNode(nodeId)) {
                     g.setNodeAttribute(nodeId, 'isCycle', true);
@@ -106,7 +155,7 @@ export class GraphVisualizerView extends ItemView {
         });
 
         // Add ghost edges for structural bridge gaps
-        diagnostics.bridges.forEach((bridge: any) => {
+        diagnostics.bridges.forEach((bridge: unknown) => {
             if (g.hasNode(bridge.source) && g.hasNode(bridge.target)) {
                 // If the direct edge doesn't exist, we add it as a "ghost" bridge gap
                 if (!g.hasEdge(bridge.source, bridge.target)) {
