@@ -122,13 +122,19 @@
 **UI hint**: yes
 
 ### Phase 10: Reactive Healing Dashboard
-**Goal**: A central hub for managing all graph suggestions.
+**Goal**: A central hub for managing all graph suggestions using Svelte 5.
 **Depends on**: Phase 9
-**Requirements**: UX-01 (REQUIREMENTS: Dashboard), UI-03
+**Requirements**: UX-01, UI-03
 **Success Criteria** (what must be TRUE):
   1. A Svelte 5 (Runes) dashboard displays all suggested repairs in real-time.
   2. Partial re-rendering ensures the dashboard remains responsive with 100+ suggestions.
-**Plans**: TBD
+  3. Batch execution logic with yielding prevents UI lockup.
+  4. Interactions include "Undo" toast and visual "Fixed" state.
+**Plans**: 4 plans
+- [ ] 10-01-PLAN.md — Build Foundation & Reactive Store
+- [ ] 10-02-PLAN.md — Svelte Migration & Tabbed Layout
+- [ ] 10-03-PLAN.md — Interaction Logic (Batch, Undo)
+- [ ] 10-04-PLAN.md — AI Verification & Reasoning UI
 **UI hint**: yes
 
 ### Phase 11: Complex Suggestion Execution
@@ -161,6 +167,6 @@
 | 7. AI Tribunal & Similarity Analysis | 3/3 | Completed | 2026-05-09 |
 | 8. Semantic Tag Propagation | 1/1 | Completed | 2026-05-10 |
 | 9. High-Fidelity Graph UI | 3/3 | Completed | 2026-05-10 |
-| 10. Reactive Healing Dashboard | 0/1 | Not started | - |
+| 10. Reactive Healing Dashboard | 0/4 | Not started | - |
 | 11. Complex Suggestion Execution | 0/1 | Not started | - |
 | 12. v1 Finalization & Stress Testing | 0/1 | Not started | - |
