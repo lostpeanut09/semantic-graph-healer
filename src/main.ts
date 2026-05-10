@@ -30,7 +30,7 @@ import { BreadcrumbsAdapter } from './core/adapters/BreadcrumbsAdapter';
 import { SmartConnectionsAdapter } from './core/adapters/SmartConnectionsAdapter';
 import { SuggestionExecutor } from './core/SuggestionExecutor';
 import { ReasoningService } from './core/ReasoningService';
-import { QuarantineDashboardView, ReasoningView, REASONING_VIEW_TYPE } from './views/DashboardView';
+import { DashboardView, ReasoningView, REASONING_VIEW_TYPE } from './views/DashboardView';
 import { GraphVisualizerView, GRAPH_VIEW_TYPE } from './views/GraphVisualizerView';
 import { SemanticHealerSettingTab } from './views/SettingsTab';
 import { CacheService } from './core/CacheService';
@@ -411,7 +411,7 @@ export default class SemanticGraphHealer extends Plugin {
     }
 
     private registerViews() {
-        this.registerView(DASHBOARD_VIEW_TYPE, (leaf) => new QuarantineDashboardView(leaf, this));
+        this.registerView(DASHBOARD_VIEW_TYPE, (leaf) => new DashboardView(leaf, this));
         this.registerView(REASONING_VIEW_TYPE, (leaf) => new ReasoningView(leaf));
         this.registerView(GRAPH_VIEW_TYPE, (leaf) => new GraphVisualizerView(leaf, this));
     }
@@ -754,7 +754,7 @@ export default class SemanticGraphHealer extends Plugin {
     async refreshDashboard() {
         const leaves = this.app.workspace.getLeavesOfType(DASHBOARD_VIEW_TYPE);
         for (const leaf of leaves) {
-            if (leaf.view instanceof QuarantineDashboardView) {
+            if (leaf.view instanceof DashboardView) {
                 await leaf.view.refresh();
             }
         }
