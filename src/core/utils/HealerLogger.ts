@@ -306,6 +306,7 @@ export class HealerLogger {
         const logLine = this.formatLogLine(entry);
         if (level === 'error') console.error(logLine);
         else if (level === 'warn') console.warn(logLine);
+        else if (level === 'info') console.log(logLine);
         else console.debug(logLine);
 
         // File output

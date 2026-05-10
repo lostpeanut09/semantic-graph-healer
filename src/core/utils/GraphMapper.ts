@@ -4,14 +4,14 @@ export interface ForceGraphNode {
     id: string;
     label?: string;
     isCycle?: boolean;
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export interface ForceGraphLink {
     source: string;
     target: string;
     isGhost?: boolean;
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export interface ForceGraphData {

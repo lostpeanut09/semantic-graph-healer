@@ -516,4 +516,6 @@
     justify-content: flex-end;
 }
 
-.is-hidden { display: none !important; }
+.is-hidden {
+    display: none !important;
+}

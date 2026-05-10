@@ -9,7 +9,10 @@ export class GraphPopup {
     private el: HTMLElement;
     private contentEl: HTMLElement;
 
-    constructor(parentEl: HTMLElement, private onExecute: (suggestion: Suggestion) => void) {
+    constructor(
+        parentEl: HTMLElement,
+        private onExecute: (suggestion: Suggestion) => void,
+    ) {
         this.el = parentEl.createDiv({ cls: 'healer-graph-popup is-hidden' });
         this.contentEl = this.el.createDiv({ cls: 'healer-graph-popup-content' });
     }
@@ -22,10 +25,9 @@ export class GraphPopup {
         this.contentEl.createEl('h4', { text: title });
 
         if (suggestion) {
-            const reasoning = suggestion.reasoning?.primaryReasoning || 
-                             suggestion.reasoning?.winnerWhy || 
-                             suggestion.source;
-            
+            const reasoning =
+                suggestion.reasoning?.primaryReasoning || suggestion.reasoning?.winnerWhy || suggestion.source;
+
             this.contentEl.createEl('p', { text: reasoning });
 
             const btnContainer = this.contentEl.createDiv({ cls: 'healer-graph-popup-btns' });
@@ -40,16 +42,12 @@ export class GraphPopup {
                     });
             }
 
-            new ButtonComponent(btnContainer)
-                .setButtonText('Dismiss')
-                .onClick(() => this.hide());
+            new ButtonComponent(btnContainer).setButtonText('Dismiss').onClick(() => this.hide());
         } else {
             this.contentEl.createEl('p', { text: 'No specific issues detected for this node.' });
-            
+
             const btnContainer = this.contentEl.createDiv({ cls: 'healer-graph-popup-btns' });
-            new ButtonComponent(btnContainer)
-                .setButtonText('Dismiss')
-                .onClick(() => this.hide());
+            new ButtonComponent(btnContainer).setButtonText('Dismiss').onClick(() => this.hide());
         }
 
         // Basic boundary adjustment
@@ -72,7 +70,7 @@ export class GraphPopup {
         this.el.setCssStyles({
             left: `${Math.max(10, finalX)}px`,
             top: `${Math.max(10, finalY)}px`,
-            opacity: '1'
+            opacity: '1',
         });
 
         this.el.removeClass('is-hidden');

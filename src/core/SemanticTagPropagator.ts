@@ -49,6 +49,8 @@ export class SemanticTagPropagator {
         }
 
         // 3. Analyze inheritance logic
+        const exclusions = this.settings.tagPropagationExclusions || ['MOC', 'Index', 'Dashboard'];
+
         for (const [parentPath, children] of childrenByParent) {
             if (children.length < 2) continue; // Need at least two children to define a cluster majority
 
@@ -59,30 +61,40 @@ export class SemanticTagPropagator {
             // Dataview tags usually come with # prefix in metadata cache tags
             const parentTags = parentCache?.tags?.map((t) => t.tag.replace(/^#/, '')) || [];
 
-            if (parentTags.length === 0) continue;
+            // Filter out exclusions
+            const filteredParentTags = parentTags.filter(
+                (tag) => !exclusions.some((exc) => tag.toLowerCase().includes(exc.toLowerCase())),
+            );
 
-            for (const parentTag of parentTags) {
+            if (filteredParentTags.length === 0) continue;
+
+            for (const parentTag of filteredParentTags) {
                 // Calculate percentage of children that ALREADY have this tag
                 const childrenWithTag = children.filter((child) => {
                     const childCache = this.app.metadataCache.getFileCache(child);
-                    return childCache?.tags?.some((t) => t.tag.replace(/^#/, '') === parentTag);
+                    const childTags = childCache?.tags?.map((t) => t.tag.replace(/^#/, '')) || [];
+                    // Handle nested tags: if parent has #science, child having #science/biology counts
+                    return childTags.some((t) => t === parentTag || t.startsWith(`${parentTag}/`));
                 });
 
                 const coverageRatio = childrenWithTag.length / children.length;
                 const coverageThreshold = this.settings.tagPropagationThreshold || 0.5;
 
                 // If majority of cluster (>X%) has the tag, suggest it to the outliers
-                if (coverageRatio > coverageThreshold && coverageRatio < 1.0) {
+                if (coverageRatio >= coverageThreshold && coverageRatio < 1.0) {
+                    HealerLogger.debug(
+                        `Propagating tag #${parentTag} to cluster of ${parentFile.basename} (Coverage: ${Math.round(coverageRatio * 100)}%)`,
+                    );
+
                     for (const child of children) {
                         const childCache = this.app.metadataCache.getFileCache(child);
-                        const hasTag = childCache?.tags?.some((t) => t.tag.replace(/^#/, '') === parentTag);
+                        const childTags = childCache?.tags?.map((t) => t.tag.replace(/^#/, '')) || [];
+                        const hasTag = childTags.some((t) => t === parentTag || t.startsWith(`${parentTag}/`));
 
                         if (!hasTag) {
-                            // The suggestion is created instantly. The dashboard logic will trigger AI check
-                            // if 'requireAITagValidation' is true when the user hits "Verify".
                             suggestions.push({
                                 id: generateId(`tag_propagation_${parentPath}_${child.path}_${parentTag}`),
-                                type: 'semantic', // We use 'semantic' to avoid type issues, but identify it by 'tags' property
+                                type: 'semantic',
                                 category: 'suggestion',
                                 link: `[[${child.basename}]]`,
                                 source: `Taxonomy Propagation: ${Math.round(coverageRatio * 100)}% of [${parentFile.basename}]'s children inherit the tag '#${parentTag}'. Suggesting propagation.`,
