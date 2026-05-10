@@ -14,7 +14,7 @@ export class DashboardStore {
         this.#plugin.registerEvent(
             this.#plugin.app.workspace.on('semantic-graph:updated', () => {
                 this.refresh();
-            })
+            }),
         );
     }
 
@@ -34,18 +34,18 @@ export class DashboardStore {
     }
 
     get structuralGaps() {
-        return this.#suggestions.filter(s => s.id.startsWith('bridge_gap'));
+        return this.#suggestions.filter((s) => s.id.startsWith('bridge_gap'));
     }
 
     get logicLoops() {
-        return this.#suggestions.filter(s => s.id.startsWith('cycle_'));
+        return this.#suggestions.filter((s) => s.id.startsWith('cycle_'));
     }
 
     get blackHoles() {
-        return this.#suggestions.filter(s => s.id.startsWith('sink_'));
+        return this.#suggestions.filter((s) => s.id.startsWith('sink_'));
     }
 
     get aiSuggestions() {
-        return this.#suggestions.filter(s => s.type === 'ai');
+        return this.#suggestions.filter((s) => s.type === 'ai');
     }
 }

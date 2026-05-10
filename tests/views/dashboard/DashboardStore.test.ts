@@ -16,18 +16,18 @@ describe('DashboardStore', () => {
                     eventCallback = cb;
                 }
                 return { event, cb };
-            })
+            }),
         };
 
         mockPlugin = {
             app: {
-                workspace: mockWorkspace
+                workspace: mockWorkspace,
             },
             registerEvent: vi.fn(),
             cache: {
                 suggestions: [] as Suggestion[],
-                history: [] as HistoryItem[]
-            }
+                history: [] as HistoryItem[],
+            },
         };
     });
 
@@ -50,16 +50,16 @@ describe('DashboardStore', () => {
             { id: 'bridge_gap_1', type: 'topology_gap', category: 'suggestion', link: '', source: '', timestamp: 0 },
             { id: 'cycle_1', type: 'deterministic', category: 'error', link: '', source: '', timestamp: 0 },
             { id: 'sink_1', type: 'quality', category: 'info', link: '', source: '', timestamp: 0 },
-            { id: 'other_1', type: 'ai', category: 'suggestion', link: '', source: '', timestamp: 0 }
+            { id: 'other_1', type: 'ai', category: 'suggestion', link: '', source: '', timestamp: 0 },
         ];
         mockPlugin.cache.suggestions = mockSuggestions;
 
         const store = new DashboardStore(mockPlugin);
 
-        expect(store.structuralGaps.map(s => s.id)).toEqual(['bridge_gap_1']);
-        expect(store.logicLoops.map(s => s.id)).toEqual(['cycle_1']);
-        expect(store.blackHoles.map(s => s.id)).toEqual(['sink_1']);
-        expect(store.aiSuggestions.map(s => s.id)).toEqual(['other_1']);
+        expect(store.structuralGaps.map((s) => s.id)).toEqual(['bridge_gap_1']);
+        expect(store.logicLoops.map((s) => s.id)).toEqual(['cycle_1']);
+        expect(store.blackHoles.map((s) => s.id)).toEqual(['sink_1']);
+        expect(store.aiSuggestions.map((s) => s.id)).toEqual(['other_1']);
     });
 
     it('updates reactivity when refresh is called', () => {
@@ -67,7 +67,7 @@ describe('DashboardStore', () => {
         expect(store.suggestions.length).toBe(0);
 
         mockPlugin.cache.suggestions = [
-            { id: 'bridge_gap_1', type: 'topology_gap', category: 'suggestion', link: '', source: '', timestamp: 0 }
+            { id: 'bridge_gap_1', type: 'topology_gap', category: 'suggestion', link: '', source: '', timestamp: 0 },
         ];
 
         store.refresh();
@@ -81,7 +81,7 @@ describe('DashboardStore', () => {
         expect(store.suggestions.length).toBe(0);
 
         mockPlugin.cache.suggestions = [
-            { id: 'sink_1', type: 'quality', category: 'info', link: '', source: '', timestamp: 0 }
+            { id: 'sink_1', type: 'quality', category: 'info', link: '', source: '', timestamp: 0 },
         ];
 
         // Trigger the registered event
