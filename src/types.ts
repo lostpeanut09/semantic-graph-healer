@@ -229,7 +229,9 @@ export interface Suggestion {
     source: string;
     timestamp: number;
     reasoning?: ReasoningResult;
-    meta?: SuggestionMeta;
+    meta?: SuggestionMeta & Record<string, unknown>;
+    isVerifying?: boolean;
+    verificationResult?: string;
 }
 
 export interface HistoryItem {

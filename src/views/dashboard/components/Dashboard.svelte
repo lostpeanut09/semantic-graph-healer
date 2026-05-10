@@ -42,34 +42,23 @@
   }
 
   async function handleIgnore(suggestion: Suggestion) {
-    if (!plugin.settings.proximityIgnoreList.includes(suggestion.link)) {
-        plugin.settings.proximityIgnoreList.push(suggestion.link);
-    }
-    plugin.cache.suggestions = plugin.cache.suggestions.filter((s: Suggestion) => s.id !== suggestion.id);
-    plugin.cache.save();
-    await plugin.saveSettings();
-    store.refresh();
-    new Notice(`${suggestion.link} ignored.`);
+    store.ignore(suggestion);
   }
 
   async function handleReasoning(suggestion: Suggestion) {
-    const notice = new Notice('Gathering context for AI reasoning...', 0);
-    try {
-        const result = await plugin.reasoner.analyze(suggestion);
-        notice.hide();
-        if (result) {
-            suggestion.reasoning = result;
-            plugin.cache.save();
-            await plugin.saveSettings();
-            store.refresh();
-            new Notice('AI reasoning complete.');
-        } else {
-            new Notice('AI Reasoning failed. Check console.');
-        }
-    } catch(e) {
-        notice.hide();
-        console.error(e);
-    }
+    await store.analyze(suggestion);
+  }
+
+  async function handleVerifyAI(suggestion: Suggestion) {
+    await store.verifyAI(suggestion);
+  }
+
+  async function handleShowReasoning(suggestion: Suggestion) {
+    await store.showReasoning(suggestion);
+  }
+
+  async function handleResolveChoice(suggestion: Suggestion, winner: string, losers: string[]) {
+    await store.resolveChoice(suggestion, winner, losers);
   }
 
   let bannerPath = $derived.by(() => {
@@ -111,6 +100,9 @@
           onExecute={handleExecute}
           onIgnore={handleIgnore}
           onReasoning={handleReasoning}
+          onVerifyAI={handleVerifyAI}
+          onShowReasoning={handleShowReasoning}
+          onResolveChoice={handleResolveChoice}
         />
       {/each}
     {:else}
