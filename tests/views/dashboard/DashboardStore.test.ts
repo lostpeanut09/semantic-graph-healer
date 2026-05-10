@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 import { DashboardStore } from '../../../src/views/dashboard/DashboardStore.svelte';
 import type { Suggestion, HistoryItem } from '../../../src/types';
+import { REASONING_VIEW_TYPE } from '../../../src/views/DashboardView';
 
 describe('DashboardStore', () => {
     let mockPlugin: any;
@@ -100,12 +101,12 @@ describe('DashboardStore', () => {
         beforeAll(() => {
             // Mock Obsidian DOM extensions for jsdom
             if (!DocumentFragment.prototype.appendText) {
-                DocumentFragment.prototype.appendText = function(text: string) {
+                DocumentFragment.prototype.appendText = function (text: string) {
                     this.appendChild(document.createTextNode(text));
                 };
             }
             if (!DocumentFragment.prototype.createEl) {
-                DocumentFragment.prototype.createEl = function(tag: string, options?: any) {
+                DocumentFragment.prototype.createEl = function (tag: string, options?: any) {
                     const el = document.createElement(tag);
                     if (options?.text) el.textContent = options.text;
                     if (options?.cls) el.className = options.cls;
@@ -163,7 +164,7 @@ describe('DashboardStore', () => {
 
             store.ignore(suggestion);
 
-            // To verify Notice was used without a constructor mock, we can check if a Notice was created. 
+            // To verify Notice was used without a constructor mock, we can check if a Notice was created.
             // In a jsdom env, we can check if hide was spied on or just trust it.
             // But since Notice is a class from obsidian.ts which creates a div, we can't easily spy on constructor.
             // Let's just verify the store's reactive state was updated.
@@ -171,6 +172,113 @@ describe('DashboardStore', () => {
 
             // Note: detailed DOM simulation for Undo might require
             // more complex mocks, we ensure Notice is called as first step
+        });
+    });
+
+    describe('AI Logic Verification', () => {
+        let store: DashboardStore;
+
+        beforeEach(() => {
+            mockPlugin.reasoner = {
+                analyze: vi.fn(),
+            };
+            mockPlugin.topology = {
+                getContextForAIValidation: vi.fn(),
+            };
+            mockPlugin.llm = {
+                validateBranching: vi.fn(),
+                validateTagInheritance: vi.fn(),
+            };
+            mockPlugin.executor = {
+                resolveChoice: vi.fn(),
+            };
+            mockPlugin.saveSettings = vi.fn().mockResolvedValue(true);
+            mockPlugin.cache.save = vi.fn();
+
+            mockPlugin.cache.suggestions = [
+                {
+                    id: 'branch_1',
+                    type: 'ai',
+                    category: 'suggestion',
+                    link: 'link_1',
+                    source: '',
+                    timestamp: 0,
+                    meta: { sourcePath: 'A', targetPaths: ['B', 'C'] },
+                },
+                {
+                    id: 'tag_1',
+                    type: 'ai',
+                    category: 'suggestion',
+                    link: 'link_2',
+                    source: '',
+                    timestamp: 0,
+                    meta: { sourcePath: 'D', targetPath: 'E' },
+                },
+            ];
+
+            store = new DashboardStore(mockPlugin);
+        });
+
+        it('analyze calls reasoner and updates state', async () => {
+            const suggestion = mockPlugin.cache.suggestions[0];
+            const mockReasoningResult = { verdict: 'STABLE' };
+            mockPlugin.reasoner.analyze.mockResolvedValue(mockReasoningResult);
+
+            // Mock showReasoning requirements
+            mockPlugin.app.workspace.getLeavesOfType = vi.fn().mockReturnValue([]);
+            mockPlugin.app.workspace.getRightLeaf = vi.fn().mockReturnValue({
+                setViewState: vi.fn().mockResolvedValue(true),
+                view: { setSuggestion: vi.fn() },
+            });
+
+            await store.analyze(suggestion);
+
+            expect(mockPlugin.reasoner.analyze).toHaveBeenCalledWith(suggestion);
+            expect(store.suggestions[0].reasoning).toEqual(mockReasoningResult);
+            expect(mockPlugin.cache.save).toHaveBeenCalled();
+            expect(mockPlugin.saveSettings).toHaveBeenCalled();
+        });
+
+        it('verifyAI calls validateBranching with context for branch suggestions', async () => {
+            const suggestion = mockPlugin.cache.suggestions[0];
+            const mockContext = {
+                sourceContent: 'content A',
+                targetContents: ['content B', 'content C'],
+                existingRelations: 'relations',
+            };
+
+            mockPlugin.topology.getContextForAIValidation.mockResolvedValue(mockContext);
+            mockPlugin.llm.validateBranching.mockResolvedValue(true);
+
+            await store.verifyAI(suggestion);
+
+            expect(mockPlugin.topology.getContextForAIValidation).toHaveBeenCalledWith('A', ['B', 'C']);
+            expect(mockPlugin.llm.validateBranching).toHaveBeenCalled();
+            expect(store.suggestions[0].verificationResult).toBe('Valid');
+        });
+
+        it('verifyAI calls validateTagInheritance for tag suggestions', async () => {
+            const suggestion = mockPlugin.cache.suggestions[1];
+            const mockContext = { sourceContent: 'content D', targetContents: ['content E'], existingRelations: '' };
+
+            mockPlugin.topology.getContextForAIValidation.mockResolvedValue(mockContext);
+            mockPlugin.llm.validateTagInheritance.mockResolvedValue(false);
+
+            await store.verifyAI(suggestion);
+
+            expect(mockPlugin.topology.getContextForAIValidation).toHaveBeenCalledWith('D', ['E']);
+            expect(mockPlugin.llm.validateTagInheritance).toHaveBeenCalled();
+            expect(store.suggestions[1].verificationResult).toBe('Contradiction');
+        });
+
+        it('resolveChoice calls executor.resolveChoice', async () => {
+            const suggestion = mockPlugin.cache.suggestions[0];
+            mockPlugin.executor.resolveChoice.mockResolvedValue(true);
+
+            await store.resolveChoice(suggestion, 'winner', ['loser']);
+
+            expect(mockPlugin.executor.resolveChoice).toHaveBeenCalledWith(suggestion, 'winner', ['loser']);
+            expect(store.fixedItems.has(suggestion.id)).toBe(true);
         });
     });
 });

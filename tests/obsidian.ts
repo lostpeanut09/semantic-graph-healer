@@ -5,8 +5,8 @@ export class TFile {}
 export class TFolder {}
 export class Plugin {}
 export class Notice {
-    noticeEl: any;
-    constructor(msg: any, duration?: number) {
+    noticeEl: unknown;
+    constructor(msg: unknown, duration?: number) {
         this.noticeEl = document.createElement('div');
     }
     setMessage() {}

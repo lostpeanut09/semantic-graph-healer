@@ -10,7 +10,7 @@ export const REASONING_VIEW_TYPE = 'healer-reasoning-view';
 
 export class DashboardView extends ItemView {
     plugin: SemanticGraphHealer;
-    componentInstance: any;
+    componentInstance: unknown;
     store: DashboardStore;
 
     constructor(leaf: WorkspaceLeaf, plugin: SemanticGraphHealer) {
@@ -33,8 +33,8 @@ export class DashboardView extends ItemView {
             target: this.contentEl,
             props: {
                 store: this.store,
-                plugin: this.plugin
-            }
+                plugin: this.plugin,
+            },
         });
     }
 
