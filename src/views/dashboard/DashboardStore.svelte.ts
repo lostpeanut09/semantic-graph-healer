@@ -186,7 +186,9 @@ export class DashboardStore {
 
                 // Sanitize context for T-10-04 Information Disclosure
                 const sanitizedSource = context.sourceContent.replace(/password|secret|key/gi, '***');
-                const sanitizedTargets = context.targetContents.map((c: string) => c.replace(/password|secret|key/gi, '***'));
+                const sanitizedTargets = context.targetContents.map((c: string) =>
+                    c.replace(/password|secret|key/gi, '***'),
+                );
 
                 isValid = await this.#plugin.llm.validateBranching(
                     suggestion.meta.sourceNote || 'Unknown',
