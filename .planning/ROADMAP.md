@@ -9,7 +9,7 @@
 - [x] **Phase 5: Topological Diagnostics: Gaps & Loops** - Detect structural issues like missing links and infinite hierarchies. [2026-05-08]
 - [x] **Phase 6: Advanced Topological Metrics** - Implement sophisticated graph algorithms for link prediction and centrality. [2026-05-08]
 - [x] **Phase 7: AI Tribunal & Similarity Analysis** - Integrate AI for verification and vector-based discovery. [2026-05-09]
-- [/] **Phase 8: Semantic Tag Propagation** - Automate tag management using graph context and AI.
+- [x] **Phase 8: Semantic Tag Propagation** - Automate tag management using graph context and AI. [2026-05-10]
 - [ ] **Phase 9: High-Fidelity Graph UI** - Provide a specialized view for visualizing graph issues.
 - [ ] **Phase 10: Reactive Healing Dashboard** - A central hub for managing all graph suggestions.
 - [ ] **Phase 11: Complex Suggestion Execution** - One-click repair for sophisticated topological issues.
@@ -105,7 +105,8 @@
 **Success Criteria** (what must be TRUE):
   1. User receives tag suggestions based on parent MOC cluster semantics.
   2. Tags can be propagated down hierarchies automatically.
-**Plans**: TBD
+**Plans**: 1 plan
+- [ ] 08-01-PLAN.md — Semantic Tag Propagation Core
 
 ### Phase 9: High-Fidelity Graph UI
 **Goal**: Provide a specialized view for visualizing graph issues.
@@ -114,7 +115,10 @@
 **Success Criteria** (what must be TRUE):
   1. A custom graph view highlights detected topological errors (gaps, loops, sinks).
   2. The "Reasoning Explainer" UI explains WHY a specific healing action is suggested.
-**Plans**: TBD
+**Plans**: 3 plans
+- [ ] 09-01-PLAN.md — Foundation & Data Mapping
+- [ ] 09-02-PLAN.md — Graph Visualization View
+- [ ] 09-03-PLAN.md — Interaction & Suggestion Integration
 **UI hint**: yes
 
 ### Phase 10: Reactive Healing Dashboard
@@ -154,10 +158,9 @@
 | 4. BaseAdapter Ultra-Hardening | 1/1 | Completed | 2026-05-05 |
 | 5. Topological Diagnostics: Gaps & Loops | 1/1 | Completed | 2026-05-08 |
 | 6. Advanced Topological Metrics | 1/1 | Completed | 2026-05-08 |
-
-| 7. AI Tribunal & Similarity Analysis | 0/3 | Not started | - |
-| 8. Semantic Tag Propagation | 0/1 | Not started | - |
-| 9. High-Fidelity Graph UI | 0/1 | Not started | - |
+| 7. AI Tribunal & Similarity Analysis | 3/3 | Completed | 2026-05-09 |
+| 8. Semantic Tag Propagation | 1/1 | Completed | 2026-05-10 |
+| 9. High-Fidelity Graph UI | 3/3 | Planning Complete | - |
 | 10. Reactive Healing Dashboard | 0/1 | Not started | - |
 | 11. Complex Suggestion Execution | 0/1 | Not started | - |
 | 12. v1 Finalization & Stress Testing | 0/1 | Not started | - |
