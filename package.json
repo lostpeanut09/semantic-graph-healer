@@ -50,11 +50,14 @@
         "vitest": "^4.1.0"
     },
     "dependencies": {
+        "3d-force-graph": "^1.80.0",
+        "d3-force-3d": "^3.0.6",
         "graphology": "^0.26.0",
         "graphology-communities-louvain": "^2.0.2",
         "graphology-dag": "^0.4.1",
         "graphology-metrics": "^2.4.0",
         "graphology-types": "^0.24.8",
+        "three": "^0.174.0",
         "zod": "^4.3.6"
     },
     "nano-staged": {
