@@ -26,6 +26,13 @@ export class GraphEngine {
         this.predictionEngine = new LinkPredictionEngine(context);
     }
 
+    /**
+     * ✅ NEW: Expose the internal graph for visualization (Phase 9).
+     */
+    public getGraph(): DirectedGraph {
+        return this.graph;
+    }
+
     private get app(): App {
         return this.context.app;
     }
