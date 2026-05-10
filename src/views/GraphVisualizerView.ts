@@ -71,43 +71,42 @@ export class GraphVisualizerView extends ItemView {
             .linkColor((link: unknown) => (link?.isGhost ? '#ff9900' : '#ffffff'))
             .onNodeClick((node: unknown, event: MouseEvent) => {
                 this.plugin.logger.info(`Node clicked: ${node?.label || node?.id}`);
-                
+
                 // Find suggestion for this node (priority to errors)
-                const suggestions = this.plugin.cache.suggestions.filter(s => 
-                    s.link === node.id || 
-                    s.meta?.targetPath === node.id || 
-                    s.meta?.sourcePath === node.id
+                const suggestions = this.plugin.cache.suggestions.filter(
+                    (s) => s.link === node.id || s.meta?.targetPath === node.id || s.meta?.sourcePath === node.id,
                 );
-                
+
                 // Sort by severity (error > suggestion > info)
                 const severityMap: Record<string, number> = { error: 0, suggestion: 1, info: 2 };
                 suggestions.sort((a, b) => (severityMap[a.category] ?? 3) - (severityMap[b.category] ?? 3));
-                
+
                 const rect = container.getBoundingClientRect();
                 this.popup.show(
-                    event.clientX - rect.left, 
-                    event.clientY - rect.top, 
-                    node?.label || node?.id, 
-                    suggestions[0]
+                    event.clientX - rect.left,
+                    event.clientY - rect.top,
+                    node?.label || node?.id,
+                    suggestions[0],
                 );
             })
             .onLinkClick((link: unknown, event: MouseEvent) => {
                 this.plugin.logger.info(`Link clicked: ${link.source.id} -> ${link.target.id}`);
-                
+
                 // Find suggestion for this link (e.g. topology gaps/bridges)
-                const suggestion = this.plugin.cache.suggestions.find(s => 
-                   (s.meta?.sourcePath === link.source.id && s.meta?.targetPath === link.target.id) ||
-                   (s.meta?.sourcePath === link.target.id && s.meta?.targetPath === link.source.id)
+                const suggestion = this.plugin.cache.suggestions.find(
+                    (s) =>
+                        (s.meta?.sourcePath === link.source.id && s.meta?.targetPath === link.target.id) ||
+                        (s.meta?.sourcePath === link.target.id && s.meta?.targetPath === link.source.id),
                 );
-                
+
                 const rect = container.getBoundingClientRect();
                 this.popup.show(
-                   event.clientX - rect.left, 
-                   event.clientY - rect.top, 
-                   `Link: ${link.source.label || link.source.id} → ${link.target.label || link.target.id}`, 
-                   suggestion
+                    event.clientX - rect.left,
+                    event.clientY - rect.top,
+                    `Link: ${link.source.label || link.source.id} → ${link.target.label || link.target.id}`,
+                    suggestion,
                 );
-           });
+            });
 
         // Initialize animation loop for pulsing effect on cycle nodes
         this.animate();

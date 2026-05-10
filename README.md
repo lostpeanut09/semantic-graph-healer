@@ -195,6 +195,43 @@ Each suggestion card supports:
 
 ---
 
+## Installation
+
+To install the plugin for development:
+
+1. Clone the repository into your Obsidian vault's plugin folder: `.obsidian/plugins/semantic-graph-healer`.
+2. Install dependencies:
+    ```bash
+    npm install
+    ```
+
+## Quick Start
+
+1. Build the plugin in development mode with hot-reload:
+    ```bash
+    npm run dev
+    ```
+2. Enable **Semantic Graph Healer** in Obsidian's Community Plugins settings.
+3. Open the **Healing Dashboard** from the ribbon icon or the command palette.
+
+## Usage Examples
+
+### 1. Identifying Structural Gaps
+
+Open the dashboard and filter by **Structural Gaps**. The engine will suggest where a bridge note might be missing in a sequential chain (e.g., A â†’ B â†’ C). Click **Execute** to automatically relink the chain.
+
+### 2. Resolving Hierarchical Cycles
+
+Filter by **Logic Loops (Ouroboros)** to find infinite loops in your note hierarchy (e.g., A â†’ B â†’ A). The dashboard will show you the exact path causing the cycle so you can manually break it.
+
+### 3. AI-Powered Proximity Discovery
+
+With a configured LLM, filter by **AI Suggestions** to find notes that are semantically related but not yet linked. You can verify the suggestion using the **AI Tribunal** to see reasoning from multiple models.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to report issues or submit pull requests.
+
 ## License
 
 Since this plugin was fully vibe coded, it is distributed under the **GNU GPL v3 License**. See the `LICENSE` file for the full text.

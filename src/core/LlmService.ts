@@ -197,7 +197,7 @@ export class LlmService {
                 }
 
                 if (response.status !== 200) {
-                    const json = response.json as LlmResponse;
+                    const json = response.json;
                     const errorMsg =
                         (typeof json.error === 'string' ? json.error : json.error?.message) ||
                         json.message?.content ||
@@ -234,8 +234,9 @@ export class LlmService {
                     return queryModel(endpoint, apiKey, model, timeoutSec, retryCount + 1);
                 }
 
-                HealerLogger.error(`LlmService: Final failure for model [${model}] (attempt ${retryCount + 1}):`, e);
-                return `Error: ${e instanceof Error ? e.message : 'Unknown communication failure'}`;
+                const finalError = `Error: LLM [${model}] final failure: ${e instanceof Error ? e.message : 'Unknown'}`;
+                HealerLogger.error(finalError, e);
+                return finalError;
             }
         };
 

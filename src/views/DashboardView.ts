@@ -392,7 +392,7 @@ export class QuarantineDashboardView extends ItemView {
                 }
             };
         } else if (suggestion.type === 'incongruence') {
-            const btnText = suggestion.reasoning ? 'Re-reason' : 'Check results';
+            const btnText = suggestion.reasoning ? 'Re-reason' : 'Check results (v7.2)';
             const btnReason = btnDiv.createEl('button', {
                 text: btnText,
                 cls: 'healer-btn-reason',
