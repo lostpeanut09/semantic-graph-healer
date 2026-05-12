@@ -104,10 +104,19 @@ export class GraphEngine {
         this.graph.clear();
         const resolvedLinks = this.app.metadataCache.resolvedLinks;
 
-        // ✅ MEMORY GUARDRAILS
+        // ✅ ADAPTIVE GUARDRAILS (Wave 3)
+        const isSafetyMode = this.context.performanceService.isSafetyModeActive();
         const useGuardrails = this.settings.enableGraphGuardrails ?? true;
-        const maxNodes = this.settings.maxNodes || 5000;
-        const maxEdges = this.settings.maxEdges || 50000;
+        
+        let maxNodes = this.settings.maxNodes || 5000;
+        let maxEdges = this.settings.maxEdges || 50000;
+
+        if (isSafetyMode) {
+            // Strictly cap at 2000 nodes / 10000 edges in Safety Mode regardless of settings
+            maxNodes = Math.min(maxNodes, 2000);
+            maxEdges = Math.min(maxEdges, 10000);
+            HealerLogger.info(`Safety Mode Active: Capping Graph at ${maxNodes} nodes.`);
+        }
 
         // 1. Add Nodes (with guardrails)
         const files = this.app.vault.getMarkdownFiles();
@@ -299,6 +308,12 @@ export class GraphEngine {
             return this.processCommunities(this.cache.communities);
         }
 
+        // ✅ WAVE 3: Suspend in Safety Mode
+        if (this.context.performanceService.isSafetyModeActive()) {
+            HealerLogger.warn('Safety Mode Active: Suspending Louvain Community Detection to preserve CPU.');
+            return [];
+        }
+
         try {
             const nodes = this.getSerializedNodes();
             const edges = this.getSerializedEdges();
@@ -422,6 +437,12 @@ export class GraphEngine {
             return this.processBetweenness(this.cache.betweenness);
         }
 
+        // ✅ WAVE 3: Suspend in Safety Mode
+        if (this.context.performanceService.isSafetyModeActive()) {
+            HealerLogger.warn('Safety Mode Active: Suspending Betweenness Analysis.');
+            return [];
+        }
+
         try {
             const nodes = this.getSerializedNodes();
             const edges = this.getSerializedEdges();
@@ -483,6 +504,12 @@ export class GraphEngine {
     public async runCoCitationAnalysis(minScore = 2, limit = 15): Promise<Suggestion[]> {
         HealerLogger.info('Running Co-Citation Analysis (Worker offloaded)...');
 
+        // ✅ WAVE 3: Suspend in Safety Mode
+        if (this.context.performanceService.isSafetyModeActive()) {
+            HealerLogger.warn('Safety Mode Active: Suspending Co-Citation Analysis.');
+            return [];
+        }
+
         // Serialization Guard
         if (this.graph.order < 100) {
             return this.runCoCitationAnalysisSync(minScore, limit);
@@ -543,6 +570,12 @@ export class GraphEngine {
      */
     public async runSimilarityAnalysis(options?: { limit?: number }): Promise<Suggestion[]> {
         HealerLogger.info('Running Deep Topology Similarity Analysis (Engine-delegated)...');
+
+        // ✅ WAVE 3: Suspend in Safety Mode
+        if (this.context.performanceService.isSafetyModeActive()) {
+            HealerLogger.warn('Safety Mode Active: Suspending Link Prediction Analysis.');
+            return [];
+        }
 
         try {
             const nodes = this.getSerializedNodes();
