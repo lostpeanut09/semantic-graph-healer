@@ -2,6 +2,7 @@
 import type { Suggestion, HistoryItem } from '../../types';
 import { Notice } from 'obsidian';
 import { REASONING_VIEW_TYPE, ReasoningView } from '../DashboardView';
+import { ConfirmationModal } from '../components/ConfirmationModal';
 
 export class DashboardStore {
     #suggestions = $state<Suggestion[]>([]);
@@ -39,6 +40,32 @@ export class DashboardStore {
 
     get fixedItems() {
         return this.#fixedItems;
+    }
+
+    async executeComplex(suggestion: Suggestion) {
+        const modal = new ConfirmationModal(this.#plugin.app, suggestion, async () => {
+            try {
+                const success = await this.#plugin.executor.executeRelink(suggestion);
+                if (success) {
+                    this.#fixedItems.add(suggestion.id);
+                    this.refresh();
+                }
+            } catch (error) {
+                console.error(`Failed to execute complex relink for ${suggestion.id}`, error);
+            }
+        });
+        modal.open();
+    }
+
+    async undoAction(historyItem: HistoryItem) {
+        try {
+            const success = await this.#plugin.executor.undo(historyItem);
+            if (success) {
+                this.refresh();
+            }
+        } catch (error) {
+            console.error('Failed to undo action', error);
+        }
     }
 
     async fixAll(suggestionsToFix: Suggestion[]) {
