@@ -45,7 +45,11 @@ export class DropdownComponent {
     }
 }
 export class Setting {
-    constructor(containerEl: HTMLElement) { (this as any).settingEl = containerEl.createDiv(); }
+    public settingEl: HTMLElement;
+    constructor(containerEl: HTMLElement) {
+        // @ts-ignore
+        this.settingEl = containerEl.createDiv ? containerEl.createDiv() : document.createElement('div');
+    }
     setName() {
         return this;
     }
