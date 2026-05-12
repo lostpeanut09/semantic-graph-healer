@@ -33,8 +33,7 @@
 
   async function handleExecute(suggestion: Suggestion) {
     if (suggestion.id.startsWith('bridge_gap')) {
-        const success = await plugin.executor.executeRelink(suggestion);
-        if (success) store.refresh();
+        await store.executeComplex(suggestion);
     } else {
         const success = await plugin.executor.execute(suggestion);
         if (success) store.refresh();
@@ -122,14 +121,23 @@
       <p class="log-muted" style="color: var(--text-muted);">No actions performed yet.</p>
     {:else}
       {#each store.history.slice(-5).reverse() as item}
-        <div class="healer-history-row" style="display: flex; gap: 8px; font-size: 0.9em; margin-bottom: 4px;">
+        <div class="healer-history-row" style="display: flex; gap: 8px; font-size: 0.9em; margin-bottom: 4px; align-items: center;">
           <span class="healer-history-timestamp" style="color: var(--text-muted);">
             [{new Date(item.timestamp).toLocaleTimeString()}]
           </span>
-          <span>{item.action} ↔ <b>{item.file}</b></span>
+          <span style="flex-grow: 1;">{item.action} ↔ <b>{item.file}</b></span>
           <span class="healer-history-badge" style="background-color: var(--background-modifier-active-hover); padding: 2px 6px; border-radius: 4px; font-size: 0.8em;">
             {item.type.toUpperCase()}
           </span>
+          {#if item.mementoData && item.mementoData.length > 0}
+            <button 
+              class="healer-btn-undo" 
+              style="padding: 2px 6px; font-size: 0.8em; cursor: pointer;"
+              onclick={() => store.undoAction(item)}
+            >
+              Undo
+            </button>
+          {/if}
         </div>
       {/each}
     {/if}
