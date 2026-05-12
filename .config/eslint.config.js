@@ -33,6 +33,14 @@ export default defineConfig([
                 crypto: 'readonly',
                 btoa: 'readonly',
                 atob: 'readonly',
+                // Svelte 5 Runes
+                $state: 'readonly',
+                $derived: 'readonly',
+                $effect: 'readonly',
+                $props: 'readonly',
+                $inspect: 'readonly',
+                $host: 'readonly',
+                $bindable: 'readonly',
                 // Node Globals (needed for config files/tools)
                 process: 'readonly',
                 __dirname: 'readonly',
@@ -91,7 +99,34 @@ export default defineConfig([
         },
     },
 
-    // 7. Ignore globali
+    // 7. Relaxed rules for scripts (allowing Node.js built-ins and console)
+    {
+        files: ['scripts/**/*.ts'],
+        languageOptions: {
+            globals: {
+                // Node-only environment for scripts
+                process: 'readonly',
+                __dirname: 'readonly',
+                __filename: 'readonly',
+                require: 'readonly',
+                module: 'readonly',
+                console: 'readonly',
+                // Explicitly disable browser globals to ensure scripts are portable
+                window: 'off',
+                document: 'off',
+                navigator: 'off',
+                fetch: 'off',
+                alert: 'off',
+            },
+        },
+        rules: {
+            'no-console': 'off',
+            'import/no-nodejs-modules': 'off',
+            '@typescript-eslint/require-await': 'off',
+        },
+    },
+
+    // 8. Ignore globali
     {
         ignores: ['**/*.js', '**/*.mjs', 'node_modules/', '.kilo/', '.agent/', '**/*.test.ts', '**/*.bak'],
     },
