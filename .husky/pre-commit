@@ -1,22 +1,14 @@
-echo "🔍 Running ESLint..."
-npx eslint -c .config/eslint.config.js . --fix
+echo "?? Running Linting and Formatting..."
+npm run lint:fix
 if [ $? -ne 0 ]; then
-  echo "❌ ESLint failed"
+  echo "? Linting/Fix failed"
   exit 1
 fi
 
-echo "✨ Running Prettier..."
-npx prettier --config .config/.prettierrc --write .
+npm run format
 if [ $? -ne 0 ]; then
-  echo "❌ Prettier failed"
+  echo "? Formatting failed"
   exit 1
 fi
 
-echo "🏗️  Building..."
-npm run build
-if [ $? -ne 0 ]; then
-  echo "❌ Build failed"
-  exit 1
-fi
-
-echo "✅ Pre-commit checks passed"
+echo "? Pre-commit checks passed"

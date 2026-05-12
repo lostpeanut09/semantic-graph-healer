@@ -1,8 +1,15 @@
-echo "🧪 Running tests..."
-npm test
+echo "??? Building project..."
+npm run build
 if [ $? -ne 0 ]; then
-  echo "❌ Tests failed"
+  echo "? Build failed"
   exit 1
 fi
 
-echo "✅ Tests passed"
+echo "?? Running tests..."
+npm test
+if [ $? -ne 0 ]; then
+  echo "? Tests failed"
+  exit 1
+fi
+
+echo "? Pre-push checks passed"
