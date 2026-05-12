@@ -239,6 +239,11 @@ export interface HistoryItem {
     action: string;
     file: string;
     type: string;
+    mementoData?: Array<{
+        path: string;
+        property: string;
+        originalValue: unknown;
+    }>;
 }
 
 export interface InfraGap {
