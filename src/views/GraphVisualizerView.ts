@@ -55,10 +55,13 @@ export class GraphVisualizerView extends ItemView {
             }
         });
 
+        const isSafetyMode = this.plugin.performanceService.isSafetyModeActive();
+
         // Initialize 3D Force Graph
         this.graph = ForceGraph3D()(container)
             .nodeLabel((n: unknown) => n.label || n.id)
             .nodeAutoColorBy('group')
+            .nodeResolution(isSafetyMode ? 1 : 8) // ✅ LOD: Low resolution in Safety Mode
             .nodeColor((node: unknown) => {
                 if (node && node.isCycle) {
                     const pulse = Math.sin((Date.now() - this.startTime) / 200) * 0.5 + 0.5;
@@ -66,7 +69,7 @@ export class GraphVisualizerView extends ItemView {
                 }
                 return node?.color || '#1f77b4';
             })
-            .linkWidth((link: unknown) => (link?.isGhost ? 0 : 1))
+            .linkWidth((link: unknown) => (link?.isGhost ? 0 : (isSafetyMode ? 0.5 : 1))) // ✅ LOD: Thin links in Safety Mode
             .linkDash((link: unknown) => (link?.isGhost ? [5, 2] : null))
             .linkColor((link: unknown) => (link?.isGhost ? '#ff9900' : '#ffffff'))
             .onNodeClick((node: unknown, event: MouseEvent) => {
@@ -108,6 +111,10 @@ export class GraphVisualizerView extends ItemView {
                 );
             });
 
+        // ✅ LOD: Disable hover effects when N > 5000 (Wave 3)
+        // Note: graphData isn't loaded yet here, so we apply it in refresh() or check total vault size.
+        // For now, if we are in Safety Mode, we can already decide some hover behavior.
+
         // Initialize animation loop for pulsing effect on cycle nodes
         this.animate();
 
@@ -133,6 +140,7 @@ export class GraphVisualizerView extends ItemView {
             settings: this.plugin.settings,
             cache: this.plugin.cache,
             graphWorkerService: this.plugin.graphWorkerService,
+            performanceService: this.plugin.performanceService,
         });
 
         // 1. Build the base graph from metadata
@@ -169,6 +177,22 @@ export class GraphVisualizerView extends ItemView {
         // 4. Map to Force-Graph format and update 3D scene
         const data = mapToForceGraph(g);
         this.graph.graphData(data);
+
+        // ✅ LOD (Wave 3): Disable features for high-density graphs
+        if (data.nodes.length > 5000 || engine.getGraph().order > 5000) {
+            this.plugin.logger.info('High-density graph detected (N > 5000). Disabling hover and labels for performance.');
+            this.graph.enablePointerInteraction(false); // Disable hover effects
+            this.graph.showNavInfo(false);
+        }
+
+        // ✅ WAVE 3: Disable live physics in Safety Mode to preserve CPU
+        if (this.plugin.performanceService.isSafetyModeActive()) {
+            this.plugin.logger.info('Safety Mode Active: Pausing simulation after initial layout.');
+            // Let it warm up for a second then pause
+            setTimeout(() => {
+                if (this.graph) this.graph.pauseAnimation();
+            }, 3000);
+        }
 
         // Explicit memory cleanup for temporary GraphEngine instance
         engine.dispose();

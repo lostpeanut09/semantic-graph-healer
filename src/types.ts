@@ -348,6 +348,12 @@ export interface SemanticGraphHealerSettings {
     logBufferSize: number;
     workerTimeout: number;
 
+    // Adaptive Performance (Wave 2)
+    enableSafetyMode: boolean;
+    safetyModeThresholdDesktop: number;
+    safetyModeThresholdMobile: number;
+    performanceMode?: 'Standard' | 'Safety'; // Runtime state
+
     // Topological Diagnostics
     ouroborosScope: 'universal' | 'boundary';
     blackHoleThreshold: number;
@@ -463,6 +469,10 @@ export const DEFAULT_SETTINGS: SemanticGraphHealerSettings = {
     cloudModelFallbacks: ['gpt-4o', 'claude-3-5-sonnet-latest', 'gemini-1.5-pro', 'deepseek-chat'],
     logBufferSize: 1000,
     workerTimeout: 120,
+    enableSafetyMode: false,
+    safetyModeThresholdDesktop: 10000,
+    safetyModeThresholdMobile: 2500,
+    performanceMode: 'Standard',
     ouroborosScope: 'universal',
     blackHoleThreshold: 7,
 };

@@ -22,6 +22,7 @@ import { renderPhase3InferenceSettings } from './sections/Phase3InferenceSetting
 import { renderInfranodusSettings } from './sections/InfranodusSettings';
 import { renderSecurityApiKeysSettings } from './sections/SecurityApiKeysSettings';
 import { renderLoggingSettings } from './sections/LoggingSettings';
+import { renderPerformanceSafetySettings } from './sections/PerformanceSafetySettings';
 import { renderExhaustedNotesSettings } from './sections/ExhaustedNotesSettings';
 import { renderBlacklistSettings } from './sections/BlacklistSettings';
 import { renderSettingsProfilesSettings } from './sections/SettingsProfilesSettings';
@@ -85,6 +86,7 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
         renderInfranodusSettings(containerEl, ctx);
         renderSecurityApiKeysSettings(containerEl, ctx);
         renderLoggingSettings(containerEl, ctx);
+        renderPerformanceSafetySettings(containerEl, ctx);
         renderExhaustedNotesSettings(containerEl, ctx);
         renderBlacklistSettings(containerEl, ctx);
         renderSettingsProfilesSettings(containerEl, ctx);

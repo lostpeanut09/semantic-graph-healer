@@ -42,6 +42,10 @@ describe('GraphEngine', () => {
             graphWorkerService: {
                 runAnalysis: vi.fn(),
             },
+            performanceService: {
+                isSafetyModeActive: vi.fn().mockReturnValue(false),
+                getPerformanceMode: vi.fn().mockReturnValue('Standard'),
+            },
         };
 
         engine = new GraphEngine(mockContext);

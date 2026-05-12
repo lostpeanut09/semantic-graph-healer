@@ -108,6 +108,12 @@ export const SettingsSchema = z
         logBufferSize: z.number().default(1000),
         workerTimeout: z.number().default(120),
 
+        // Wave 2: Adaptive Performance
+        enableSafetyMode: z.boolean().default(false),
+        safetyModeThresholdDesktop: z.number().default(10000),
+        safetyModeThresholdMobile: z.number().default(2500),
+        performanceMode: z.enum(['Standard', 'Safety']).optional().default('Standard'),
+
         // Phase 5: Topological Diagnostics
         ouroborosScope: z.enum(['universal', 'boundary']).default('universal'),
         blackHoleThreshold: z.number().default(7),

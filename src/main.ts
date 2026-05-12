@@ -20,6 +20,7 @@ import {
 import { HealerLogger as InstanceLogger } from './core/utils/HealerLogger';
 import { KeychainService } from './core/services/KeychainService';
 import { GraphWorkerService } from './core/services/GraphWorkerService';
+import { PerformanceService } from './core/services/PerformanceService';
 import type { AnalysisContext, ExecutionContext } from './core/services/PluginContext';
 import { TopologyAnalyzer } from './core/TopologyAnalyzer';
 import { QualityAnalyzer } from './core/QualityAnalyzer';
@@ -51,6 +52,7 @@ export default class SemanticGraphHealer extends Plugin {
     public logger: InstanceLogger;
     public keychainService: KeychainService;
     public graphWorkerService: GraphWorkerService;
+    public performanceService: PerformanceService;
     public cache: CacheService;
 
     private isAnalyzing = false;
@@ -77,6 +79,9 @@ export default class SemanticGraphHealer extends Plugin {
         this.graphWorkerService = new GraphWorkerService(this.logger, this);
         await this.graphWorkerService.initialize();
 
+        this.performanceService = new PerformanceService(this.app, this.settings, this.logger);
+        this.performanceService.reEvaluate();
+
         // 1.5. Instantiate Adapters (Composition Root) — DIP: core depends on ports, not concrete classes
         const datacore = new DatacoreAdapter(
             this.app as ExtendedApp,
@@ -102,6 +107,7 @@ export default class SemanticGraphHealer extends Plugin {
             cache: this.cache,
             manifest: this.manifest,
             graphWorkerService: this.graphWorkerService,
+            performanceService: this.performanceService,
             saveSettings: () => this.saveSettings(),
             refreshDashboard: () => this.refreshDashboard(),
         };
@@ -113,6 +119,7 @@ export default class SemanticGraphHealer extends Plugin {
             settings: this.settings,
             cache: this.cache,
             graphWorkerService: this.graphWorkerService,
+            performanceService: this.performanceService,
         };
         this.topology = new TopologyAnalyzer(analysisContext, this.llm, this.engine);
         this.quality = new QualityAnalyzer(this.app as ExtendedApp, this.settings, this.engine);
@@ -195,6 +202,7 @@ export default class SemanticGraphHealer extends Plugin {
                 settings: this.settings,
                 cache: this.cache,
                 graphWorkerService: this.graphWorkerService,
+                performanceService: this.performanceService,
             };
             this.topology = new TopologyAnalyzer(analysisContext, this.llm, this.engine);
 
@@ -205,6 +213,9 @@ export default class SemanticGraphHealer extends Plugin {
             this.graphWorkerService = new GraphWorkerService(this.logger, this);
             await this.graphWorkerService.initialize();
 
+            this.performanceService = new PerformanceService(this.app, this.settings, this.logger);
+            this.performanceService.reEvaluate();
+
             // 3. Hot Reload Executor (break circular dep)
             const executorContext: ExecutionContext = {
                 app: this.app,
@@ -212,6 +223,7 @@ export default class SemanticGraphHealer extends Plugin {
                 cache: this.cache,
                 manifest: this.manifest,
                 graphWorkerService: this.graphWorkerService,
+                performanceService: this.performanceService,
                 saveSettings: () => this.saveSettings(),
                 refreshDashboard: () => this.refreshDashboard(),
             };
@@ -238,11 +250,13 @@ export default class SemanticGraphHealer extends Plugin {
                 clearTimeout(this.analysisDebounce.get(file.path));
             }
 
+            const debounceTime = this.performanceService.isSafetyModeActive() ? 15000 : 5000;
+
             const timer = setTimeout(() => {
                 if (this.isAnalyzing) return;
                 void this.analyzeFileContext(file);
                 this.analysisDebounce.delete(file.path);
-            }, 5000);
+            }, debounceTime);
 
             this.analysisDebounce.set(file.path, timer);
         };
@@ -896,6 +910,7 @@ export default class SemanticGraphHealer extends Plugin {
                 settings: this.settings,
                 cache: this.cache,
                 graphWorkerService: this.graphWorkerService,
+                performanceService: this.performanceService,
             });
 
             engine.buildGraph();

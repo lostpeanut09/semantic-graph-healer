@@ -1,6 +1,6 @@
 {
     "name": "semantic-graph-healer",
-    "version": "2.4.4",
+    "version": "3.0.0",
     "type": "module",
     "description": "Topological restoration engine that utilizes Dataview, Breadcrumbs, and ExcaliBrain metadata to identify and resolve structural inconsistencies in the knowledge graph.",
     "main": "main.js",
@@ -17,7 +17,9 @@
         "test": "vitest run",
         "test:adapter": "vitest run tests/core/adapters/DatacoreAdapter.test.ts",
         "test:breadcrumbs": "vitest run tests/core/adapters/BreadcrumbsAdapter.test.ts",
-        "test:worker": "vitest run tests/core/workers/GraphAnalysisWorkerCore.test.ts"
+        "test:worker": "vitest run tests/core/workers/GraphAnalysisWorkerCore.test.ts",
+        "bench:generate": "tsx scripts/generate-mock-vault.ts",
+        "bench:run": "tsx tests/benchmarks/PerformanceBenchmark.test.ts"
     },
     "keywords": [],
     "author": "lostpeanut09",
@@ -25,12 +27,15 @@
     "devDependencies": {
         "@eslint/js": "^9.10.0",
         "@eslint/json": "^0.14.0",
+        "@faker-js/faker": "^10.4.0",
         "@sveltejs/vite-plugin-svelte": "^7.1.2",
+        "@types/benchmark": "^2.1.5",
         "@types/node": "^24.0.0",
         "@typescript-eslint/eslint-plugin": "^8.57.2",
         "@typescript-eslint/parser": "^8.57.2",
         "@vitest/ui": "^4.1.0",
         "@vitest/web-worker": "^4.1.4",
+        "benchmark": "^2.1.4",
         "esbuild": "^0.20.0",
         "esbuild-svelte": "^0.9.5",
         "eslint": "^10.1.0",
@@ -48,6 +53,7 @@
         "stylelint-config-standard": "^40.0.0",
         "svelte-preprocess": "^6.0.3",
         "tslib": "^2.4.0",
+        "tsx": "^4.21.0",
         "typescript": "^5.0.0",
         "typescript-eslint": "^8.57.2",
         "vite": "^8.0.11",

@@ -6,6 +6,7 @@ import type { App } from 'obsidian';
 import type { SemanticGraphHealerSettings } from '../../types';
 import type { CacheService } from '../CacheService';
 import type { GraphWorkerService } from './GraphWorkerService';
+import type { PerformanceService } from './PerformanceService';
 
 /** Context injected into TopologyAnalyzer to avoid importing main plugin class */
 export interface AnalysisContext {
@@ -13,6 +14,7 @@ export interface AnalysisContext {
     settings: SemanticGraphHealerSettings;
     cache: Pick<CacheService, 'suggestions' | 'save' | 'pushHistory' | 'topologicalScores'>;
     graphWorkerService: GraphWorkerService;
+    performanceService: PerformanceService;
 }
 
 /** Context injected into SuggestionExecutor (extends AnalysisContext) */
@@ -28,6 +30,7 @@ export interface GraphContext {
     settings: SemanticGraphHealerSettings;
     cache: Pick<CacheService, 'topologicalScores' | 'save'>;
     graphWorkerService: GraphWorkerService;
+    performanceService: PerformanceService;
 }
 
 /** Context injected into KeychainService */
