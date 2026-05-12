@@ -5,7 +5,7 @@ export class ConfirmationModal extends Modal {
     constructor(
         app: App,
         private suggestion: Suggestion,
-        private onConfirm: () => void
+        private onConfirm: () => void,
     ) {
         super(app);
     }
@@ -15,8 +15,8 @@ export class ConfirmationModal extends Modal {
         contentEl.empty();
 
         contentEl.createEl('h2', { text: 'Confirm Complex Execution' });
-        contentEl.createEl('p', { 
-            text: 'This action involves editing multiple files to repair a topological bridge gap. Please confirm the changes below.' 
+        contentEl.createEl('p', {
+            text: 'This action involves editing multiple files to repair a topological bridge gap. Please confirm the changes below.',
         });
 
         const list = contentEl.createEl('ul');
@@ -27,7 +27,9 @@ export class ConfirmationModal extends Modal {
             }
             if (meta.targetPath) {
                 const invProp = meta.property === 'next' ? 'prev' : 'next';
-                list.createEl('li', { text: `Update: ${meta.targetPath} (setting ${invProp} and ${meta.property || 'next'})` });
+                list.createEl('li', {
+                    text: `Update: ${meta.targetPath} (setting ${invProp} and ${meta.property || 'next'})`,
+                });
             }
             if (meta.winner) {
                 const invProp = meta.property === 'next' ? 'prev' : 'next';
@@ -35,14 +37,12 @@ export class ConfirmationModal extends Modal {
             }
         }
 
-        const btnRow = contentEl.createDiv({ 
-            cls: 'healer-modal-buttons', 
-            attr: { style: 'display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;' } 
+        const btnRow = contentEl.createDiv({
+            cls: 'healer-modal-buttons',
+            attr: { style: 'display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;' },
         });
-        
-        new ButtonComponent(btnRow)
-            .setButtonText('Cancel')
-            .onClick(() => this.close());
+
+        new ButtonComponent(btnRow).setButtonText('Cancel').onClick(() => this.close());
 
         new ButtonComponent(btnRow)
             .setButtonText('Confirm Execution')
