@@ -55,7 +55,9 @@ export class SuggestionExecutor {
                         : sourcePath;
 
                 // Capture Memento
-                const originalValue = (this.app.metadataCache.getFileCache(targetFile)?.frontmatter as Record<string, unknown>)?.[prop];
+                const originalValue = (
+                    this.app.metadataCache.getFileCache(targetFile)?.frontmatter as Record<string, unknown>
+                )?.[prop];
                 const mementoData = [{ path: targetFile.path, property: prop, originalValue }];
 
                 await this.context.app.fileManager.processFrontMatter(targetFile, (fm: Record<string, unknown>) => {
@@ -142,7 +144,9 @@ export class SuggestionExecutor {
             if (!(targetFile instanceof TFile)) return false;
 
             // Capture Memento
-            const originalValue = (this.app.metadataCache.getFileCache(targetFile)?.frontmatter as Record<string, unknown>)?.[prop];
+            const originalValue = (
+                this.app.metadataCache.getFileCache(targetFile)?.frontmatter as Record<string, unknown>
+            )?.[prop];
             const mementoData = [{ path: targetFile.path, property: prop, originalValue }];
 
             await this.context.app.fileManager.processFrontMatter(targetFile, (fm: Record<string, unknown>) => {
@@ -255,11 +259,15 @@ export class SuggestionExecutor {
                 HealerLogger.error('Relink failed during file writing. Attempting rollback...', innerError);
                 // Rollback
                 for (const memento of mementoData) {
-                    const f = this.app.vault.getAbstractFileByPath(memento.path);
-                    if (f instanceof TFile) {
-                        await this.context.app.fileManager.processFrontMatter(f, (fm: Record<string, unknown>) => {
-                            fm[memento.property] = memento.originalValue;
-                        });
+                    try {
+                        const f = this.app.vault.getAbstractFileByPath(memento.path);
+                        if (f instanceof TFile) {
+                            await this.context.app.fileManager.processFrontMatter(f, (fm: Record<string, unknown>) => {
+                                fm[memento.property] = memento.originalValue;
+                            });
+                        }
+                    } catch (rollbackError) {
+                        HealerLogger.error(`Rollback failed for ${memento.path}`, rollbackError);
                     }
                 }
                 return false;

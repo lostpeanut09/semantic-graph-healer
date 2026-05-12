@@ -75,11 +75,13 @@ describe('SuggestionExecutor', () => {
             mockFile.path = 'A.md';
             mockContext.app.vault.getAbstractFileByPath.mockReturnValue(mockFile);
 
-            mockContext.app.fileManager.processFrontMatter.mockImplementation(async (file: TFile, cb: (fm: any) => void) => {
-                const fm = { up: '[[NewParent]]' };
-                await cb(fm);
-                expect(fm.up).toBe('[[OldParent]]');
-            });
+            mockContext.app.fileManager.processFrontMatter.mockImplementation(
+                async (file: TFile, cb: (fm: any) => void) => {
+                    const fm = { up: '[[NewParent]]' };
+                    await cb(fm);
+                    expect(fm.up).toBe('[[OldParent]]');
+                },
+            );
 
             const result = await executor.undo(historyItem);
 
@@ -117,6 +119,64 @@ describe('SuggestionExecutor', () => {
 
             expect(result).toBe(true);
             expect(mockContext.app.fileManager.processFrontMatter).toHaveBeenCalledTimes(2);
+        });
+    });
+
+    describe('executeRelink', () => {
+        it('should rollback if processFrontMatter fails', async () => {
+            const suggestion: any = {
+                id: '1',
+                source: 'Bridge',
+                type: 'bridge',
+                link: 'B.md',
+                meta: {
+                    sourcePath: 'A.md',
+                    targetPath: 'B.md',
+                    winner: 'C.md',
+                    property: 'next',
+                },
+            };
+
+            const fileA = new TFile();
+            fileA.path = 'A.md';
+            fileA.basename = 'A';
+            const fileB = new TFile();
+            fileB.path = 'B.md';
+            fileB.basename = 'B';
+            const fileC = new TFile();
+            fileC.path = 'C.md';
+            fileC.basename = 'C';
+
+            mockContext.app.vault.getAbstractFileByPath.mockImplementation((path: string) => {
+                if (path === 'A.md') return fileA;
+                if (path === 'B.md') return fileB;
+                if (path === 'C.md') return fileC;
+                return null;
+            });
+            mockContext.app.metadataCache.getFirstLinkpathDest.mockReturnValue(fileC);
+            mockContext.app.metadataCache.getFileCache.mockReturnValue({
+                frontmatter: { next: '[[Old]]', prev: '[[Old]]' },
+            });
+
+            // Simulate failure on the second file (B.md)
+            mockContext.app.fileManager.processFrontMatter.mockImplementation(
+                async (file: TFile, cb: (fm: any) => void) => {
+                    if (file.path === 'B.md') {
+                        throw new Error('Write Failed');
+                    }
+                    await cb({});
+                },
+            );
+
+            const result = await executor.executeRelink(suggestion);
+
+            expect(result).toBe(false);
+            // 1 attempt for A, 1 attempt for B (failed), then 4 rollback attempts (A, B, B, C)
+            // Wait, looking at the code:
+            // mementoData has A (next), B (next), B (prev), C (prev)
+            // total processFrontMatter calls should be:
+            // 1 (A success) + 1 (B fail) + 4 (rollback) = 6
+            expect(mockContext.app.fileManager.processFrontMatter).toHaveBeenCalledTimes(6);
         });
     });
 });
