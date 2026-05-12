@@ -33,6 +33,16 @@ export const Platform = {
 
 export class ItemView {}
 export class WorkspaceLeaf {}
+export class Modal {
+    public contentEl: HTMLElement;
+    constructor(app: App) {
+        this.contentEl = document.createElement('div');
+    }
+    open() {}
+    close() {}
+    onOpen() {}
+    onClose() {}
+}
 export class DropdownComponent {
     addOption() {
         return this;
