@@ -144,7 +144,9 @@
 **Success Criteria** (what must be TRUE):
   1. "Triple Relink Executor" can fix multiple missing links in a chain with one click.
   2. Multi-file edits for healing are atomic and reversible.
-**Plans**: TBD
+**Plans**: 2 plans
+- [ ] 11-01-PLAN.md — Execution Core Hardening (Atomicity & Memento)
+- [ ] 11-02-PLAN.md — UI Feedback & Reversibility (Confirmation Modal & Undo)
 
 ### Phase 12: v1 Finalization & Stress Testing
 **Goal**: Ensure production readiness for large-scale digital gardens.
@@ -168,5 +170,5 @@
 | 8. Semantic Tag Propagation | 1/1 | Completed | 2026-05-10 |
 | 9. High-Fidelity Graph UI | 3/3 | Completed | 2026-05-10 |
 | 10. Reactive Healing Dashboard | 4/4 | Completed | 2026-05-10 |
-| 11. Complex Suggestion Execution | 0/1 | Not started | - |
+| 11. Complex Suggestion Execution | 0/2 | Planned | - |
 | 12. v1 Finalization & Stress Testing | 0/1 | Not started | - |
