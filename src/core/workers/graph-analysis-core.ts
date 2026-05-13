@@ -255,10 +255,16 @@ function runSimilarityAnalysis(graph: DirectedGraph, options: unknown, requestId
 
         candidates.forEach((target) => {
             const targetNeighbors = neighborsMap.get(target)!;
-            const shared = new Set([...sourceNeighbors].filter((x) => targetNeighbors.has(x)));
+
+            // Performance: Avoid Array spreading for intersection
+            const shared = new Set<string>();
+            const [smaller, larger] = sourceNeighbors.size < targetNeighbors.size ? [sourceNeighbors, targetNeighbors] : [targetNeighbors, sourceNeighbors];
+            for (const x of smaller) {
+                if (larger.has(x)) shared.add(x);
+            }
             if (shared.size < 2) return;
 
-            const unionSize = new Set([...sourceNeighbors, ...targetNeighbors]).size;
+            const unionSize = sourceNeighbors.size + targetNeighbors.size - shared.size;
             const jaccard = shared.size / unionSize;
 
             let adamicAdar = 0;
@@ -343,7 +349,11 @@ function runCoCitationAnalysis(graph: DirectedGraph, options: unknown, requestId
             processedPairs.add(pairId);
 
             const targetParents = inNeighbors.get(target)!;
-            const sharedCount = [...parents].filter((p) => targetParents.has(p)).length;
+
+            let sharedCount = 0;
+            for (const p of parents) {
+                if (targetParents.has(p)) sharedCount++;
+            }
 
             if (sharedCount >= minScore) {
                 results.push({ a: source, b: target, score: sharedCount });
