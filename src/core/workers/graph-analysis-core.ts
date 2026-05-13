@@ -258,7 +258,10 @@ function runSimilarityAnalysis(graph: DirectedGraph, options: unknown, requestId
 
             // Performance: Avoid Array spreading for intersection
             const shared = new Set<string>();
-            const [smaller, larger] = sourceNeighbors.size < targetNeighbors.size ? [sourceNeighbors, targetNeighbors] : [targetNeighbors, sourceNeighbors];
+            const [smaller, larger] =
+                sourceNeighbors.size < targetNeighbors.size
+                    ? [sourceNeighbors, targetNeighbors]
+                    : [targetNeighbors, sourceNeighbors];
             for (const x of smaller) {
                 if (larger.has(x)) shared.add(x);
             }
