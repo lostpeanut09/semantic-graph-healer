@@ -255,10 +255,20 @@ function runSimilarityAnalysis(graph: DirectedGraph, options: unknown, requestId
 
         candidates.forEach((target) => {
             const targetNeighbors = neighborsMap.get(target)!;
-            const shared = new Set([...sourceNeighbors].filter((x) => targetNeighbors.has(x)));
+
+            // Optimize memory by iterating over the smaller set for intersection
+            const smallerSet = sourceNeighbors.size < targetNeighbors.size ? sourceNeighbors : targetNeighbors;
+            const largerSet = sourceNeighbors.size < targetNeighbors.size ? targetNeighbors : sourceNeighbors;
+
+            const shared = new Set<string>();
+            smallerSet.forEach((x) => {
+                if (largerSet.has(x)) shared.add(x);
+            });
+
             if (shared.size < 2) return;
 
-            const unionSize = new Set([...sourceNeighbors, ...targetNeighbors]).size;
+            // Use inclusion-exclusion formula instead of memory-heavy Set union
+            const unionSize = sourceNeighbors.size + targetNeighbors.size - shared.size;
             const jaccard = shared.size / unionSize;
 
             let adamicAdar = 0;
