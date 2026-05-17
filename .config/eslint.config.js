@@ -126,7 +126,7 @@ export default defineConfig([
         },
     },
 
-    // 8. Ignore globali
+    // 8. Ignore globals: *.mjs reviewer scripts intentionally skipped (they are Node.js stdio tools, not plugin code)
     {
         ignores: ['**/*.js', '**/*.mjs', 'node_modules/', '.kilo/', '.agent/', '**/*.test.ts', '**/*.bak'],
     },
