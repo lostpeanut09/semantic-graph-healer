@@ -534,10 +534,9 @@ export class GraphEngine {
 
                 // Memory optimization: iterate over the smaller set to count intersection
                 let score = 0;
-                const [smaller, larger] = backlinksA.size < backlinksB.size
-                    ? [backlinksA, backlinksB]
-                    : [backlinksB, backlinksA];
-                smaller.forEach(x => {
+                const [smaller, larger] =
+                    backlinksA.size < backlinksB.size ? [backlinksA, backlinksB] : [backlinksB, backlinksA];
+                smaller.forEach((x) => {
                     if (larger.has(x)) score++;
                 });
 

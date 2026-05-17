@@ -109,12 +109,7 @@ export default class SemanticGraphHealer extends Plugin {
         };
         this.topology = new TopologyAnalyzer(analysisContext, this.llm, this.engine);
         this.quality = new QualityAnalyzer(this.app as ExtendedApp, this.settings, this.engine);
-        this.reasoner = new ReasoningService(
-            this.app,
-            this.settings,
-            this.llm,
-            this.engine.getDataviewApi(),
-        );
+        this.reasoner = new ReasoningService(this.app, this.settings, this.llm, this.engine.getDataviewApi());
         this.tagPropagator = new SemanticTagPropagator(this.app, this.settings, this.engine, this.llm);
 
         // 2. Setup Security & Identity
