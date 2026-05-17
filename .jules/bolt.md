@@ -1,0 +1,3 @@
+## 2026-05-17 - [Graph Analysis Memory Optimization]
+**Learning:** Found significant memory and performance bottlenecks in graph analysis files (`src/core/GraphEngine.ts` and `src/core/workers/graph-analysis-core.ts`) where Set intersections and unions were computed using Array spreading `[...set]`. This is extremely inefficient (O(N) memory allocation and processing time).
+**Action:** Always refactor Array spreading on Sets when computing intersections or unions. Iterate over the smaller set for intersections and use the inclusion-exclusion principle (`|A| + |B| - |A ∩ B|`) for union size computations to avoid memory bloat.

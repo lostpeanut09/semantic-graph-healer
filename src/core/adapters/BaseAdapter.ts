@@ -112,7 +112,7 @@ export abstract class BaseAdapter {
      */
     protected getPlugin<T = unknown>(pluginId: string): T | null {
         if (!isObsidianInternalApp(this.app)) return null;
-        const plugin = (this.app as ExtendedApp).plugins.getPlugin(pluginId);
+        const plugin = (this.app).plugins.getPlugin(pluginId);
         return (plugin ?? null) as T | null;
     }
 
@@ -122,7 +122,7 @@ export abstract class BaseAdapter {
     protected isPluginAvailable(pluginId: string): boolean {
         if (!isObsidianInternalApp(this.app)) return false;
 
-        const internal = this.app as ExtendedApp;
+        const internal = this.app;
         const enabled = internal.plugins.enabledPlugins.has(pluginId);
 
         return enabled && !!internal.plugins.getPlugin(pluginId);

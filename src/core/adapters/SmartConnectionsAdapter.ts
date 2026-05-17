@@ -51,7 +51,7 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
      */
     public isAvailable(): boolean {
         if (!isObsidianInternalApp(this.app)) return false;
-        const plugin = (this.app as ExtendedApp).plugins.getPlugin('smart-connections');
+        const plugin = (this.app).plugins.getPlugin('smart-connections');
         return !!plugin;
     }
 
@@ -64,7 +64,7 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
 
     private getPluginShape(): SmartConnectionsPluginShape | null {
         if (!isObsidianInternalApp(this.app)) return null;
-        const raw = (this.app as ExtendedApp).plugins?.getPlugin?.('smart-connections');
+        const raw = (this.app).plugins?.getPlugin?.('smart-connections');
         return raw && typeof raw === 'object' ? (raw as unknown as SmartConnectionsPluginShape) : null;
     }
 
@@ -144,7 +144,7 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
     private isEmptyCollection(value: unknown): boolean {
         if (value === null || value === undefined) return true;
         if (Array.isArray(value)) return value.length === 0;
-        if (typeof value === 'object') return Object.keys(value as Record<string, unknown>).length === 0;
+        if (typeof value === 'object') return Object.keys(value).length === 0;
         return false;
     }
 

@@ -93,7 +93,7 @@ export class SmartConnectionsAdapter {
                                 confidence: Math.round(scoreNum * 100),
                                 description: 'Related concept found via vector embeddings.',
                             },
-                        } as Suggestion;
+                        };
                     });
             } catch (e) {
                 const errMsg = e instanceof Error ? e.message : String(e);
@@ -170,7 +170,7 @@ export class SmartConnectionsAdapter {
                             description: 'Correlated via AJSON index.',
                             targetNote: targetBase,
                         },
-                    } as Suggestion);
+                    });
                 }
                 if (suggestions.length >= limit) break;
             }

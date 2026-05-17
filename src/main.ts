@@ -75,15 +75,15 @@ export default class SemanticGraphHealer extends Plugin {
 
         // 1.5. Instantiate Adapters (Composition Root) — DIP: core depends on ports, not concrete classes
         const datacore = new DatacoreAdapter(
-            this.app as ExtendedApp,
+            this.app,
             this.settings.logLevel === 'debug',
             this.settings.pageChildrenCacheMaxSize ?? 500,
         );
-        const breadcrumbs = new BreadcrumbsAdapter(this.app as ExtendedApp);
-        const smartConnections = new SmartConnectionsAdapter(this.app as ExtendedApp);
+        const breadcrumbs = new BreadcrumbsAdapter(this.app);
+        const smartConnections = new SmartConnectionsAdapter(this.app);
 
         // 2. Initialize Core Engine with injected dependencies
-        this.engine = new UnifiedMetadataAdapter(this.app as ExtendedApp, this.settings, {
+        this.engine = new UnifiedMetadataAdapter(this.app, this.settings, {
             datacore,
             breadcrumbs,
             smartConnections,
@@ -110,12 +110,12 @@ export default class SemanticGraphHealer extends Plugin {
         this.topology = new TopologyAnalyzer(analysisContext, this.llm, this.engine);
         this.quality = new QualityAnalyzer(this.app as ExtendedApp, this.settings, this.engine);
         this.reasoner = new ReasoningService(
-            this.app as ExtendedApp,
+            this.app,
             this.settings,
             this.llm,
             this.engine.getDataviewApi(),
         );
-        this.tagPropagator = new SemanticTagPropagator(this.app as ExtendedApp, this.settings, this.engine, this.llm);
+        this.tagPropagator = new SemanticTagPropagator(this.app, this.settings, this.engine, this.llm);
 
         // 2. Setup Security & Identity
         await this.initializeSecurity();
@@ -153,14 +153,14 @@ export default class SemanticGraphHealer extends Plugin {
 
             // Recreate adapters with new settings and inject
             const datacore = new DatacoreAdapter(
-                this.app as ExtendedApp,
+                this.app,
                 this.settings.logLevel === 'debug',
                 this.settings.pageChildrenCacheMaxSize ?? 500,
             );
-            const breadcrumbs = new BreadcrumbsAdapter(this.app as ExtendedApp);
-            const smartConnections = new SmartConnectionsAdapter(this.app as ExtendedApp);
+            const breadcrumbs = new BreadcrumbsAdapter(this.app);
+            const smartConnections = new SmartConnectionsAdapter(this.app);
 
-            this.engine = new UnifiedMetadataAdapter(this.app as ExtendedApp, this.settings, {
+            this.engine = new UnifiedMetadataAdapter(this.app, this.settings, {
                 datacore,
                 breadcrumbs,
                 smartConnections,
@@ -968,7 +968,7 @@ export default class SemanticGraphHealer extends Plugin {
 
     async loadSettings() {
         const loadedData = (await this.loadData()) as Partial<SemanticGraphHealerSettings>;
-        const baseSettings = Object.assign({}, DEFAULT_SETTINGS, loadedData) as SemanticGraphHealerSettings;
+        const baseSettings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
 
         // --- MIGRATION: Ensure all hierarchies have all keys (related, next, prev) ---
         if (baseSettings.hierarchies && Array.isArray(baseSettings.hierarchies)) {
@@ -992,7 +992,7 @@ export default class SemanticGraphHealer extends Plugin {
             const result = SettingsSchema.safeParse(baseSettings);
 
             if (result.success) {
-                this.settings = result.data as SemanticGraphHealerSettings;
+                this.settings = result.data;
             } else {
                 const errorMessage = JSON.stringify(result.error.issues, null, 2);
                 this.logger.warn(

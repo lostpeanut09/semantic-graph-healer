@@ -87,9 +87,9 @@ export class DatacoreAdapter extends BaseAdapter implements IDataviewPort {
 
     private getApi(): DatacoreApi | null {
         if (!isObsidianInternalApp(this.app)) return null;
-        const app = this.app as ExtendedApp;
+        const app = this.app;
         const plugin = app.plugins.getPlugin('datacore');
-        const api = plugin && 'api' in plugin ? (plugin as { api: DatacoreApi }).api : null;
+        const api = plugin && 'api' in plugin ? (plugin).api : null;
         if (api && (typeof api.tryQuery === 'function' || typeof api.query === 'function')) return api;
         if (this.debug) HealerLogger.warn('DatacoreAdapter: Datacore API not ready yet.');
         return null;
@@ -200,9 +200,9 @@ export class DatacoreAdapter extends BaseAdapter implements IDataviewPort {
 
     public getDataviewApi(): DataviewApi | null {
         if (!isObsidianInternalApp(this.app)) return null;
-        const app = this.app as ExtendedApp;
+        const app = this.app;
         const plugin = app.plugins.getPlugin('dataview');
-        return plugin && 'api' in plugin ? (plugin as { api: DataviewApi }).api : null;
+        return plugin && 'api' in plugin ? (plugin).api : null;
     }
 
     private buildBacklinkIndex(): Map<string, Set<string>> {
@@ -493,7 +493,7 @@ export class DatacoreAdapter extends BaseAdapter implements IDataviewPort {
             ...inheritedPageFields,
         } satisfies MappedDataviewPage;
 
-        return mapped as unknown as DataviewPage;
+        return mapped;
     }
 
     /**

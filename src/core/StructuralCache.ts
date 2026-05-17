@@ -33,7 +33,7 @@ export class StructuralCache<T> {
         };
         this.changedRef = this.app.metadataCache.on(
             'changed',
-            this.boundInvalidate as unknown as (file: TFile) => void,
+            this.boundInvalidate,
         );
         this.renameRef = this.app.vault.on('rename', this.boundRename);
         this.deleteRef = this.app.vault.on('delete', this.boundInvalidate);
