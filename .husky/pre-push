@@ -5,6 +5,13 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
+echo "?? Running lint check..."
+npm run lint
+if [ $? -ne 0 ]; then
+  echo "? Lint failed — fix warnings before pushing (lint:fix recommended)"
+  exit 1
+fi
+
 echo "?? Running tests..."
 npm test
 if [ $? -ne 0 ]; then
