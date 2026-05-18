@@ -1,4 +1,9 @@
-import { handleGraphWorkerMessage, createProgressReporter, WorkerMessage, WorkerResponse } from './graph-analysis-core';
+import {
+    handleGraphWorkerMessage,
+    createProgressReporter,
+    type WorkerMessage,
+    type WorkerResponse,
+} from './graph-analysis-core';
 
 self.onmessage = (e: MessageEvent<WorkerMessage>) => {
     const message = e.data;

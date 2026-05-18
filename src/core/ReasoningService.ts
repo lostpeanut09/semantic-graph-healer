@@ -1,5 +1,5 @@
 import { App, TFile } from 'obsidian';
-import { Suggestion, DataviewApi, ReasoningResult, SemanticGraphHealerSettings } from '../types';
+import type { Suggestion, DataviewApi, ReasoningResult, SemanticGraphHealerSettings } from '../types';
 import { HealerLogger, resolveTargetFile, formatIncongruencePrompt, calculateHtrScore } from './HealerUtils';
 import { SmartConnectionsAdapter } from './DataAdapter';
 

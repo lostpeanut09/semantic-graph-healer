@@ -1,5 +1,5 @@
 import { App, Notice, TFile } from 'obsidian';
-import { Suggestion, HistoryItem } from '../types';
+import type { Suggestion, HistoryItem } from '../types';
 import { HealerLogger, resolveTargetFile } from './HealerUtils';
 import type { ExecutionContext } from './services/PluginContext';
 

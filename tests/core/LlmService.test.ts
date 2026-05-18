@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { LlmService } from '../../src/core/LlmService';
 import { requestUrl } from 'obsidian';
-import { SemanticGraphHealerSettings, DEFAULT_SETTINGS } from '../../src/types';
+import { DEFAULT_SETTINGS } from '../../src/types';
+import type { SemanticGraphHealerSettings } from '../../src/types';
 
 vi.mock('obsidian', () => ({
     requestUrl: vi.fn(),

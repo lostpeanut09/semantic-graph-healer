@@ -1,5 +1,5 @@
 import { Plugin, normalizePath } from 'obsidian';
-import { Suggestion, HistoryItem, TopologicalMetrics } from '../types';
+import type { Suggestion, HistoryItem, TopologicalMetrics } from '../types';
 import { HealerLogger } from './HealerUtils';
 
 /**

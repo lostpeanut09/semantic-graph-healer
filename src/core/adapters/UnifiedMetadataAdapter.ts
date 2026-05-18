@@ -1,15 +1,12 @@
-import { App, debounce, EventRef, Notice, TFile } from 'obsidian';
+import { App, debounce, Notice } from 'obsidian';
+import type { EventRef } from 'obsidian';
 import type { IMetadataAdapter } from './IMetadataAdapter';
 import { DatacoreAdapter } from './DatacoreAdapter';
 import { BreadcrumbsAdapter } from './BreadcrumbsAdapter';
 import { SmartConnectionsAdapter } from './SmartConnectionsAdapter';
 import { NativeVaultAdapter } from './NativeVaultAdapter';
-import { BaseAdapter } from './BaseAdapter';
-import { SemanticLinkEdge } from './types';
-import type { IDataviewPort } from '../ports/IDataviewPort';
-import type { IBreadcrumbsPort } from '../ports/IBreadcrumbsPort';
-import type { ISmartConnectionsPort } from '../ports/ISmartConnectionsPort';
-import { DataviewApi, DataviewPage, HierarchyNode, RelatedNote, SemanticGraphHealerSettings } from '../../types';
+import type { SemanticLinkEdge } from './types';
+import type { DataviewApi, DataviewPage, HierarchyNode, RelatedNote, SemanticGraphHealerSettings } from '../../types';
 import { StructuralCache } from '../StructuralCache';
 import { HealerLogger, normalizeVaultPath } from '../HealerUtils';
 
@@ -66,8 +63,8 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
         }, 500);
     }
 
-    public async initialize(): Promise<void> {
-        if (this.initialized) return;
+    public initialize(): Promise<void> {
+        if (this.initialized) return Promise.resolve();
 
         // Check availability and notify if critical adapters are missing
         const adapters = [
@@ -89,6 +86,7 @@ export class UnifiedMetadataAdapter implements IMetadataAdapter {
         this.eventRefs.push(ref);
 
         this.initialized = true;
+        return Promise.resolve();
     }
 
     public isAvailable(): boolean {

@@ -1,8 +1,8 @@
 import { App, TFile } from 'obsidian';
 import { BaseAdapter } from './BaseAdapter';
-import { SemanticLinkEdge } from './types';
+import type { SemanticLinkEdge } from './types';
 import type { ISmartConnectionsPort } from '../ports/ISmartConnectionsPort';
-import { RelatedNote, ExtendedApp } from '../../types';
+import type { RelatedNote, ExtendedApp } from '../../types';
 import { HealerLogger, isObsidianInternalApp, pathToWikilink, normalizeVaultPath } from '../HealerUtils';
 
 interface LegacyScApi {
@@ -60,14 +60,14 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
     /**
      * Extracts links from Smart Connections similarity data.
      */
-    public async getLinks(): Promise<SemanticLinkEdge[]> {
+    public getLinks(): Promise<SemanticLinkEdge[]> {
         this.ensureInitialized();
-        return [];
+        return Promise.resolve([]);
     }
 
     private getPluginShape(): SmartConnectionsPluginShape | null {
         if (!isObsidianInternalApp(this.app)) return null;
-        const raw = (this.app as ExtendedApp).plugins?.getPlugin?.('smart-connections');
+        const raw = this.app.plugins?.getPlugin?.('smart-connections');
         return raw && typeof raw === 'object' ? (raw as unknown as SmartConnectionsPluginShape) : null;
     }
 
@@ -147,7 +147,7 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
     private isEmptyCollection(value: unknown): boolean {
         if (value === null || value === undefined) return true;
         if (Array.isArray(value)) return value.length === 0;
-        if (typeof value === 'object') return Object.keys(value as Record<string, unknown>).length === 0;
+        if (typeof value === 'object') return Object.keys(value).length === 0;
         return false;
     }
 

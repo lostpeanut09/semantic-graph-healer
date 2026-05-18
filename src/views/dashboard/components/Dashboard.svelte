@@ -13,11 +13,11 @@
   let activeTab = $state('all');
 
   const tabs = [
-    { id: 'all', label: 'All Issues' },
-    { id: 'structural', label: 'Structural Gaps' },
-    { id: 'logic', label: 'Logic Loops' },
-    { id: 'blackholes', label: 'Black Holes' },
-    { id: 'ai', label: 'AI Suggestions' }
+    { id: 'all', label: 'All issues' },
+    { id: 'structural', label: 'Structural gaps' },
+    { id: 'logic', label: 'Logic loops' },
+    { id: 'blackholes', label: 'Black holes' },
+    { id: 'ai', label: 'AI suggestions' }
   ];
 
   let currentItems = $derived.by(() => {

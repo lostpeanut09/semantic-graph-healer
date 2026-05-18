@@ -1,8 +1,7 @@
 import { Plugin, Notice, WorkspaceLeaf, requestUrl, TFile } from 'obsidian';
-import {
-    DASHBOARD_VIEW_TYPE,
+import { DASHBOARD_VIEW_TYPE, DEFAULT_SETTINGS } from './types';
+import type {
     SemanticGraphHealerSettings,
-    DEFAULT_SETTINGS,
     Suggestion,
     HistoryItem,
     SuggestionType,
@@ -84,18 +83,15 @@ export default class SemanticGraphHealer extends Plugin {
 
         // 1.5. Instantiate Adapters (Composition Root) — DIP: core depends on ports, not concrete classes
         const datacore = new DatacoreAdapter(
-            this.app as ExtendedApp,
+            this.app,
             this.settings.logLevel === 'debug',
             this.settings.pageChildrenCacheMaxSize ?? 500,
         );
-        const breadcrumbs = new BreadcrumbsAdapter(this.app as ExtendedApp, this.settings.logLevel === 'debug');
-        const smartConnections = new SmartConnectionsAdapter(
-            this.app as ExtendedApp,
-            this.settings.logLevel === 'debug',
-        );
+        const breadcrumbs = new BreadcrumbsAdapter(this.app, this.settings.logLevel === 'debug');
+        const smartConnections = new SmartConnectionsAdapter(this.app, this.settings.logLevel === 'debug');
 
         // 2. Initialize Core Engine with injected dependencies
-        this.engine = new UnifiedMetadataAdapter(this.app as ExtendedApp, this.settings, {
+        this.engine = new UnifiedMetadataAdapter(this.app, this.settings, {
             datacore,
             breadcrumbs,
             smartConnections,
@@ -123,13 +119,8 @@ export default class SemanticGraphHealer extends Plugin {
         };
         this.topology = new TopologyAnalyzer(analysisContext, this.llm, this.engine);
         this.quality = new QualityAnalyzer(this.app as ExtendedApp, this.settings, this.engine);
-        this.reasoner = new ReasoningService(
-            this.app as ExtendedApp,
-            this.settings,
-            this.llm,
-            this.engine.getDataviewApi(),
-        );
-        this.tagPropagator = new SemanticTagPropagator(this.app as ExtendedApp, this.settings, this.engine, this.llm);
+        this.reasoner = new ReasoningService(this.app, this.settings, this.llm, this.engine.getDataviewApi());
+        this.tagPropagator = new SemanticTagPropagator(this.app, this.settings, this.engine, this.llm);
 
         // 1.5. Initialize Engine (HARDEN-03d Wiring)
         await this.engine.initialize();
@@ -171,17 +162,14 @@ export default class SemanticGraphHealer extends Plugin {
 
             // Recreate adapters with new settings and inject
             const datacore = new DatacoreAdapter(
-                this.app as ExtendedApp,
+                this.app,
                 this.settings.logLevel === 'debug',
                 this.settings.pageChildrenCacheMaxSize ?? 500,
             );
-            const breadcrumbs = new BreadcrumbsAdapter(this.app as ExtendedApp, this.settings.logLevel === 'debug');
-            const smartConnections = new SmartConnectionsAdapter(
-                this.app as ExtendedApp,
-                this.settings.logLevel === 'debug',
-            );
+            const breadcrumbs = new BreadcrumbsAdapter(this.app, this.settings.logLevel === 'debug');
+            const smartConnections = new SmartConnectionsAdapter(this.app, this.settings.logLevel === 'debug');
 
-            this.engine = new UnifiedMetadataAdapter(this.app as ExtendedApp, this.settings, {
+            this.engine = new UnifiedMetadataAdapter(this.app, this.settings, {
                 datacore,
                 breadcrumbs,
                 smartConnections,
@@ -190,12 +178,7 @@ export default class SemanticGraphHealer extends Plugin {
 
             this.llm = new LlmService(this.settings, (type) => this.getApiKey(type));
             this.quality = new QualityAnalyzer(this.app as ExtendedApp, this.settings, this.engine);
-            this.reasoner = new ReasoningService(
-                this.app as ExtendedApp,
-                this.settings,
-                this.llm,
-                this.engine.getDataviewApi(),
-            );
+            this.reasoner = new ReasoningService(this.app, this.settings, this.llm, this.engine.getDataviewApi());
             // Build analysis context for TopologyAnalyzer (break circular dep)
             const analysisContext: AnalysisContext = {
                 app: this.app,
@@ -452,7 +435,7 @@ export default class SemanticGraphHealer extends Plugin {
 
         this.addCommand({
             id: 'open-healer-graph',
-            name: 'Open Healer Graph',
+            name: 'Open healer graph',
             callback: async () => {
                 try {
                     await this.activateGraphView();
@@ -1032,7 +1015,7 @@ export default class SemanticGraphHealer extends Plugin {
 
     async loadSettings() {
         const loadedData = (await this.loadData()) as Partial<SemanticGraphHealerSettings>;
-        const baseSettings = Object.assign({}, DEFAULT_SETTINGS, loadedData) as SemanticGraphHealerSettings;
+        const baseSettings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
 
         // --- MIGRATION: Ensure all hierarchies have all keys (related, next, prev) ---
         if (baseSettings.hierarchies && Array.isArray(baseSettings.hierarchies)) {

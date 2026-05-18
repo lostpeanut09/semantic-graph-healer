@@ -3,7 +3,7 @@ import { DirectedGraph } from 'graphology';
 import pagerank from 'graphology-metrics/centrality/pagerank';
 // louvain: Refactored to Web Worker
 // betweennessCentrality: Refactored to Web Worker
-import { Suggestion, SemanticGraphHealerSettings, TopologicalMetrics } from '../types';
+import type { Suggestion, SemanticGraphHealerSettings, TopologicalMetrics } from '../types';
 import { HealerLogger } from './HealerUtils';
 import { LinkPredictionEngine } from './LinkPredictionEngine';
 
@@ -107,7 +107,7 @@ export class GraphEngine {
         // ✅ ADAPTIVE GUARDRAILS (Wave 3)
         const isSafetyMode = this.context.performanceService.isSafetyModeActive();
         const useGuardrails = this.settings.enableGraphGuardrails ?? true;
-        
+
         let maxNodes = this.settings.maxNodes || 5000;
         let maxEdges = this.settings.maxEdges || 50000;
 
@@ -133,7 +133,7 @@ export class GraphEngine {
                 this.graph.addNode(f.path, {
                     label: f.basename,
                     size: f.stat.size,
-                } as GraphNodeAttributes);
+                });
                 nodeCount++;
             }
         }
@@ -599,7 +599,7 @@ export class GraphEngine {
     private getSerializedNodes() {
         const nodes: Array<{ key: string; attributes: Record<string, unknown> }> = [];
         this.graph.forEachNode((node, attrs) => {
-            nodes.push({ key: node, attributes: attrs as Record<string, unknown> });
+            nodes.push({ key: node, attributes: attrs });
         });
         return nodes;
     }
@@ -614,7 +614,7 @@ export class GraphEngine {
             edges.push({
                 source,
                 target,
-                attributes: attrs as Record<string, unknown>,
+                attributes: attrs,
             });
         });
         return edges;

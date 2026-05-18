@@ -14,7 +14,7 @@ Maintain a persistent record of external documentation links for Breadcrumbs, Da
 
 ## Context
 
-*Created 2026-05-10.*
+_Created 2026-05-10._
 
 The user provided several key URLs for external dependencies used in the Semantic Graph Healer project. These are essential for understanding the APIs and structures of the plugins we integrate with.
 

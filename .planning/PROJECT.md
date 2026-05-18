@@ -56,18 +56,19 @@ A production-grade graph analysis engine and suggestion executor for Obsidian. I
 
 ## Key Decisions
 
-| Decision | Rationale | Outcome |
-|----------|-----------|---------|
-| Datacore as Primary | 100x faster than Dataview, reactive schema. | — Validated |
-| Port/Adapter Pattern | decouples core logic from third-party plugin APIs. | — Validated |
-| Web Worker Offloading | Prevents UI freezes during graph analysis. | — Validated |
-| AI Tribunal | Dual-LLM verification ensures epistemic stability. | — Pending |
+| Decision              | Rationale                                          | Outcome     |
+| --------------------- | -------------------------------------------------- | ----------- |
+| Datacore as Primary   | 100x faster than Dataview, reactive schema.        | — Validated |
+| Port/Adapter Pattern  | decouples core logic from third-party plugin APIs. | — Validated |
+| Web Worker Offloading | Prevents UI freezes during graph analysis.         | — Validated |
+| AI Tribunal           | Dual-LLM verification ensures epistemic stability. | — Pending   |
 
 ## Evolution
 
 This document evolves at phase transitions and milestone boundaries.
 
 **After each phase transition** (via `/gsd-transition`):
+
 1. Requirements invalidated? → Move to Out of Scope with reason
 2. Requirements validated? → Move to Validated with phase reference
 3. New requirements emerged? → Add to Active
@@ -75,16 +76,17 @@ This document evolves at phase transitions and milestone boundaries.
 5. "What This Is" still accurate? → Update if drifted
 
 ---
-*Last updated: 2026-05-05 after initialization*
+
+_Last updated: 2026-05-05 after initialization_
 
 ## Domain Glossary
 
-| Term | Definition |
-|------|------------|
-| **Adapter** | Integration layer translating external plugin APIs (Datacore, Breadcrumbs, Smart Connections) into a stable internal format. |
-| **Port** | Vertical interface (e.g., `IDataviewPort`) that a specific adapter implements to avoid monolithic interfaces. |
-| **IMetadataAdapter** | Unified interface exposed by the orchestrator (`UnifiedMetadataAdapter`) combining multiple sources. |
-| **SemanticLinkEdge** | Normalized representation of a graph link (source → target) with metadata (context, position, confidence). |
-| **AI Tribunal** | Dual-LLM verification system (Primary + Secondary) to ensure consensus and prevent hallucinations. |
-| **StructuralCache** | LRU caching layer with event-based invalidation and stampede protection. |
-| **Docs Aligned** | Behavioral and data shape consistency with repository documentation and Obsidian API expectations. |
+| Term                 | Definition                                                                                                                   |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| **Adapter**          | Integration layer translating external plugin APIs (Datacore, Breadcrumbs, Smart Connections) into a stable internal format. |
+| **Port**             | Vertical interface (e.g., `IDataviewPort`) that a specific adapter implements to avoid monolithic interfaces.                |
+| **IMetadataAdapter** | Unified interface exposed by the orchestrator (`UnifiedMetadataAdapter`) combining multiple sources.                         |
+| **SemanticLinkEdge** | Normalized representation of a graph link (source → target) with metadata (context, position, confidence).                   |
+| **AI Tribunal**      | Dual-LLM verification system (Primary + Secondary) to ensure consensus and prevent hallucinations.                           |
+| **StructuralCache**  | LRU caching layer with event-based invalidation and stampede protection.                                                     |
+| **Docs Aligned**     | Behavioral and data shape consistency with repository documentation and Obsidian API expectations.                           |

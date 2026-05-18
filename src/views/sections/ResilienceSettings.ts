@@ -11,11 +11,11 @@ export function renderResilienceSettings(containerEl: HTMLElement, ctx: SectionC
     };
 
     // --- 5. RESILIENCE & RELIABILITY ---
-    createHeader('Resilience and reliability', 'AI reliability and retry logic.');
+    createHeader('Resilience and reliability', 'Reliability and retry logic.');
 
     new Setting(containerEl)
-        .setName('Llm max retries')
-        .setDesc('Number of times to retry a failed AI query before giving up.')
+        .setName('Max retries')
+        .setDesc('Number of times to retry a failed artificial intelligence query before giving up.')
         .addSlider((slider) => {
             slider
                 .setLimits(0, 5, 1)

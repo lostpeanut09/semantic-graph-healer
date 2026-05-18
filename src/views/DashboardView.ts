@@ -1,5 +1,7 @@
-import { ItemView, WorkspaceLeaf, Notice, Setting } from 'obsidian';
-import { DASHBOARD_VIEW_TYPE, Suggestion } from '../types';
+import { ItemView, Setting } from 'obsidian';
+import type { WorkspaceLeaf } from 'obsidian';
+import { DASHBOARD_VIEW_TYPE } from '../types';
+import type { Suggestion } from '../types';
 import { HealerLogger } from '../core/HealerUtils';
 import type SemanticGraphHealer from '../main';
 import { mount, unmount } from 'svelte';
@@ -27,7 +29,7 @@ export class DashboardView extends ItemView {
         return 'Healer dashboard';
     }
 
-    async onOpen() {
+    onOpen(): Promise<void> {
         this.contentEl.empty();
         this.componentInstance = mount(Dashboard, {
             target: this.contentEl,
@@ -36,18 +38,21 @@ export class DashboardView extends ItemView {
                 plugin: this.plugin,
             },
         });
+        return Promise.resolve();
     }
 
-    public async refresh() {
+    public refresh(): Promise<void> {
         this.store.refresh();
+        return Promise.resolve();
     }
 
-    async onClose() {
+    onClose(): Promise<void> {
         if (this.componentInstance) {
-            unmount(this.componentInstance);
+            void unmount(this.componentInstance);
             this.componentInstance = null;
         }
         HealerLogger.info('Dashboard view closed.');
+        return Promise.resolve();
     }
 }
 

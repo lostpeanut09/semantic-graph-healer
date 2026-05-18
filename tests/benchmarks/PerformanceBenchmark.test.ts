@@ -16,7 +16,11 @@ class MockTFile {
     stat = { size: 1000, mtime: Date.now() };
     extension = 'md';
     parent = { path: '/' };
-    constructor(public path: string, public basename: string, public name: string) {}
+    constructor(
+        public path: string,
+        public basename: string,
+        public name: string,
+    ) {}
 }
 
 function createLargeMockContext(numNodes: number, edgesPerNode: number) {
@@ -46,25 +50,25 @@ function createLargeMockContext(numNodes: number, edgesPerNode: number) {
     app.vault = {
         getMarkdownFiles: () => files,
         getAbstractFileByPath: (path: string) => pathToFileMap.get(path),
-        adapter: { exists: () => true, read: () => Promise.resolve(''), write: () => Promise.resolve() }
+        adapter: { exists: () => true, read: () => Promise.resolve(''), write: () => Promise.resolve() },
     };
     app.metadataCache = {
         resolvedLinks,
         getFileCache: () => ({}),
         getFirstLinkpathDest: (link: string) => pathToFileMap.get(link),
         fileToLinktext: (file: any) => file.basename,
-        unresolvedLinks: {}
+        unresolvedLinks: {},
     };
 
     return {
         app: app as unknown as App,
-        settings: { 
+        settings: {
             ...DEFAULT_SETTINGS,
-            enableGraphGuardrails: false 
+            enableGraphGuardrails: false,
         },
         performanceService: {
             isSafetyModeActive: () => false,
-            getPerformanceMode: () => 'Standard'
+            getPerformanceMode: () => 'Standard',
         },
         cache: {
             topologicalScores: {
@@ -74,11 +78,11 @@ function createLargeMockContext(numNodes: number, edgesPerNode: number) {
                 lastAnalysisTimestamp: 0,
                 graphVersion: '',
             },
-            save: () => {}
+            save: () => {},
         },
         graphWorkerService: {
-            runAnalysis: () => Promise.reject(new Error('Worker not available in benchmark'))
-        }
+            runAnalysis: () => Promise.reject(new Error('Worker not available in benchmark')),
+        },
     };
 }
 
@@ -101,16 +105,31 @@ describe('Performance Benchmarks (Manual)', () => {
     test('measure deterministic analysis latency', async () => {
         const VAULT_SIZE = 500;
         const context = createLargeMockContext(VAULT_SIZE, 2);
-        const topologyAnalyzer = new TopologyAnalyzer(context as any, {} as any, {
-            getPages: () => (context.app.vault.getMarkdownFiles() as any[]).map(f => ({
-                file: f,
-                up: [], down: [], next: [], prev: [], same: [], related: []
-            })),
-            getPage: (path: string) => ({
-                file: context.app.vault.getAbstractFileByPath(path),
-                up: [], down: [], next: [], prev: [], same: [], related: []
-            })
-        } as any);
+        const topologyAnalyzer = new TopologyAnalyzer(
+            context as any,
+            {} as any,
+            {
+                getPages: () =>
+                    (context.app.vault.getMarkdownFiles() as any[]).map((f) => ({
+                        file: f,
+                        up: [],
+                        down: [],
+                        next: [],
+                        prev: [],
+                        same: [],
+                        related: [],
+                    })),
+                getPage: (path: string) => ({
+                    file: context.app.vault.getAbstractFileByPath(path),
+                    up: [],
+                    down: [],
+                    next: [],
+                    prev: [],
+                    same: [],
+                    related: [],
+                }),
+            } as any,
+        );
 
         const start = performance.now();
         await topologyAnalyzer.runDeterministicAnalysis();

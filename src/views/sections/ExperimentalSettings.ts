@@ -19,10 +19,10 @@ export function renderExperimentalSettings(containerEl: HTMLElement, ctx: Sectio
         .addDropdown((dropdown) =>
             dropdown
                 .addOptions({
-                    technician: 'Ontology Technician (Cold/Precise)',
-                    architect: 'Graph Architect (Hierarchical/flow)',
-                    artist: 'Semantic Artist (Evocative/Deep)',
-                    custom: 'Custom Persona',
+                    technician: 'Ontology technician (cold/precise)',
+                    architect: 'Graph architect (hierarchical/flow)',
+                    artist: 'Semantic artist (evocative/deep)',
+                    custom: 'Custom persona',
                 })
                 .setValue(plugin.settings.aiPersonaPreset)
                 .onChange((value) => {
@@ -62,13 +62,13 @@ export function renderExperimentalSettings(containerEl: HTMLElement, ctx: Sectio
     new Setting(containerEl)
         .setName('Ouroboros scope')
         .setDesc(
-            'Define the boundary for cycle detection. "Boundary" only flags cycles crossing folders or hierarchies.',
+            'Define the boundary for cycle detection. "boundary" only flags cycles crossing folders or hierarchies.',
         )
         .addDropdown((dropdown) =>
             dropdown
                 .addOptions({
-                    universal: 'Universal (Any cycle)',
-                    boundary: 'Boundary (Cross-context only)',
+                    universal: 'Universal (any cycle)',
+                    boundary: 'Boundary (cross-context only)',
                 })
                 .setValue(plugin.settings.ouroborosScope)
                 .onChange((value: 'universal' | 'boundary') => {

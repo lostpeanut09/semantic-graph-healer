@@ -1,8 +1,8 @@
 import { App, TFile, parseLinktext } from 'obsidian';
 import { BaseAdapter } from './BaseAdapter';
-import { SemanticLinkEdge } from './types';
+import type { SemanticLinkEdge } from './types';
 import type { IDataviewPort } from '../ports/IDataviewPort';
-import { DataviewApi, DataviewPage, MarkdownPage, ExtendedApp, DatacoreApi, DataviewLink } from '../../types';
+import type { DataviewApi, DataviewPage, MarkdownPage, ExtendedApp, DatacoreApi, DataviewLink } from '../../types';
 import { HealerLogger, isObsidianInternalApp, normalizeVaultPath } from '../HealerUtils';
 
 import { BoundedMap } from '../utils/BoundedMap';
@@ -14,8 +14,8 @@ import {
     unwrapInternalPluginInstance,
     isPathBookmarked,
     normalizeDataviewFieldName,
-    DatacoreLink,
 } from '../utils/DatacoreUtils';
+import type { DatacoreLink } from '../utils/DatacoreUtils';
 
 /**
  * Structural bridge types for Dataview parity.
@@ -81,7 +81,7 @@ export class DatacoreAdapter extends BaseAdapter implements IDataviewPort {
         this.ensureInitialized();
         // High-level extraction using Datacore query
         // For a full graph scan, this would use '@page' query and map outlinks
-        return [];
+        return Promise.resolve([]);
     }
 
     protected override onDestroy(): void {
@@ -95,7 +95,7 @@ export class DatacoreAdapter extends BaseAdapter implements IDataviewPort {
         if (!this.isPluginAvailable('datacore')) return null;
         const app = this.app as ExtendedApp;
         const plugin = app.plugins.getPlugin('datacore');
-        const api = plugin && 'api' in plugin ? (plugin as { api: DatacoreApi }).api : null;
+        const api = plugin && 'api' in plugin ? plugin.api : null;
         if (api && (typeof api.tryQuery === 'function' || typeof api.query === 'function')) return api;
         this.logDebug('DatacoreAdapter: Datacore API not ready yet.');
         return null;
@@ -207,9 +207,9 @@ export class DatacoreAdapter extends BaseAdapter implements IDataviewPort {
 
     public getDataviewApi(): DataviewApi | null {
         if (!isObsidianInternalApp(this.app)) return null;
-        const app = this.app as ExtendedApp;
+        const app = this.app;
         const plugin = app.plugins.getPlugin('dataview');
-        return plugin && 'api' in plugin ? (plugin as { api: DataviewApi }).api : null;
+        return plugin && 'api' in plugin ? plugin.api : null;
     }
 
     private buildBacklinkIndex(): Map<string, Set<string>> {
@@ -502,7 +502,7 @@ export class DatacoreAdapter extends BaseAdapter implements IDataviewPort {
             ...inheritedPageFields,
         } satisfies MappedDataviewPage;
 
-        return mapped as unknown as DataviewPage;
+        return mapped;
     }
 
     /**

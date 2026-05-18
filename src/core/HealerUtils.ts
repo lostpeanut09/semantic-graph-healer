@@ -1,5 +1,5 @@
 import { App, TFile, parseLinktext } from 'obsidian';
-import { ObsidianInternalApp } from '../types';
+import type { ObsidianInternalApp } from '../types';
 
 export type ApiKeyType = 'openai' | 'anthropic' | 'deepseek' | 'infranodus' | 'custom';
 

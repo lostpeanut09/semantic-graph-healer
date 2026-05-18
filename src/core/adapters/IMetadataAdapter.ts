@@ -1,5 +1,5 @@
 import type { DataviewApi, DataviewPage, RelatedNote, HierarchyNode } from '../../types';
-import { SemanticLinkEdge } from './types';
+import type { SemanticLinkEdge } from './types';
 
 /**
  * IMetadataAdapter: Unified Interface for External Plugin Data.
