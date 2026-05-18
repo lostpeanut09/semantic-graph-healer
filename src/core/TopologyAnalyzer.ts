@@ -1,5 +1,5 @@
 import { TFile } from 'obsidian';
-import { Suggestion, DataviewPage } from '../types';
+import type { Suggestion, DataviewPage } from '../types';
 import {
     HealerLogger,
     extractLinkpaths,
@@ -11,7 +11,7 @@ import {
     sleep,
 } from './HealerUtils';
 
-import { IMetadataAdapter } from './adapters/IMetadataAdapter';
+import type { IMetadataAdapter } from './adapters/IMetadataAdapter';
 import { LlmService } from './LlmService';
 import { GraphEngine } from './GraphEngine';
 import { Platform } from 'obsidian';
@@ -620,7 +620,6 @@ export class TopologyAnalyzer {
         const suggestions: Suggestion[] = [];
         for (const bridge of results.bridges) {
             const fileA = this.context.app.vault.getAbstractFileByPath(bridge.source);
-            const fileB = this.context.app.vault.getAbstractFileByPath(bridge.via);
             const fileC = this.context.app.vault.getAbstractFileByPath(bridge.target);
 
             if (fileA instanceof TFile && fileC instanceof TFile) {

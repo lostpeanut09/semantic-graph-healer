@@ -1,7 +1,7 @@
 import { TFile } from 'obsidian';
-import { Suggestion } from '../types';
+import type { Suggestion } from '../types';
 import { HealerLogger } from './HealerUtils';
-import { GraphContext } from './services/PluginContext';
+import type { GraphContext } from './services/PluginContext';
 import { SmartConnectionsAdapter } from './adapters/SmartConnectionsAdapter';
 
 export interface PredictionOptions {

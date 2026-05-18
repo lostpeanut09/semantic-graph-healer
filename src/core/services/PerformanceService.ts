@@ -1,5 +1,5 @@
 import { App, Platform } from 'obsidian';
-import { SemanticGraphHealerSettings } from '../../types';
+import type { SemanticGraphHealerSettings } from '../../types';
 import { HealerLogger } from '../utils/HealerLogger';
 
 /**
@@ -39,9 +39,9 @@ export class PerformanceService {
 
         const markdownFiles = this.app.vault.getMarkdownFiles();
         const noteCount = markdownFiles.length;
-        
-        const threshold = Platform.isMobile 
-            ? this.settings.safetyModeThresholdMobile 
+
+        const threshold = Platform.isMobile
+            ? this.settings.safetyModeThresholdMobile
             : this.settings.safetyModeThresholdDesktop;
 
         const previousMode = this._performanceMode;
@@ -56,13 +56,13 @@ export class PerformanceService {
         if (previousMode !== this._performanceMode) {
             this.logger.info(
                 `Performance Mode Transition: ${previousMode} -> ${this._performanceMode} ` +
-                `(Notes: ${noteCount}, Threshold: ${threshold})`
+                    `(Notes: ${noteCount}, Threshold: ${threshold})`,
             );
         }
 
         // Sync with settings runtime state
         this.settings.performanceMode = this._performanceMode;
-        
+
         return this._performanceMode;
     }
 

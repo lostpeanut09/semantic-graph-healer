@@ -1,6 +1,8 @@
-import { requestUrl, RequestUrlParam } from 'obsidian';
-import { SemanticGraphHealerSettings, ReasoningResult } from '../types';
-import { HealerLogger, getProviderFromEndpoint, ApiKeyType } from './HealerUtils';
+import { requestUrl } from 'obsidian';
+import type { RequestUrlParam } from 'obsidian';
+import type { SemanticGraphHealerSettings, ReasoningResult } from '../types';
+import { HealerLogger, getProviderFromEndpoint } from './HealerUtils';
+import type { ApiKeyType } from './HealerUtils';
 
 /**
  * Custom Error for LLM operations.
@@ -706,7 +708,7 @@ Only return the JSON. No markdown or meta-talk.
                         return models;
                     }
                 }
-            } catch (e) {
+            } catch {
                 HealerLogger.debug(`LlmService: Endpoint path ${url} failed or timed out.`);
             }
         }

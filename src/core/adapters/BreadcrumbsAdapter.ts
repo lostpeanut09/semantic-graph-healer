@@ -1,9 +1,9 @@
 import { App } from 'obsidian';
 import { BaseAdapter } from './BaseAdapter';
-import { SemanticLinkEdge } from './types';
+import type { SemanticLinkEdge } from './types';
 import type { MultiGraph } from 'graphology';
 import type { IBreadcrumbsPort } from '../ports/IBreadcrumbsPort';
-import { BreadcrumbsApi, HierarchyNode, BCDirection } from '../../types';
+import type { BreadcrumbsApi, HierarchyNode, BCDirection } from '../../types';
 import { HealerLogger, isObsidianInternalApp, normalizeVaultPath } from '../HealerUtils';
 
 /**
@@ -42,10 +42,10 @@ export class BreadcrumbsAdapter extends BaseAdapter implements IBreadcrumbsPort 
     /**
      * Extracts links from Breadcrumbs graph.
      */
-    public async getLinks(): Promise<SemanticLinkEdge[]> {
+    public getLinks(): Promise<SemanticLinkEdge[]> {
         this.ensureInitialized();
         // Implementation for graph extraction if needed.
-        return [];
+        return Promise.resolve([]);
     }
 
     private getV4Api(): BCAPIV4Like | null {
@@ -55,7 +55,7 @@ export class BreadcrumbsAdapter extends BaseAdapter implements IBreadcrumbsPort 
 
         // fallback: plugin.api (in V4 è proprio BCAPI)
         if (!isObsidianInternalApp(this.app)) return null;
-        const plugin = (this.app as import('../../types').ExtendedApp).plugins.getPlugin('breadcrumbs');
+        const plugin = this.app.plugins.getPlugin('breadcrumbs');
         const api = (plugin as { api?: { get_neighbours?: unknown } })?.api;
         if (api && typeof api.get_neighbours === 'function') return api as BCAPIV4Like;
 
@@ -65,7 +65,7 @@ export class BreadcrumbsAdapter extends BaseAdapter implements IBreadcrumbsPort 
     private getApi(): BreadcrumbsApi | null {
         if (!isObsidianInternalApp(this.app)) return null;
         try {
-            const plugin = (this.app as import('../../types').ExtendedApp).plugins.getPlugin('breadcrumbs');
+            const plugin = this.app.plugins.getPlugin('breadcrumbs');
             if (!plugin?.api) return null;
             const api = plugin.api;
             const graph = api.closedG ?? api.mainG;

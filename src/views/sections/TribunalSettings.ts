@@ -1,6 +1,5 @@
 import { Setting } from 'obsidian';
 import type { SectionContext } from '../SectionContext';
-import { isObsidianInternalApp } from '../../core/HealerUtils';
 export function renderTribunalSettings(containerEl: HTMLElement, ctx: SectionContext) {
     const { plugin, refresh } = ctx;
 
@@ -40,8 +39,8 @@ export function renderTribunalSettings(containerEl: HTMLElement, ctx: SectionCon
     }
 
     new Setting(containerEl)
-        .setName('Safe Zone threshold')
-        .setDesc('Confidence level (1-100) above which the secondary model is skipped (Uncertainty Triage).')
+        .setName('Safe zone threshold')
+        .setDesc('Confidence level (1-100) above which the secondary model is skipped (uncertainty triage).')
         .addSlider((slider) => {
             slider
                 .setLimits(1, 100, 1)
@@ -54,9 +53,9 @@ export function renderTribunalSettings(containerEl: HTMLElement, ctx: SectionCon
         });
 
     new Setting(containerEl)
-        .setName('HTR structural weight')
+        .setName('Healer trust rate structural weight')
         .setDesc(
-            'Weight (0% to 100%) of structural graph metrics vs semantic vectors (Vector-Topological Merging). Default > 50% prioritizes structure.',
+            'Weight (0% to 100%) of structural graph metrics vs semantic vectors (vector-topological merging). Default > 50% prioritizes structure.',
         )
         .addSlider((slider) => {
             slider

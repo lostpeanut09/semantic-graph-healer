@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { ItemView, WorkspaceLeaf, Notice } from 'obsidian';
 import ForceGraph3D from '3d-force-graph';
 import type SemanticGraphHealer from '../main';
@@ -8,16 +7,52 @@ import { GraphPopup } from './components/GraphPopup';
 
 export const GRAPH_VIEW_TYPE = 'healer-graph-view';
 
+interface GraphNode {
+    id: string;
+    label: string;
+    color?: string;
+    isCycle?: boolean;
+}
+
+interface GraphLink {
+    source: GraphNode;
+    target: GraphNode;
+    isGhost?: boolean;
+}
+
+/**
+ * Partial interface for the ForceGraph3D instance to enable strict typing.
+ */
+interface ForceGraph3DInstance {
+    (element: HTMLElement): ForceGraph3DInstance;
+    nodeLabel(fn: (node: unknown) => string): ForceGraph3DInstance;
+    nodeAutoColorBy(attr: string): ForceGraph3DInstance;
+    nodeResolution(res: number): ForceGraph3DInstance;
+    nodeColor(fn: (node: unknown) => string): ForceGraph3DInstance;
+    nodeColor(): (node: unknown) => string;
+    linkWidth(fn: (link: unknown) => number): ForceGraph3DInstance;
+    linkWidth(): (link: unknown) => number;
+    linkDash(fn: (link: unknown) => number[] | null): ForceGraph3DInstance;
+    linkColor(fn: (link: unknown) => string): ForceGraph3DInstance;
+    onNodeClick(fn: (node: unknown, event: MouseEvent) => void): ForceGraph3DInstance;
+    onLinkClick(fn: (link: unknown, event: MouseEvent) => void): ForceGraph3DInstance;
+    graphData(data: { nodes: unknown[]; links: unknown[] }): ForceGraph3DInstance;
+    enablePointerInteraction(enabled: boolean): ForceGraph3DInstance;
+    showNavInfo(enabled: boolean): ForceGraph3DInstance;
+    pauseAnimation(): ForceGraph3DInstance;
+    _destructor?: () => void;
+}
+
 /**
  * GraphVisualizerView: High-fidelity 3D Graph Visualization.
  * Implements WebGL rendering for 10k+ nodes with topological markers.
  */
 export class GraphVisualizerView extends ItemView {
     plugin: SemanticGraphHealer;
-    private graph: unknown = null;
+    private graph: ForceGraph3DInstance | null = null;
     private startTime: number;
     private animationId: number | null = null;
-    private popup: GraphPopup;
+    private popup: GraphPopup | null = null;
 
     constructor(leaf: WorkspaceLeaf, plugin: SemanticGraphHealer) {
         super(leaf);
@@ -33,7 +68,7 @@ export class GraphVisualizerView extends ItemView {
         return 'Healer graph';
     }
 
-    async onOpen() {
+    async onOpen(): Promise<void> {
         const { contentEl } = this;
         contentEl.empty();
         contentEl.addClass('healer-graph-view-container');
@@ -44,35 +79,52 @@ export class GraphVisualizerView extends ItemView {
         });
 
         // Initialize Popup
-        this.popup = new GraphPopup(container, async (suggestion) => {
-            this.plugin.logger.info(`Executing fix for: ${suggestion.id}`);
-            const success = await this.plugin.executor.execute(suggestion);
-            if (success) {
-                new Notice('Fix executed successfully.');
-                await this.refresh();
-            } else {
-                new Notice('Fix execution failed.');
-            }
+        this.popup = new GraphPopup(container, (suggestion) => {
+            void (async () => {
+                this.plugin.logger.info(`Executing fix for: ${suggestion.id}`);
+                const success = await this.plugin.executor.execute(suggestion);
+                if (success) {
+                    new Notice('Fix executed successfully.');
+                    await this.refresh();
+                } else {
+                    new Notice('Fix execution failed.');
+                }
+            })();
         });
 
         const isSafetyMode = this.plugin.performanceService.isSafetyModeActive();
 
         // Initialize 3D Force Graph
-        this.graph = ForceGraph3D()(container)
-            .nodeLabel((n: unknown) => n.label || n.id)
+        // @ts-ignore - ForceGraph3D types can be tricky depending on build
+        this.graph = (ForceGraph3D as unknown as (el: HTMLElement) => ForceGraph3DInstance)(container)
+            .nodeLabel((n: unknown) => {
+                const node = n as GraphNode;
+                return node.label || node.id;
+            })
             .nodeAutoColorBy('group')
-            .nodeResolution(isSafetyMode ? 1 : 8) // ✅ LOD: Low resolution in Safety Mode
-            .nodeColor((node: unknown) => {
+            .nodeResolution(isSafetyMode ? 1 : 8)
+            .nodeColor((n: unknown) => {
+                const node = n as GraphNode;
                 if (node && node.isCycle) {
                     const pulse = Math.sin((Date.now() - this.startTime) / 200) * 0.5 + 0.5;
                     return `rgba(255, 0, 0, ${pulse})`;
                 }
                 return node?.color || '#1f77b4';
             })
-            .linkWidth((link: unknown) => (link?.isGhost ? 0 : (isSafetyMode ? 0.5 : 1))) // ✅ LOD: Thin links in Safety Mode
-            .linkDash((link: unknown) => (link?.isGhost ? [5, 2] : null))
-            .linkColor((link: unknown) => (link?.isGhost ? '#ff9900' : '#ffffff'))
-            .onNodeClick((node: unknown, event: MouseEvent) => {
+            .linkWidth((l: unknown) => {
+                const link = l as GraphLink;
+                return link?.isGhost ? 0 : isSafetyMode ? 0.5 : 1;
+            })
+            .linkDash((l: unknown) => {
+                const link = l as GraphLink;
+                return link?.isGhost ? [5, 2] : null;
+            })
+            .linkColor((l: unknown) => {
+                const link = l as GraphLink;
+                return link?.isGhost ? '#ff9900' : '#ffffff';
+            })
+            .onNodeClick((n: unknown, event: MouseEvent) => {
+                const node = n as GraphNode;
                 this.plugin.logger.info(`Node clicked: ${node?.label || node?.id}`);
 
                 // Find suggestion for this node (priority to errors)
@@ -85,14 +137,17 @@ export class GraphVisualizerView extends ItemView {
                 suggestions.sort((a, b) => (severityMap[a.category] ?? 3) - (severityMap[b.category] ?? 3));
 
                 const rect = container.getBoundingClientRect();
-                this.popup.show(
-                    event.clientX - rect.left,
-                    event.clientY - rect.top,
-                    node?.label || node?.id,
-                    suggestions[0],
-                );
+                if (this.popup) {
+                    this.popup.show(
+                        event.clientX - rect.left,
+                        event.clientY - rect.top,
+                        node?.label || node?.id,
+                        suggestions[0],
+                    );
+                }
             })
-            .onLinkClick((link: unknown, event: MouseEvent) => {
+            .onLinkClick((l: unknown, event: MouseEvent) => {
+                const link = l as GraphLink;
                 this.plugin.logger.info(`Link clicked: ${link.source.id} -> ${link.target.id}`);
 
                 // Find suggestion for this link (e.g. topology gaps/bridges)
@@ -103,17 +158,15 @@ export class GraphVisualizerView extends ItemView {
                 );
 
                 const rect = container.getBoundingClientRect();
-                this.popup.show(
-                    event.clientX - rect.left,
-                    event.clientY - rect.top,
-                    `Link: ${link.source.label || link.source.id} → ${link.target.label || link.target.id}`,
-                    suggestion,
-                );
+                if (this.popup) {
+                    this.popup.show(
+                        event.clientX - rect.left,
+                        event.clientY - rect.top,
+                        `Link: ${link.source.label || link.source.id} → ${link.target.label || link.target.id}`,
+                        suggestion,
+                    );
+                }
             });
-
-        // ✅ LOD: Disable hover effects when N > 5000 (Wave 3)
-        // Note: graphData isn't loaded yet here, so we apply it in refresh() or check total vault size.
-        // For now, if we are in Safety Mode, we can already decide some hover behavior.
 
         // Initialize animation loop for pulsing effect on cycle nodes
         this.animate();
@@ -123,14 +176,18 @@ export class GraphVisualizerView extends ItemView {
 
     private animate = () => {
         if (!this.graph) return;
-        this.graph.nodeColor(this.graph.nodeColor());
+        // Re-apply color function to update pulsing cycle colors
+        const colorAccessor = this.graph.nodeColor();
+        if (typeof colorAccessor === 'function') {
+            this.graph.nodeColor(colorAccessor);
+        }
         this.animationId = requestAnimationFrame(this.animate);
     };
 
     /**
      * Rebuilds the graph from current vault state and applies topological decorations.
      */
-    async refresh() {
+    async refresh(): Promise<void> {
         if (!this.graph) return;
 
         this.plugin.logger.info('Refreshing graph visualization data...');
@@ -153,7 +210,7 @@ export class GraphVisualizerView extends ItemView {
 
         // 3. Decorate graph with topological markers
         // Mark nodes that are part of a hierarchical cycle
-        diagnostics.cycles.forEach((cycle: unknown) => {
+        diagnostics.cycles.forEach((cycle) => {
             cycle.path.forEach((nodeId: string) => {
                 if (g.hasNode(nodeId)) {
                     g.setNodeAttribute(nodeId, 'isCycle', true);
@@ -162,7 +219,7 @@ export class GraphVisualizerView extends ItemView {
         });
 
         // Add ghost edges for structural bridge gaps
-        diagnostics.bridges.forEach((bridge: unknown) => {
+        diagnostics.bridges.forEach((bridge) => {
             if (g.hasNode(bridge.source) && g.hasNode(bridge.target)) {
                 // If the direct edge doesn't exist, we add it as a "ghost" bridge gap
                 if (!g.hasEdge(bridge.source, bridge.target)) {
@@ -180,15 +237,16 @@ export class GraphVisualizerView extends ItemView {
 
         // ✅ LOD (Wave 3): Disable features for high-density graphs
         if (data.nodes.length > 5000 || engine.getGraph().order > 5000) {
-            this.plugin.logger.info('High-density graph detected (N > 5000). Disabling hover and labels for performance.');
-            this.graph.enablePointerInteraction(false); // Disable hover effects
+            this.plugin.logger.info(
+                'High-density graph detected (N > 5000). Disabling hover and labels for performance.',
+            );
+            this.graph.enablePointerInteraction(false);
             this.graph.showNavInfo(false);
         }
 
         // ✅ WAVE 3: Disable live physics in Safety Mode to preserve CPU
         if (this.plugin.performanceService.isSafetyModeActive()) {
             this.plugin.logger.info('Safety Mode Active: Pausing simulation after initial layout.');
-            // Let it warm up for a second then pause
             setTimeout(() => {
                 if (this.graph) this.graph.pauseAnimation();
             }, 3000);
@@ -198,7 +256,7 @@ export class GraphVisualizerView extends ItemView {
         engine.dispose();
     }
 
-    async onClose() {
+    onClose(): Promise<void> {
         if (this.animationId !== null) {
             cancelAnimationFrame(this.animationId);
             this.animationId = null;
@@ -206,10 +264,12 @@ export class GraphVisualizerView extends ItemView {
 
         if (this.graph) {
             this.plugin.logger.info('Destroying graph visualization and cleaning up WebGL context...');
-            if (typeof this.graph._destructor === 'function') {
-                this.graph._destructor();
+            const graphWithDestructor = this.graph as unknown as { _destructor?: () => void };
+            if (typeof graphWithDestructor._destructor === 'function') {
+                graphWithDestructor._destructor();
             }
             this.graph = null;
         }
+        return Promise.resolve();
     }
 }

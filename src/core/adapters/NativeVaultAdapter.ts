@@ -1,6 +1,6 @@
 import { App, TFile } from 'obsidian';
 import { BaseAdapter } from './BaseAdapter';
-import { SemanticLinkEdge } from './types';
+import type { SemanticLinkEdge } from './types';
 import { normalizeVaultPath } from '../HealerUtils';
 
 /**
@@ -36,7 +36,7 @@ export class NativeVaultAdapter extends BaseAdapter {
         for (const [rawSource, targets] of Object.entries(resolvedLinks)) {
             const sourcePath = normalizeVaultPath(this.app, rawSource);
             this.logDebug(`getLinks: sourcePath: ${sourcePath}, targets: ${Object.keys(targets).length}`);
-            for (const [rawTarget, count] of Object.entries(targets)) {
+            for (const rawTarget of Object.keys(targets)) {
                 // If count > 1, we might want to extract individual positions,
                 // but resolvedLinks is an aggregate. For precision, we'd need getFileCache.
                 // For now, we return the aggregate edge.
@@ -61,7 +61,7 @@ export class NativeVaultAdapter extends BaseAdapter {
             }
         }
 
-        return edges;
+        return Promise.resolve(edges);
     }
 
     /**
@@ -114,7 +114,7 @@ export class NativeVaultAdapter extends BaseAdapter {
             }
         }
 
-        return edges;
+        return Promise.resolve(edges);
     }
 
     public invalidate(_path?: string): void {

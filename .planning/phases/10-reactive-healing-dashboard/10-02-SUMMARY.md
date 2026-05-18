@@ -4,25 +4,25 @@ plan: 02
 subsystem: dashboard
 tags: [svelte5, dashboard, ui]
 dependency_graph:
-  requires: [10-01]
-  provides: [svelte-dashboard]
-  affects: [src/views/DashboardView.ts, src/views/dashboard/components/*]
+    requires: [10-01]
+    provides: [svelte-dashboard]
+    affects: [src/views/DashboardView.ts, src/views/dashboard/components/*]
 tech_stack:
-  added: [svelte5]
-  patterns: [svelte-runes]
+    added: [svelte5]
+    patterns: [svelte-runes]
 key_files:
-  created: 
-    - src/views/dashboard/components/Dashboard.svelte
-    - src/views/dashboard/components/SuggestionCard.svelte
-  modified: 
-    - src/main.ts
-    - src/views/DashboardView.ts
+    created:
+        - src/views/dashboard/components/Dashboard.svelte
+        - src/views/dashboard/components/SuggestionCard.svelte
+    modified:
+        - src/main.ts
+        - src/views/DashboardView.ts
 decisions:
-  - "Used Svelte 5 Runes ($state, $derived) for dashboard state management."
-  - "Wrapped the Svelte app within DashboardView using mount/unmount."
+    - 'Used Svelte 5 Runes ($state, $derived) for dashboard state management.'
+    - 'Wrapped the Svelte app within DashboardView using mount/unmount.'
 metrics:
-  duration: 10m
-  completed_date: "2024-05-15"
+    duration: 10m
+    completed_date: '2024-05-15'
 ---
 
 # Phase 10 Plan 02: Svelte Migration & Tabbed Layout Summary

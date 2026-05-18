@@ -5,7 +5,7 @@ import { faker } from '@faker-js/faker';
 const NUM_FILES = parseInt(process.env.NUM_FILES || '10000', 10);
 const OUTPUT_DIR = process.env.OUTPUT_DIR || 'bench-vault';
 const M_INITIAL = 5; // Initial connected nodes
-const M_LINKS = 2;   // New links per new node
+const M_LINKS = 2; // New links per new node
 
 async function generateMockVault() {
     if (!fs.existsSync(OUTPUT_DIR)) {
@@ -79,12 +79,12 @@ async function generateMockVault() {
     for (let i = 0; i < NUM_FILES; i++) {
         const fileName = fileNames[i];
         const filePath = path.join(OUTPUT_DIR, `${fileName}.md`);
-        
-        const links = adj[i].map(idx => `[[${fileNames[targetIdx(idx, i)]}]]`).join('\n');
+
+        const links = adj[i].map((idx) => `[[${fileNames[targetIdx(idx, i)]}]]`).join('\n');
         const content = `# ${fileName}\n\n${faker.lorem.paragraphs(2)}\n\n## Links\n${links}\n\n## Metadata\n- tags: #mock #bench\n- date: ${faker.date.past().toISOString()}`;
-        
+
         fs.writeFileSync(filePath, content);
-        
+
         if (i % 1000 === 0) {
             console.log(`Progress: ${i}/${NUM_FILES} files written...`);
         }

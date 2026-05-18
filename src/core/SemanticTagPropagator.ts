@@ -1,7 +1,7 @@
 import { App, TFile } from 'obsidian';
-import { SemanticGraphHealerSettings, Suggestion } from '../types';
+import type { SemanticGraphHealerSettings, Suggestion } from '../types';
 import { HealerLogger, generateId, resolveLinkpathsToPaths, extractLinkpaths } from './HealerUtils';
-import { VaultQueryEngine } from './DataAdapter';
+import type { VaultQueryEngine } from './DataAdapter';
 import { LlmService } from './LlmService';
 
 export class SemanticTagPropagator {

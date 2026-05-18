@@ -1,4 +1,4 @@
-import { App, TAbstractFile, TFile, EventRef } from 'obsidian';
+import type { App, TAbstractFile, TFile, EventRef } from 'obsidian';
 import { HealerLogger } from './HealerUtils';
 
 /**
@@ -31,10 +31,7 @@ export class StructuralCache<T> {
             this.invalidate(oldPath);
             this.invalidate(file.path);
         };
-        this.changedRef = this.app.metadataCache.on(
-            'changed',
-            this.boundInvalidate as unknown as (file: TFile) => void,
-        );
+        this.changedRef = this.app.metadataCache.on('changed', this.boundInvalidate);
         this.renameRef = this.app.vault.on('rename', this.boundRename);
         this.deleteRef = this.app.vault.on('delete', this.boundInvalidate);
     }

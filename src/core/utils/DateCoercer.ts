@@ -40,7 +40,7 @@ export function coerceToStartOfDay(v: unknown, fallbackMillis: number): unknown 
     };
     if (win.luxon?.DateTime && typeof win.luxon.DateTime.fromMillis === 'function') {
         const dt = win.luxon.DateTime.fromMillis(coerceToMillis(v) ?? fallbackMillis, { zone: 'local' });
-        const startOfFn = dt['startOf'] as (unit: string) => unknown;
+        const startOfFn = dt['startOf'];
         return Reflect.apply(startOfFn, dt, ['day']);
     }
     const d = new Date(coerceToMillis(v) ?? fallbackMillis);

@@ -1,5 +1,5 @@
 import { App, Modal, ButtonComponent } from 'obsidian';
-import { Suggestion } from '../../types';
+import type { Suggestion } from '../../types';
 
 export class ConfirmationModal extends Modal {
     constructor(
@@ -14,7 +14,7 @@ export class ConfirmationModal extends Modal {
         const { contentEl } = this;
         contentEl.empty();
 
-        contentEl.createEl('h2', { text: 'Confirm Complex Execution' });
+        contentEl.createEl('h2', { text: 'Confirm complex execution' });
         contentEl.createEl('p', {
             text: 'This action involves editing multiple files to repair a topological bridge gap. Please confirm the changes below.',
         });
@@ -45,7 +45,7 @@ export class ConfirmationModal extends Modal {
         new ButtonComponent(btnRow).setButtonText('Cancel').onClick(() => this.close());
 
         new ButtonComponent(btnRow)
-            .setButtonText('Confirm Execution')
+            .setButtonText('Confirm execution')
             .setCta()
             .onClick(() => {
                 this.onConfirm();

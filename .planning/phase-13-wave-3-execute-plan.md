@@ -17,4 +17,5 @@ Dashboard and GraphVisualizer `unknown` callbacks confirmed type-safe.
 ---
 
 ## Directive on use
+
 Treat as definitive reference for this plan. Do not produce a separate revised plan.

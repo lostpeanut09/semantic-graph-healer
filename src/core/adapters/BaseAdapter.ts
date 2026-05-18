@@ -1,7 +1,7 @@
 import { App } from 'obsidian';
-import { SemanticLinkEdge } from './types';
+import type { SemanticLinkEdge } from './types';
 import { HealerLogger, isObsidianInternalApp, normalizeVaultPath } from '../HealerUtils';
-import { ExtendedApp } from '../../types';
+import type { ExtendedApp } from '../../types';
 
 /**
  * BaseAdapter: Abstract foundation for all metadata adapters.
@@ -185,7 +185,7 @@ export abstract class BaseAdapter {
             this.logDebug(`getPlugin: isObsidianInternalApp guard fired — cannot access plugins API`);
             return null;
         }
-        const plugin = (this.app as ExtendedApp).plugins.getPlugin(pluginId);
+        const plugin = this.app.plugins.getPlugin(pluginId);
         return (plugin ?? null) as T | null;
     }
 
@@ -199,9 +199,7 @@ export abstract class BaseAdapter {
             this.logDebug(`isPluginAvailable: isObsidianInternalApp guard fired — returning false`);
             return false;
         }
-        const internal = this.app as unknown as ExtendedApp & {
-            plugins: { enabledPlugins: unknown; getPlugin: (id: string) => unknown };
-        };
+        const internal = this.app;
 
         const enabledPlugins = internal.plugins.enabledPlugins;
 

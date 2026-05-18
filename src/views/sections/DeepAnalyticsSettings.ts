@@ -40,7 +40,7 @@ export function renderDeepAnalyticsSettings(containerEl: HTMLElement, ctx: Secti
         );
 
     new Setting(containerEl)
-        .setName('Adamic-Adar weight')
+        .setName('Adamic-adar weight')
         .setDesc('Penalizes high-degree common neighbors')
         .addSlider((slider) =>
             slider
@@ -55,7 +55,7 @@ export function renderDeepAnalyticsSettings(containerEl: HTMLElement, ctx: Secti
 
     new Setting(containerEl)
         .setName('Resource allocation weight')
-        .setDesc('Stricter neighbor penalty than AA')
+        .setDesc('Stricter neighbor penalty than adamic-adar.')
         .addSlider((slider) =>
             slider
                 .setLimits(0, 1, 0.05)
@@ -70,8 +70,8 @@ export function renderDeepAnalyticsSettings(containerEl: HTMLElement, ctx: Secti
     createHeader('Topological thresholds', 'Fine-tune diagnostic sensitivity');
 
     new Setting(containerEl)
-        .setName('MOC saturation threshold')
-        .setDesc('Minimum links before a node is considered a Map of Content (MOC) candidate.')
+        .setName('Map of content saturation threshold')
+        .setDesc('Minimum links before a node is considered a map of content candidate.')
         .addSlider((slider) =>
             slider
                 .setLimits(5, 50, 1)
@@ -85,7 +85,7 @@ export function renderDeepAnalyticsSettings(containerEl: HTMLElement, ctx: Secti
 
     new Setting(containerEl)
         .setName('Black hole threshold')
-        .setDesc('Minimum in-degree (incoming links) to flag a note with zero out-links as a "Black Hole".')
+        .setDesc('Minimum in-degree (incoming links) to flag a note with zero out-links as a "black hole".')
         .addSlider((slider) =>
             slider
                 .setLimits(3, 20, 1)

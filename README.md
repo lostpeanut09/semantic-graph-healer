@@ -10,18 +10,23 @@
 ## Core v1 Features
 
 ### 🚀 Adaptive Performance (Safety Mode)
+
 The plugin automatically scales its resource usage based on your vault size. When entering vaults with >10,000 notes, **Safety Mode** activates:
+
 - **Throttled Analysis:** Background scans use higher debounces to preserve CPU.
 - **LOD Rendering:** 3D Graph uses Level-of-Detail optimizations (points instead of spheres, static physics) to maintain high frame rates.
 - **Worker Offloading:** All heavy graph math runs in a separate thread.
 
 ### 🏛️ AI Tribunal & Epistemic Stability
+
 Every semantic suggestion is cross-verified by a dual-LLM system. A Primary and Secondary model must reach consensus (STABLE state) before a high-confidence recommendation is made, eliminating hallucinations.
 
 ### 🏷️ Semantic Tag Propagation
+
 AI-powered cluster analysis that suggests relevant tags for child notes based on parent MOC (Map of Content) synergy, ensuring consistent taxonomy across your vault.
 
 ### 🔍 Deep Topological Diagnostics
+
 - **Bridge Scrutiny:** Finds missing links in sequential chains (A → B → C).
 - **Ouroboros Detection:** Identifies infinite hierarchical loops.
 - **Black Hole Discovery:** Locates information sinks (notes that attract links but lead nowhere).
@@ -33,23 +38,26 @@ AI-powered cluster analysis that suggests relevant tags for child notes based on
 
 Tests conducted on a standard desktop environment with a 1,000-note simulated vault:
 
-| Operation | Latency | Complexity |
-| :--- | :--- | :--- |
-| **Graph Construction** | ~11.17ms | O(N + E) |
-| **Deterministic Analysis** | ~4.27ms | O(N·K²) |
-| **PageRank (10k nodes)** | < 5.0s | O(I·(N+E)) |
+| Operation                  | Latency  | Complexity |
+| :------------------------- | :------- | :--------- |
+| **Graph Construction**     | ~11.17ms | O(N + E)   |
+| **Deterministic Analysis** | ~4.27ms  | O(N·K²)    |
+| **PageRank (10k nodes)**   | < 5.0s   | O(I·(N+E)) |
 
 ---
 
 ## Technical Architecture
 
 ### Multi-Adapter Engine
+
 The `UnifiedMetadataAdapter` orchestrates multiple sources into a single API:
+
 - **Datacore:** Primary high-speed query engine.
 - **Breadcrumbs:** Hierarchical navigation.
 - **Smart Connections:** Vector-similarity discovery.
 
 ### Secure by Design
+
 - **KeychainService:** Credentials are stored in OS-native secure storage or AES-256-GCM encrypted local blocks.
 - **Local-First:** Supports Ollama and LM Studio for 100% private AI analysis.
 

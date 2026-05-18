@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SuggestionExecutor } from '../../src/core/SuggestionExecutor';
 import { TFile, Notice } from 'obsidian';
-import { HistoryItem } from '../../src/types';
+import type { HistoryItem } from '../../src/types';
 
 // Mock Obsidian components
 vi.mock('obsidian', () => ({

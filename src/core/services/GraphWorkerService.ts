@@ -1,6 +1,6 @@
 import { HealerLogger } from '../utils/HealerLogger';
 import { Platform, App } from 'obsidian';
-import { SemanticGraphHealerSettings } from '../../types';
+import type { SemanticGraphHealerSettings } from '../../types';
 import PQueue from 'p-queue';
 
 type AnalysisType =

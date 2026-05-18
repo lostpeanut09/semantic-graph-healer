@@ -17,7 +17,7 @@ export function renderPerformanceSafetySettings(containerEl: HTMLElement, ctx: S
     createHeader('Performance & Safety', 'Proactively manage resource consumption in large vaults.');
 
     new Setting(containerEl)
-        .setName('Enable Safety Mode')
+        .setName('Enable safety mode')
         .setDesc('Automatically restricts intensive operations in large vaults or on mobile devices.')
         .addToggle((toggle) =>
             toggle.setValue(plugin.settings.enableSafetyMode).onChange(async (value) => {
@@ -29,7 +29,7 @@ export function renderPerformanceSafetySettings(containerEl: HTMLElement, ctx: S
         );
 
     new Setting(containerEl)
-        .setName('Desktop Note Threshold')
+        .setName('Desktop note threshold')
         .setDesc('Safety mode activates on desktop when notes exceed this number.')
         .addText((text) =>
             text
@@ -46,7 +46,7 @@ export function renderPerformanceSafetySettings(containerEl: HTMLElement, ctx: S
         );
 
     new Setting(containerEl)
-        .setName('Mobile Note Threshold')
+        .setName('Mobile note threshold')
         .setDesc('Safety mode activates on mobile when notes exceed this number.')
         .addText((text) =>
             text
@@ -65,6 +65,6 @@ export function renderPerformanceSafetySettings(containerEl: HTMLElement, ctx: S
     // Current Status info
     const currentMode = plugin.performanceService.performanceMode;
     new Setting(containerEl)
-        .setName('Current Performance Mode')
+        .setName('Current performance mode')
         .setDesc(`The plugin is currently operating in ${currentMode} mode.`);
 }

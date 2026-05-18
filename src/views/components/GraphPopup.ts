@@ -1,4 +1,4 @@
-import { Suggestion } from '../../types';
+import type { Suggestion } from '../../types';
 import { ButtonComponent } from 'obsidian';
 
 /**
@@ -34,7 +34,7 @@ export class GraphPopup {
 
             if (suggestion.category === 'error' || suggestion.category === 'suggestion') {
                 new ButtonComponent(btnContainer)
-                    .setButtonText('Execute Fix')
+                    .setButtonText('Execute fix')
                     .setCta()
                     .onClick(() => {
                         this.onExecute(suggestion);
