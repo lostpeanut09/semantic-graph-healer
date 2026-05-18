@@ -9,12 +9,6 @@ import { LinkPredictionEngine } from './LinkPredictionEngine';
 
 import type { GraphContext } from './services/PluginContext';
 
-/** Node attributes for the graphology DirectedGraph */
-interface GraphNodeAttributes {
-    label: string;
-    size: number;
-}
-
 export class GraphEngine {
     private graph: DirectedGraph;
     private graphVersionNum = 0;

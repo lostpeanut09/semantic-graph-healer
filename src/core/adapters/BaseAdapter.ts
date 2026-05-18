@@ -1,7 +1,6 @@
 import { App } from 'obsidian';
 import type { SemanticLinkEdge } from './types';
 import { HealerLogger, isObsidianInternalApp, normalizeVaultPath } from '../HealerUtils';
-import type { ExtendedApp } from '../../types';
 
 /**
  * BaseAdapter: Abstract foundation for all metadata adapters.

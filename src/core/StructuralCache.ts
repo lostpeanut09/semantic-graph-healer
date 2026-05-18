@@ -1,4 +1,4 @@
-import type { App, TAbstractFile, TFile, EventRef } from 'obsidian';
+import type { App, TAbstractFile, EventRef } from 'obsidian';
 import { HealerLogger } from './HealerUtils';
 
 /**
