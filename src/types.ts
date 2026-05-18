@@ -1,4 +1,4 @@
-import { App, TFile, EventRef } from 'obsidian';
+import { App, TFile, type EventRef } from 'obsidian';
 import type { MultiGraph } from 'graphology';
 export const DASHBOARD_VIEW_TYPE = 'semantic-healer-dashboard';
 
