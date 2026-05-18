@@ -3,6 +3,7 @@ import pagerank from 'graphology-metrics/centrality/pagerank';
 import louvain from 'graphology-communities-louvain';
 import betweennessCentrality from 'graphology-metrics/centrality/betweenness';
 import { z } from 'zod';
+import type { WorkerResponse, GraphAnalysisResult } from '../../types';
 
 // --- Phase 2: OSS Hardening (Zod Validation) ---
 
@@ -54,31 +55,12 @@ const WorkerMessageSchema = z.looseObject({
 
 export type WorkerMessage = z.infer<typeof WorkerMessageSchema>;
 
-export type WorkerResponse =
-    | {
-          type: 'RESULT';
-          payload: {
-              requestId: string;
-              data: unknown;
-          };
-      }
-    | {
-          type: 'ERROR';
-          payload: {
-              requestId: string;
-              message: string;
-          };
-      }
-    | {
-          type: 'PROGRESS';
-          payload: {
-              requestId: string;
-              data: {
-                  pct: number;
-                  message: string;
-              };
-          };
-      };
+/**
+ * Type guard for WorkerMessage validation.
+ */
+export function isWorkerMessage(data: unknown): data is WorkerMessage {
+    return WorkerMessageSchema.safeParse(data).success;
+}
 
 export interface ProgressReporter {
     postProgress: (requestId: string, pct: number, message: string) => void;

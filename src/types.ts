@@ -374,6 +374,103 @@ export interface RelatedNote {
     link: string;
 }
 
+/**
+ * Worker Communication Types
+ */
+export type WorkerActionType =
+    | 'PAGERANK'
+    | 'COMMUNITY'
+    | 'BETWEENNESS'
+    | 'FULL_ANALYSIS'
+    | 'SIMILARITY'
+    | 'COCITATION'
+    | 'TOPOLOGY_DIAGNOSTICS';
+
+export interface WorkerNode {
+    key: string;
+    attributes: Record<string, unknown>;
+}
+
+export interface WorkerEdge {
+    source: string;
+    target: string;
+    attributes: Record<string, unknown>;
+}
+
+export interface WorkerPayload {
+    nodes: WorkerNode[];
+    edges: WorkerEdge[];
+    requestId: string;
+}
+
+export type GraphAnalysisResult =
+    | Record<string, number>
+    | Array<{ source: string; target: string; score: number }>
+    | Array<{ a: string; b: string; score: number }>
+    | {
+          pageRank: Record<string, number>;
+          communities: Record<string, number>;
+          betweenness: Record<string, number> | null;
+          nodeCount: number;
+          edgeCount: number;
+      }
+    | {
+          bridges: Array<{ source: string; target: string; via: string; type: string }>;
+          blackHoles: Array<{ path: string; inDegree: number }>;
+          cycles: Array<{ path: string[]; type: string }>;
+      };
+
+export interface WorkerOptions {
+    limit?: number;
+    minScore?: number;
+    weights?: {
+        jaccard: number;
+        adamicAdar: number;
+        resourceAllocation: number;
+    };
+    fileStats?: Record<string, { mtime: number }>;
+    edgePolicy?: 'strict' | 'tolerant';
+    maxEdges?: number;
+    maxNodes?: number;
+    blackHoleThreshold?: number;
+    [key: string]: unknown;
+}
+
+export interface WorkerMessage {
+    type: WorkerActionType;
+    payload: WorkerPayload;
+    options?: WorkerOptions;
+}
+
+export interface WorkerResponseResult {
+    type: 'RESULT';
+    payload: {
+        requestId: string;
+        data: GraphAnalysisResult;
+    };
+}
+
+export interface WorkerResponseError {
+    type: 'ERROR';
+    payload: {
+        requestId: string;
+        message: string;
+    };
+}
+
+export interface WorkerResponseProgress {
+    type: 'PROGRESS';
+    payload: {
+        requestId: string;
+        data: {
+            pct: number;
+            message: string;
+        };
+    };
+}
+
+export type WorkerResponse = WorkerResponseResult | WorkerResponseError | WorkerResponseProgress;
+
 export interface HierarchyNode {
     parents: string[];
     children: string[];
