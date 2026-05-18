@@ -2,7 +2,7 @@
   import type { DashboardStore } from '../DashboardStore.svelte';
   import type SemanticGraphHealer from '../../../main';
   import SuggestionCard from './SuggestionCard.svelte';
-  import type { Suggestion, HistoryItem } from '../../../types';
+  import type { Suggestion, HistoryItem, ExtendedManifest } from '../../../types';
   import { Notice } from 'obsidian';
 
   let { store, plugin } = $props<{
@@ -61,7 +61,7 @@
   }
 
   let bannerPath = $derived.by(() => {
-    const manifest = plugin.manifest as any;
+    const manifest = plugin.manifest as ExtendedManifest;
     const dir = manifest.dir ?? '';
     return plugin.app.vault.adapter.getResourcePath(`${dir}/assets/banner.png`);
   });

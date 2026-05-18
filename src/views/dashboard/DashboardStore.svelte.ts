@@ -61,11 +61,8 @@ export class DashboardStore {
         this.refresh();
 
         // Subscribe to real-time events from the plugin context
-        const workspace = this.#plugin.app.workspace as unknown as {
-            on(name: string, callback: (...args: unknown[]) => unknown, ctx?: unknown): EventRef;
-        };
         this.#plugin.registerEvent(
-            workspace.on('semantic-graph:updated', () => {
+            this.#plugin.app.workspace.on('semantic-graph:updated', () => {
                 this.refresh();
             }),
         );
@@ -260,7 +257,7 @@ export class DashboardStore {
 
             if (suggestion.id.startsWith('branch_')) {
                 const sourcePath = suggestion.meta.sourcePath || '';
-                const targetPaths = (suggestion.meta.targetPaths as string[]) || [];
+                const targetPaths = suggestion.meta.targetPaths || [];
                 const context = await this.#plugin.topology.getContextForAIValidation(sourcePath, targetPaths);
 
                 // Sanitize context for T-10-04 Information Disclosure
@@ -271,7 +268,7 @@ export class DashboardStore {
 
                 isValid = await this.#plugin.llm.validateBranching(
                     suggestion.meta.sourceNote || 'Unknown',
-                    (suggestion.meta.targetNotes as string[]) || [],
+                    suggestion.meta.targetNotes || [],
                     sanitizedSource,
                     sanitizedTargets,
                     context.existingRelations,

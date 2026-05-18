@@ -4,39 +4,27 @@ import type SemanticGraphHealer from '../main';
 import { mapToForceGraph } from '../core/utils/GraphMapper';
 import { GraphEngine } from '../core/GraphEngine';
 import { GraphPopup } from './components/GraphPopup';
+import type { ForceGraphNode, ForceGraphLink } from '../types';
 
 export const GRAPH_VIEW_TYPE = 'healer-graph-view';
-
-interface GraphNode {
-    id: string;
-    label: string;
-    color?: string;
-    isCycle?: boolean;
-}
-
-interface GraphLink {
-    source: GraphNode;
-    target: GraphNode;
-    isGhost?: boolean;
-}
 
 /**
  * Partial interface for the ForceGraph3D instance to enable strict typing.
  */
 interface ForceGraph3DInstance {
     (element: HTMLElement): ForceGraph3DInstance;
-    nodeLabel(fn: (node: unknown) => string): ForceGraph3DInstance;
+    nodeLabel(fn: (node: ForceGraphNode) => string): ForceGraph3DInstance;
     nodeAutoColorBy(attr: string): ForceGraph3DInstance;
     nodeResolution(res: number): ForceGraph3DInstance;
-    nodeColor(fn: (node: unknown) => string): ForceGraph3DInstance;
-    nodeColor(): (node: unknown) => string;
-    linkWidth(fn: (link: unknown) => number): ForceGraph3DInstance;
-    linkWidth(): (link: unknown) => number;
-    linkDash(fn: (link: unknown) => number[] | null): ForceGraph3DInstance;
-    linkColor(fn: (link: unknown) => string): ForceGraph3DInstance;
-    onNodeClick(fn: (node: unknown, event: MouseEvent) => void): ForceGraph3DInstance;
-    onLinkClick(fn: (link: unknown, event: MouseEvent) => void): ForceGraph3DInstance;
-    graphData(data: { nodes: unknown[]; links: unknown[] }): ForceGraph3DInstance;
+    nodeColor(fn: (node: ForceGraphNode) => string): ForceGraph3DInstance;
+    nodeColor(): (node: ForceGraphNode) => string;
+    linkWidth(fn: (link: ForceGraphLink) => number): ForceGraph3DInstance;
+    linkWidth(): (link: ForceGraphLink) => number;
+    linkDash(fn: (link: ForceGraphLink) => number[] | null): ForceGraph3DInstance;
+    linkColor(fn: (link: ForceGraphLink) => string): ForceGraph3DInstance;
+    onNodeClick(fn: (node: ForceGraphNode, event: MouseEvent) => void): ForceGraph3DInstance;
+    onLinkClick(fn: (link: ForceGraphLink, event: MouseEvent) => void): ForceGraph3DInstance;
+    graphData(data: { nodes: ForceGraphNode[]; links: ForceGraphLink[] }): ForceGraph3DInstance;
     enablePointerInteraction(enabled: boolean): ForceGraph3DInstance;
     showNavInfo(enabled: boolean): ForceGraph3DInstance;
     pauseAnimation(): ForceGraph3DInstance;
@@ -97,34 +85,28 @@ export class GraphVisualizerView extends ItemView {
         // Initialize 3D Force Graph
         // @ts-ignore - ForceGraph3D types can be tricky depending on build
         this.graph = (ForceGraph3D as unknown as (el: HTMLElement) => ForceGraph3DInstance)(container)
-            .nodeLabel((n: unknown) => {
-                const node = n as GraphNode;
+            .nodeLabel((node: ForceGraphNode) => {
                 return node.label || node.id;
             })
             .nodeAutoColorBy('group')
             .nodeResolution(isSafetyMode ? 1 : 8)
-            .nodeColor((n: unknown) => {
-                const node = n as GraphNode;
+            .nodeColor((node: ForceGraphNode) => {
                 if (node && node.isCycle) {
                     const pulse = Math.sin((Date.now() - this.startTime) / 200) * 0.5 + 0.5;
                     return `rgba(255, 0, 0, ${pulse})`;
                 }
                 return node?.color || '#1f77b4';
             })
-            .linkWidth((l: unknown) => {
-                const link = l as GraphLink;
+            .linkWidth((link: ForceGraphLink) => {
                 return link?.isGhost ? 0 : isSafetyMode ? 0.5 : 1;
             })
-            .linkDash((l: unknown) => {
-                const link = l as GraphLink;
+            .linkDash((link: ForceGraphLink) => {
                 return link?.isGhost ? [5, 2] : null;
             })
-            .linkColor((l: unknown) => {
-                const link = l as GraphLink;
+            .linkColor((link: ForceGraphLink) => {
                 return link?.isGhost ? '#ff9900' : '#ffffff';
             })
-            .onNodeClick((n: unknown, event: MouseEvent) => {
-                const node = n as GraphNode;
+            .onNodeClick((node: ForceGraphNode, event: MouseEvent) => {
                 this.plugin.logger.info(`Node clicked: ${node?.label || node?.id}`);
 
                 // Find suggestion for this node (priority to errors)
@@ -146,15 +128,16 @@ export class GraphVisualizerView extends ItemView {
                     );
                 }
             })
-            .onLinkClick((l: unknown, event: MouseEvent) => {
-                const link = l as GraphLink;
-                this.plugin.logger.info(`Link clicked: ${link.source.id} -> ${link.target.id}`);
+            .onLinkClick((link: ForceGraphLink, event: MouseEvent) => {
+                const source = link.source as ForceGraphNode;
+                const target = link.target as ForceGraphNode;
+                this.plugin.logger.info(`Link clicked: ${source.id} -> ${target.id}`);
 
                 // Find suggestion for this link (e.g. topology gaps/bridges)
                 const suggestion = this.plugin.cache.suggestions.find(
                     (s) =>
-                        (s.meta?.sourcePath === link.source.id && s.meta?.targetPath === link.target.id) ||
-                        (s.meta?.sourcePath === link.target.id && s.meta?.targetPath === link.source.id),
+                        (s.meta?.sourcePath === source.id && s.meta?.targetPath === target.id) ||
+                        (s.meta?.sourcePath === target.id && s.meta?.targetPath === source.id),
                 );
 
                 const rect = container.getBoundingClientRect();
@@ -162,7 +145,7 @@ export class GraphVisualizerView extends ItemView {
                     this.popup.show(
                         event.clientX - rect.left,
                         event.clientY - rect.top,
-                        `Link: ${link.source.label || link.source.id} → ${link.target.label || link.target.id}`,
+                        `Link: ${source.label || source.id} → ${target.label || target.id}`,
                         suggestion,
                     );
                 }
