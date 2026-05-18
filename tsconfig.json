@@ -12,9 +12,10 @@
         "allowSyntheticDefaultImports": true,
         "importHelpers": true,
         "isolatedModules": true,
+        "verbatimModuleSyntax": true,
         "strictNullChecks": true,
         "lib": ["DOM", "ES2022"],
-        "types": ["obsidian-typings"]
+        "types": ["obsidian-typings", "node"]
     },
     "include": ["src/**/*.ts", "tests/**/*.ts", "scripts/**/*.ts", "vitest.config.ts", "vitest.setup.ts"],
     "exclude": ["node_modules", ".kilo"]
