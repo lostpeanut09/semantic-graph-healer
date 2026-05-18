@@ -4,6 +4,7 @@ import louvain from 'graphology-communities-louvain';
 import betweennessCentrality from 'graphology-metrics/centrality/betweenness';
 import { z } from 'zod';
 import type { WorkerResponse, GraphAnalysisResult } from '../../types';
+export type { WorkerResponse, GraphAnalysisResult };
 
 // --- Phase 2: OSS Hardening (Zod Validation) ---
 
@@ -194,7 +195,7 @@ export function handleGraphWorkerMessage(message: WorkerMessage, reporter?: Prog
 
         return {
             type: 'RESULT',
-            payload: { requestId, data: result },
+            payload: { requestId, data: result as GraphAnalysisResult },
         };
     } catch (error: unknown) {
         let message = (error as Error).message || 'Unknown analysis error';

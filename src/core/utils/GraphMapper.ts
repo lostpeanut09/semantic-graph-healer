@@ -1,23 +1,5 @@
 import type { MultiGraph } from 'graphology';
-
-export interface ForceGraphNode {
-    id: string;
-    label?: string;
-    isCycle?: boolean;
-    [key: string]: unknown;
-}
-
-export interface ForceGraphLink {
-    source: string;
-    target: string;
-    isGhost?: boolean;
-    [key: string]: unknown;
-}
-
-export interface ForceGraphData {
-    nodes: ForceGraphNode[];
-    links: ForceGraphLink[];
-}
+import type { ForceGraphNode, ForceGraphLink, ForceGraphData } from '../../types';
 
 /**
  * Maps Graphology graph to ForceGraph-compatible format.

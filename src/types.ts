@@ -1,4 +1,4 @@
-import { App, TFile } from 'obsidian';
+import { App, TFile, EventRef } from 'obsidian';
 import type { MultiGraph } from 'graphology';
 export const DASHBOARD_VIEW_TYPE = 'semantic-healer-dashboard';
 
@@ -29,12 +29,25 @@ export interface ObsidianInternalApp {
     };
 }
 
+export interface ExtendedManifest {
+    id: string;
+    dir?: string;
+    [key: string]: unknown;
+}
+
 export interface ObsidianPlugin {
     api?: unknown;
+    manifest: ExtendedManifest;
     [key: string]: unknown;
 }
 
 export type ExtendedApp = App & ObsidianInternalApp;
+
+declare module 'obsidian' {
+    interface Workspace {
+        on(name: 'semantic-graph:updated', callback: () => void, ctx?: unknown): EventRef;
+    }
+}
 
 // --- Dataview / Datacore API interfaces ---
 export interface DataArray<T> {
@@ -198,8 +211,10 @@ export interface SuggestionMeta {
     propertyKey?: string; // Actual YAML key: 'parent', 'right', 'procedural-next', etc.
     sourcePath?: string; // Canonical TFile.path for logic
     targetPath?: string; // Canonical TFile.path for logic
+    targetPaths?: string[]; // Multiple target paths for branch validation
     sourceNote?: string; // Basename for display
     targetNote?: string; // Basename for display
+    targetNotes?: string[]; // Multiple target notes for branch validation
     description?: string;
     confidence?: number;
     winner?: string;
@@ -477,6 +492,29 @@ export interface HierarchyNode {
     siblings: string[];
     next: string[];
     prev: string[];
+}
+
+/**
+ * Force-graph compatible data structures
+ */
+export interface ForceGraphNode {
+    id: string;
+    label?: string;
+    color?: string;
+    isCycle?: boolean;
+    [key: string]: unknown;
+}
+
+export interface ForceGraphLink {
+    source: string | ForceGraphNode;
+    target: string | ForceGraphNode;
+    isGhost?: boolean;
+    [key: string]: unknown;
+}
+
+export interface ForceGraphData {
+    nodes: ForceGraphNode[];
+    links: ForceGraphLink[];
 }
 
 export const DEFAULT_SETTINGS: SemanticGraphHealerSettings = {

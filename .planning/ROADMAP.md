@@ -34,8 +34,8 @@
 - [x] 13-01-PLAN.md — Linting Foundation & Svelte 5 Support ✅ 2026-05-17
 - [x] 13-02-PLAN.md — UI Consistency & Basic Cleanup ✅ 2026-05-18
 - [x] 13-03-PLAN.md — Strict Typing & Core Hardening ✅ 2026-05-18
-- [ ] 13-04-PLAN.md — Resolve Build and Type Errors
-- [ ] 13-05-PLAN.md — Fix Residual Lint Warnings
+- [x] 13-04-PLAN.md — Resolve Build and Type Errors
+- [x] 13-05-PLAN.md — Fix Residual Lint Warnings
 
 ### Phase 12: v1 Finalization & Stress Testing
 
