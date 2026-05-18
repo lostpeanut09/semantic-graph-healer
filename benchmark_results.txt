@@ -10,3 +10,7 @@ GraphEngine#buildGraph (1000 nodes): Average Latency = 49.98ms
 TopologyAnalyzer#runDeterministicAnalysis (500 nodes): Latency = 122.12ms
 GraphEngine#buildGraph (1000 nodes): Average Latency = 39.35ms
 TopologyAnalyzer#runDeterministicAnalysis (500 nodes): Latency = 23.23ms
+GraphEngine#buildGraph (1000 nodes): Average Latency = 10.76ms
+TopologyAnalyzer#runDeterministicAnalysis (500 nodes): Latency = 4.85ms
+GraphEngine#buildGraph (1000 nodes): Average Latency = 13.74ms
+TopologyAnalyzer#runDeterministicAnalysis (500 nodes): Latency = 4.85ms
