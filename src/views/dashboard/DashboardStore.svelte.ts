@@ -1,22 +1,71 @@
-/* eslint-disable no-undef, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any */
-import type { Suggestion, HistoryItem } from '../../types';
+import type { Suggestion, HistoryItem, SemanticGraphHealerSettings, ReasoningResult } from '../../types';
 import { Notice } from 'obsidian';
+import type { App, EventRef } from 'obsidian';
 import { REASONING_VIEW_TYPE, ReasoningView } from '../DashboardView';
 import { ConfirmationModal } from '../components/ConfirmationModal';
+
+interface ValidationContext {
+    sourceContent: string;
+    targetContents: string[];
+    existingRelations: unknown;
+}
+
+interface PluginContext {
+    app: App;
+    settings: SemanticGraphHealerSettings;
+    cache: {
+        suggestions: Suggestion[];
+        history: HistoryItem[];
+        save(): void;
+    };
+    executor: {
+        execute(suggestion: Suggestion): Promise<boolean>;
+        executeRelink(suggestion: Suggestion): Promise<boolean>;
+        undo(historyItem: HistoryItem): Promise<boolean>;
+        resolveChoice(suggestion: Suggestion, winner: string, losers: string[]): Promise<boolean>;
+    };
+    reasoner: {
+        analyze(suggestion: Suggestion): Promise<ReasoningResult | null>;
+    };
+    topology: {
+        getContextForAIValidation(sourcePath: string, targetPaths: string[]): Promise<ValidationContext>;
+    };
+    llm: {
+        validateBranching(
+            sourceNote: string,
+            targetNotes: string[],
+            sourceContent: string,
+            targetContents: string[],
+            existingRelations: unknown,
+        ): Promise<boolean>;
+        validateTagInheritance(
+            childName: string,
+            tag: string,
+            parentName: string,
+            childContent: string,
+            parentContent: string,
+        ): Promise<boolean>;
+    };
+    saveSettings(): Promise<void>;
+    registerEvent(event: EventRef): void;
+}
 
 export class DashboardStore {
     #suggestions = $state<Suggestion[]>([]);
     #history = $state<HistoryItem[]>([]);
     #fixedItems = $state<Set<string>>(new Set());
-    #plugin: any;
+    #plugin: PluginContext;
 
-    constructor(plugin: any) {
+    constructor(plugin: PluginContext) {
         this.#plugin = plugin;
         this.refresh();
 
         // Subscribe to real-time events from the plugin context
+        const workspace = this.#plugin.app.workspace as unknown as {
+            on(name: string, callback: (...args: unknown[]) => unknown, ctx?: unknown): EventRef;
+        };
         this.#plugin.registerEvent(
-            this.#plugin.app.workspace.on('semantic-graph:updated', () => {
+            workspace.on('semantic-graph:updated', () => {
                 this.refresh();
             }),
         );
@@ -42,19 +91,22 @@ export class DashboardStore {
         return this.#fixedItems;
     }
 
-    async executeComplex(suggestion: Suggestion) {
-        const modal = new ConfirmationModal(this.#plugin.app, suggestion, async () => {
-            try {
-                const success = await this.#plugin.executor.executeRelink(suggestion);
-                if (success) {
-                    this.#fixedItems.add(suggestion.id);
-                    this.refresh();
+    executeComplex(suggestion: Suggestion): Promise<void> {
+        const modal = new ConfirmationModal(this.#plugin.app, suggestion, () => {
+            void (async () => {
+                try {
+                    const success = await this.#plugin.executor.executeRelink(suggestion);
+                    if (success) {
+                        this.#fixedItems.add(suggestion.id);
+                        this.refresh();
+                    }
+                } catch (error: unknown) {
+                    console.error(`Failed to execute complex relink for ${suggestion.id}`, error);
                 }
-            } catch (error) {
-                console.error(`Failed to execute complex relink for ${suggestion.id}`, error);
-            }
+            })();
         });
         modal.open();
+        return Promise.resolve();
     }
 
     async undoAction(historyItem: HistoryItem) {
@@ -63,7 +115,7 @@ export class DashboardStore {
             if (success) {
                 this.refresh();
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Failed to undo action', error);
         }
     }
@@ -82,7 +134,7 @@ export class DashboardStore {
                 if (success) {
                     this.#fixedItems.add(s.id);
                 }
-            } catch (error) {
+            } catch (error: unknown) {
                 console.error(`Failed to fix ${s.id}`, error);
             }
 
@@ -123,7 +175,7 @@ export class DashboardStore {
                     this.#plugin.settings.proximityIgnoreList = [];
                 }
                 this.#plugin.settings.proximityIgnoreList.push(suggestion.link);
-                this.#plugin.saveSettings();
+                void this.#plugin.saveSettings();
             }
         }, 5100);
     }
@@ -160,7 +212,7 @@ export class DashboardStore {
 
         if (leaf && leaf.view instanceof ReasoningView) {
             await leaf.view.setSuggestion(suggestion);
-            this.#plugin.app.workspace.revealLeaf(leaf);
+            void this.#plugin.app.workspace.revealLeaf(leaf);
         }
     }
 
@@ -180,13 +232,13 @@ export class DashboardStore {
                     await this.#plugin.saveSettings();
 
                     // Automatically show reasoning if it was just analyzed
-                    await this.showReasoning(updated);
+                    void this.showReasoning(updated);
                 }
                 new Notice('AI reasoning complete.');
             } else {
-                new Notice('AI Reasoning failed. Check console.');
+                new Notice('AI reasoning failed. Check console.');
             }
-        } catch (e) {
+        } catch (e: unknown) {
             notice.hide();
             console.error(e);
         }
@@ -208,7 +260,7 @@ export class DashboardStore {
 
             if (suggestion.id.startsWith('branch_')) {
                 const sourcePath = suggestion.meta.sourcePath || '';
-                const targetPaths = suggestion.meta.targetPaths || [];
+                const targetPaths = (suggestion.meta.targetPaths as string[]) || [];
                 const context = await this.#plugin.topology.getContextForAIValidation(sourcePath, targetPaths);
 
                 // Sanitize context for T-10-04 Information Disclosure
@@ -219,7 +271,7 @@ export class DashboardStore {
 
                 isValid = await this.#plugin.llm.validateBranching(
                     suggestion.meta.sourceNote || 'Unknown',
-                    suggestion.meta.targetNotes || [],
+                    (suggestion.meta.targetNotes as string[]) || [],
                     sanitizedSource,
                     sanitizedTargets,
                     context.existingRelations,
@@ -252,7 +304,7 @@ export class DashboardStore {
                 isVerifying: false,
                 verificationResult,
             };
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('AI Verification failed', error);
             this.#suggestions[index] = {
                 ...this.#suggestions[index],
@@ -269,7 +321,7 @@ export class DashboardStore {
                 this.#fixedItems.add(suggestion.id);
                 this.refresh();
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error(`Failed to resolve choice for ${suggestion.id}`, error);
         }
     }

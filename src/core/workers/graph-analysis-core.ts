@@ -54,14 +54,31 @@ const WorkerMessageSchema = z.looseObject({
 
 export type WorkerMessage = z.infer<typeof WorkerMessageSchema>;
 
-export type WorkerResponse = {
-    type: 'RESULT' | 'ERROR' | 'PROGRESS';
-    payload: {
-        requestId: string;
-        data?: unknown;
-        message?: string;
-    };
-};
+export type WorkerResponse =
+    | {
+          type: 'RESULT';
+          payload: {
+              requestId: string;
+              data: unknown;
+          };
+      }
+    | {
+          type: 'ERROR';
+          payload: {
+              requestId: string;
+              message: string;
+          };
+      }
+    | {
+          type: 'PROGRESS';
+          payload: {
+              requestId: string;
+              data: {
+                  pct: number;
+                  message: string;
+              };
+          };
+      };
 
 export interface ProgressReporter {
     postProgress: (requestId: string, pct: number, message: string) => void;
@@ -174,7 +191,10 @@ export function handleGraphWorkerMessage(message: WorkerMessage, reporter?: Prog
                     communities: louvain(graph, options as Parameters<typeof louvain>[1]),
                     betweenness:
                         graph.order <= DEFAULT_LIMITS.BETWEENNESS
-                            ? betweennessCentrality(graph, options as Parameters<typeof betweennessCentrality>[1])
+                            ? (betweennessCentrality(
+                                  graph,
+                                  options as Parameters<typeof betweennessCentrality>[1],
+                              ) as Record<string, number>)
                             : null,
                     nodeCount: graph.order,
                     edgeCount: graph.size,
@@ -194,7 +214,7 @@ export function handleGraphWorkerMessage(message: WorkerMessage, reporter?: Prog
             type: 'RESULT',
             payload: { requestId, data: result },
         };
-    } catch (error) {
+    } catch (error: unknown) {
         let message = (error as Error).message || 'Unknown analysis error';
 
         // --- Phase 2 Hardening: Structural Error Formatting ---
@@ -405,19 +425,19 @@ function runTopologicalDiagnostics(
         // Bridge Scrutiny (Depth 2)
         graph.outEdges(a).forEach((edgeAB) => {
             const b = graph.target(edgeAB);
-            const typeAB = graph.getEdgeAttribute(edgeAB, 'type');
+            const typeAB = graph.getEdgeAttribute(edgeAB, 'type') as string | undefined;
 
             if (typeAB) {
                 graph.outEdges(b).forEach((edgeBC) => {
                     const c = graph.target(edgeBC);
-                    const typeBC = graph.getEdgeAttribute(edgeBC, 'type');
+                    const typeBC = graph.getEdgeAttribute(edgeBC, 'type') as string | undefined;
 
                     if (typeAB === typeBC && a !== c && !graph.hasEdge(a, c)) {
                         bridges.push({
                             source: a,
                             target: c,
                             via: b,
-                            type: typeAB as string,
+                            type: typeAB,
                         });
                     }
                 });
@@ -448,8 +468,8 @@ function runTopologicalDiagnostics(
                 for (let i = 0; i < cyclePath.length; i++) {
                     const src = cyclePath[i];
                     const tgt = i === cyclePath.length - 1 ? cyclePath[0] : cyclePath[i + 1];
-                    const edgeType = graph.getEdgeAttribute(src, tgt, 'type');
-                    if (edgeType) edgeTypes.add(edgeType as string);
+                    const edgeType = graph.getEdgeAttribute(src, tgt, 'type') as string | undefined;
+                    if (edgeType) edgeTypes.add(edgeType);
                 }
                 if (edgeTypes.size === 1) {
                     cycleType = Array.from(edgeTypes)[0];
