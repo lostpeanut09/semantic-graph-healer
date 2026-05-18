@@ -117,7 +117,7 @@ export class HealerLogger {
 
     private shouldLog(level: LogLevel): boolean {
         if (!this.settings) return true;
-        const currentLevel = this.settings.logLevel as LogLevel;
+        const currentLevel = this.settings.logLevel;
         return LOG_LEVELS[level] >= LOG_LEVELS[currentLevel];
     }
 

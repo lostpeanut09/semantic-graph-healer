@@ -1,3 +1,4 @@
 ## 2026-05-18 - Avoid array spreading for Set operations in graph algorithms
+
 **Learning:** In heavily utilized web workers for graph analysis, constructing arrays from Sets using `[...set]` for union and intersection sizes introduces significant memory overhead and potential bottlenecks due to frequent allocations and garbage collection cycles.
 **Action:** Use manual iteration on the smaller Set to compute intersections, and apply the inclusion-exclusion formula (`|A| + |B| - |A ∩ B|`) for unions to improve computational performance from O(N+M) to O(min(N,M)) and eliminate intermediate object allocations.

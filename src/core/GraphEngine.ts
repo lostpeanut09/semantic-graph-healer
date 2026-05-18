@@ -83,7 +83,7 @@ export class GraphEngine {
                 this.graph.addNode(f.path, {
                     label: f.basename,
                     size: f.stat.size,
-                } as GraphNodeAttributes);
+                });
                 nodeCount++;
             }
         }
@@ -144,7 +144,7 @@ export class GraphEngine {
             // Serialize graph for the worker
             const nodes: Array<{ key: string; attributes: Record<string, unknown> }> = [];
             this.graph.forEachNode((node, attrs) => {
-                nodes.push({ key: node, attributes: attrs as Record<string, unknown> });
+                nodes.push({ key: node, attributes: attrs });
             });
 
             const edges: Array<{
@@ -156,7 +156,7 @@ export class GraphEngine {
                 edges.push({
                     source,
                     target,
-                    attributes: attrs as Record<string, unknown>,
+                    attributes: attrs,
                 });
             });
 
@@ -309,7 +309,7 @@ export class GraphEngine {
         try {
             const nodes: Array<{ key: string; attributes: Record<string, unknown> }> = [];
             this.graph.forEachNode((node, attrs) => {
-                nodes.push({ key: node, attributes: attrs as Record<string, unknown> });
+                nodes.push({ key: node, attributes: attrs });
             });
 
             const edges: Array<{
@@ -321,7 +321,7 @@ export class GraphEngine {
                 edges.push({
                     source,
                     target,
-                    attributes: attrs as Record<string, unknown>,
+                    attributes: attrs,
                 });
             });
 
@@ -493,7 +493,7 @@ export class GraphEngine {
     private getSerializedNodes() {
         const nodes: Array<{ key: string; attributes: Record<string, unknown> }> = [];
         this.graph.forEachNode((node, attrs) => {
-            nodes.push({ key: node, attributes: attrs as Record<string, unknown> });
+            nodes.push({ key: node, attributes: attrs });
         });
         return nodes;
     }
@@ -508,7 +508,7 @@ export class GraphEngine {
             edges.push({
                 source,
                 target,
-                attributes: attrs as Record<string, unknown>,
+                attributes: attrs,
             });
         });
         return edges;

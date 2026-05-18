@@ -258,10 +258,11 @@ function runSimilarityAnalysis(graph: DirectedGraph, options: unknown, requestId
 
             // ⚡ Bolt: Optimize intersection by iterating smaller set, avoiding array spreading
             const shared = new Set<string>();
-            const [smaller, larger] = sourceNeighbors.size < targetNeighbors.size
-                ? [sourceNeighbors, targetNeighbors]
-                : [targetNeighbors, sourceNeighbors];
-            smaller.forEach(x => {
+            const [smaller, larger] =
+                sourceNeighbors.size < targetNeighbors.size
+                    ? [sourceNeighbors, targetNeighbors]
+                    : [targetNeighbors, sourceNeighbors];
+            smaller.forEach((x) => {
                 if (larger.has(x)) shared.add(x);
             });
 
@@ -356,10 +357,9 @@ function runCoCitationAnalysis(graph: DirectedGraph, options: unknown, requestId
 
             // ⚡ Bolt: Optimize intersection count avoiding array spreading
             let sharedCount = 0;
-            const [smallerParents, largerParents] = parents.size < targetParents.size
-                ? [parents, targetParents]
-                : [targetParents, parents];
-            smallerParents.forEach(p => {
+            const [smallerParents, largerParents] =
+                parents.size < targetParents.size ? [parents, targetParents] : [targetParents, parents];
+            smallerParents.forEach((p) => {
                 if (largerParents.has(p)) sharedCount++;
             });
 

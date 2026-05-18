@@ -48,7 +48,7 @@ export class BreadcrumbsAdapter extends BaseAdapter implements IBreadcrumbsPort 
 
         // fallback: plugin.api (in V4 è proprio BCAPI)
         if (!isObsidianInternalApp(this.app)) return null;
-        const plugin = (this.app as import('../../types').ExtendedApp).plugins.getPlugin('breadcrumbs');
+        const plugin = this.app.plugins.getPlugin('breadcrumbs');
         const api = (plugin as { api?: { get_neighbours?: unknown } })?.api;
         if (api && typeof api.get_neighbours === 'function') return api as BCAPIV4Like;
 
@@ -58,7 +58,7 @@ export class BreadcrumbsAdapter extends BaseAdapter implements IBreadcrumbsPort 
     private getApi(): BreadcrumbsApi | null {
         if (!isObsidianInternalApp(this.app)) return null;
         try {
-            const plugin = (this.app as import('../../types').ExtendedApp).plugins.getPlugin('breadcrumbs');
+            const plugin = this.app.plugins.getPlugin('breadcrumbs');
             if (!plugin?.api) return null;
             const api = plugin.api;
             const graph = api.closedG ?? api.mainG;
