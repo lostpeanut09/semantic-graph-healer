@@ -30,7 +30,7 @@
         "@faker-js/faker": "^10.4.0",
         "@sveltejs/vite-plugin-svelte": "^7.1.2",
         "@types/benchmark": "^2.1.5",
-        "@types/node": "^24.0.0",
+        "@types/node": "^24.12.4",
         "@typescript-eslint/eslint-plugin": "^8.57.2",
         "@typescript-eslint/parser": "^8.57.2",
         "@vitest/ui": "^4.1.0",
@@ -41,6 +41,7 @@
         "eslint": "^10.1.0",
         "eslint-config-prettier": "^10.1.8",
         "eslint-plugin-obsidianmd": "^0.1.9",
+        "graphology-types": "^0.24.8",
         "husky": "^9.1.7",
         "jsdom": "^29.0.2",
         "knip": "^6.0.5",
@@ -66,9 +67,8 @@
         "graphology-communities-louvain": "^2.0.2",
         "graphology-dag": "^0.4.1",
         "graphology-metrics": "^2.4.0",
-        "graphology-types": "^0.24.8",
         "svelte": "^5.55.5",
-        "three": "^0.174.0",
+        "three": "^0.184.0",
         "zod": "^4.3.6"
     },
     "nano-staged": {
