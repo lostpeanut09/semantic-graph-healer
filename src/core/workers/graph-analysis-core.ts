@@ -258,9 +258,10 @@ function runSimilarityAnalysis(graph: DirectedGraph, options: unknown, requestId
 
             // ⚡ Bolt: Optimize Set intersection avoiding Array spread memory allocation
             const shared = new Set<string>();
-            const [smaller, larger] = sourceNeighbors.size < targetNeighbors.size
-                ? [sourceNeighbors, targetNeighbors]
-                : [targetNeighbors, sourceNeighbors];
+            const [smaller, larger] =
+                sourceNeighbors.size < targetNeighbors.size
+                    ? [sourceNeighbors, targetNeighbors]
+                    : [targetNeighbors, sourceNeighbors];
 
             for (const item of smaller) {
                 if (larger.has(item)) shared.add(item);
@@ -357,9 +358,8 @@ function runCoCitationAnalysis(graph: DirectedGraph, options: unknown, requestId
 
             // ⚡ Bolt: Optimize Set intersection counting avoiding Array spread memory allocation
             let sharedCount = 0;
-            const [smaller, larger] = parents.size < targetParents.size
-                ? [parents, targetParents]
-                : [targetParents, parents];
+            const [smaller, larger] =
+                parents.size < targetParents.size ? [parents, targetParents] : [targetParents, parents];
 
             for (const item of smaller) {
                 if (larger.has(item)) sharedCount++;
