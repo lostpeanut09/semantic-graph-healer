@@ -73,10 +73,12 @@ The project has reached v1.0 milestone. All core features (Adapters, Metrics, AI
 - **Current Phase**: Phase 14: WSL Support & Dependency Validation.
 - **Next Steps**: Complete environment enforcement and path normalization.
 
+## Quick Tasks Completed
 
-
-
-
-
-
+| Task | Date | Status |
+| :--- | :--- | :--- |
+| check-wsl-deps | 2026-05-20 | complete ✓ |
+| fix-wsl-deps-plus-terminal-check | 2026-05-20 | complete ✓ |
+| check-online-fixes-may2026 | 2026-05-20 | complete ✓ |
+| rerun-quality-tools | 2026-05-20 | complete ✓ |
 
