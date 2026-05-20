@@ -17,6 +17,6 @@ export default defineConfig({
             inline: ['obsidian'],
         },
         setupFiles: ['@vitest/web-worker'],
-        exclude: ['**/node_modules/**', '**/.kilo/**'],
+        exclude: ['**/node_modules/**', '**/node_modules_bak/**', '**/.kilo/**', '**/.agent/**'],
     },
 });
