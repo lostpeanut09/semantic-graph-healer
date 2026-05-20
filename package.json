@@ -23,7 +23,8 @@
         "test:breadcrumbs": "vitest run tests/core/adapters/BreadcrumbsAdapter.test.ts",
         "test:worker": "vitest run tests/core/workers/GraphAnalysisWorkerCore.test.ts",
         "bench:generate": "tsx scripts/generate-mock-vault.ts",
-        "bench:run": "tsx tests/benchmarks/PerformanceBenchmark.test.ts"
+        "bench:run": "tsx tests/benchmarks/PerformanceBenchmark.test.ts",
+        "postinstall": "husky"
     },
     "keywords": [],
     "author": "lostpeanut09",
@@ -72,6 +73,7 @@
         "graphology-communities-louvain": "^2.0.2",
         "graphology-dag": "^0.4.1",
         "graphology-metrics": "^2.4.0",
+        "pathe": "^2.0.3",
         "svelte": "^5.55.5",
         "three": "^0.184.0",
         "zod": "^4.3.6"
