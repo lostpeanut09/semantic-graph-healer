@@ -255,10 +255,27 @@ function runSimilarityAnalysis(graph: DirectedGraph, options: unknown, requestId
 
         candidates.forEach((target) => {
             const targetNeighbors = neighborsMap.get(target)!;
-            const shared = new Set([...sourceNeighbors].filter((x) => targetNeighbors.has(x)));
+
+            // ⚡ Bolt: Memory & CPU optimization
+            // 💡 What: Replaced Array spreading `new Set([...A].filter(x => B.has(x)))` with manual iteration over the smaller set.
+            // 🎯 Why: Avoids creating intermediate arrays and sets, drastically reducing memory allocations in a hot loop.
+            // 📊 Impact: O(min(|A|, |B|)) instead of O(|A| + |B|). Reduces GC pressure and speeds up similarity computation.
+            const shared = new Set<string>();
+            const [smaller, larger] = sourceNeighbors.size < targetNeighbors.size
+                ? [sourceNeighbors, targetNeighbors]
+                : [targetNeighbors, sourceNeighbors];
+
+            smaller.forEach(x => {
+                if (larger.has(x)) shared.add(x);
+            });
+
             if (shared.size < 2) return;
 
-            const unionSize = new Set([...sourceNeighbors, ...targetNeighbors]).size;
+            // ⚡ Bolt: CPU optimization
+            // 💡 What: Used inclusion-exclusion formula `|A ∪ B| = |A| + |B| - |A ∩ B|` instead of `new Set([...A, ...B]).size`.
+            // 🎯 Why: Replaces expensive Set allocations and iterations with O(1) arithmetic.
+            // 📊 Impact: Eliminates O(|A| + |B|) memory allocation and iteration per candidate pair.
+            const unionSize = sourceNeighbors.size + targetNeighbors.size - shared.size;
             const jaccard = shared.size / unionSize;
 
             let adamicAdar = 0;
@@ -343,7 +360,19 @@ function runCoCitationAnalysis(graph: DirectedGraph, options: unknown, requestId
             processedPairs.add(pairId);
 
             const targetParents = inNeighbors.get(target)!;
-            const sharedCount = [...parents].filter((p) => targetParents.has(p)).length;
+
+            // ⚡ Bolt: Memory & CPU optimization
+            // 💡 What: Replaced `[...parents].filter(p => targetParents.has(p)).length` with manual loop over smaller set.
+            // 🎯 Why: Prevents creating throwaway arrays for intersection counting.
+            // 📊 Impact: O(min(|A|, |B|)) with no allocations, reducing garbage collection pauses in co-citation analysis.
+            let sharedCount = 0;
+            const [smaller, larger] = parents.size < targetParents.size
+                ? [parents, targetParents]
+                : [targetParents, parents];
+
+            smaller.forEach(p => {
+                if (larger.has(p)) sharedCount++;
+            });
 
             if (sharedCount >= minScore) {
                 results.push({ a: source, b: target, score: sharedCount });
