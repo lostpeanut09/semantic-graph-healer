@@ -261,11 +261,12 @@ function runSimilarityAnalysis(graph: DirectedGraph, options: unknown, requestId
             // 🎯 Why: Avoids creating intermediate arrays and sets, drastically reducing memory allocations in a hot loop.
             // 📊 Impact: O(min(|A|, |B|)) instead of O(|A| + |B|). Reduces GC pressure and speeds up similarity computation.
             const shared = new Set<string>();
-            const [smaller, larger] = sourceNeighbors.size < targetNeighbors.size
-                ? [sourceNeighbors, targetNeighbors]
-                : [targetNeighbors, sourceNeighbors];
+            const [smaller, larger] =
+                sourceNeighbors.size < targetNeighbors.size
+                    ? [sourceNeighbors, targetNeighbors]
+                    : [targetNeighbors, sourceNeighbors];
 
-            smaller.forEach(x => {
+            smaller.forEach((x) => {
                 if (larger.has(x)) shared.add(x);
             });
 
@@ -366,11 +367,10 @@ function runCoCitationAnalysis(graph: DirectedGraph, options: unknown, requestId
             // 🎯 Why: Prevents creating throwaway arrays for intersection counting.
             // 📊 Impact: O(min(|A|, |B|)) with no allocations, reducing garbage collection pauses in co-citation analysis.
             let sharedCount = 0;
-            const [smaller, larger] = parents.size < targetParents.size
-                ? [parents, targetParents]
-                : [targetParents, parents];
+            const [smaller, larger] =
+                parents.size < targetParents.size ? [parents, targetParents] : [targetParents, parents];
 
-            smaller.forEach(p => {
+            smaller.forEach((p) => {
                 if (larger.has(p)) sharedCount++;
             });
 
