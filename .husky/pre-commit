@@ -1,14 +1,13 @@
-echo "?? Running Linting and Formatting..."
-npm run lint:fix
-if [ $? -ne 0 ]; then
-  echo "? Linting/Fix failed"
-  exit 1
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+# Detect WSL and normalize PATH if needed
+if grep -q Microsoft /proc/version 2>/dev/null; then
+  export PATH="$PATH:/mnt/c/Program Files/nodejs"
 fi
 
-npm run format
-if [ $? -ne 0 ]; then
-  echo "? Formatting failed"
-  exit 1
-fi
+echo "🔍 Running Linting and Formatting..."
+npm run lint:fix || { echo "❌ Linting/Fix failed"; exit 1; }
+npm run format || { echo "❌ Formatting failed"; exit 1; }
 
-echo "? Pre-commit checks passed"
+echo "✅ Pre-commit checks passed"

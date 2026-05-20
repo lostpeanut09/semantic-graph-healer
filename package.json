@@ -3,6 +3,10 @@
     "version": "3.0.0",
     "type": "module",
     "description": "Topological restoration engine that utilizes Dataview, Breadcrumbs, and ExcaliBrain metadata to identify and resolve structural inconsistencies in the knowledge graph.",
+    "engines": {
+        "node": ">=24.0.0",
+        "npm": ">=11.0.0"
+    },
     "main": "main.js",
     "scripts": {
         "dev": "node .config/esbuild.config.mjs",
@@ -36,7 +40,7 @@
         "@vitest/ui": "^4.1.0",
         "@vitest/web-worker": "^4.1.4",
         "benchmark": "^2.1.4",
-        "esbuild": "^0.20.0",
+        "esbuild": "^0.28.0",
         "esbuild-svelte": "^0.9.5",
         "eslint": "^10.1.0",
         "eslint-config-prettier": "^10.1.8",
@@ -58,9 +62,10 @@
         "typescript": "^5.0.0",
         "typescript-eslint": "^8.57.2",
         "vite": "^8.0.11",
-        "vitest": "^4.1.0"
+        "vitest": "^4.1.6"
     },
     "dependencies": {
+        "@rolldown/binding-linux-x64-gnu": "^1.0.1",
         "3d-force-graph": "^1.80.0",
         "d3-force-3d": "^3.0.6",
         "graphology": "^0.26.0",
