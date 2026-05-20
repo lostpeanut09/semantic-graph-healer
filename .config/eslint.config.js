@@ -128,7 +128,16 @@ export default defineConfig([
 
     // 8. Ignore globals: *.mjs reviewer scripts intentionally skipped (they are Node.js stdio tools, not plugin code)
     {
-        ignores: ['**/*.js', '**/*.mjs', 'node_modules/', '.kilo/', '.agent/', '**/*.test.ts', '**/*.bak'],
+        ignores: [
+            '**/*.js',
+            '**/*.mjs',
+            'node_modules/',
+            'node_modules_bak/',
+            '.kilo/',
+            '.agent/',
+            '**/*.test.ts',
+            '**/*.bak',
+        ],
     },
 
     // 8. Prettier in coda

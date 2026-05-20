@@ -1,5 +1,5 @@
 import { App, TFile } from 'obsidian';
-import { join, basename, dirname } from 'pathe';
+import { basename } from 'pathe';
 import type { DataviewPage, Suggestion } from '../types';
 import { HealerLogger, isObsidianInternalApp, pathToWikilink, generateId } from './HealerUtils';
 

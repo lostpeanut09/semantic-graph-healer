@@ -1,5 +1,5 @@
 import { TFile } from 'obsidian';
-import { join, basename, dirname, normalize } from 'pathe';
+import { basename } from 'pathe';
 import type { Suggestion, DataviewPage } from '../types';
 import {
     HealerLogger,
