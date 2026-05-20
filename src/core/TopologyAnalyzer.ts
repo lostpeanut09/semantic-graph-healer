@@ -1,4 +1,5 @@
 import { TFile } from 'obsidian';
+import { join, basename, dirname, normalize } from 'pathe';
 import type { Suggestion, DataviewPage } from '../types';
 import {
     HealerLogger,
@@ -161,7 +162,7 @@ export class TopologyAnalyzer {
                             // Severity mapping based on strict check
                             const severity =
                                 this.context.settings.strictDownCheck && relType === 'down' ? 'error' : 'suggestion';
-                            const targetBasename = pathB.split('/').pop()?.replace('.md', '') || pathB;
+                            const targetBasename = basename(pathB, '.md');
                             suggestions.push({
                                 id: `missing_reciprocity:${pathA}:${relType}:${pathB}`,
                                 type: 'topology_gap',
@@ -189,7 +190,7 @@ export class TopologyAnalyzer {
                         const targetInvType = relType === 'next' ? 'prev' : 'next';
                         const bTargetsBack = relMaps[targetInvType].get(pathB) || new Set();
                         if (!bTargetsBack.has(pathA)) {
-                            const targetBasename = pathB.split('/').pop()?.replace('.md', '') || pathB;
+                            const targetBasename = basename(pathB, '.md');
                             suggestions.push({
                                 id: `missing_directional_reciprocity:${pathA}:${relType}:${pathB}`,
                                 type: 'topology_gap',

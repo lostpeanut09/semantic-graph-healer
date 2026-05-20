@@ -116,4 +116,25 @@ describe('SmartConnectionsAdapter Hardening', () => {
         // We can't easily verify the "early break" of the loop itself without mocking the loop,
         // but we can verify it doesn't return more than requested.
     });
+
+    it('enforces 5000 max entries limit in queryAjsonFallback', async () => {
+        const mockVault = mockApp.vault as any;
+        mockVault.adapter.exists = vi.fn().mockResolvedValue(true);
+        mockVault.adapter.stat = vi.fn().mockResolvedValue({ size: 100 * 1024 }); // 100KB
+
+        // Temporarily increase cap for this test
+        (mockApp as any).settings.smartConnectionsAjsonSizeCap = 200 * 1024;
+
+        // Generate 5005 entries
+        const items: Record<string, any> = {};
+        for (let i = 0; i < 5005; i++) {
+            items[`target${i}.md`] = { refs: ['folder/note.md'] };
+        }
+        mockVault.adapter.read = vi.fn().mockResolvedValue(JSON.stringify({ items }));
+
+        // We use a high limit to ensure we hit the scanned limit first
+        await (adapter as any).queryAjsonFallback('folder/note.md', 6000);
+
+        expect(HealerLogger.warn).toHaveBeenCalledWith(expect.stringContaining('hit max scan limit (5000)'));
+    });
 });

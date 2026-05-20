@@ -154,4 +154,50 @@ describe('SemanticTagPropagator', () => {
         expect(suggestions[0].meta?.targetNote).toBe('C2');
         expect(suggestions[0].meta?.winner).toBe('science');
     });
+
+    it('should skip clusters with fewer than two children', () => {
+        const mockPages = [
+            { file: { path: 'C1.md', basename: 'C1' }, parent: '[[P]]' },
+            { file: { path: 'P.md', basename: 'P' } },
+        ];
+        mockEngine.getPages.mockReturnValue(mockPages);
+
+        mockApp.metadataCache.getFirstLinkpathDest = vi.fn().mockImplementation((link: string) => {
+            if (link === 'P') return { path: 'P.md' };
+            return null;
+        });
+
+        mockApp.metadataCache.getFileCache.mockImplementation((file: TFile) => {
+            if (file.path === 'P.md') return { tags: [{ tag: '#science' }] };
+            if (file.path === 'C1.md') return { tags: [] };
+            return {};
+        });
+
+        const suggestions = propagator.runTagPropagationAnalysis();
+        expect(suggestions).toHaveLength(0);
+    });
+
+    it('should not suggest anything if coverage is 100%', () => {
+        const mockPages = [
+            { file: { path: 'C1.md', basename: 'C1' }, parent: '[[P]]' },
+            { file: { path: 'C2.md', basename: 'C2' }, parent: '[[P]]' },
+            { file: { path: 'P.md', basename: 'P' } },
+        ];
+        mockEngine.getPages.mockReturnValue(mockPages);
+
+        mockApp.metadataCache.getFirstLinkpathDest = vi.fn().mockImplementation((link: string) => {
+            if (link === 'P') return { path: 'P.md' };
+            return null;
+        });
+
+        mockApp.metadataCache.getFileCache.mockImplementation((file: TFile) => {
+            if (file.path === 'P.md') return { tags: [{ tag: '#science' }] };
+            if (file.path === 'C1.md') return { tags: [{ tag: '#science' }] };
+            if (file.path === 'C2.md') return { tags: [{ tag: '#science' }] };
+            return {};
+        });
+
+        const suggestions = propagator.runTagPropagationAnalysis();
+        expect(suggestions).toHaveLength(0);
+    });
 });

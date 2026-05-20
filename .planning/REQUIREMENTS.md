@@ -26,10 +26,10 @@
 
 ### UX & Visualization (UX/UI)
 
-- [ ] **UI-01**: **High-Fidelity Graph View** — WebGL-based visualization highlighting topological errors (gaps, loops, sinks).
-- [ ] **UI-02**: **In-Graph Healing Interface** — Direct execution of fixes via interactive graph popups.
-- [ ] **UX-01**: **Reactive Healing Dashboard** — Svelte 5 (Runes) based interface with partial re-rendering.
-- [ ] **UX-02**: **Triple Relink Executor** — One-click complex repair for sequential bridge gaps.
+- [x] **UI-01**: **High-Fidelity Graph View** — WebGL-based visualization highlighting topological errors (gaps, loops, sinks).
+- [x] **UI-02**: **In-Graph Healing Interface** — Direct execution of fixes via interactive graph popups.
+- [x] **UX-01**: **Reactive Healing Dashboard** — Svelte 5 (Runes) based interface with partial re-rendering.
+- [x] **UX-02**: **Triple Relink Executor** — One-click complex repair for sequential bridge gaps.
 - [x] **UX-03**: **Sync-Safe Hot Reload** — Detect external `data.json` changes and hot-reload settings.
 - [x] **UX-04**: **Performance Hardening** — Debouncing, notices, and UI responsiveness.
 
@@ -45,6 +45,9 @@
     - [x] **HARDEN-03e**: Parametrize `Promise<...>` for stronger type-safety in adapter interfaces.
     - [x] **HARDEN-03f**: Optimize `UnifiedMetadataAdapter.getLinks()` with `Promise.all`.
     - [x] **HARDEN-03g**: Optimize SmartConnections fallback (size cap, early break).
+- [x] **HARDEN-04**: **Linting & Style Standards** — zero lint warnings, Obsidian HIG compliance (Sentence case).
+- [x] **HARDEN-05**: **Strict Type Safety** — Elimination of `any` and `as any` from core logic and UI.
+- [x] **HARDEN-06**: **CI/CD Quality Gates** — Husky hooks enforce standards on commit/push.
 
 ## v2 Requirements (Deferred)
 
@@ -59,50 +62,34 @@
 
 ## Traceability
 
-| Req ID            | Phase    | Status      |
-| ----------------- | -------- | ----------- |
-| INFRA-01          | Phase 1  | ✓ Validated |
-| INFRA-02          | Phase 1  | ✓ Validated |
-| INFRA-03          | Phase 1  | ✓ Validated |
-| INFRA-04          | Phase 2  | ✓ Validated |
-| INFRA-05          | Phase 1  | ✓ Validated |
-| TOPOL-01          | Phase 5  | ✓ Validated |
-| TOPOL-02          | Phase 6  | ✓ Validated |
-| TOPOL-03          | Phase 6  | ✓ Validated |
-| TOPOL-04          | Phase 5  | ✓ Validated |
-| TOPOL-05          | Phase 5  | ✓ Validated |
-| AI-01             | Phase 7  | ✓ Validated |
-| AI-02             | Phase 8  | ✓ Validated |
-| AI-03             | Phase 7  | ✓ Validated |
-| UX-01             | Phase 10 | Pending     |
-| UX-02             | Phase 11 | Pending     |
-| UX-03             | Phase 3  | ✓ Validated |
-| UX-04             | Phase 3  | ✓ Validated |
-| ADAPTER-01        | Phase 1  | ✓ Validated |
-| ADAPTER-02        | Phase 1  | ✓ Validated |
-| ARCH-01           | Phase 1  | ✓ Validated |
-| ARCH-02           | Phase 1  | ✓ Validated |
-| ARCH-03           | Phase 1  | ✓ Validated |
-| UTIL-01           | Phase 1  | ✓ Validated |
-| UTIL-02           | Phase 1  | ✓ Validated |
-| COMPAT-01         | Phase 1  | ✓ Validated |
-| HARDEN-01         | Phase 2  | ✓ Validated |
-| HARDEN-02         | Phase 2  | ✓ Validated |
-| HARDEN-03         | Phase 4  | ✓ Validated |
-| HARDEN-03a        | Phase 4  | ✓ Validated |
-| HARDEN-03b        | Phase 4  | ✓ Validated |
-| HARDEN-03c        | Phase 4  | ✓ Validated |
-| HARDEN-03d        | Phase 4  | ✓ Validated |
-| HARDEN-03e        | Phase 4  | ✓ Validated |
-| HARDEN-03f        | Phase 4  | ✓ Validated |
-| HARDEN-03g        | Phase 4  | ✓ Validated |
-| UX-01 (Hardening) | Phase 2  | ✓ Validated |
-| EXTRACT-01        | Phase 2  | ✓ Validated |
-| TEST-01           | Phase 2  | ✓ Validated |
-| UI-01             | Phase 9  | Pending     |
-| UI-02             | Phase 9  | Pending     |
-| UI-03             | Phase 10 | Pending     |
+| Req ID     | Phase    | Status       |
+| ---------- | -------- | ------------ |
+| INFRA-01   | Phase 1  | ✓ Validated  |
+| INFRA-02   | Phase 1  | ✓ Validated  |
+| INFRA-03   | Phase 1  | ✓ Validated  |
+| INFRA-04   | Phase 2  | ✓ Validated  |
+| INFRA-05   | Phase 1  | ✓ Validated  |
+| TOPOL-01   | Phase 5  | ✓ Validated  |
+| TOPOL-02   | Phase 6  | ✓ Validated  |
+| TOPOL-03   | Phase 6  | ✓ Validated  |
+| TOPOL-04   | Phase 5  | ✓ Validated  |
+| TOPOL-05   | Phase 5  | ✓ Validated  |
+| AI-01      | Phase 7  | ✓ Validated  |
+| AI-02      | Phase 8  | ✓ Validated  |
+| AI-03      | Phase 7  | ✓ Validated  |
+| UI-01      | Phase 9  | ✓ Validated  |
+| UI-02      | Phase 9  | ✓ Validated  |
+| UX-01      | Phase 10 | ✓ Validated  |
+| UX-02      | Phase 11 | ✓ Validated  |
+| UX-03      | Phase 3  | ✓ Validated  |
+| UX-04      | Phase 3  | ✓ Validated  |
+| HARDEN-01  | Phase 2  | ✓ Validated  |
+| HARDEN-02  | Phase 2  | ✓ Validated  |
+| HARDEN-03  | Phase 4  | ✓ Validated  |
+| HARDEN-04  | Phase 13 | ✓ Validated  |
+| HARDEN-05  | Phase 13 | ✓ Validated  |
+| HARDEN-06  | Phase 13 | ✓ Validated  |
 
 ---
 
-_Last updated: 2026-05-10 after Phase 8 completion_
+_Last updated: 2026-05-18 after Phase 13 completion_

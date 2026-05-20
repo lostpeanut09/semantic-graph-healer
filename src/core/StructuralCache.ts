@@ -57,8 +57,9 @@ export class StructuralCache<T> {
             return undefined;
         }
 
-        // LRU: Refresh position in Map by deleting and re-inserting
+        // LRU: Refresh position in Map and update timestamp
         this.cache.delete(path);
+        entry.timestamp = Date.now();
         this.cache.set(path, entry);
         return entry.value;
     }

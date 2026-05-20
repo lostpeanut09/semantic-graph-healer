@@ -98,4 +98,45 @@ describe('LlmService - AI Tribunal Logic', () => {
         expect(parsed.primaryReasoning).toBe('A is good');
         expect(parsed.secondaryReasoning).toBe('B is better');
     });
+
+    describe('validateTagInheritance', () => {
+        it('should return true if LLM responds YES', async () => {
+            vi.mocked(requestUrl).mockResolvedValueOnce({
+                status: 200,
+                json: {
+                    choices: [{ message: { content: 'YES' } }],
+                },
+            } as any);
+
+            const result = await service.validateTagInheritance('Child', 'tag', 'Parent');
+            expect(result).toBe(true);
+        });
+
+        it('should return false if LLM responds NO', async () => {
+            vi.mocked(requestUrl).mockResolvedValueOnce({
+                status: 200,
+                json: {
+                    choices: [{ message: { content: 'NO' } }],
+                },
+            } as any);
+
+            const result = await service.validateTagInheritance('Child', 'tag', 'Parent');
+            expect(result).toBe(false);
+        });
+
+        it('should use cache for subsequent calls', async () => {
+            vi.mocked(requestUrl).mockResolvedValueOnce({
+                status: 200,
+                json: {
+                    choices: [{ message: { content: 'YES' } }],
+                },
+            } as any);
+
+            await service.validateTagInheritance('Child', 'tag', 'Parent');
+            const result = await service.validateTagInheritance('Child', 'tag', 'Parent');
+
+            expect(requestUrl).toHaveBeenCalledTimes(1);
+            expect(result).toBe(true);
+        });
+    });
 });

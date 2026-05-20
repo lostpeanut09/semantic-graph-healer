@@ -58,9 +58,21 @@ This phase focuses on cross-cutting hardening of the metadata adapter layer. Val
 | HARDEN-03d | `BaseAdapter.test.ts`             | `should throw if not initialized`          |
 | HARDEN-03f | `UnifiedMetadataAdapter.test.ts`  | `should fetch links in parallel`           |
 | HARDEN-03g | `SmartConnectionsAdapter.test.ts` | `should respect 1MB size cap for fallback` |
+| HARDEN-03g | `SmartConnectionsAdapter.harden.test.ts` | `enforces 5000 max entries limit in queryAjsonFallback` |
 
 ## Final Pipeline
 
 1. `npm run lint` (Zero warnings)
 2. `npm run test` (All tests pass)
 3. `npm run build` (Successful build)
+
+
+## Nyquist Audit Confirmation
+
+- **Audit Date**: 2026-05-19
+- **Verifier**: Gemini CLI
+- **Status**: PASSED
+- **Gaps Identified**: 1 (Max entries limit validation)
+- **Gaps Closed**: 1 (Added test case in SmartConnectionsAdapter.harden.test.ts)
+
+All Phase 4 requirements are now validated at the Nyquist frequency, ensuring robust coverage of both logic and performance constraints.

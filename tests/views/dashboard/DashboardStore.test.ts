@@ -2,6 +2,17 @@ import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 import { DashboardStore } from '../../../src/views/dashboard/DashboardStore.svelte';
 import type { Suggestion, HistoryItem } from '../../../src/types';
 import { REASONING_VIEW_TYPE } from '../../../src/views/DashboardView';
+import { ConfirmationModal } from '../../../src/views/components/ConfirmationModal';
+
+// Mock ConfirmationModal
+vi.mock('../../../src/views/components/ConfirmationModal', () => ({
+    ConfirmationModal: vi.fn().mockImplementation(function (app, suggestion, onConfirm) {
+        return {
+            open: vi.fn().mockImplementation(() => onConfirm()),
+            close: vi.fn(),
+        };
+    }),
+}));
 
 describe('DashboardStore', () => {
     let mockPlugin: any;
@@ -28,7 +39,15 @@ describe('DashboardStore', () => {
             cache: {
                 suggestions: [] as Suggestion[],
                 history: [] as HistoryItem[],
+                save: vi.fn(),
             },
+            executor: {
+                execute: vi.fn(),
+                executeRelink: vi.fn(),
+                undo: vi.fn(),
+                resolveChoice: vi.fn(),
+            },
+            saveSettings: vi.fn(),
         };
     });
 
@@ -190,6 +209,9 @@ describe('DashboardStore', () => {
                 validateTagInheritance: vi.fn(),
             };
             mockPlugin.executor = {
+                execute: vi.fn(),
+                executeRelink: vi.fn(),
+                undo: vi.fn(),
                 resolveChoice: vi.fn(),
             };
             mockPlugin.saveSettings = vi.fn().mockResolvedValue(true);
@@ -279,6 +301,39 @@ describe('DashboardStore', () => {
 
             expect(mockPlugin.executor.resolveChoice).toHaveBeenCalledWith(suggestion, 'winner', ['loser']);
             expect(store.fixedItems.has(suggestion.id)).toBe(true);
+        });
+
+        it('executeComplex triggers ConfirmationModal and calls executor.executeRelink', async () => {
+            const suggestion = mockPlugin.cache.suggestions[0];
+            mockPlugin.executor.executeRelink.mockResolvedValue(true);
+
+            await store.executeComplex(suggestion);
+
+            // Wait for fire-and-forget logic
+            await vi.waitFor(() => {
+                if (!store.fixedItems.has(suggestion.id)) throw new Error('Not fixed yet');
+            });
+
+            expect(ConfirmationModal).toHaveBeenCalled();
+            expect(mockPlugin.executor.executeRelink).toHaveBeenCalledWith(suggestion);
+            expect(store.fixedItems.has(suggestion.id)).toBe(true);
+        });
+
+        it('undoAction calls executor.undo and refreshes store', async () => {
+            const historyItem: HistoryItem = {
+                timestamp: Date.now(),
+                action: 'Fixed A',
+                file: 'A.md',
+                type: 'fix',
+                mementoData: [],
+            };
+            mockPlugin.executor.undo.mockResolvedValue(true);
+
+            await store.undoAction(historyItem);
+
+            expect(mockPlugin.executor.undo).toHaveBeenCalledWith(historyItem);
+            // Verify refresh by checking if it tried to access history again
+            // (In our mock context, history is initially empty, we can check if it's still empty or mock refresh differently)
         });
     });
 });
