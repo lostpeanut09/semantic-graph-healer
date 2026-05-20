@@ -1,4 +1,5 @@
 import { App, TFile } from 'obsidian';
+import { join, basename, dirname } from 'pathe';
 import type { DataviewPage, Suggestion } from '../types';
 import { HealerLogger, isObsidianInternalApp, pathToWikilink, generateId } from './HealerUtils';
 
@@ -149,7 +150,7 @@ export class SmartConnectionsAdapter {
 
                 const content = await adapter.read(f);
                 if (content.includes(`"${sourcePath}"`)) {
-                    const targetBase = f.split('/').pop()?.replace('.ajson', '') || f;
+                    const targetBase = basename(f, '.ajson');
                     const targetFile = this.app.metadataCache.getFirstLinkpathDest(targetBase, sourcePath);
 
                     let link = `[[${targetBase}]]`;
