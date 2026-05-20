@@ -41,10 +41,9 @@ export class LinkPredictionEngine {
 
             if (!results) return [];
 
-            let scAdapter: SmartConnectionsAdapter | null = null;
-            if (this.context.settings.enableSmartConnections) {
-                scAdapter = new SmartConnectionsAdapter(this.context.app);
-            }
+            const scAdapter = this.context.settings.enableSmartConnections
+                ? new SmartConnectionsAdapter(this.context.app)
+                : null;
 
             const suggestions: Suggestion[] = [];
             for (const res of results) {

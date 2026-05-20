@@ -31,7 +31,12 @@ export const Platform = {
     isLinux: false,
 };
 
-export class ItemView {}
+export class ItemView {
+    public contentEl: HTMLElement;
+    constructor(leaf: WorkspaceLeaf) {
+        this.contentEl = document.createElement('div');
+    }
+}
 export class WorkspaceLeaf {}
 export class Modal {
     public contentEl: HTMLElement;
@@ -119,3 +124,18 @@ export class ButtonComponent {
     }
 }
 export const setCssProps = (el: HTMLElement, props: Record<string, string>) => {};
+
+// Extend HTMLElement for JSDOM
+if (typeof HTMLElement !== 'undefined') {
+    HTMLElement.prototype.empty = function(this: HTMLElement) {
+        this.innerHTML = '';
+    };
+    // @ts-ignore
+    HTMLElement.prototype.createDiv = function(this: HTMLElement, options?: { cls?: string; text?: string }) {
+        const div = document.createElement('div');
+        if (options?.cls) div.className = options.cls;
+        if (options?.text) div.textContent = options.text;
+        this.appendChild(div);
+        return div;
+    };
+}

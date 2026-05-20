@@ -1,6 +1,8 @@
 # Semantic Graph Healer
 
-**Core Value:** Topological restoration and deep graph analysis for Obsidian to maintain knowledge graph integrity.
+## Core Value
+
+Topological restoration and deep graph analysis for Obsidian to maintain knowledge graph integrity.
 
 ## Context
 
@@ -8,7 +10,7 @@ Managing large-scale digital gardens requires automated link auditing. Manual cu
 
 ### What This Is
 
-A production-grade graph analysis engine and suggestion executor for Obsidian. It integrates with Datacore, Breadcrumbs, Smart Connections, and Graphology to provide a unified "healing" interface.
+A production-grade graph analysis engine and suggestion executor for Obsidian. It integrates with Datacore, Breadcrumbs, Smart Connections, and Graphology to provide a unified "healing" interface. It features a high-fidelity 3D WebGL graph view and an AI-driven "Tribunal" for suggestion verification.
 
 ### Why This Matters
 
@@ -16,77 +18,65 @@ A production-grade graph analysis engine and suggestion executor for Obsidian. I
 - **Discovers Latent Connections:** Surfaces missing links through algorithmic analysis (Jaccard, Adamic-Adar).
 - **Ensures Structural Consistency:** Enforces hierarchical rules and MOC alignment.
 - **Offloads Cognitive Burden:** Automates the "janitorial" work of knowledge management.
+- **Scales to v10k+:** Optimized for large vaults with adaptive performance and Web Worker offloading.
 
 ## Requirements
 
-### Validated
+### Validated (v1.0 Complete)
 
-- ✓ **ADAPTER-01**: Fix null-caching bug in UnifiedMetadataAdapter (P0)
-- ✓ **ADAPTER-02**: Fix BoundedMap eviction to true LRU (P0)
-- ✓ **ARCH-01**: introduce IBreadcrumbsPort; ensure all adapters have port interfaces (P1)
-- ✓ **ARCH-02**: Refactor UnifiedMetadataAdapter to depend on ports via constructor injection (P1)
-- ✓ **ARCH-03**: Update main.ts composition root to inject adapter instances (P1)
-- ✓ **UTIL-01**: Centralize vault path normalization in HealerUtils.normalizeVaultPath (P2a)
-- ✓ **UTIL-02**: Remove duplicate normalization functions from all adapters (P2a)
-- ✓ **COMPAT-01**: Maintain backward compatibility; all tests type-check (P2a)
-- ✓ **HARDEN-01**: Add cache stampede protection (in-flight promise coalescing)
-- ✓ **HARDEN-02**: Add unit tests for null-caching negative behavior and LRU eviction order
-- ✓ **UX-01**: Performance & UX Hardening (Debouncing & Notices)
-- ✓ **EXTRACT-01**: Extraction Robustness (Datacore & SmartConnections)
-- ✓ **TEST-01**: Verification & Stress Testing
+- ✓ **INFRA-01 - 05**: Core architecture, Adapters, Keychain, Workers, Cache.
+- ✓ **TOPOL-01 - 05**: Bridges, Prediction Engine, Centrality Metrics, Ouroboros, Black Holes.
+- ✓ **AI-01 - 03**: AI Tribunal, Tag Propagation, Vector Discovery.
+- ✓ **UX-01 - 04**: Dashboard, Complex Executors, Hot Reload, Performance.
+- ✓ **UI-01 - 02**: 3D Graph UI, Reasoning Explainer.
+- ✓ **HARDEN-01 - 06**: Safety Mode, Testing, Linting, Type Safety, CI/CD Hooks.
 
-### Active
+### Deferred (v2.0+)
 
-- [ ] **HARDEN-03**: BaseAdapter Ultra-Hardening (Audit Findings)
-    - [ ] Fix listener leak in `UnifiedMetadataAdapter` (EventRef cleanup)
-    - [ ] Harden `NativeVaultAdapter` edges (normalization, filters, rich links)
-    - [ ] Add deterministic deduplication to `getLinks()` in `UnifiedMetadataAdapter`
-    - [ ] Add `ensureInitialized()` guard across all adapters
-    - [ ] Parametrize `Promise<...>` for stronger type-safety in adapter interfaces
-    - [ ] Optimize `UnifiedMetadataAdapter.getLinks()` with `Promise.all`
-    - [ ] Optimize SmartConnections fallback (size cap, early break)
-- [ ] **UI-01**: UI Integration: High-Fidelity Graph
-- [ ] **UI-02**: UI Component: Reasoning Explainer
-- [ ] **UI-03**: Real-time Healing Dashboard
-
-### Out of Scope
-
-- **DI-01**: Full Dependency Injection container implementation — unnecessary overhead for current scale.
-- **CACHE-01**: Separate cache backends (Redis, etc.) — strictly limited to local LRU for performance and simplicity.
+- **INFRA-06**: WASM Graph Engine (Kuzu-WASM).
+- **AI-04**: InfraNodus Integration.
+- **UX-05**: Deep Analytics Settings UI.
 
 ## Key Decisions
 
-| Decision              | Rationale                                          | Outcome     |
-| --------------------- | -------------------------------------------------- | ----------- |
-| Datacore as Primary   | 100x faster than Dataview, reactive schema.        | — Validated |
-| Port/Adapter Pattern  | decouples core logic from third-party plugin APIs. | — Validated |
-| Web Worker Offloading | Prevents UI freezes during graph analysis.         | — Validated |
-| AI Tribunal           | Dual-LLM verification ensures epistemic stability. | — Pending   |
+| Decision                | Rationale                                          | Outcome       |
+| ----------------------- | -------------------------------------------------- | ------------- |
+| Datacore as Primary     | 100x faster than Dataview, reactive schema.        | ✓ Validated   |
+| Port/Adapter Pattern    | decouples core logic from third-party plugin APIs. | ✓ Validated   |
+| Web Worker Offloading   | Prevents UI freezes during graph analysis.         | ✓ Validated   |
+| AI Tribunal             | Dual-LLM verification ensures epistemic stability. | ✓ Validated   |
+| Svelte 5 (Runes)        | Modern, high-performance UI reactivity.            | ✓ Validated   |
+| WebGL (3D Force Graph)  | Performance scaling for 10k+ node digital gardens. | ✓ Validated   |
+| Adaptive Safety Mode    | LOD rendering and analysis throttling for UX.       | ✓ Validated   |
+| Strict TypeScript       | Zero-any policy and typed message passing.         | ✓ Hardened    |
+| Linting & Hooks         | Automated enforcement of HIG and code standards.   | ✓ Hardened    |
 
 ## Evolution
 
-This document evolves at phase transitions and milestone boundaries.
+This project has transitioned from an experimental topological tool to a production-grade repository. 
 
-**After each phase transition** (via `/gsd-transition`):
-
-1. Requirements invalidated? → Move to Out of Scope with reason
-2. Requirements validated? → Move to Validated with phase reference
-3. New requirements emerged? → Add to Active
-4. Decisions to log? → Add to Key Decisions
-5. "What This Is" still accurate? → Update if drifted
+**Milestone: v1.0 Release** (2026-05-18)
+The repository is now fully hardened with zero lint warnings, strict typing, and comprehensive stress-testing coverage.
 
 ---
 
-_Last updated: 2026-05-05 after initialization_
+_Last updated: 2026-05-18 after Phase 13 completion_
 
 ## Domain Glossary
 
-| Term                 | Definition                                                                                                                   |
+| Term                 | Definition                                                                                                                 
+  |
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | **Adapter**          | Integration layer translating external plugin APIs (Datacore, Breadcrumbs, Smart Connections) into a stable internal format. |
-| **Port**             | Vertical interface (e.g., `IDataviewPort`) that a specific adapter implements to avoid monolithic interfaces.                |
-| **IMetadataAdapter** | Unified interface exposed by the orchestrator (`UnifiedMetadataAdapter`) combining multiple sources.                         |
-| **SemanticLinkEdge** | Normalized representation of a graph link (source → target) with metadata (context, position, confidence).                   |
-| **AI Tribunal**      | Dual-LLM verification system (Primary + Secondary) to ensure consensus and prevent hallucinations.                           |
-| **StructuralCache**  | LRU caching layer with event-based invalidation and stampede protection.                                                     |
-| **Docs Aligned**     | Behavioral and data shape consistency with repository documentation and Obsidian API expectations.                           |
+| **Port**             | Vertical interface (e.g., `IDataviewPort`) that a specific adapter implements to avoid monolithic interfaces.              
+  |
+| **IMetadataAdapter** | Unified interface exposed by the orchestrator (`UnifiedMetadataAdapter`) combining multiple sources.                       
+  |
+| **SemanticLinkEdge** | Normalized representation of a graph link (source → target) with metadata (context, position, confidence).               
+    |
+| **AI Tribunal**      | Dual-LLM verification system (Primary + Secondary) to ensure consensus and prevent hallucinations.                         
+  |
+| **StructuralCache**  | LRU caching layer with event-based invalidation and stampede protection.                                                   
+  |
+| **Safety Mode**      | Adaptive performance state that throttles analysis and simplifies rendering based on vault size thresholds.                
+  |

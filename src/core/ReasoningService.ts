@@ -1,4 +1,5 @@
 import { App, TFile } from 'obsidian';
+import { join, basename, dirname } from 'pathe';
 import type { Suggestion, DataviewApi, ReasoningResult, SemanticGraphHealerSettings } from '../types';
 import { HealerLogger, resolveTargetFile, formatIncongruencePrompt, calculateHtrScore } from './HealerUtils';
 import { SmartConnectionsAdapter } from './DataAdapter';
@@ -32,7 +33,7 @@ export class ReasoningService {
         const noteName =
             suggestion.meta?.targetNote ||
             suggestion.meta?.sourceNote ||
-            (suggestion.meta?.sourcePath ? suggestion.meta.sourcePath.split('/').pop()?.replace('.md', '') : null);
+            (suggestion.meta?.sourcePath ? basename(suggestion.meta.sourcePath, '.md') : null);
 
         const prop = suggestion.meta?.property;
         const values = suggestion.meta?.competingValues ?? suggestion.meta?.losers;
@@ -134,7 +135,7 @@ export class ReasoningService {
 
             if (!cFile) continue;
 
-            const folderDepth = cFile.path.split('/').length;
+            const folderDepth = cFile.path.split('/').length; // Obsidian paths are always forward-slash
             let scScore = 0;
 
             // Use cached SC results

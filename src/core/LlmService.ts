@@ -183,6 +183,10 @@ export class LlmService {
 
             try {
                 const response = await makeRequest();
+                if (!response) {
+                    HealerLogger.warn(`LLM [${model}] returned undefined response.`);
+                    throw new Error('Undefined response');
+                }
                 HealerLogger.debug(`LlmService: Response status from ${model}: ${response.status}`);
 
                 const shouldRetry =
@@ -299,6 +303,12 @@ export class LlmService {
                 secondaryModel,
                 this.settings.secondaryTimeout,
             );
+
+            if (secondResult.startsWith('Error:')) {
+                HealerLogger.warn('AI Tribunal secondary model returned an error. Falling back to primary result.');
+                return `${result}\n\n<tribunal_audit>\nStatus: STABLE\nConfidenceScore: ${primaryConfidence}\nPrimaryReasoning: ${primaryParsed.winnerWhy || 'N/A'}\nNote: Secondary model failed with error.\n</tribunal_audit>`;
+            }
+
             const secondaryParsed = this.parseReasoningResult(secondResult);
             secondWinner = secondaryParsed.winner?.toLowerCase() || '';
             secondaryConfidence = secondaryParsed.winnerScore || 0;
