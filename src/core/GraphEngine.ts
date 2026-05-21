@@ -23,16 +23,8 @@ export class GraphEngine {
     /**
      * ✅ NEW: Expose the internal graph for visualization (Phase 9).
      */
-    public getGraph(): DirectedGraph {
-        return this.graph;
-    }
-
-    private get app(): App {
-        return this.context.app;
-    }
-
-    private get settings(): SemanticGraphHealerSettings {
-        return this.context.settings;
+    public getTopologicalMetrics(): TopologicalMetrics {
+        return this.cache;
     }
 
     private get cache(): TopologicalMetrics {

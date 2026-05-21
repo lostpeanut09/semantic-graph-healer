@@ -345,6 +345,7 @@ export interface SemanticGraphHealerSettings {
     tagPropagationThreshold?: number;
     tagPropagationExclusions?: string[];
     enableSemanticAudit: boolean;
+    graphRagIndexDir: string;
     // Logging & Performance
     logLevel: 'debug' | 'info' | 'warn' | 'error';
     enableFileLogging: boolean;
@@ -594,6 +595,7 @@ export const DEFAULT_SETTINGS: SemanticGraphHealerSettings = {
     tagPropagationThreshold: 0.5,
     tagPropagationExclusions: ['MOC', 'Index', 'Dashboard'],
     enableSemanticAudit: false,
+    graphRagIndexDir: '.planning/index',
     logLevel: 'info',
     enableFileLogging: false,
     logFilePath: 'SemanticGraphHealer/logs',
