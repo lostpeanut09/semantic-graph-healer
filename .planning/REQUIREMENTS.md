@@ -62,33 +62,33 @@
 
 ## Traceability
 
-| Req ID     | Phase    | Status       |
-| ---------- | -------- | ------------ |
-| INFRA-01   | Phase 1  | ✓ Validated  |
-| INFRA-02   | Phase 1  | ✓ Validated  |
-| INFRA-03   | Phase 1  | ✓ Validated  |
-| INFRA-04   | Phase 2  | ✓ Validated  |
-| INFRA-05   | Phase 1  | ✓ Validated  |
-| TOPOL-01   | Phase 5  | ✓ Validated  |
-| TOPOL-02   | Phase 6  | ✓ Validated  |
-| TOPOL-03   | Phase 6  | ✓ Validated  |
-| TOPOL-04   | Phase 5  | ✓ Validated  |
-| TOPOL-05   | Phase 5  | ✓ Validated  |
-| AI-01      | Phase 7  | ✓ Validated  |
-| AI-02      | Phase 8  | ✓ Validated  |
-| AI-03      | Phase 7  | ✓ Validated  |
-| UI-01      | Phase 9  | ✓ Validated  |
-| UI-02      | Phase 9  | ✓ Validated  |
-| UX-01      | Phase 10 | ✓ Validated  |
-| UX-02      | Phase 11 | ✓ Validated  |
-| UX-03      | Phase 3  | ✓ Validated  |
-| UX-04      | Phase 3  | ✓ Validated  |
-| HARDEN-01  | Phase 2  | ✓ Validated  |
-| HARDEN-02  | Phase 2  | ✓ Validated  |
-| HARDEN-03  | Phase 4  | ✓ Validated  |
-| HARDEN-04  | Phase 13 | ✓ Validated  |
-| HARDEN-05  | Phase 13 | ✓ Validated  |
-| HARDEN-06  | Phase 13 | ✓ Validated  |
+| Req ID    | Phase    | Status      |
+| --------- | -------- | ----------- |
+| INFRA-01  | Phase 1  | ✓ Validated |
+| INFRA-02  | Phase 1  | ✓ Validated |
+| INFRA-03  | Phase 1  | ✓ Validated |
+| INFRA-04  | Phase 2  | ✓ Validated |
+| INFRA-05  | Phase 1  | ✓ Validated |
+| TOPOL-01  | Phase 5  | ✓ Validated |
+| TOPOL-02  | Phase 6  | ✓ Validated |
+| TOPOL-03  | Phase 6  | ✓ Validated |
+| TOPOL-04  | Phase 5  | ✓ Validated |
+| TOPOL-05  | Phase 5  | ✓ Validated |
+| AI-01     | Phase 7  | ✓ Validated |
+| AI-02     | Phase 8  | ✓ Validated |
+| AI-03     | Phase 7  | ✓ Validated |
+| UI-01     | Phase 9  | ✓ Validated |
+| UI-02     | Phase 9  | ✓ Validated |
+| UX-01     | Phase 10 | ✓ Validated |
+| UX-02     | Phase 11 | ✓ Validated |
+| UX-03     | Phase 3  | ✓ Validated |
+| UX-04     | Phase 3  | ✓ Validated |
+| HARDEN-01 | Phase 2  | ✓ Validated |
+| HARDEN-02 | Phase 2  | ✓ Validated |
+| HARDEN-03 | Phase 4  | ✓ Validated |
+| HARDEN-04 | Phase 13 | ✓ Validated |
+| HARDEN-05 | Phase 13 | ✓ Validated |
+| HARDEN-06 | Phase 13 | ✓ Validated |
 
 ---
 
