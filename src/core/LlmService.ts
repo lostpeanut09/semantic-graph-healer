@@ -1,7 +1,7 @@
 import { requestUrl } from 'obsidian';
 import type { RequestUrlParam } from 'obsidian';
 import type { SemanticGraphHealerSettings, ReasoningResult } from '../types';
-import { HealerLogger, getProviderFromEndpoint } from './HealerUtils';
+import { HealerLogger, getProviderFromEndpoint, cosineSimilarity } from './HealerUtils';
 import type { ApiKeyType } from './HealerUtils';
 
 /**
@@ -68,8 +68,22 @@ export class LlmService {
     /**
      * Executes an AI query against the configured provider.
      */
-    public async callLlm(prompt: string, useTribunal: boolean = false, signal?: AbortSignal): Promise<string> {
+    public async callLlm(
+        prompt: string,
+        useTribunal: boolean = false,
+        signal?: AbortSignal,
+        embeddings?: { source: number[]; target: number[] },
+    ): Promise<string> {
         if (signal?.aborted) throw new Error('AbortError');
+
+        // STAGE 0 PRE-FILTER (HARDEN-08)
+        if (useTribunal && this.settings.enableAiTribunal && embeddings) {
+            const similarity = cosineSimilarity(embeddings.source, embeddings.target);
+            if (similarity < 0.4) {
+                HealerLogger.info(`LlmService: Tribunal Bypassed (Stage 0). Similarity ${similarity.toFixed(4)} < 0.4`);
+                return `REJECTED\n\n<tribunal_audit>\nStatus: REJECTED\nConfidenceScore: 0\nPrimaryReasoning: SEMANTIC_UNRELATED\n</tribunal_audit>`;
+            }
+        }
 
         const primaryProvider = getProviderFromEndpoint(this.settings.llmEndpoint);
         const primaryKeyType = primaryProvider === 'openai' ? 'openai' : primaryProvider;
@@ -744,7 +758,8 @@ Only return the JSON. No markdown or meta-talk.
             if (auditMatch) {
                 const auditContent = auditMatch[1];
                 const statusMatch = auditContent.match(/Status:\s*([A-Z]+)/i);
-                if (statusMatch) result.verdict = statusMatch[1].toUpperCase() as 'STABLE' | 'CONFLICT' | 'UNCERTAIN';
+                if (statusMatch)
+                    result.verdict = statusMatch[1].toUpperCase() as 'STABLE' | 'CONFLICT' | 'UNCERTAIN' | 'REJECTED';
 
                 const confMatch = auditContent.match(/ConfidenceScore:\s*(\d+)/i);
                 if (confMatch) result.confidenceScore = parseInt(confMatch[1], 10);

@@ -230,7 +230,7 @@ export interface ReasoningResult {
     runnerUpScore: number;
     runnerUpWhy: string;
     rawResponse: string;
-    verdict?: 'STABLE' | 'CONFLICT' | 'UNCERTAIN';
+    verdict?: 'STABLE' | 'CONFLICT' | 'UNCERTAIN' | 'REJECTED';
     confidenceScore?: number;
     primaryReasoning?: string;
     secondaryReasoning?: string;
@@ -369,9 +369,15 @@ export interface SemanticGraphHealerSettings {
     safetyModeThresholdMobile: number;
     performanceMode?: 'Standard' | 'Safety'; // Runtime state
 
-    // Topological Diagnostics
+    // Phase 5: Topological Diagnostics
     ouroborosScope: 'universal' | 'boundary';
     blackHoleThreshold: number;
+
+    // Phase 15: Embeddings
+    embeddingProvider: 'ollama' | 'localai' | 'openai';
+    embeddingModel: string;
+    embeddingEndpoint: string;
+    embeddingDimensions: number;
 
     // Encrypted Keys
     openaiLlmApiKeyEncrypted?: string;
@@ -610,4 +616,8 @@ export const DEFAULT_SETTINGS: SemanticGraphHealerSettings = {
     performanceMode: 'Standard',
     ouroborosScope: 'universal',
     blackHoleThreshold: 7,
+    embeddingProvider: 'ollama',
+    embeddingModel: 'nomic-embed-text',
+    embeddingEndpoint: 'http://localhost:11434',
+    embeddingDimensions: 768,
 };
