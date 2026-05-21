@@ -52,7 +52,10 @@ const mainCtx = await esbuild.context({
 // Worker build: IIFE for web worker environment
 const workerCtx = await esbuild.context({
     ...commonConfig,
-    entryPoints: { worker: 'src/core/workers/graph-analysis-worker.ts' },
+    entryPoints: {
+        worker: 'src/core/workers/graph-analysis-worker.ts',
+        'ladybug-worker': 'src/core/workers/ladybug-worker.ts',
+    },
     platform: 'browser',
     format: 'iife',
     target: 'es2020',
