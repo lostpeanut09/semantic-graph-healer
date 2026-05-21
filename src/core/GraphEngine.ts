@@ -399,10 +399,10 @@ export class GraphEngine {
                 const fileB = this.app.vault.getAbstractFileByPath(b);
                 if (!(fileA instanceof TFile) || !(fileB instanceof TFile)) continue;
 
-            const cocitationId = a < b ? `${a}::${b}` : `${b}::${a}`;
+                const cocitationId = a < b ? `${a}::${b}` : `${b}::${a}`;
 
                 suggestions.push({
-                id: `cocitation:${cocitationId}`,
+                    id: `cocitation:${cocitationId}`,
                     type: 'deterministic',
                     link: `[[${fileB.basename}]]`,
                     source: `Co-Citation (score: ${score}): [[${fileA.basename}]] and [[${fileB.basename}]] are cited together in ${score} note(s).`,
