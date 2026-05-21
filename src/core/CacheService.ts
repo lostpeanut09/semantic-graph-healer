@@ -21,6 +21,7 @@ interface HealerCache {
     pendingSuggestions: Suggestion[];
     history: HistoryItem[];
     topologicalScores: TopologicalMetrics;
+    vectorEmbeddings: Record<string, { vector: number[]; hash: string }>;
 }
 
 const DEFAULT_CACHE: HealerCache = {
@@ -33,6 +34,7 @@ const DEFAULT_CACHE: HealerCache = {
         lastAnalysisTimestamp: 0,
         graphVersion: '',
     },
+    vectorEmbeddings: {},
 };
 
 export class CacheService {
@@ -90,6 +92,10 @@ export class CacheService {
                         pendingSuggestions: Array.isArray(parsed.pendingSuggestions) ? parsed.pendingSuggestions : [],
                         history: Array.isArray(parsed.history) ? parsed.history : [],
                         topologicalScores: parsed.topologicalScores || { ...DEFAULT_CACHE.topologicalScores },
+                        vectorEmbeddings:
+                            parsed.vectorEmbeddings && typeof parsed.vectorEmbeddings === 'object'
+                                ? parsed.vectorEmbeddings
+                                : {},
                     };
                 } catch (parseError) {
                     // PRESERVE CORRUPTION: Rename bad file instead of deleting
@@ -173,6 +179,25 @@ export class CacheService {
             });
 
         return this._savePromise;
+    }
+
+    /**
+     * Retrieves a stored embedding for a note if the hash matches.
+     */
+    getStoredEmbedding(notePath: string, contentHash: string): number[] | null {
+        const entry = this._cache.vectorEmbeddings[notePath];
+        if (entry && entry.hash === contentHash) {
+            return entry.vector;
+        }
+        return null;
+    }
+
+    /**
+     * Stores an embedding for a note with its content hash.
+     */
+    storeEmbedding(notePath: string, vector: number[], contentHash: string): void {
+        this._cache.vectorEmbeddings[notePath] = { vector, hash: contentHash };
+        this.save();
     }
 
     /**

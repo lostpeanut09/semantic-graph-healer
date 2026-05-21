@@ -118,6 +118,12 @@ export const SettingsSchema = z
         ouroborosScope: z.enum(['universal', 'boundary']).default('universal'),
         blackHoleThreshold: z.number().default(7),
 
+        // Phase 15: Embeddings
+        embeddingProvider: z.enum(['ollama', 'localai', 'openai']).default('ollama'),
+        embeddingModel: z.string().default('nomic-embed-text'),
+        embeddingEndpoint: z.string().default('http://localhost:11434'),
+        embeddingDimensions: z.number().default(768),
+
         // --- Encrypted Keys (P0 Audit Fix) ---
         openaiLlmApiKeyEncrypted: z.string().optional(),
         anthropicLlmApiKeyEncrypted: z.string().optional(),
