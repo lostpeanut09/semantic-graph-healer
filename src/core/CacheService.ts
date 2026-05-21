@@ -73,6 +73,10 @@ export class CacheService {
         this._cache.topologicalScores = value;
     }
 
+    get vectorEmbeddings(): Record<string, { vector: number[]; hash: string }> {
+        return this._cache.vectorEmbeddings;
+    }
+
     // ─── Core Operations ────────────────────────────────────────────────────────
 
     /**

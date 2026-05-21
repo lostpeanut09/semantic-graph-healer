@@ -34,7 +34,7 @@ export class TopologyAnalyzer {
         // Hybrid Batching SOTA 2026: Mobile vs Desktop Optimization
         this.BATCH_SIZE = Platform.isMobile ? 20 : 100;
         this.YIELD_INTERVAL = Platform.isMobile ? 120 : 0; // 120ms yield for mobile responsiveness
-        
+
         const storage = new AjsonStorage(this.context.app.vault.adapter);
         const graphEngine = new GraphEngine(this.context);
         this.crossThematicProvider = new CrossThematicProvider(graphEngine, storage, this.context.settings);
@@ -971,19 +971,24 @@ export class TopologyAnalyzer {
         const pages = this.engine.getPages(query);
 
         // Access vector embeddings from the global cache
-        const cache = this.context.cache as unknown;
-        const embeddings = cache._cache?.vectorEmbeddings || {};
+        const embeddings = this.context.cache.vectorEmbeddings || {};
 
         const resolvedLinks = this.context.app.metadataCache.resolvedLinks;
 
-        pages.forEach((page) => {
+        let processedCount = 0;
+        for (const page of pages) {
+            processedCount++;
+            if (this.YIELD_INTERVAL > 0 && processedCount % this.BATCH_SIZE === 0) {
+                await sleep(this.YIELD_INTERVAL);
+            }
+
             const pathA = page.file.path;
             const targets = resolvedLinks[pathA];
 
-            if (!targets) return;
+            if (!targets) continue;
 
             const vectorA = embeddings[pathA]?.vector;
-            if (!vectorA) return;
+            if (!vectorA) continue;
 
             for (const pathB of Object.keys(targets)) {
                 if (pathA === pathB) continue;
@@ -1017,7 +1022,7 @@ export class TopologyAnalyzer {
                     });
                 }
             }
-        });
+        }
 
         return suggestions;
     }

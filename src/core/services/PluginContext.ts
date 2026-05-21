@@ -12,7 +12,7 @@ import type { PerformanceService } from './PerformanceService';
 export interface AnalysisContext {
     app: App;
     settings: SemanticGraphHealerSettings;
-    cache: Pick<CacheService, 'suggestions' | 'save' | 'pushHistory' | 'topologicalScores'>;
+    cache: Pick<CacheService, 'suggestions' | 'save' | 'pushHistory' | 'topologicalScores' | 'vectorEmbeddings'>;
     graphWorkerService: GraphWorkerService;
     performanceService: PerformanceService;
 }
@@ -28,7 +28,7 @@ export interface ExecutionContext extends AnalysisContext {
 export interface GraphContext {
     app: App;
     settings: SemanticGraphHealerSettings;
-    cache: Pick<CacheService, 'topologicalScores' | 'save'>;
+    cache: Pick<CacheService, 'topologicalScores' | 'save' | 'vectorEmbeddings'>;
     graphWorkerService: GraphWorkerService;
     performanceService: PerformanceService;
 }
