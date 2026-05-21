@@ -10,6 +10,7 @@ import {
     safeString,
     isObsidianInternalApp,
     sleep,
+    cosineSimilarity,
 } from './HealerUtils';
 
 import type { IMetadataAdapter } from './adapters/IMetadataAdapter';
@@ -946,6 +947,70 @@ export class TopologyAnalyzer {
                 }
             }
         }
+
+        return suggestions;
+    }
+
+    /**
+     * âœ… NEW: Semantic Incongruence Diagnostic (Phase 15, HARDEN-04/D-04)
+     * Scans existing links and flags them if the semantic similarity is below a threshold.
+     */
+    public async runSemanticIncongruenceAnalysis(): Promise<Suggestion[]> {
+        HealerLogger.info('Starting Semantic Incongruence Analysis...');
+        const suggestions: Suggestion[] = [];
+        const threshold = 0.2; // Default threshold
+
+        const query = this.getScanQuery();
+        const pages = this.engine.getPages(query);
+
+        // Access vector embeddings from the global cache
+        const cache = this.context.cache as unknown;
+        const embeddings = cache._cache?.vectorEmbeddings || {};
+
+        const resolvedLinks = this.context.app.metadataCache.resolvedLinks;
+
+        pages.forEach((page) => {
+            const pathA = page.file.path;
+            const targets = resolvedLinks[pathA];
+
+            if (!targets) return;
+
+            const vectorA = embeddings[pathA]?.vector;
+            if (!vectorA) return;
+
+            for (const pathB of Object.keys(targets)) {
+                if (pathA === pathB) continue;
+
+                const vectorB = embeddings[pathB]?.vector;
+                if (!vectorB) continue;
+
+                const similarity = cosineSimilarity(vectorA, vectorB);
+
+                if (similarity < threshold) {
+                    const targetFile = this.context.app.vault.getAbstractFileByPath(pathB);
+                    const targetName = targetFile instanceof TFile ? targetFile.basename : pathB;
+
+                    suggestions.push({
+                        id: `semantic_incongruence:${pathA}:${pathB}`,
+                        type: 'semantic_incongruence',
+                        link:
+                            pathToWikilink(this.context.app, pathA, pathA) +
+                            ' \u2192 ' +
+                            pathToWikilink(this.context.app, pathB, pathB),
+                        source: `Semantic Incongruence: Review link - notes appear to have diverged semantically (similarity: ${similarity.toFixed(2)}).`,
+                        timestamp: Date.now(),
+                        category: 'suggestion',
+                        meta: {
+                            sourcePath: pathA,
+                            targetPath: pathB,
+                            sourceNote: page.file.basename,
+                            targetNote: targetName,
+                            description: `Link exists but semantic similarity is very low (${similarity.toFixed(2)} < ${threshold}).`,
+                        },
+                    });
+                }
+            }
+        });
 
         return suggestions;
     }
