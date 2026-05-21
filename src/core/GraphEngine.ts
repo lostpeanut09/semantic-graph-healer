@@ -399,8 +399,10 @@ export class GraphEngine {
                 const fileB = this.app.vault.getAbstractFileByPath(b);
                 if (!(fileA instanceof TFile) || !(fileB instanceof TFile)) continue;
 
+            const cocitationId = a < b ? `${a}::${b}` : `${b}::${a}`;
+
                 suggestions.push({
-                    id: `cocitation:${[a, b].sort().join('::')}`,
+                id: `cocitation:${cocitationId}`,
                     type: 'deterministic',
                     link: `[[${fileB.basename}]]`,
                     source: `Co-Citation (score: ${score}): [[${fileA.basename}]] and [[${fileB.basename}]] are cited together in ${score} note(s).`,
@@ -531,7 +533,20 @@ export class GraphEngine {
             for (let j = i + 1; j < allPaths.length; j++) {
                 const pathB = allPaths[j];
                 const backlinksB = backlinkIndex.get(pathB)!;
-                const score = [...backlinksA].filter((x) => backlinksB.has(x)).length;
+
+                // ⚡ Bolt Performance Optimization:
+                // Iterate over the smaller set to find the intersection count, avoiding memory-intensive array spreads in O(N^2) loop.
+                let score = 0;
+                let smallerSet = backlinksA;
+                let largerSet = backlinksB;
+                if (backlinksB.size < backlinksA.size) {
+                    smallerSet = backlinksB;
+                    largerSet = backlinksA;
+                }
+                smallerSet.forEach((x) => {
+                    if (largerSet.has(x)) score++;
+                });
+
                 if (score >= minScore) results.push({ a: pathA, b: pathB, score });
             }
         }
@@ -543,8 +558,11 @@ export class GraphEngine {
                 const fileA = this.app.vault.getAbstractFileByPath(a);
                 const fileB = this.app.vault.getAbstractFileByPath(b);
                 if (fileA instanceof TFile && fileB instanceof TFile) {
+                    // ⚡ Bolt Performance Optimization:
+                    // Use string concatenation for sorting pair IDs instead of array allocation + sort + join.
+                    const cocitationId = a < b ? `${a}::${b}` : `${b}::${a}`;
                     suggestions.push({
-                        id: `cocitation:${[a, b].sort().join('::')}`,
+                        id: `cocitation:${cocitationId}`,
                         type: 'deterministic',
                         link: `[[${fileB.basename}]]`,
                         source: `Co-Citation (Sync): Shared neighbors detected.`,

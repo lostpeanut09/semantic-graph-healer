@@ -255,10 +255,23 @@ function runSimilarityAnalysis(graph: DirectedGraph, options: unknown, requestId
 
         candidates.forEach((target) => {
             const targetNeighbors = neighborsMap.get(target)!;
-            const shared = new Set([...sourceNeighbors].filter((x) => targetNeighbors.has(x)));
+
+            // ⚡ Bolt Performance Optimization:
+            // Iterate over the smaller set to find intersections, avoiding costly array spreading.
+            // Calculate union size using the inclusion-exclusion principle (|A| + |B| - |A ∩ B|).
+            const shared = new Set<string>();
+            let smallerSet = sourceNeighbors;
+            let largerSet = targetNeighbors;
+            if (targetNeighbors.size < sourceNeighbors.size) {
+                smallerSet = targetNeighbors;
+                largerSet = sourceNeighbors;
+            }
+            smallerSet.forEach((x) => {
+                if (largerSet.has(x)) shared.add(x);
+            });
             if (shared.size < 2) return;
 
-            const unionSize = new Set([...sourceNeighbors, ...targetNeighbors]).size;
+            const unionSize = sourceNeighbors.size + targetNeighbors.size - shared.size;
             const jaccard = shared.size / unionSize;
 
             let adamicAdar = 0;
@@ -338,12 +351,26 @@ function runCoCitationAnalysis(graph: DirectedGraph, options: unknown, requestId
         });
 
         candidates.forEach((target) => {
-            const pairId = [source, target].sort().join('|||');
+            // ⚡ Bolt Performance Optimization:
+            // Use string concatenation for sorting pair IDs instead of array allocation + sort + join.
+            const pairId = source < target ? `${source}|||${target}` : `${target}|||${source}`;
             if (processedPairs.has(pairId)) return;
             processedPairs.add(pairId);
 
             const targetParents = inNeighbors.get(target)!;
-            const sharedCount = [...parents].filter((p) => targetParents.has(p)).length;
+
+            // ⚡ Bolt Performance Optimization:
+            // Iterate over the smaller set to find the intersection count, preventing O(N) array allocation overhead.
+            let sharedCount = 0;
+            let smallerSet = parents;
+            let largerSet = targetParents;
+            if (targetParents.size < parents.size) {
+                smallerSet = targetParents;
+                largerSet = parents;
+            }
+            smallerSet.forEach((p) => {
+                if (largerSet.has(p)) sharedCount++;
+            });
 
             if (sharedCount >= minScore) {
                 results.push({ a: source, b: target, score: sharedCount });
