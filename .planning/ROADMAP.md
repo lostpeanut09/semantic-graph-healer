@@ -17,9 +17,32 @@
 - [x] **Phase 13: Linting & Repository Hardening** - Final polish of repository standards, types, and hooks. ✅ 2026-05-18
 - [x] **Phase 14: WSL Support & Dependency Validation** - Ensure seamless cross-platform support and modern environment standards. ✅ 20266-05-20
 - [x] **Phase 15: GraphRAG & Embedding Hardening** - Integrate local embedding models for deep semantic indexing and graph-aware RAG. ✅ 2026-05-21
-- [ ] **Phase 16: WASM Graph Engine (LadybugDB)** - Migrate to a high-performance WASM-based graph database for 50k+ node support.
+- [x] **Phase 16: WASM Graph Engine (LadybugDB)** - Migrate to a high-performance WASM-based graph database for 50k+ node support. ✅ 2026-05-21
+- [ ] **Phase 17: Obsidian CLI Integration & Automation** - Enable deep automation and headless interaction via Obsidian CLI (v1.12+).
 
 ## Phase Details
+
+### Phase 17: Obsidian CLI Integration & Automation
+
+**Goal:** Enable deep automation and "headless" interaction via Obsidian CLI (v1.12+).
+
+**Requirements:**
+
+- REQ-17.1 — Programmatic API Surface (runAnalysis, getSuggestions, getMetrics, executeFix, executeBatch)
+- REQ-17.2 — Pure JSON reporting for piping
+- REQ-17.3 — Command registration (export-suggestions-json, export-metrics-json, apply-fixes-batch)
+- REQ-17.4 — Safety & Headless Execution (Mementos, Undo path, Confidence Gate)
+
+**Plans:** 1 plan
+
+- [ ] 17-01-PLAN.md — Automation API & CLI Core
+
+**Success Criteria:**
+
+- Users can run `obsidian eval` to extract all pending graph issues as JSON.
+- Analysis can be triggered and awaited from a terminal script.
+- Batch repairs can be executed headlessly with a full audit trail (Mementos) preserved in the history.
+- No regressions in UI stability when programmatic commands are running.
 
 ### Phase 16: WASM Graph Engine (LadybugDB)
 
@@ -32,9 +55,9 @@
 - HARDEN-10 — Lazy-loading & Background Initialization for 12MB+ WASM binaries
 - PERF-01 — Benchmark suite for 50k and 100k node vaults
 
-**Plans:** 1 plan created
+**Plans:** 1 plan executed
 
-- [ ] 16-01-PLAN.md — LadybugDB Infrastructure & Core Integration
+- [x] 16-01-PLAN.md — LadybugDB Infrastructure & Core Integration
 
 **Success Criteria:**
 
