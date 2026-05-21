@@ -50,11 +50,30 @@ const WorkerMessageSchema = z.looseObject({
             maxEdges: z.number().optional(),
             maxNodes: z.number().optional(),
             blackHoleThreshold: z.number().optional(),
+            htrStructuralWeight: z.number().optional(),
+            embeddings: z.record(z.string(), z.array(z.number())).optional(),
         })
         .optional(),
 });
 
 export type WorkerMessage = z.infer<typeof WorkerMessageSchema>;
+
+/**
+ * Calculates cosine similarity between two vectors.
+ */
+function cosineSimilarity(v1: number[], v2: number[]): number {
+    if (!v1 || !v2 || v1.length === 0 || v1.length !== v2.length) return 0;
+    let dot = 0;
+    let norm1 = 0;
+    let norm2 = 0;
+    for (let i = 0; i < v1.length; i++) {
+        dot += v1[i] * v2[i];
+        norm1 += v1[i] * v1[i];
+        norm2 += v2[i] * v2[i];
+    }
+    const mag = Math.sqrt(norm1) * Math.sqrt(norm2);
+    return mag === 0 ? 0 : dot / mag;
+}
 
 /**
  * Type guard for WorkerMessage validation.
@@ -140,6 +159,25 @@ export function handleGraphWorkerMessage(message: WorkerMessage, reporter?: Prog
                 graph.addEdge(edge.source, edge.target, edge.attributes);
             }
         });
+
+        // --- HTR v2: Vector-Weighted Centrality (HARDEN-09) ---
+        const htrWeight = options?.htrStructuralWeight ?? 1.0;
+        const embeddings = options?.embeddings;
+
+        if (embeddings && htrWeight < 1.0) {
+            graph.updateEachEdgeAttributes((edge, attrs, source, target) => {
+                const v1 = embeddings[source];
+                const v2 = embeddings[target];
+                const similarity = v1 && v2 ? cosineSimilarity(v1, v2) : 0;
+                const structural = (attrs.weight as number) || 1.0;
+                const newWeight = structural * htrWeight + similarity * (1 - htrWeight);
+                // console.log(`HTR v2 Edge ${source}->${target}: structural=${structural}, similarity=${similarity}, final=${newWeight}`);
+                return {
+                    ...attrs,
+                    weight: newWeight,
+                };
+            });
+        }
 
         let result: unknown;
 
