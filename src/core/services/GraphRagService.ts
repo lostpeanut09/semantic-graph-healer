@@ -1,11 +1,12 @@
-import { DataAdapter } from 'obsidian';
+import { DataAdapter, TFile } from 'obsidian';
 import type { GraphEngine } from '../GraphEngine';
 import type { LlmService } from '../LlmService';
 import type { EmbeddingService } from '../EmbeddingService';
 import type { AjsonStorage } from '../utils/AjsonStorage';
 import type { SemanticGraphHealerSettings } from '../../types';
-import { HealerLogger } from '../HealerUtils';
+import { HealerLogger, cosineSimilarity } from '../HealerUtils';
 import { join } from 'pathe';
+import type { Entity, Relationship } from './EntityExtractor';
 
 export interface CommunitySummary {
     communityId: number;
@@ -17,6 +18,8 @@ export interface CommunitySummary {
 
 export class GraphRagService {
     private readonly summaryFile = 'community_summaries.ajson';
+    private readonly entitiesFile = 'entities.ajson';
+    private readonly relationshipsFile = 'relationships.ajson';
 
     constructor(
         private graphEngine: GraphEngine,
@@ -81,5 +84,73 @@ export class GraphRagService {
         }
 
         HealerLogger.info('GraphRagService: Community indexing complete.');
+    }
+
+    /**
+     * Executes a context-aware RAG query using community and entity indices.
+     */
+    public async query(queryText: string): Promise<string> {
+        HealerLogger.info(`GraphRagService: Executing RAG query: "${queryText}"`);
+
+        const dir = this.settings.graphRagIndexDir || '.planning/index';
+        const indexPath = join(dir, this.summaryFile);
+        const entitiesPath = join(dir, this.entitiesFile);
+
+        try {
+            // 1. Get query embedding
+            const queryVector = await this.embeddingService.getEmbedding(queryText);
+
+            // 2. Search community summaries
+            const summaries = await this.storage.readAll<CommunitySummary>(indexPath);
+            const scoredCommunities = summaries
+                .map((s) => ({
+                    ...s,
+                    score: cosineSimilarity(queryVector, s.embedding),
+                }))
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 3); // Pick top 3 communities
+
+            // 3. Load entity context
+            const entities = await this.storage.readAll<Entity>(entitiesPath);
+            const relevantEntities = entities
+                .filter((e) => scoredCommunities.some((c) => c.notes.includes(e.notePath)))
+                .slice(0, 20); // Limit to top 20 relevant entities
+
+            // 4. Build context string
+            let context = '=== RELEVANT COMMUNITIES ===\n';
+            for (const comm of scoredCommunities) {
+                context += `- [ID ${comm.communityId}] Theme: ${comm.summary}\n`;
+                context += `  Notes: ${comm.notes.slice(0, 5).join(', ')}${comm.notes.length > 5 ? '...' : ''}\n`;
+            }
+
+            context += '\n=== RELEVANT ENTITIES ===\n';
+            for (const entity of relevantEntities) {
+                context += `- ${entity.name} (${entity.type}) [Found in: ${entity.notePath}]\n`;
+            }
+
+            // 5. Final LLM Query
+            const prompt = `
+[CONTEXT: Knowledge Graph RAG Search]
+
+You are an expert knowledge assistant. Answer the user query based on the following graph context.
+
+=== GRAPH CONTEXT ===
+${context}
+
+=== USER QUERY ===
+${queryText}
+
+=== INSTRUCTIONS ===
+- Use the community themes to understand the high-level context.
+- Use the entities to ground your answer in specific facts.
+- If the context doesn't contain enough information, state it clearly.
+- Provide a concise but comprehensive answer.
+`;
+
+            return await this.llmService.callLlm(prompt, false);
+        } catch (e) {
+            HealerLogger.error('GraphRagService: Query execution failed', e as Error);
+            return `Query failed: ${(e as Error).message}`;
+        }
     }
 }
