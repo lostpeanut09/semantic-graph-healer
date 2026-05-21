@@ -230,6 +230,8 @@ export class GraphEngine {
                 alpha: 0.85,
                 maxIterations: 200,
                 tolerance: 1e-6,
+                htrStructuralWeight: this.settings.htrStructuralWeight,
+                embeddings: this.collectEmbeddings(),
             });
 
             this.cache = {
@@ -612,6 +614,23 @@ export class GraphEngine {
             });
         });
         return edges;
+    }
+
+    private collectEmbeddings(): Record<string, number[]> {
+        const embeddings: Record<string, number[]> = {};
+        const cache = this.context.cache;
+
+        this.graph.forEachNode((node) => {
+            // Get most recent embedding from cache (if available)
+            // Note: In a real scenario we'd want to check hashes, but for HTR-v2
+            // we use the best available vector from CacheService.
+            const entry = (cache as unknown)._cache.vectorEmbeddings[node];
+            if (entry && entry.vector) {
+                embeddings[node] = entry.vector;
+            }
+        });
+
+        return embeddings;
     }
 
     private runCoCitationAnalysisSync(minScore: number, limit: number): Suggestion[] {
