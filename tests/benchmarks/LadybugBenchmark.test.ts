@@ -17,7 +17,7 @@ describe('LadybugBenchmark', () => {
         service = new LadybugService();
         metadataAdapter = {
             getLinksSafe: vi.fn(),
-            queryPages: vi.fn()
+            queryPages: vi.fn(),
         };
         ladybugAdapter = new LadybugAdapter(service, metadataAdapter);
     });
@@ -26,7 +26,7 @@ describe('LadybugBenchmark', () => {
         // Generate synthetic data
         const nodeCount = 50000;
         const mockNodes = Array.from({ length: nodeCount }, (_, i) => ({
-            file: { path: `node${i}.md`, name: `Node ${i}`, size: Math.random() * 1000 }
+            file: { path: `node${i}.md`, name: `Node ${i}`, size: Math.random() * 1000 },
         }));
 
         metadataAdapter.queryPages.mockResolvedValue(mockNodes);
@@ -46,7 +46,7 @@ describe('LadybugBenchmark', () => {
         // For testing purposes, we might want to skip the actual worker init if it's too slow
         // or mock the worker to respond instantly.
         // But the task wants REAL benchmarks.
-        
+
         // Let's mock the worker to measure overhead at least.
         const mockWorker = {
             postMessage: vi.fn((msg) => {
@@ -57,11 +57,13 @@ describe('LadybugBenchmark', () => {
                 }
             }),
             onmessage: null as any,
-            addEventListener: function(type: string, handler: any) { this.onmessage = handler; },
+            addEventListener: function (type: string, handler: any) {
+                this.onmessage = handler;
+            },
             removeEventListener: vi.fn(),
-            terminate: vi.fn()
+            terminate: vi.fn(),
         };
-        
+
         function MockWorker() {
             return mockWorker;
         }
@@ -74,13 +76,16 @@ describe('LadybugBenchmark', () => {
         // Benchmark Cypher Query
         const startQuery = performance.now();
         mockWorker.postMessage = vi.fn((msg) => {
-             if (msg.type === 'query') {
-                setTimeout(() => mockWorker.onmessage({ data: { type: 'query-result', rows: [{ count: nodeCount }] } }), 50);
+            if (msg.type === 'query') {
+                setTimeout(
+                    () => mockWorker.onmessage({ data: { type: 'query-result', rows: [{ count: nodeCount }] } }),
+                    50,
+                );
             }
         });
         const result = await ladybugAdapter.query('MATCH (n:Node) RETURN count(n) AS count');
         const endQuery = performance.now();
-        
+
         console.log(`Query 50k nodes took: ${endQuery - startQuery}ms`);
         expect((result as any)[0].count).toBe(nodeCount);
 
