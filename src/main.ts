@@ -21,6 +21,7 @@ import { KeychainService } from './core/services/KeychainService';
 import { GraphWorkerService } from './core/services/GraphWorkerService';
 import { PerformanceService } from './core/services/PerformanceService';
 import type { AnalysisContext, ExecutionContext } from './core/services/PluginContext';
+import { ObsidianNotifier } from './core/services/Notifier';
 import { TopologyAnalyzer } from './core/TopologyAnalyzer';
 import { QualityAnalyzer } from './core/QualityAnalyzer';
 import { LlmService } from './core/LlmService';
@@ -111,6 +112,7 @@ export default class SemanticGraphHealer extends Plugin {
             manifest: this.manifest,
             graphWorkerService: this.graphWorkerService,
             performanceService: this.performanceService,
+            notifier: new ObsidianNotifier(),
             saveSettings: () => this.saveSettings(),
             refreshDashboard: () => this.refreshDashboard(),
         };
@@ -123,6 +125,7 @@ export default class SemanticGraphHealer extends Plugin {
             cache: this.cache,
             graphWorkerService: this.graphWorkerService,
             performanceService: this.performanceService,
+            notifier: executorContext.notifier,
         };
         this.topology = new TopologyAnalyzer(analysisContext, this.llm, this.engine);
         this.quality = new QualityAnalyzer(this.app as ExtendedApp, this.settings, this.engine);
@@ -211,6 +214,7 @@ export default class SemanticGraphHealer extends Plugin {
                 cache: this.cache,
                 graphWorkerService: this.graphWorkerService,
                 performanceService: this.performanceService,
+                notifier: new ObsidianNotifier(),
             };
             this.topology = new TopologyAnalyzer(analysisContext, this.llm, this.engine);
 
@@ -232,6 +236,7 @@ export default class SemanticGraphHealer extends Plugin {
                 manifest: this.manifest,
                 graphWorkerService: this.graphWorkerService,
                 performanceService: this.performanceService,
+                notifier: new ObsidianNotifier(),
                 saveSettings: () => this.saveSettings(),
                 refreshDashboard: () => this.refreshDashboard(),
             };

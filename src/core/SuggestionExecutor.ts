@@ -1,4 +1,4 @@
-import { App, Notice, TFile } from 'obsidian';
+import { App, TFile } from 'obsidian';
 import type { Suggestion, HistoryItem } from '../types';
 import { HealerLogger, resolveTargetFile } from './HealerUtils';
 import type { ExecutionContext } from './services/PluginContext';
@@ -39,9 +39,9 @@ export class SuggestionExecutor {
 
             if (!(targetFile instanceof TFile)) {
                 if (suggestion.type === 'infra') {
-                    new Notice('Advisory acknowledged.');
+                    this.context.notifier.show('Advisory acknowledged.');
                 } else {
-                    new Notice(`File could not be resolved: ${suggestion.link}`);
+                    this.context.notifier.show(`File could not be resolved: ${suggestion.link}`, 'error');
                     return false;
                 }
             } else if (suggestion.meta?.sourcePath && (suggestion.meta?.propertyKey || suggestion.meta?.property)) {
@@ -96,7 +96,7 @@ export class SuggestionExecutor {
                         }
                     }
                 });
-                new Notice(`Fixed ${targetFile.basename}`);
+                this.context.notifier.show(`Fixed ${targetFile.basename}`);
                 await this.finalizeSuggestion(suggestion, targetFile?.path || suggestion.link, undefined, mementoData);
                 return true;
             } else {
@@ -136,7 +136,7 @@ export class SuggestionExecutor {
             const targetPath = suggestion.meta?.targetPath;
             const prop = suggestion.meta?.property;
             if (!targetPath || !prop) {
-                new Notice('Missing structured metadata for resolution.');
+                this.context.notifier.show('Missing structured metadata for resolution.', 'error');
                 return false;
             }
 
@@ -167,7 +167,7 @@ export class SuggestionExecutor {
                 }
             });
 
-            new Notice(`Resolved ${targetFile.basename}: kept ${winner}`);
+            this.context.notifier.show(`Resolved ${targetFile.basename}: kept ${winner}`);
             await this.finalizeSuggestion(suggestion, targetFile.path, `Resolved choice: kept ${winner}`, mementoData);
             return true;
         } catch (e) {
@@ -273,7 +273,7 @@ export class SuggestionExecutor {
                 return false;
             }
 
-            new Notice(`Chain repaired: ${fileA.basename} ↔ ${fileB.basename} ↔ ${fileC.basename}`);
+            this.context.notifier.show(`Chain repaired: ${fileA.basename} ↔ ${fileB.basename} ↔ ${fileC.basename}`);
             await this.finalizeSuggestion(
                 suggestion,
                 fileB.path,
@@ -313,7 +313,7 @@ export class SuggestionExecutor {
      */
     async undo(historyItem: HistoryItem): Promise<boolean> {
         if (!historyItem.mementoData || historyItem.mementoData.length === 0) {
-            new Notice('No undo data available for this action.');
+            this.context.notifier.show('No undo data available for this action.', 'warning');
             return false;
         }
 
@@ -328,12 +328,12 @@ export class SuggestionExecutor {
                     HealerLogger.warn(`Undo failed for file: ${memento.path}. File not found.`);
                 }
             }
-            new Notice(`Reverted: ${historyItem.action}`);
+            this.context.notifier.show(`Reverted: ${historyItem.action}`);
             await this.context.refreshDashboard();
             return true;
         } catch (e) {
             HealerLogger.error('Undo failed', e);
-            new Notice('Undo failed. Check logs.');
+            this.context.notifier.show('Undo failed. Check logs.', 'error');
             return false;
         }
     }
