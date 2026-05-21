@@ -33,10 +33,10 @@
 - HARDEN-09 — HTR v2: Vector-weighted topological centrality
 - UX-09 — Dedicated GraphRAG Dashboard tab and Deep Search integration
 
-**Plans:** 1/4 plans executed
+**Plans:** 2/4 plans executed
 
 - [x] 15-01-PLAN.md — Embedding Service & Infrastructure
-- [ ] 15-02-PLAN.md — Embedding Hardening & HTR v2
+- [x] 15-02-PLAN.md — Embedding Hardening & HTR v2
 - [ ] 15-03-PLAN.md — GraphRAG Engine: Community Summarization & Indexing
 - [ ] 15-04-PLAN.md — GraphRAG Dashboard & Search Integration
 
