@@ -3,7 +3,7 @@
 // Pattern: GraphWorkerService already uses PluginWithSettings successfully.
 
 import type { App } from 'obsidian';
-import type { SemanticGraphHealerSettings } from '../../types';
+import type { SemanticGraphHealerSettings, HealerNotifier } from '../../types';
 import type { CacheService } from '../CacheService';
 import type { GraphWorkerService } from './GraphWorkerService';
 import type { PerformanceService } from './PerformanceService';
@@ -15,6 +15,7 @@ export interface AnalysisContext {
     cache: Pick<CacheService, 'suggestions' | 'save' | 'pushHistory' | 'topologicalScores' | 'vectorEmbeddings'>;
     graphWorkerService: GraphWorkerService;
     performanceService: PerformanceService;
+    notifier: HealerNotifier;
 }
 
 /** Context injected into SuggestionExecutor (extends AnalysisContext) */
