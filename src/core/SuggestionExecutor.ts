@@ -1,5 +1,5 @@
 import { App, TFile } from 'obsidian';
-import type { Suggestion, HistoryItem } from '../types';
+import type { Suggestion, HistoryItem, HealerNotifier } from '../types';
 import { HealerLogger, resolveTargetFile } from './HealerUtils';
 import type { ExecutionContext } from './services/PluginContext';
 
@@ -7,6 +7,14 @@ export class SuggestionExecutor {
     private queue: Promise<void> = Promise.resolve();
 
     constructor(private context: ExecutionContext) {}
+
+    public setNotifier(notifier: HealerNotifier) {
+        this.context.notifier = notifier;
+    }
+
+    public getNotifier(): HealerNotifier {
+        return this.context.notifier;
+    }
 
     private get app(): App {
         return this.context.app;

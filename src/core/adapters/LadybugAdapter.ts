@@ -138,7 +138,7 @@ export class LadybugAdapter {
         const results = await this.query<{ nodes: unknown[]; types: string[] }>(cypher);
 
         return results.map((r) => {
-            const path = r.nodes.map((n: unknown) => n.path as string);
+            const path = r.nodes.map((n: { path: string }) => n.path as string);
             // Cycle type is 'universal' if mixed, otherwise the common type
             const uniqueTypes = new Set(r.types);
             const type = uniqueTypes.size === 1 ? Array.from(uniqueTypes)[0] : 'universal';
