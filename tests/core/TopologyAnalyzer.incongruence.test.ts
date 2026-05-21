@@ -10,6 +10,12 @@ describe('TopologyAnalyzer Semantic Incongruence Diagnostic', () => {
     beforeEach(() => {
         vi.clearAllMocks();
 
+        const vectorEmbeddings: Record<string, any> = {
+            'A.md': { vector: [1, 0, 0] },
+            'B.md': { vector: [0, 1, 0] }, // Orthogonal = 0 similarity
+            'C.md': { vector: [1, 0, 0] },
+        };
+
         mockContext = {
             app: {
                 vault: {
@@ -33,12 +39,9 @@ describe('TopologyAnalyzer Semantic Incongruence Diagnostic', () => {
                 customTopologyRules: [],
             },
             cache: {
+                vectorEmbeddings,
                 _cache: {
-                    vectorEmbeddings: {
-                        'A.md': { vector: [1, 0, 0] },
-                        'B.md': { vector: [0, 1, 0] }, // Orthogonal = 0 similarity
-                        'C.md': { vector: [1, 0, 0] },
-                    },
+                    vectorEmbeddings,
                 },
             },
         };
@@ -65,14 +68,14 @@ describe('TopologyAnalyzer Semantic Incongruence Diagnostic', () => {
 
     it('should not flag links with high semantic similarity', async () => {
         // Change vector of B to be similar to A
-        mockContext.cache._cache.vectorEmbeddings['B.md'] = { vector: [1, 0, 0] }; // Cosine sim = 1
+        mockContext.cache.vectorEmbeddings['B.md'] = { vector: [1, 0, 0] }; // Cosine sim = 1
 
         const suggestions = await analyzer.runSemanticIncongruenceAnalysis();
         expect(suggestions).toHaveLength(0);
     });
 
     it('should not flag if embeddings are missing', async () => {
-        mockContext.cache._cache.vectorEmbeddings = {};
+        mockContext.cache.vectorEmbeddings = {};
 
         const suggestions = await analyzer.runSemanticIncongruenceAnalysis();
         expect(suggestions).toHaveLength(0);

@@ -20,9 +20,21 @@ export class GraphEngine {
         this.predictionEngine = new LinkPredictionEngine(context);
     }
 
+    private get app(): App {
+        return this.context.app;
+    }
+
+    private get settings(): SemanticGraphHealerSettings {
+        return this.context.settings;
+    }
+
     /**
      * ✅ NEW: Expose the internal graph for visualization (Phase 9).
      */
+    public getGraph(): DirectedGraph {
+        return this.graph;
+    }
+
     public getTopologicalMetrics(): TopologicalMetrics {
         return this.cache;
     }
@@ -614,9 +626,7 @@ export class GraphEngine {
 
         this.graph.forEachNode((node) => {
             // Get most recent embedding from cache (if available)
-            // Note: In a real scenario we'd want to check hashes, but for HTR-v2
-            // we use the best available vector from CacheService.
-            const entry = (cache as unknown)._cache.vectorEmbeddings[node];
+            const entry = cache.vectorEmbeddings[node];
             if (entry && entry.vector) {
                 embeddings[node] = entry.vector;
             }

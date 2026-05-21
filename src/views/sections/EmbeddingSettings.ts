@@ -1,4 +1,3 @@
-/* eslint-disable obsidianmd/ui/sentence-case */
 import { Setting, Notice } from "obsidian";
 import type { SectionContext } from "../SectionContext";
 
@@ -18,7 +17,7 @@ export function renderEmbeddingSettings(
   };
 
   createHeader(
-    "Embeddings and semantic graphRAG",
+    "Embeddings and semantic graphrag",
     "Local-first vector search and community-centric retrieval. Enables deep semantic vault queries.",
   );
 
@@ -43,7 +42,7 @@ export function renderEmbeddingSettings(
     .setDesc("Server address for generating embeddings")
     .addText((text) =>
       text
-        .setPlaceholder("e.g. http://localhost:11434")
+        .setPlaceholder("E.g. http://localhost:11434")
         .setValue(plugin.settings.embeddingEndpoint)
         .onChange(async (value) => {
           plugin.settings.embeddingEndpoint = value;
@@ -53,10 +52,10 @@ export function renderEmbeddingSettings(
 
   new Setting(containerEl)
     .setName("Embedding model")
-    .setDesc("Model name used for embeddings (e.g. nomic-embed-text)")
+    .setDesc("Model name used for embeddings")
     .addText((text) =>
       text
-        .setPlaceholder("e.g. nomic-embed-text")
+        .setPlaceholder("E.g. Nomic-embed-text")
         .setValue(plugin.settings.embeddingModel)
         .onChange(async (value) => {
           plugin.settings.embeddingModel = value;
@@ -70,16 +69,16 @@ export function renderEmbeddingSettings(
     .addButton((btn) =>
       btn.setButtonText("Verify model").onClick(async () => {
         btn.setDisabled(true);
-        btn.setButtonText("Verifying...");
+        btn.setButtonText("Verifying");
         try {
           const ok = await plugin.embedding.checkModelAlignment();
           if (ok) {
-            new Notice("Model check passed: Stable alignment.");
+            new Notice("Model check passed");
           } else {
-            new Notice("Model check failed: Semantic misalignment or offline.");
+            new Notice("Model check failed");
           }
         } catch {
-          new Notice("Verification failed. Check console.");
+          new Notice("Verification failed");
         } finally {
           btn.setDisabled(false);
           btn.setButtonText("Verify model");
@@ -102,23 +101,23 @@ export function renderEmbeddingSettings(
   }).style.color = statusColor;
 
   new Setting(containerEl)
-    .setName("Generate GraphRAG index")
+    .setName("Generate graphrag index")
     .setDesc(
-      "Build community themes and entity indices. Required for GraphRAG queries.",
+      "Build community themes and entity indices. Required for graphrag queries.",
     )
     .addButton((btn) =>
-      btn.setButtonText("Rebuild index").onClick(async () => {
+      btn.setButtonText("Rebuild").onClick(async () => {
         btn.setDisabled(true);
-        btn.setButtonText("Indexing...");
-        new Notice("Starting background indexing...");
+        btn.setButtonText("Indexing");
+        new Notice("Starting background indexing");
         try {
           await plugin.graphRag.indexCommunities();
-          new Notice("Community indexing complete.");
+          new Notice("Community indexing complete");
         } catch {
-          new Notice("Indexing failed.");
+          new Notice("Indexing failed");
         } finally {
           btn.setDisabled(false);
-          btn.setButtonText("Rebuild index");
+          btn.setButtonText("Rebuild");
         }
       }),
     );
