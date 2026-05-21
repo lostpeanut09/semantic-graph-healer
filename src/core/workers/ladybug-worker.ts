@@ -1,5 +1,8 @@
 import * as lbugST from '@ladybugdb/wasm-core';
 import * as lbugMT from '@ladybugdb/wasm-core/multithreaded';
+import { DirectedGraph } from 'graphology';
+import pagerank from 'graphology-metrics/centrality/pagerank';
+import louvain from 'graphology-communities-louvain';
 
 let db: lbugST.Database | null = null;
 let connection: lbugST.Connection | null = null;
@@ -19,16 +22,15 @@ interface LinkData {
     weight: number;
 }
 
-type SyncItem = 
-    | { type: 'node'; data: NodeData[] }
-    | { type: 'link'; data: LinkData[] };
+type SyncItem = { type: 'node'; data: NodeData[] } | { type: 'link'; data: LinkData[] };
 
 interface IncomingMessage {
-    type: 'init' | 'query' | 'sync';
+    type: 'init' | 'query' | 'sync' | 'algo';
     useSharedArrayBuffer?: boolean;
     query?: string;
     params?: Record<string, unknown>;
     batch?: SyncItem[];
+    algoName?: 'pagerank' | 'louvain';
 }
 
 async function initializeSchema(conn: lbugST.Connection) {
@@ -54,7 +56,6 @@ async function initializeSchema(conn: lbugST.Connection) {
             }
         }
 
-
         // Create tables
         await conn.query('CREATE NODE TABLE Metadata(key STRING, version STRING, PRIMARY KEY (key))');
         await conn.query('CREATE NODE TABLE Node(path STRING, label STRING, size INT64, PRIMARY KEY (path))');
@@ -66,7 +67,7 @@ async function initializeSchema(conn: lbugST.Connection) {
 }
 
 self.onmessage = async (e: MessageEvent<IncomingMessage>) => {
-    const { type, useSharedArrayBuffer, query, params, batch } = e.data;
+    const { type, useSharedArrayBuffer, query, params, batch, algoName } = e.data;
 
     if (type === 'init') {
         try {
@@ -103,8 +104,10 @@ self.onmessage = async (e: MessageEvent<IncomingMessage>) => {
             return;
         }
         try {
-            const result = await connection.query(query ?? '', params ?? {});
+            const stmt = await connection.prepare(query ?? '');
+            const result = await connection.execute(stmt, params ?? {});
             const rows = await result.getAllObjects();
+            await stmt.close();
             self.postMessage({ type: 'query-result', rows });
         } catch (error: unknown) {
             const message = error instanceof Error ? error.message : String(error);
@@ -116,27 +119,70 @@ self.onmessage = async (e: MessageEvent<IncomingMessage>) => {
             return;
         }
         try {
+            const nodeStmt = await connection.prepare('MERGE (n:Node {path: $path}) SET n.label = $label, n.size = $size');
+            const linkStmt = await connection.prepare('MATCH (a:Node {path: $from}), (b:Node {path: $to}) MERGE (a)-[r:SemanticLink {type: $type}]->(b) SET r.weight = $weight');
+
             for (const item of batch ?? []) {
                 if (item.type === 'node') {
                     for (const node of item.data) {
-                        await connection.query(
-                            'MERGE (n:Node {path: $path}) SET n.label = $label, n.size = $size',
-                            { path: node.path, label: node.label, size: node.size }
-                        );
+                        await connection.execute(nodeStmt, {
+                            path: node.path,
+                            label: node.label,
+                            size: node.size,
+                        });
                     }
                 } else if (item.type === 'link') {
                     for (const link of item.data) {
-                        await connection.query(
-                            'MATCH (a:Node {path: $from}), (b:Node {path: $to}) MERGE (a)-[r:SemanticLink {type: $type}]->(b) SET r.weight = $weight',
-                            { from: link.from, to: link.to, type: link.type, weight: link.weight }
-                        );
+                        await connection.execute(linkStmt, {
+                            from: link.from,
+                            to: link.to,
+                            type: link.type,
+                            weight: link.weight,
+                        });
                     }
                 }
             }
+            await nodeStmt.close();
+            await linkStmt.close();
             self.postMessage({ type: 'sync-complete' });
         } catch (error: unknown) {
             const message = error instanceof Error ? error.message : String(error);
             self.postMessage({ type: 'error', message });
         }
     }
+ else if (type === 'algo') {
+        if (!connection) {
+            self.postMessage({ type: 'error', message: 'Database not initialized' });
+            return;
+        }
+        try {
+            // Fetch graph from LadybugDB to Graphology
+            const nodesResult = await connection.query('MATCH (n:Node) RETURN n.path AS path');
+            const nodesRows = await nodesResult.getAllObjects();
+            
+            const linksResult = await connection.query('MATCH (a:Node)-[r:SemanticLink]->(b:Node) RETURN a.path AS from, b.path AS to, r.weight AS weight');
+            const linksRows = await linksResult.getAllObjects();
+
+            const graph = new DirectedGraph();
+            nodesRows.forEach(n => graph.addNode(n.path as string));
+            linksRows.forEach(l => {
+                if (!graph.hasEdge(l.from as string, l.to as string)) {
+                    graph.addEdge(l.from as string, l.to as string, { weight: l.weight as number });
+                }
+            });
+
+            let result: any;
+            if (algoName === 'pagerank') {
+                result = pagerank(graph);
+            } else if (algoName === 'louvain') {
+                result = louvain(graph);
+            }
+
+            self.postMessage({ type: 'algo-result', result });
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            self.postMessage({ type: 'error', message });
+        }
+    }
 };
+

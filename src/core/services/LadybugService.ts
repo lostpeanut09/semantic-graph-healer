@@ -21,7 +21,12 @@ interface ErrorResponse {
     message: string;
 }
 
-type LadybugWorkerResponse = QueryResultResponse | SyncCompleteResponse | ErrorResponse;
+interface AlgoResultResponse {
+    type: 'algo-result';
+    result: any;
+}
+
+type LadybugWorkerResponse = QueryResultResponse | SyncCompleteResponse | AlgoResultResponse | ErrorResponse;
 
 export class LadybugService {
     private worker: Worker | null = null;
@@ -116,6 +121,26 @@ export class LadybugService {
             };
             this.worker?.addEventListener('message', handler);
             this.worker?.postMessage({ type: 'sync', batch });
+        });
+    }
+
+    async runAlgo(algoName: 'pagerank' | 'louvain'): Promise<any> {
+        if (this.status !== 'ready' || !this.worker) {
+            throw new Error('LadybugDB not ready');
+        }
+
+        return new Promise((resolve, reject) => {
+            const handler = (e: MessageEvent<LadybugWorkerResponse>) => {
+                if (e.data.type === 'algo-result') {
+                    this.worker?.removeEventListener('message', handler);
+                    resolve(e.data.result);
+                } else if (e.data.type === 'error') {
+                    this.worker?.removeEventListener('message', handler);
+                    reject(new Error(e.data.message));
+                }
+            };
+            this.worker?.addEventListener('message', handler);
+            this.worker?.postMessage({ type: 'algo', algoName });
         });
     }
 
