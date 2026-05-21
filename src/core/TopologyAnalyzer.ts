@@ -16,12 +16,15 @@ import {
 import type { IMetadataAdapter } from './adapters/IMetadataAdapter';
 import { LlmService } from './LlmService';
 import { GraphEngine } from './GraphEngine';
+import { CrossThematicProvider } from './services/CrossThematicProvider';
+import { AjsonStorage } from './utils/AjsonStorage';
 import { Platform } from 'obsidian';
 import type { AnalysisContext } from './services/PluginContext';
 
 export class TopologyAnalyzer {
     private BATCH_SIZE: number;
     private YIELD_INTERVAL: number;
+    private crossThematicProvider: CrossThematicProvider;
 
     constructor(
         private context: AnalysisContext,
@@ -31,6 +34,10 @@ export class TopologyAnalyzer {
         // Hybrid Batching SOTA 2026: Mobile vs Desktop Optimization
         this.BATCH_SIZE = Platform.isMobile ? 20 : 100;
         this.YIELD_INTERVAL = Platform.isMobile ? 120 : 0; // 120ms yield for mobile responsiveness
+        
+        const storage = new AjsonStorage(this.context.app.vault.adapter);
+        const graphEngine = new GraphEngine(this.context);
+        this.crossThematicProvider = new CrossThematicProvider(graphEngine, storage, this.context.settings);
     }
 
     /**
@@ -1013,5 +1020,12 @@ export class TopologyAnalyzer {
         });
 
         return suggestions;
+    }
+
+    /**
+     * ✅ NEW: Cross-Thematic Discovery (Phase 15, D-05)
+     */
+    public async runCrossThematicAnalysis(): Promise<Suggestion[]> {
+        return await this.crossThematicProvider.getSuggestions();
     }
 }

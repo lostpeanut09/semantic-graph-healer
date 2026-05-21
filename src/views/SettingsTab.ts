@@ -27,6 +27,7 @@ import { renderExhaustedNotesSettings } from './sections/ExhaustedNotesSettings'
 import { renderBlacklistSettings } from './sections/BlacklistSettings';
 import { renderSettingsProfilesSettings } from './sections/SettingsProfilesSettings';
 import { renderAdvancedMaintenanceSettings } from './sections/AdvancedMaintenanceSettings';
+import { renderEmbeddingSettings } from './sections/EmbeddingSettings';
 
 export class SemanticHealerSettingTab extends PluginSettingTab {
     plugin: SemanticGraphHealer;
@@ -87,6 +88,7 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
         renderSecurityApiKeysSettings(containerEl, ctx);
         renderLoggingSettings(containerEl, ctx);
         renderPerformanceSafetySettings(containerEl, ctx);
+        renderEmbeddingSettings(containerEl, ctx);
         renderExhaustedNotesSettings(containerEl, ctx);
         renderBlacklistSettings(containerEl, ctx);
         renderSettingsProfilesSettings(containerEl, ctx);

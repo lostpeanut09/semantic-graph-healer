@@ -35,6 +35,10 @@ import { GraphVisualizerView, GRAPH_VIEW_TYPE } from './views/GraphVisualizerVie
 import { SemanticHealerSettingTab } from './views/SettingsTab';
 import { CacheService } from './core/CacheService';
 import { SemanticTagPropagator } from './core/SemanticTagPropagator';
+import { GraphRagService } from './core/services/GraphRagService';
+import { AjsonStorage } from './core/utils/AjsonStorage';
+import { EmbeddingService } from './core/EmbeddingService';
+import { GraphEngine } from './core/GraphEngine';
 
 export default class SemanticGraphHealer extends Plugin {
     settings: SemanticGraphHealerSettings;
@@ -46,6 +50,9 @@ export default class SemanticGraphHealer extends Plugin {
     public executor: SuggestionExecutor;
     public reasoner: ReasoningService;
     public tagPropagator: SemanticTagPropagator;
+    public graphRag: GraphRagService;
+    public embedding: EmbeddingService;
+    public graphEngine: GraphEngine;
 
     // Phase 1 Services
     public logger: InstanceLogger;
@@ -121,6 +128,24 @@ export default class SemanticGraphHealer extends Plugin {
         this.quality = new QualityAnalyzer(this.app as ExtendedApp, this.settings, this.engine);
         this.reasoner = new ReasoningService(this.app, this.settings, this.llm, this.engine.getDataviewApi());
         this.tagPropagator = new SemanticTagPropagator(this.app, this.settings, this.engine, this.llm);
+
+        // Phase 15: GraphRAG & Embeddings
+        this.embedding = new EmbeddingService(this.settings);
+        this.graphEngine = new GraphEngine({
+            app: this.app,
+            settings: this.settings,
+            cache: this.cache,
+            graphWorkerService: this.graphWorkerService,
+            performanceService: this.performanceService,
+        });
+        this.graphRag = new GraphRagService(
+            this.graphEngine,
+            this.llm,
+            this.embedding,
+            new AjsonStorage(this.app.vault.adapter),
+            this.app.vault.adapter,
+            this.settings,
+        );
 
         // 1.5. Initialize Engine (HARDEN-03d Wiring)
         await this.engine.initialize();
@@ -847,6 +872,9 @@ export default class SemanticGraphHealer extends Plugin {
                 advancedSuggestions.push(...(await this.analyzeDeepGraph()));
             }
 
+            // NEW: Cross-Thematic Suggestions
+            const crossThematicIssues = await this.topology.runCrossThematicAnalysis();
+
             const newTopologicalIssues = [
                 ...deterministicIssues,
                 ...cycleIssues,
@@ -856,6 +884,7 @@ export default class SemanticGraphHealer extends Plugin {
                 ...tagSiblings,
                 ...semanticIssues, // â†  NEW
                 ...advancedSuggestions,
+                ...crossThematicIssues, // â†  NEW
             ];
             this.cache.suggestions = this.pruneStaleSuggestions(newTopologicalIssues);
             this.cache.save();
