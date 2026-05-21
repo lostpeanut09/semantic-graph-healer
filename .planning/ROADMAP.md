@@ -16,7 +16,7 @@
 - [x] **Phase 12: v1 Finalization & Stress Testing** - Ensure production readiness for large-scale digital gardens. [2026-05-12]
 - [x] **Phase 13: Linting & Repository Hardening** - Final polish of repository standards, types, and hooks. ✅ 2026-05-18
 - [x] **Phase 14: WSL Support & Dependency Validation** - Ensure seamless cross-platform support and modern environment standards. ✅ 20266-05-20
-- [ ] **Phase 15: GraphRAG & Embedding Hardening** - Integrate local embedding models for deep semantic indexing and graph-aware RAG. 🔄 2026-05-20
+- [x] **Phase 15: GraphRAG & Embedding Hardening** - Integrate local embedding models for deep semantic indexing and graph-aware RAG. âœ… 2026-05-21
 
 ## Phase Details
 
@@ -26,19 +26,20 @@
 
 **Requirements:**
 
-- INFRA-08 — Native EmbeddingService for local providers (Ollama/LocalAI)
-- AI-05 — GraphRAG: Community-centric summarization and RAG query engine
-- AI-06 — Entity/Relationship indexing fallback for deep semantic search
-- HARDEN-08 — Embedding Hardening: Semantic anchors and Tribunal pre-filtering
-- HARDEN-09 — HTR v2: Vector-weighted topological centrality
-- UX-09 — Dedicated GraphRAG Dashboard tab and Deep Search integration
+- INFRA-08 â€” Native EmbeddingService for local providers (Ollama/LocalAI)
+- AI-05 â€” GraphRAG: Community-centric summarization and RAG query engine
+- AI-06 â€” Entity/Relationship indexing fallback for deep semantic search
+- HARDEN-08 â€” Embedding Hardening: Semantic anchors and Tribunal pre-filtering
+- HARDEN-09 â€” HTR v2: Vector-weighted topological centrality
+- UX-09 â€” Dedicated GraphRAG Dashboard tab and Deep Search integration
 
-**Plans:** 2/4 plans executed
+**Plans:** 4/4 plans executed
 
-- [x] 15-01-PLAN.md — Embedding Service & Infrastructure
-- [x] 15-02-PLAN.md — Embedding Hardening & HTR v2
-- [ ] 15-03-PLAN.md — GraphRAG Engine: Community Summarization & Indexing
-- [ ] 15-04-PLAN.md — GraphRAG Dashboard & Search Integration
+- [x] 15-01-PLAN.md â€” Embedding Service & Infrastructure
+- [x] 15-02-PLAN.md â€” Embedding Hardening & HTR v2
+- [x] 15-03-PLAN.md â€” GraphRAG Engine: Community Summarization & Indexing
+- [x] 15-04-PLAN.md â€” GraphRAG Dashboard & Search Integration
+
 
 **Success Criteria:**
 
