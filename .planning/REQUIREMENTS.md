@@ -72,9 +72,9 @@
 
 ### Deployment & Distribution (REQ-18)
 
-- [ ] **REQ-18.1**: **Root Cleanup & AI Garbage Hiding** — Move internal AI files to .planning/ and untrack build artifacts from main.
-- [ ] **REQ-18.2**: **CSS Consolidation** — Automated bundling of Svelte and global CSS into a single styles.css.
-- [ ] **REQ-18.3**: **Automated BRAT Distribution** — GitHub Action to push artifacts to a dedicated dist branch.
+- [x] **REQ-18.1**: **Root Cleanup & AI Garbage Hiding** — Move internal AI files to .planning/ and untrack build artifacts from main.
+- [x] **REQ-18.2**: **CSS Consolidation** — Automated bundling of Svelte and global CSS into a single styles.css.
+- [x] **REQ-18.3**: **Automated BRAT Distribution** — GitHub Action to push artifacts to a dedicated dist branch.
 
 ## v2 Requirements (Deferred)
 
@@ -130,9 +130,9 @@
 | REQ-17.2  | Phase 17 | ✓ Validated |
 | REQ-17.3  | Phase 17 | ✓ Validated |
 | REQ-17.4  | Phase 17 | ✓ Validated |
-| REQ-18.1  | Phase 18 | [ ] Planned  |
-| REQ-18.2  | Phase 18 | [ ] Planned  |
-| REQ-18.3  | Phase 18 | [ ] Planned  |
+| REQ-18.1  | Phase 18 | ✓ Validated |
+| REQ-18.2  | Phase 18 | ✓ Validated |
+| REQ-18.3  | Phase 18 | ✓ Validated |
 
 ---
 
