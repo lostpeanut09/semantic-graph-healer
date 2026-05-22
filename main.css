@@ -1,16 +1,11 @@
 .healer-spinner.svelte-so5vrr {
-  width: 30px;
-  height: 30px;
-  border: 3px solid var(--background-modifier-border);
-  border-top-color: var(--interactive-accent);
-  border-radius: 50%;
-  animation: svelte-so5vrr-healer-spin 1s linear infinite;
-  display: inline-block;
+    width: 30px;
+    height: 30px;
+    border: 3px solid var(--background-modifier-border);
+    border-top-color: var(--interactive-accent);
+    border-radius: 50%;
+    animation: svelte-so5vrr-healer-spin 1s linear infinite;
+    display: inline-block;
 }
 
-@keyframes svelte-so5vrr-healer-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
+@keyframes svelte-so5vrr-healer-spin{to{transform:rotate(360deg)}}

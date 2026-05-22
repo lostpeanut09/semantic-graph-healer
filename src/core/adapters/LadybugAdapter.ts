@@ -129,16 +129,19 @@ export class LadybugAdapter {
      * Detects cycles in the graph up to a certain depth.
      */
     async findCycles(maxDepth: number = 5): Promise<{ path: string[]; type: string }[]> {
+        // Sanitize maxDepth to prevent combinatorial explosion or query injection
+        const safeDepth = Math.min(10, Math.max(1, Math.floor(maxDepth)));
+
         // Since LadybugDB doesn't have a built-in 'all nodes in path' return for cycles easily in one go
         // with the same structure, we'll use a query that returns the path.
         const cypher = `
-            MATCH p = (n:Node)-[*1..${maxDepth}]->(n)
+            MATCH p = (n:Node)-[*1..${safeDepth}]->(n)
             RETURN nodes(p) AS nodes, [r IN relationships(p) | r.type] AS types
             `;
         const results = await this.query<{ nodes: unknown[]; types: string[] }>(cypher);
 
         return results.map((r) => {
-            const path = r.nodes.map((n: { path: string }) => n.path as string);
+            const path = r.nodes.map((n: { path: string }) => n.path);
             // Cycle type is 'universal' if mixed, otherwise the common type
             const uniqueTypes = new Set(r.types);
             const type = uniqueTypes.size === 1 ? Array.from(uniqueTypes)[0] : 'universal';
