@@ -1,3 +1,4 @@
+<!-- generated-by: gsd-doc-writer -->
 ![Banner](assets/banner.png)
 
 # Semantic Graph Healer (v3.0.0)
@@ -5,25 +6,22 @@
 [![Obsidian Plugin](https://img.shields.io/badge/Obsidian-Plugin-purple.svg)](https://obsidian.md/)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
-**Semantic Graph Healer** is a topological restoration and deep graph analysis engine for Obsidian. It leverages [Datacore](https://github.com/blacksmithgu/datacore), [Breadcrumbs](https://github.com/Sirenko/obsidian-breadcrumbs), [ExcaliBrain](https://github.com/zsviczian/excalibrain), and [Graphology](https://graphology.github.io/) to identify and resolve structural inconsistencies in the knowledge graph.
+**Semantic Graph Healer** is a topological restoration and deep graph analysis engine for Obsidian. It leverages [LadybugDB](https://github.com/ladybugdb/ladybugdb), [Datacore](https://github.com/blacksmithgu/datacore), [Breadcrumbs](https://github.com/Sirenko/obsidian-breadcrumbs), and [Graphology](https://graphology.github.io/) to identify and resolve structural inconsistencies in the knowledge graph.
 
-## Core v1 Features
+## Core v3.0.0 Features
 
-### 🚀 Adaptive Performance (Safety Mode)
+### 🐞 LadybugDB WASM Engine & Adaptive Performance
 
-The plugin automatically scales its resource usage based on your vault size. When entering vaults with >10,000 notes, **Safety Mode** activates:
+The plugin utilizes `@ladybugdb/wasm-core` to offload massive graph topologies (10,000+ notes) directly to dedicated Web Workers. This ensures zero main-thread blocking, keeping the Obsidian UI responsive while executing complex Cypher queries and native graph algorithms (PageRank, Louvain).
 
-- **Throttled Analysis:** Background scans use higher debounces to preserve CPU.
-- **LOD Rendering:** 3D Graph uses Level-of-Detail optimizations (points instead of spheres, static physics) to maintain high frame rates.
-- **Worker Offloading:** All heavy graph math runs in a separate thread.
+### 🧠 GraphRAG (Retrieval-Augmented Generation)
+
+- **Community Indexing:** Automatically extracts and summarizes semantic communities using weighted Louvain clustering.
+- **Deep Thematic Queries:** Ask questions about your vault and receive answers enriched by topological context and cross-thematic bridges.
 
 ### 🏛️ AI Tribunal & Epistemic Stability
 
 Every semantic suggestion is cross-verified by a dual-LLM system. A Primary and Secondary model must reach consensus (STABLE state) before a high-confidence recommendation is made, eliminating hallucinations.
-
-### 🏷️ Semantic Tag Propagation
-
-AI-powered cluster analysis that suggests relevant tags for child notes based on parent MOC (Map of Content) synergy, ensuring consistent taxonomy across your vault.
 
 ### 🔍 Deep Topological Diagnostics
 
@@ -34,15 +32,16 @@ AI-powered cluster analysis that suggests relevant tags for child notes based on
 
 ---
 
-## Performance Benchmarks (v1.0)
+## Performance Benchmarks (v3.0.0)
 
-Tests conducted on a standard desktop environment with a 1,000-note simulated vault:
+Tests conducted on standard desktop environments targeting high-density simulated vaults:
 
 | Operation                  | Latency  | Complexity |
 | :------------------------- | :------- | :--------- |
-| **Graph Construction**     | ~11.17ms | O(N + E)   |
-| **Deterministic Analysis** | ~4.27ms  | O(N·K²)    |
-| **PageRank (10k nodes)**   | < 5.0s   | O(I·(N+E)) |
+| **LadybugDB Sync (50k nodes)** | Async worker | O(N + E)   |
+| **Graph Construction (10k nodes)**| < 500ms  | O(N + E)   |
+| **Deterministic Analysis** | < 100ms  | O(N·K²)    |
+| **PageRank (10k nodes)**   | Worker   | O(I·(N+E)) |
 
 ---
 
@@ -52,9 +51,14 @@ Tests conducted on a standard desktop environment with a 1,000-note simulated va
 
 The `UnifiedMetadataAdapter` orchestrates multiple sources into a single API:
 
-- **Datacore:** Primary high-speed query engine.
+- **LadybugDB:** Primary high-speed query engine for deep topology via Cypher.
+- **Datacore:** Fallback for high-speed metadata extraction.
 - **Breadcrumbs:** Hierarchical navigation.
 - **Smart Connections:** Vector-similarity discovery.
+
+### WASM GraphEngine & Web Workers
+
+Heavy graph metrics (Betweenness Centrality, Louvain, PageRank) and deep topology similarity analysis are entirely delegated to background workers (`ladybug-worker.ts`, `graph-analysis-worker.ts`), preventing UI stutters during complex structural queries.
 
 ### Secure by Design
 
@@ -64,6 +68,8 @@ The `UnifiedMetadataAdapter` orchestrates multiple sources into a single API:
 ---
 
 ## Installation & Quick Start
+
+**Prerequisites (for development):** Node.js >= 24.0.0 and npm >= 11.0.0
 
 1. Install via the Obsidian Community Plugins tab (Search for "Semantic Graph Healer").
 2. **Setup API Keys:** Go to Settings -> Security & API Keys to configure your LLM providers.
