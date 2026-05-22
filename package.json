@@ -71,11 +71,8 @@
         "d3-force-3d": "^3.0.6",
         "graphology": "^0.26.0",
         "graphology-communities-louvain": "^2.0.2",
-        "graphology-dag": "^0.4.1",
         "graphology-metrics": "^2.4.0",
-        "igraph-wasm": "^0.0.3",
         "pathe": "^2.0.3",
-        "rolldown": "^1.0.1",
         "svelte": "^5.55.5",
         "three": "^0.184.0",
         "zod": "^4.3.6"

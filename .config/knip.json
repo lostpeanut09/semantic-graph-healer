@@ -3,21 +3,13 @@
     "project": ["**/*.ts"],
     "entry": ["src/main.ts", "src/core/workers/graph-analysis-worker.ts", "tests/**/*.test.ts"],
     "ignore": [
-        ".agent/**",
-        "node_modules_bak/**",
-        "vitest.setup.ts",
-        ".config/esbuild.config.mjs",
-        "src/core/workers/graph-analysis-worker.ts"
+        "vitest.setup.ts"
     ],
     "ignoreDependencies": [
-        "esbuild",
         "stylelint-config-standard",
         "@typescript-eslint/eslint-plugin",
         "@typescript-eslint/parser",
-        "graphology-types",
-        "rolldown",
         "d3-force-3d",
-        "graphology-dag",
         "three",
         "@types/benchmark",
         "benchmark"
