@@ -1,0 +1,3 @@
+## 2024-05-18 - Tight Loop Object Creation Memory Bottlenecks
+**Learning:** In highly connected graphs inside Web Workers or memory-intensive algorithms, using Set spread syntax (`[...set]`) and inline array sorting/joining (`[a, b].sort().join('::')`) inside O(E) or O(N^2) inner loops causes severe memory thrashing and excessive garbage collection overhead.
+**Action:** Always manually iterate over the smaller Set using `.size` checking to find intersections, compute unions using the inclusion-exclusion principle (`|A| + |B| - |A ∩ B|`), and use simple ternary string concatenation (`a < b ? \`\${a}::\${b}\` : \`\${b}::\${a}\``) to generate unique undirected edge keys.
