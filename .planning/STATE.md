@@ -84,12 +84,12 @@ The project has completed its core v1.0 scope, including a high-performance WASM
 
 ## Quick Tasks Completed
 
-| Task                             | Date       | Status     |
-| :------------------------------- | :--------- | :--------- |
-| execute-phase-17                 | 2026-05-22 | complete ✓ |
-| milestone-audit                  | 2026-05-21 | complete ✓ |
-| check-wsl-deps                   | 2026-05-20 | complete ✓ |
-| fix-wsl-deps-plus-terminal-check | 2026-05-20 | complete ✓ |
-| check-online-fixes-may2026       | 2026-05-20 | complete ✓ |
+| Task                             | Date       | Status       |
+| :------------------------------- | :--------- | :----------- |
+| execute-phase-17                 | 2026-05-22 | complete ✓   |
+| milestone-audit                  | 2026-05-21 | complete ✓   |
+| check-wsl-deps                   | 2026-05-20 | complete ✓   |
+| fix-wsl-deps-plus-terminal-check | 2026-05-20 | complete ✓   |
+| check-online-fixes-may2026       | 2026-05-20 | complete ✓   |
 | rerun-quality-tools              | 2026-05-20 | complete âœ“ |
-| repo-cleanup                    | 2026-05-22 | complete âœ“ |
+| repo-cleanup                     | 2026-05-22 | complete âœ“ |
