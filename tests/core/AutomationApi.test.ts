@@ -5,7 +5,7 @@ import type { HealerNotifier, Suggestion } from '../../src/types';
 describe('AutomationApi', () => {
     let mockNotifier: HealerNotifier;
     let mockContext: any;
-    let consoleLogSpy: any;
+    let consoleInfoSpy: any;
 
     beforeEach(() => {
         mockNotifier = {
@@ -20,18 +20,18 @@ describe('AutomationApi', () => {
             cache: {
                 suggestions: [],
                 topologicalScores: {
-                    pageRank: { 'nodeA': 1.0 },
+                    pageRank: { nodeA: 1.0 },
                     betweenness: {},
-                    communities: {}
-                }
+                    communities: {},
+                },
             },
             settings: {
-                lastScanTimestamp: 12345
+                lastScanTimestamp: 12345,
             },
             analyzeGraph: vi.fn().mockResolvedValue(undefined),
         };
 
-        consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+        consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
     });
 
     afterEach(() => {
@@ -40,29 +40,29 @@ describe('AutomationApi', () => {
 
     it('should use SilentNotifier when silent is true', async () => {
         const api = new AutomationApi(mockContext);
-        
+
         await api.runAnalysis({ silent: true });
 
         expect(mockContext.executor.getNotifier).toHaveBeenCalled();
         expect(mockContext.executor.setNotifier).toHaveBeenCalledTimes(2);
-        
+
         // First call should be setting the SilentNotifier
         const silentNotifier = mockContext.executor.setNotifier.mock.calls[0][0];
         expect(silentNotifier).toBeDefined();
-        
+
         // Verify it logs to console instead of throwing/using UI
         silentNotifier.show('Test message', 'info');
-        expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('[SilentNotifier][info] Test message'));
+        expect(consoleInfoSpy).toHaveBeenCalledWith(expect.stringContaining('[SilentNotifier][info] Test message'));
 
         // Should restore the original notifier
         expect(mockContext.executor.setNotifier.mock.calls[1][0]).toBe(mockNotifier);
-        
+
         expect(mockContext.analyzeGraph).toHaveBeenCalledWith(true);
     });
 
     it('should NOT use SilentNotifier when silent is false', async () => {
         const api = new AutomationApi(mockContext);
-        
+
         await api.runAnalysis({ silent: false });
 
         expect(mockContext.executor.getNotifier).toHaveBeenCalled();
@@ -72,7 +72,7 @@ describe('AutomationApi', () => {
 
     it('should properly shallow clone suggestions for JSON output', () => {
         const api = new AutomationApi(mockContext);
-        
+
         const mockSuggestion: Suggestion = {
             id: '1',
             type: 'deterministic',
@@ -83,26 +83,26 @@ describe('AutomationApi', () => {
             meta: { property: 'up' },
             // Add a cyclic or deep object that we want to ensure isn't deep cloned deeply but metadata is cloned
         };
-        
+
         mockContext.cache.suggestions.push(mockSuggestion);
-        
+
         const suggestions = api.getSuggestions();
         expect(suggestions).toHaveLength(1);
         const cloned = suggestions[0];
-        
+
         expect(cloned.id).toBe('1');
         expect(cloned.meta).toEqual({ property: 'up' });
-        
+
         // Ensure it's a new object reference for meta
         expect(cloned.meta).not.toBe(mockSuggestion.meta);
     });
 
     it('should return metrics correctly', () => {
         const api = new AutomationApi(mockContext);
-        
+
         const metrics = api.getMetrics();
         expect(metrics).not.toBeNull();
-        expect(metrics?.pageRank).toEqual({ 'nodeA': 1.0 });
+        expect(metrics?.pageRank).toEqual({ nodeA: 1.0 });
         expect(metrics?.lastAnalysisTimestamp).toBe(12345);
     });
 });
