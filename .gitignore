@@ -13,35 +13,27 @@ yarn-error.log*
 data.json
 .husky/_/
 
-# Editor tooling
+# GSD & Planning (Agentic Workflow)
+# Local-only workflow artifacts (not committed)
+.planning/
+.agent/
 .kilo/
-
-# Backups and temporary files
-*.bak
-*.tmp
-*.final_stage_bak
-*.perfect_bak
-plugin_audit_archive.md
-tsc_out.txt
-lint_results.txt
-
-# Environment variables
-.env
+CLAUDE.md
+REVIEW.md
+QUICK-TASKS.md
 
 # Generated Build Artifacts
 main.js
 worker.js
+ladybug-worker.js
+main.css
+styles.css
 tsconfig.tsbuildinfo
 lint_output.txt
+tsc_out.txt
+lint_results.txt
+node_modules_bak/
 
-# GSD & Planning (Agentic Workflow)
-# Local-only workflow artifacts (not committed)
-.planning/
-docs/plans/
-.agent/
-docs/
-SPEC.md
-CHANGELOG.md
 
 # Repository Garbage & Artifacts
 garbage/

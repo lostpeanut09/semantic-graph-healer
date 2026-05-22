@@ -36,16 +36,16 @@ describe('GraphRagService Query', () => {
             mockEmbeddingService,
             mockStorage,
             mockAdapter,
-            mockSettings
+            mockSettings,
         );
     });
 
     it('should perform a context-aware RAG query', async () => {
         const queryText = 'What is the project about?';
         const mockQueryVector = [0.1, 0.2];
-        
+
         mockEmbeddingService.getEmbedding.mockResolvedValue(mockQueryVector);
-        
+
         mockStorage.readAll.mockImplementation((path: string) => {
             if (path.includes('community_summaries')) {
                 return Promise.resolve([
@@ -53,14 +53,12 @@ describe('GraphRagService Query', () => {
                         communityId: 1,
                         summary: 'Project X details',
                         embedding: [0.1, 0.2],
-                        notes: ['note1.md', 'note2.md']
-                    }
+                        notes: ['note1.md', 'note2.md'],
+                    },
                 ]);
             }
             if (path.includes('entities')) {
-                return Promise.resolve([
-                    { name: 'John', type: 'Person', notePath: 'note1.md' }
-                ]);
+                return Promise.resolve([{ name: 'John', type: 'Person', notePath: 'note1.md' }]);
             }
             return Promise.resolve([]);
         });
@@ -72,7 +70,7 @@ describe('GraphRagService Query', () => {
         expect(mockEmbeddingService.getEmbedding).toHaveBeenCalledWith(queryText);
         expect(mockLlmService.callLlm).toHaveBeenCalledWith(expect.stringContaining('GRAPH CONTEXT'), false);
         expect(mockLlmService.callLlm).toHaveBeenCalledWith(expect.stringContaining('John (Person)'), false);
-        expect(result).toBe('The project is about X.');
+        expect(result.answer).toBe('The project is about X.');
     });
 
     it('should handle missing indices gracefully', async () => {
@@ -81,6 +79,6 @@ describe('GraphRagService Query', () => {
         mockLlmService.callLlm.mockResolvedValue('I dont know.');
 
         const result = await service.query('query');
-        expect(result).toBe('I dont know.');
+        expect(result.answer).toBe('I dont know.');
     });
 });

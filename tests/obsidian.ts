@@ -4,6 +4,18 @@ export class TAbstractFile {}
 export class TFile {}
 export class TFolder {}
 export class Plugin {}
+export class PluginSettingTab {
+    app: App;
+    plugin: Plugin;
+    containerEl: HTMLElement;
+    constructor(app: App, plugin: Plugin) {
+        this.app = app;
+        this.plugin = plugin;
+        this.containerEl = document.createElement('div');
+    }
+    display() {}
+    hide() {}
+}
 export class Notice {
     noticeEl: unknown;
     constructor(msg: unknown, duration?: number) {
@@ -127,11 +139,11 @@ export const setCssProps = (el: HTMLElement, props: Record<string, string>) => {
 
 // Extend HTMLElement for JSDOM
 if (typeof HTMLElement !== 'undefined') {
-    HTMLElement.prototype.empty = function(this: HTMLElement) {
+    HTMLElement.prototype.empty = function (this: HTMLElement) {
         this.innerHTML = '';
     };
     // @ts-ignore
-    HTMLElement.prototype.createDiv = function(this: HTMLElement, options?: { cls?: string; text?: string }) {
+    HTMLElement.prototype.createDiv = function (this: HTMLElement, options?: { cls?: string; text?: string }) {
         const div = document.createElement('div');
         if (options?.cls) div.className = options.cls;
         if (options?.text) div.textContent = options.text;

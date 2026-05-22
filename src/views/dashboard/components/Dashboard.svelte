@@ -4,6 +4,7 @@
   import SuggestionCard from './SuggestionCard.svelte';
   import type { Suggestion, HistoryItem, ExtendedManifest } from '../../../types';
   import { Notice } from 'obsidian';
+  import GraphRagView from '../../GraphRagView.svelte';
 
   let { store, plugin } = $props<{
     store: DashboardStore;
@@ -17,7 +18,8 @@
     { id: 'structural', label: 'Structural gaps' },
     { id: 'logic', label: 'Logic loops' },
     { id: 'blackholes', label: 'Black holes' },
-    { id: 'ai', label: 'AI suggestions' }
+    { id: 'ai', label: 'AI suggestions' },
+    { id: 'graphrag', label: 'GraphRAG' }
   ];
 
   let currentItems = $derived.by(() => {
@@ -92,7 +94,9 @@
   </div>
 
   <div class="healer-dashboard-list-area">
-    {#if currentItems.length > 0}
+    {#if activeTab === 'graphrag'}
+      <GraphRagView {plugin} />
+    {:else if currentItems.length > 0}
       {#each currentItems as item (item.id)}
         <SuggestionCard 
           suggestion={item}

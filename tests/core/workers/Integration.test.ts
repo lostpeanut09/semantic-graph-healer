@@ -51,13 +51,15 @@ describe('GraphWorkerService Integration (Real Worker)', () => {
                             if (type) {
                                 edges.forEach((e2: any) => {
                                     if (e2.source === b && e2.attributes?.type === type) {
-                                        const exists = edges.some((e: any) => e.source === e1.source && e.target === e2.target);
+                                        const exists = edges.some(
+                                            (e: any) => e.source === e1.source && e.target === e2.target,
+                                        );
                                         if (!exists && e1.source !== e2.target) {
                                             results.bridges.push({
                                                 source: e1.source,
                                                 target: e2.target,
                                                 via: b,
-                                                type: type
+                                                type: type,
                                             });
                                         }
                                     }

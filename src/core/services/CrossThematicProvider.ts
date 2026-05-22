@@ -42,7 +42,7 @@ export class CrossThematicProvider {
                 if (similarity >= threshold) {
                     // Check if they are structurally distant
                     // (For now, we assume if they are different communities, a bridge is worth suggesting)
-                    
+
                     const note1 = s1.notes[0];
                     const note2 = s2.notes[0];
 
@@ -58,8 +58,8 @@ export class CrossThematicProvider {
                                 sourcePath: note1,
                                 targetPath: note2,
                                 confidence: Math.round(similarity * 100),
-                                description: `Suggested semantic bridge between distant thematic clusters.`
-                            }
+                                description: `Suggested semantic bridge between distant thematic clusters.`,
+                            },
                         });
                     }
                 }

@@ -1,6 +1,6 @@
 ![Banner](assets/banner.png)
 
-# Semantic Graph Healer (v1.0.0)
+# Semantic Graph Healer (v3.0.0)
 
 [![Obsidian Plugin](https://img.shields.io/badge/Obsidian-Plugin-purple.svg)](https://obsidian.md/)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
@@ -68,6 +68,14 @@ The `UnifiedMetadataAdapter` orchestrates multiple sources into a single API:
 1. Install via the Obsidian Community Plugins tab (Search for "Semantic Graph Healer").
 2. **Setup API Keys:** Go to Settings -> Security & API Keys to configure your LLM providers.
 3. **Open Dashboard:** Click the ribbon icon to see your first topological health report.
+
+### Beta Installation (via BRAT)
+
+For the latest features and bug fixes before they hit the community store:
+1. Install the [BRAT plugin](https://github.com/TfTHacker/obsidian42-brat).
+2. Go to **Settings** -> **BRAT** -> **Add Beta plugin**.
+3. Enter this repository URL: `gabrielelana/semantic-graph-healer`.
+4. **Important:** In BRAT settings, ensure you specify the `dist` branch for this plugin to receive optimized release builds.
 
 ## Contributing
 

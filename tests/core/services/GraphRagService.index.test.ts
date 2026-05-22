@@ -22,6 +22,13 @@ describe('GraphRagService Indexing', () => {
             getGraph: vi.fn().mockReturnValue({
                 nodes: vi.fn().mockReturnValue(['note1.md', 'note2.md', 'note3.md']),
             }),
+            getTopologicalMetrics: vi.fn().mockReturnValue({
+                communities: {
+                    'note1.md': 1,
+                    'note2.md': 1,
+                    'note3.md': 2,
+                },
+            }),
             context: {
                 cache: {
                     topologicalScores: {

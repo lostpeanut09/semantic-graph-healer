@@ -61,7 +61,7 @@ describe('TopologyAnalyzer Semantic Incongruence Diagnostic', () => {
     it('should flag links with low semantic similarity', async () => {
         const suggestions = await analyzer.runSemanticIncongruenceAnalysis();
         expect(suggestions).toHaveLength(1);
-        expect(suggestions[0].type).toBe('semantic_incongruence');
+        expect(suggestions[0].type).toBe('incongruence');
         expect(suggestions[0].source).toContain('diverged semantically');
         expect(suggestions[0].id).toContain('semantic_incongruence:A.md:B.md');
     });

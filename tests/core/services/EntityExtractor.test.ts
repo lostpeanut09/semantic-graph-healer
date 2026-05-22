@@ -24,17 +24,17 @@ describe('EntityExtractor', () => {
     it('should extract entities and relationships and save them to storage', async () => {
         const mockFile = { path: 'test.md', basename: 'test' } as TFile;
         const mockContent = 'John works on Project X using React.';
-        
+
         const mockResponse = JSON.stringify({
             entities: [
                 { name: 'John', type: 'Person' },
                 { name: 'Project X', type: 'Project' },
-                { name: 'React', type: 'Technology' }
+                { name: 'React', type: 'Technology' },
             ],
             relationships: [
                 { source: 'John', target: 'Project X', type: 'works on' },
-                { source: 'Project X', target: 'React', type: 'uses' }
-            ]
+                { source: 'Project X', target: 'React', type: 'uses' },
+            ],
         });
 
         mockLlmService.callLlm.mockResolvedValue(mockResponse);
@@ -43,15 +43,15 @@ describe('EntityExtractor', () => {
 
         expect(mockLlmService.callLlm).toHaveBeenCalled();
         expect(mockStorage.appendLine).toHaveBeenCalledTimes(5); // 3 entities + 2 relationships
-        
+
         expect(mockStorage.appendLine).toHaveBeenCalledWith(
             '.planning/index/entities.ajson',
-            expect.objectContaining({ name: 'John', type: 'Person', notePath: 'test.md' })
+            expect.objectContaining({ name: 'John', type: 'Person', notePath: 'test.md' }),
         );
-        
+
         expect(mockStorage.appendLine).toHaveBeenCalledWith(
             '.planning/index/relationships.ajson',
-            expect.objectContaining({ source: 'John', target: 'Project X', type: 'works on', notePath: 'test.md' })
+            expect.objectContaining({ source: 'John', target: 'Project X', type: 'works on', notePath: 'test.md' }),
         );
     });
 

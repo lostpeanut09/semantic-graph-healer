@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SuggestionExecutor } from '../../src/core/SuggestionExecutor';
-import { TFile, Notice } from 'obsidian';
+import { TFile } from 'obsidian';
 import type { HistoryItem } from '../../src/types';
 
 // Mock Obsidian components
@@ -43,6 +43,9 @@ describe('SuggestionExecutor', () => {
             },
             saveSettings: vi.fn(),
             refreshDashboard: vi.fn(),
+            notifier: {
+                show: vi.fn(),
+            },
         };
 
         executor = new SuggestionExecutor(mockContext);
@@ -59,7 +62,10 @@ describe('SuggestionExecutor', () => {
 
             const result = await executor.undo(historyItem);
             expect(result).toBe(false);
-            expect(Notice).toHaveBeenCalledWith('No undo data available for this action.');
+            expect(mockContext.notifier.show).toHaveBeenCalledWith(
+                'No undo data available for this action.',
+                'warning',
+            );
         });
 
         it('should restore frontmatter from mementoData', async () => {
@@ -89,7 +95,7 @@ describe('SuggestionExecutor', () => {
             expect(mockContext.app.vault.getAbstractFileByPath).toHaveBeenCalledWith('A.md');
             expect(mockContext.app.fileManager.processFrontMatter).toHaveBeenCalled();
             expect(mockContext.refreshDashboard).toHaveBeenCalled();
-            expect(Notice).toHaveBeenCalledWith('Reverted: Test Action');
+            expect(mockContext.notifier.show).toHaveBeenCalledWith('Reverted: Test Action');
         });
 
         it('should handle multiple memento entries', async () => {

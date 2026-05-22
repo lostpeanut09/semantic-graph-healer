@@ -146,7 +146,7 @@ describe('Nyquist Validation Audit - Deep Architectural Alignment', () => {
             const mainPath = join(process.cwd(), 'src', 'main.ts');
             expect(existsSync(mainPath)).toBe(true);
             const content = readFileSync(mainPath, 'utf-8');
-            expect(content).toContain("registerCliHandler(");
+            expect(content).toContain('registerCliHandler(');
             expect(content).toContain("'healer:scan'");
             expect(content).toContain("'healer:export-suggestions'");
             expect(content).toContain("'healer:apply-batch'");

@@ -197,6 +197,17 @@ export interface HealerAutomationApi {
     runAnalysis(options: { silent: boolean }): Promise<Suggestion[]>;
     getSuggestions(): Suggestion[];
     getMetrics(): TopologicalMetrics | null;
+    executeBatch(options: { confidence: number; category?: string }): Promise<{
+        success: boolean;
+        batchId: string;
+        appliedCount: number;
+        failedCount: number;
+    }>;
+    undoBatch(batchId: string): Promise<{
+        success: boolean;
+        revertedCount: number;
+        failedCount: number;
+    }>;
 }
 
 // --- Plugin Core Types ---
@@ -275,6 +286,7 @@ export interface HistoryItem {
         property: string;
         originalValue: unknown;
     }>;
+    batchId?: string;
 }
 
 export interface InfraGap {

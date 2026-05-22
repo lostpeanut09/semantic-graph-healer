@@ -5,6 +5,7 @@ import type { ExecutionContext } from './services/PluginContext';
 
 export class SuggestionExecutor {
     private queue: Promise<void> = Promise.resolve();
+    public activeBatchId?: string;
 
     constructor(private context: ExecutionContext) {}
 
@@ -309,6 +310,7 @@ export class SuggestionExecutor {
             timestamp: Date.now(),
             type: 'fix',
             mementoData,
+            batchId: this.activeBatchId,
         });
 
         // BUG FIX (Bug 4): Await to prevent race conditions during rapid batches
