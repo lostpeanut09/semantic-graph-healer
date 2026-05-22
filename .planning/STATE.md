@@ -1,14 +1,14 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: v1.0 Release
+milestone: v1.1
+milestone_name: v1.1 CLI & Automation
 status: complete
-last_updated: '2026-05-21T20:10:00.000Z'
+last_updated: '2026-05-22T17:30:00.000Z'
 progress:
-    total_phases: 16
-    completed_phases: 16
-    total_plans: 1
-    completed_plans: 1
+    total_phases: 17
+    completed_phases: 17
+    total_plans: 2
+    completed_plans: 2
     percent: 100
 ---
 
@@ -20,17 +20,16 @@ progress:
 
 ## Current Position
 
-Phase: 16 â€” complete
-Status: Phase 16 Completed successfully.
+Phase: Phase 17: Obsidian CLI Integration & Automation — complete
+Status: v1.1 CLI & Automation Milestone achieved and validated successfully.
 
-The project has successfully migrated to LadybugDB (WASM), supporting 50k+ node vaults with high-performance Cypher diagnostics and background graph algorithms.
-
+The project has completed its core v1.0 scope, including a high-performance WASM graph engine (LadybugDB), deep semantic indexing (GraphRAG), and a hardened adapter architecture. All 16 phases are validated and verified.
 
 ## Performance Metrics
 
-- **Requirement Coverage**: 100% of all requirements validated (including INFRA-06/07).
+- **Requirement Coverage**: 100% of all v1 requirements validated (including previously deferred INFRA-06).
 - **Phase Completion**: 100% (16/16 phases completed).
-- **System Stability**: ULTRA-HIGH (Verified with 50k node WASM benchmarks and comprehensive regression tests).
+- **System Stability**: ULTRA-HIGH (Verified with 50k node WASM benchmarks and cross-phase integration tests).
 
 ## Accumulated Context
 
@@ -61,6 +60,11 @@ The project has successfully migrated to LadybugDB (WASM), supporting 50k+ node 
 - Semantic Anchor hardening to prevent model misalignment (Phase 15).
 - Cross-Thematic discovery using community embedding similarity (Phase 15).
 - Corrected `icebug` package to `@ladybugmem/icebug`; identified potential Node.js binding dependency requiring WASM verification for Obsidian (Phase 16).
+- LadybugDB (WASM) integration for 50k+ node support with Cypher query capability (Phase 16).
+- Decoupled UI notifications using an injected `HealerNotifier` interface (Phase 17).
+- `SilentNotifier` and `AutomationApi` introduced for headless CLI executions (Phase 17).
+- Command Palette shortcuts registered for visual batch repairs and rollback (Phase 17).
+- Grouped edits in history using a UUID `batchId` to support atomic rolls (Phase 17).
 
 ### Blockers
 
@@ -68,22 +72,24 @@ The project has successfully migrated to LadybugDB (WASM), supporting 50k+ node 
 
 ## Known Pre-existing Issues (Deferred)
 
-- **TS2802 / TS18028** — `Set<X>` / `MapIterator<X>` downlevelIteration and private identifiers. Requires bumping target to ES2015+.
-- **TS1259** — Zod v4 locale CJS default-imports.
-- **TS2339** — Union narrowing refinement in DatacoreAdapter.
-- **TS2307** — Missing type stubs for some minor dependencies.
+- **TS-01** — `Set<X>` / `MapIterator<X>` downlevelIteration and private identifiers. Requires bumping target to ES2015+.
+- **TS-02** — Zod v4 locale CJS default-imports (TS1259).
+- **TS-03** — Union narrowing refinement in DatacoreAdapter (TS2339).
 
 ## Session Continuity
 
-- **Last session**: 2026-05-21
-- **Current Phase**: Phase 16: WASM Graph Engine (LadybugDB) (PLANNING).
-- **Next Steps**: Execute 16-01-PLAN.md.
+- **Last session**: 2026-05-22
+- **Current Status**: Phase 17 complete. Exposing CLI/URI endpoints with atomic batch rolls.
+- **Next Steps**: Package and deploy v1.1.0 release.
 
 ## Quick Tasks Completed
 
 | Task                             | Date       | Status     |
 | :------------------------------- | :--------- | :--------- |
+| execute-phase-17                 | 2026-05-22 | complete ✓ |
+| milestone-audit                  | 2026-05-21 | complete ✓ |
 | check-wsl-deps                   | 2026-05-20 | complete ✓ |
 | fix-wsl-deps-plus-terminal-check | 2026-05-20 | complete ✓ |
 | check-online-fixes-may2026       | 2026-05-20 | complete ✓ |
-| rerun-quality-tools              | 2026-05-20 | complete ✓ |
+| rerun-quality-tools              | 2026-05-20 | complete âœ“ |
+| repo-cleanup                    | 2026-05-22 | complete âœ“ |

@@ -42,3 +42,10 @@ docs/plans/
 docs/
 SPEC.md
 CHANGELOG.md
+
+# Repository Garbage & Artifacts
+garbage/
+*.txt
+*.log
+!README.md
+!CONTRIBUTING.md
