@@ -256,9 +256,10 @@ function runSimilarityAnalysis(graph: DirectedGraph, options: unknown, requestId
         candidates.forEach((target) => {
             const targetNeighbors = neighborsMap.get(target)!;
             const shared = new Set<string>();
-            const [smaller, larger] = sourceNeighbors.size < targetNeighbors.size
-                ? [sourceNeighbors, targetNeighbors]
-                : [targetNeighbors, sourceNeighbors];
+            const [smaller, larger] =
+                sourceNeighbors.size < targetNeighbors.size
+                    ? [sourceNeighbors, targetNeighbors]
+                    : [targetNeighbors, sourceNeighbors];
             for (const x of smaller) {
                 if (larger.has(x)) shared.add(x);
             }
@@ -350,9 +351,8 @@ function runCoCitationAnalysis(graph: DirectedGraph, options: unknown, requestId
 
             const targetParents = inNeighbors.get(target)!;
             let sharedCount = 0;
-            const [smaller, larger] = parents.size < targetParents.size
-                ? [parents, targetParents]
-                : [targetParents, parents];
+            const [smaller, larger] =
+                parents.size < targetParents.size ? [parents, targetParents] : [targetParents, parents];
             for (const p of smaller) {
                 if (larger.has(p)) sharedCount++;
             }
