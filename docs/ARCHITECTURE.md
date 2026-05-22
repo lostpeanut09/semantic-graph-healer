@@ -69,7 +69,7 @@ graph TD
 - `GraphRagService` (`src/core/services/GraphRagService.ts`): Builds community-centric summaries and processes semantic context queries using vector similarity.
 - `AutomationApi` (`src/core/services/AutomationApi.ts`): Provides a programmatic interface for CLI or URI-based headless batch operations.
 - `SuggestionExecutor` (`src/core/SuggestionExecutor.ts`): Encapsulates the logic for performing safe file system operations (create, append, modify properties) and manages execution contexts.
-- `KeychainService` (`src/core/services/KeychainService.ts`): Manages secure API key storage using Obsidian's native `SecretStorage`. <!-- VERIFY: Obsidian API version >= 1.1.4 for SecretStorage -->
+- `KeychainService` (`src/core/services/KeychainService.ts`): Manages secure API key storage using Obsidian's native `SecretStorage` (v1.11.4+).
 
 ## Directory Structure Rationale
 
