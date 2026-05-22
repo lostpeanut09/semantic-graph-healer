@@ -171,7 +171,6 @@ export function handleGraphWorkerMessage(message: WorkerMessage, reporter?: Prog
                 const similarity = v1 && v2 ? cosineSimilarity(v1, v2) : 0;
                 const structural = (attrs.weight as number) || 1.0;
                 const newWeight = structural * htrWeight + similarity * (1 - htrWeight);
-                // console.log(`HTR v2 Edge ${source}->${target}: structural=${structural}, similarity=${similarity}, final=${newWeight}`);
                 return {
                     ...attrs,
                     weight: newWeight,

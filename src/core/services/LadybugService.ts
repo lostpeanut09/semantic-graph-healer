@@ -1,3 +1,6 @@
+import { App, Platform } from 'obsidian';
+import type { ExtendedManifest } from '../../types';
+
 export type InitializationStatus = 'none' | 'loading' | 'ready' | 'legacy';
 
 interface WorkerMessage {
@@ -23,17 +26,20 @@ interface ErrorResponse {
 
 interface AlgoResultResponse {
     type: 'algo-result';
-    result: any;
+    result: unknown;
 }
 
 type LadybugWorkerResponse = QueryResultResponse | SyncCompleteResponse | AlgoResultResponse | ErrorResponse;
 
 export class LadybugService {
     private worker: Worker | null = null;
+    private workerUrl: string | null = null;
     private status: InitializationStatus = 'none';
     private progress: number = 0;
     private initResolver: (() => void) | null = null;
     private initRejecter: ((reason: Error) => void) | null = null;
+
+    constructor(private app: App, private manifest: ExtendedManifest) {}
 
     get initializationStatus(): InitializationStatus {
         return this.status;
@@ -50,9 +56,23 @@ export class LadybugService {
         this.progress = 0;
 
         try {
-            // In Obsidian, the path would be relative to the plugin folder
-            // For tests, we use the mocked Worker
-            this.worker = new Worker(new URL('../workers/ladybug-worker.ts', import.meta.url));
+            if (Platform.isMobile) {
+                // Graceful degradation for mobile
+                this.status = 'legacy';
+                return;
+            }
+
+            const pluginDir = this.manifest.dir;
+            if (!pluginDir) {
+                throw new Error('Plugin directory undefined in manifest');
+            }
+
+            const workerContent = await this.app.vault.adapter.read(`${pluginDir}/ladybug-worker.js`);
+            const blob = new Blob([workerContent], {
+                type: 'application/javascript',
+            });
+            this.workerUrl = URL.createObjectURL(blob);
+            this.worker = new Worker(this.workerUrl);
 
             return new Promise((resolve, reject) => {
                 this.initResolver = resolve;
@@ -80,6 +100,10 @@ export class LadybugService {
             });
         } catch (error) {
             this.status = 'legacy';
+            if (this.workerUrl) {
+                URL.revokeObjectURL(this.workerUrl);
+                this.workerUrl = null;
+            }
             throw error instanceof Error ? error : new Error(String(error));
         }
     }
@@ -124,7 +148,7 @@ export class LadybugService {
         });
     }
 
-    async runAlgo(algoName: 'pagerank' | 'louvain'): Promise<any> {
+    async runAlgo(algoName: 'pagerank' | 'louvain'): Promise<unknown> {
         if (this.status !== 'ready' || !this.worker) {
             throw new Error('LadybugDB not ready');
         }
@@ -147,6 +171,11 @@ export class LadybugService {
     terminate(): void {
         this.worker?.terminate();
         this.worker = null;
+        if (this.workerUrl) {
+            URL.revokeObjectURL(this.workerUrl);
+            this.workerUrl = null;
+        }
         this.status = 'none';
     }
 }
+

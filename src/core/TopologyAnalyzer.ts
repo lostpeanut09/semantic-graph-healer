@@ -1004,7 +1004,7 @@ export class TopologyAnalyzer {
 
                     suggestions.push({
                         id: `semantic_incongruence:${pathA}:${pathB}`,
-                        type: 'semantic_incongruence',
+                        type: 'incongruence',
                         link:
                             pathToWikilink(this.context.app, pathA, pathA) +
                             ' \u2192 ' +

@@ -1,5 +1,5 @@
-import * as lbugST from '@ladybugdb/wasm-core';
-import * as lbugMT from '@ladybugdb/wasm-core/multithreaded';
+import lbugST from '@ladybugdb/wasm-core';
+import lbugMT from '@ladybugdb/wasm-core/multithreaded';
 import { DirectedGraph } from 'graphology';
 import pagerank from 'graphology-metrics/centrality/pagerank';
 import louvain from 'graphology-communities-louvain';
@@ -119,8 +119,12 @@ self.onmessage = async (e: MessageEvent<IncomingMessage>) => {
             return;
         }
         try {
-            const nodeStmt = await connection.prepare('MERGE (n:Node {path: $path}) SET n.label = $label, n.size = $size');
-            const linkStmt = await connection.prepare('MATCH (a:Node {path: $from}), (b:Node {path: $to}) MERGE (a)-[r:SemanticLink {type: $type}]->(b) SET r.weight = $weight');
+            const nodeStmt = await connection.prepare(
+                'MERGE (n:Node {path: $path}) SET n.label = $label, n.size = $size',
+            );
+            const linkStmt = await connection.prepare(
+                'MATCH (a:Node {path: $from}), (b:Node {path: $to}) MERGE (a)-[r:SemanticLink {type: $type}]->(b) SET r.weight = $weight',
+            );
 
             for (const item of batch ?? []) {
                 if (item.type === 'node') {
@@ -149,8 +153,7 @@ self.onmessage = async (e: MessageEvent<IncomingMessage>) => {
             const message = error instanceof Error ? error.message : String(error);
             self.postMessage({ type: 'error', message });
         }
-    }
- else if (type === 'algo') {
+    } else if (type === 'algo') {
         if (!connection) {
             self.postMessage({ type: 'error', message: 'Database not initialized' });
             return;
@@ -159,19 +162,21 @@ self.onmessage = async (e: MessageEvent<IncomingMessage>) => {
             // Fetch graph from LadybugDB to Graphology
             const nodesResult = await connection.query('MATCH (n:Node) RETURN n.path AS path');
             const nodesRows = await nodesResult.getAllObjects();
-            
-            const linksResult = await connection.query('MATCH (a:Node)-[r:SemanticLink]->(b:Node) RETURN a.path AS from, b.path AS to, r.weight AS weight');
+
+            const linksResult = await connection.query(
+                'MATCH (a:Node)-[r:SemanticLink]->(b:Node) RETURN a.path AS from, b.path AS to, r.weight AS weight',
+            );
             const linksRows = await linksResult.getAllObjects();
 
             const graph = new DirectedGraph();
-            nodesRows.forEach(n => graph.addNode(n.path as string));
-            linksRows.forEach(l => {
-                if (!graph.hasEdge(l.from as string, l.to as string)) {
-                    graph.addEdge(l.from as string, l.to as string, { weight: l.weight as number });
+            nodesRows.forEach((n) => graph.addNode(n.path));
+            linksRows.forEach((l) => {
+                if (!graph.hasEdge(l.from, l.to as string)) {
+                    graph.addEdge(l.from, l.to, { weight: l.weight as number });
                 }
             });
 
-            let result: any;
+            let result: unknown;
             if (algoName === 'pagerank') {
                 result = pagerank(graph);
             } else if (algoName === 'louvain') {
@@ -185,4 +190,3 @@ self.onmessage = async (e: MessageEvent<IncomingMessage>) => {
         }
     }
 };
-

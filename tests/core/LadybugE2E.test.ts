@@ -35,10 +35,8 @@ class MockWorker {
                 let rows: any[] = [];
                 if (msg.query.includes('SIZE([ (n)-[]->() | n ]) = 0')) {
                     // Find Black Holes (nodes with no out-links)
-                    const nodePathsWithOutLinks = new Set(this.links.map(l => l.from));
-                    rows = this.nodes
-                        .filter(n => !nodePathsWithOutLinks.has(n.path))
-                        .map(n => ({ path: n.path }));
+                    const nodePathsWithOutLinks = new Set(this.links.map((l) => l.from));
+                    rows = this.nodes.filter((n) => !nodePathsWithOutLinks.has(n.path)).map((n) => ({ path: n.path }));
                 } else if (msg.query.includes('MATCH (a:Node)-[r1]->(b:Node)-[r2]->(c:Node)')) {
                     // Find Bridges
                     rows = [{ path: 'bridge.md' }];
@@ -68,15 +66,28 @@ describe('Ladybug E2E Flow', () => {
     let ladybugAdapter: LadybugAdapter;
 
     beforeEach(() => {
-        service = new LadybugService();
+        const mockApp = {
+            vault: {
+                adapter: {
+                    read: vi.fn().mockResolvedValue('// mock worker content'),
+                },
+            },
+        } as any;
+        const mockManifest = { dir: 'plugin-dir' } as any;
+
+        service = new LadybugService(mockApp, mockManifest);
         metadataAdapter = {
-            getLinksSafe: vi.fn().mockResolvedValue([
-                { sourcePath: 'node1.md', targetPath: 'node2.md', type: 'related', confidence: 1.0 }
-            ]),
-            queryPages: vi.fn().mockResolvedValue([
-                { file: { path: 'node1.md', name: 'Node 1', size: 100 } },
-                { file: { path: 'node2.md', name: 'Node 2', size: 200 } }
-            ]),
+            getLinksSafe: vi
+                .fn()
+                .mockResolvedValue([
+                    { sourcePath: 'node1.md', targetPath: 'node2.md', type: 'related', confidence: 1.0 },
+                ]),
+            queryPages: vi
+                .fn()
+                .mockResolvedValue([
+                    { file: { path: 'node1.md', name: 'Node 1', size: 100 } },
+                    { file: { path: 'node2.md', name: 'Node 2', size: 200 } },
+                ]),
         } as any;
         ladybugAdapter = new LadybugAdapter(service, metadataAdapter);
     });
@@ -90,8 +101,8 @@ describe('Ladybug E2E Flow', () => {
         // Note: Our mock simulator handles the 'Black Hole' query
         // node2.md has no out-links, so it should be a black hole
         const blackHoles = await ladybugAdapter.findBlackHoles(0);
-        expect(blackHoles).toContain('node2.md');
-        expect(blackHoles).not.toContain('node1.md');
+        expect(blackHoles.map((b) => b.path)).toContain('node2.md');
+        expect(blackHoles.map((b) => b.path)).not.toContain('node1.md');
 
         // 3. Verify Algorithms
         const pagerank = await ladybugAdapter.getPageRank();

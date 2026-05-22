@@ -14,7 +14,16 @@ describe('LadybugBenchmark', () => {
     let ladybugAdapter: LadybugAdapter;
 
     beforeEach(async () => {
-        service = new LadybugService();
+        const mockApp = {
+            vault: {
+                adapter: {
+                    read: vi.fn().mockResolvedValue('// mock worker content'),
+                },
+            },
+        } as any;
+        const mockManifest = { dir: 'plugin-dir' } as any;
+
+        service = new LadybugService(mockApp, mockManifest);
         metadataAdapter = {
             getLinksSafe: vi.fn(),
             queryPages: vi.fn(),

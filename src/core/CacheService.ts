@@ -120,6 +120,7 @@ export class CacheService {
                     pendingSuggestions: legacySettings.pendingSuggestions ?? [],
                     history: legacySettings.history ?? [],
                     topologicalScores: { ...DEFAULT_CACHE.topologicalScores },
+                    vectorEmbeddings: {},
                 };
                 await this.saveImmediate();
                 HealerLogger.info(

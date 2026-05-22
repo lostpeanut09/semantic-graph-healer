@@ -93,7 +93,9 @@ Only return the JSON. No markdown or meta-talk.
                 await this.storage.appendLine(relationshipsPath, rel);
             }
 
-            HealerLogger.info(`EntityExtractor: Extracted ${entities.length} entities and ${relationships.length} relationships from ${file.path}`);
+            HealerLogger.info(
+                `EntityExtractor: Extracted ${entities.length} entities and ${relationships.length} relationships from ${file.path}`,
+            );
         } catch (e) {
             HealerLogger.error(`EntityExtractor: Failed to extract from ${file.path}`, e);
         }

@@ -27,15 +27,27 @@ global.Worker = MockWorker as any;
 
 describe('LadybugService', () => {
     let service: LadybugService;
+    let mockApp: any;
+    let mockManifest: any;
 
     beforeEach(() => {
         vi.clearAllMocks();
+        mockApp = {
+            vault: {
+                adapter: {
+                    read: vi.fn().mockResolvedValue('// mock worker content'),
+                },
+            },
+        };
+        mockManifest = { dir: 'plugin-dir' };
         // Reset SharedArrayBuffer
         (global as any).SharedArrayBuffer = class {};
     });
 
     async function fastForwardInit(service: LadybugService) {
         const initPromise = service.initialize();
+        // Wait a tick for async worker creation
+        await new Promise((resolve) => setTimeout(resolve, 0));
         const worker = (service as any).worker as MockWorker;
         worker.dispatchEvent({ type: 'ready', mode: 'st-wasm' });
         await initPromise;
@@ -43,11 +55,14 @@ describe('LadybugService', () => {
     }
 
     it('exposes initialization states: none -> loading -> ready', async () => {
-        service = new LadybugService();
+        service = new LadybugService(mockApp, mockManifest);
         expect(service.initializationStatus).toBe('none');
 
         const initPromise = service.initialize();
         expect(service.initializationStatus).toBe('loading');
+
+        // Wait a tick for async worker creation
+        await new Promise((resolve) => setTimeout(resolve, 0));
 
         // Simulate worker ready message
         const worker = (service as any).worker as MockWorker;
@@ -61,8 +76,11 @@ describe('LadybugService', () => {
         // Remove SharedArrayBuffer
         (global as any).SharedArrayBuffer = undefined;
 
-        service = new LadybugService();
+        service = new LadybugService(mockApp, mockManifest);
         const initPromise = service.initialize();
+
+        // Wait a tick for async worker creation
+        await new Promise((resolve) => setTimeout(resolve, 0));
 
         const worker = (service as any).worker as MockWorker;
         expect(worker.postMessage).toHaveBeenCalledWith({ type: 'init', useSharedArrayBuffer: false });
@@ -73,8 +91,11 @@ describe('LadybugService', () => {
     });
 
     it('falls back to Legacy if WASM fails entirely', async () => {
-        service = new LadybugService();
+        service = new LadybugService(mockApp, mockManifest);
         const initPromise = service.initialize();
+
+        // Wait a tick for async worker creation
+        await new Promise((resolve) => setTimeout(resolve, 0));
 
         const worker = (service as any).worker as MockWorker;
         worker.dispatchEvent({ type: 'error', message: 'WASM Load Failed' });
@@ -84,8 +105,11 @@ describe('LadybugService', () => {
     });
 
     it('reports init-progress messages', async () => {
-        service = new LadybugService();
+        service = new LadybugService(mockApp, mockManifest);
         service.initialize();
+
+        // Wait a tick for async worker creation
+        await new Promise((resolve) => setTimeout(resolve, 0));
 
         const worker = (service as any).worker as MockWorker;
 
@@ -94,7 +118,7 @@ describe('LadybugService', () => {
     });
 
     it('successfully executes a query', async () => {
-        service = new LadybugService();
+        service = new LadybugService(mockApp, mockManifest);
         const worker = await fastForwardInit(service);
 
         const queryPromise = service.query('MATCH (n) RETURN n');
@@ -106,7 +130,7 @@ describe('LadybugService', () => {
     });
 
     it('successfully executes a sync', async () => {
-        service = new LadybugService();
+        service = new LadybugService(mockApp, mockManifest);
         const worker = await fastForwardInit(service);
 
         const syncPromise = service.sync([{ type: 'node', data: [] }]);
@@ -117,7 +141,7 @@ describe('LadybugService', () => {
     });
 
     it('successfully runs an algorithm', async () => {
-        service = new LadybugService();
+        service = new LadybugService(mockApp, mockManifest);
         const worker = await fastForwardInit(service);
 
         const algoPromise = service.runAlgo('pagerank');
@@ -129,14 +153,14 @@ describe('LadybugService', () => {
     });
 
     it('throws error if methods called before initialization', async () => {
-        service = new LadybugService();
+        service = new LadybugService(mockApp, mockManifest);
         await expect(service.query('MATCH (n) RETURN n')).rejects.toThrow('LadybugDB not ready');
         await expect(service.sync([])).rejects.toThrow('LadybugDB not ready');
         await expect(service.runAlgo('pagerank')).rejects.toThrow('LadybugDB not ready');
     });
 
     it('propagates worker errors to the caller', async () => {
-        service = new LadybugService();
+        service = new LadybugService(mockApp, mockManifest);
         const worker = await fastForwardInit(service);
 
         const queryPromise = service.query('INVALID QUERY');

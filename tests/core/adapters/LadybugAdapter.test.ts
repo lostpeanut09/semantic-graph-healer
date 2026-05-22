@@ -91,26 +91,38 @@ describe('LadybugAdapter', () => {
 
     describe('Topological Diagnostics (Parity)', () => {
         it('findBlackHoles correctly constructs Cypher query', async () => {
-            vi.mocked(service.query).mockResolvedValue([{ path: 'blackhole.md' }]);
+            vi.mocked(service.query).mockResolvedValue([{ path: 'blackhole.md', inDegree: 15 }]);
             const results = await ladybugAdapter.findBlackHoles(10);
-            
-            expect(service.query).toHaveBeenCalledWith(expect.stringContaining('SIZE([ (n)-[]->() | n ]) = 0'), { threshold: 10 });
-            expect(results).toEqual(['blackhole.md']);
+
+            expect(service.query).toHaveBeenCalledWith(expect.stringContaining('SIZE([ (n)-[]->() | n ]) = 0'), {
+                threshold: 10,
+            });
+            expect(results).toEqual([{ path: 'blackhole.md', inDegree: 15 }]);
         });
 
         it('findBridges correctly constructs Cypher query', async () => {
-            vi.mocked(service.query).mockResolvedValue([{ path: 'bridge.md' }]);
+            const mockBridge = { source: 'A.md', target: 'C.md', via: 'B.md', type: 'up' };
+            vi.mocked(service.query).mockResolvedValue([mockBridge]);
             const results = await ladybugAdapter.findBridges();
-            
-            expect(service.query).toHaveBeenCalledWith(expect.stringContaining('MATCH (a:Node)-[r1]->(b:Node)-[r2]->(c:Node)'), {});
-            expect(results).toEqual(['bridge.md']);
+
+            expect(service.query).toHaveBeenCalledWith(
+                expect.stringContaining('MATCH (a:Node)-[r1]->(b:Node)-[r2]->(c:Node)'),
+                {},
+            );
+            expect(results).toEqual([mockBridge]);
         });
 
         it('findCycles correctly constructs Cypher query', async () => {
-            vi.mocked(service.query).mockResolvedValue([{ p: {} }]);
-            await ladybugAdapter.findCycles(3);
-            
+            vi.mocked(service.query).mockResolvedValue([
+                {
+                    nodes: [{ path: 'A.md' }, { path: 'B.md' }, { path: 'A.md' }],
+                    types: ['related', 'related'],
+                },
+            ]);
+            const results = await ladybugAdapter.findCycles(3);
+
             expect(service.query).toHaveBeenCalledWith(expect.stringContaining('MATCH p = (n:Node)-[*1..3]->(n)'), {});
+            expect(results[0]).toEqual({ path: ['A.md', 'B.md', 'A.md'], type: 'related' });
         });
     });
 
@@ -118,7 +130,7 @@ describe('LadybugAdapter', () => {
         it('getPageRank calls runAlgo on service', async () => {
             const mockRank = { 'a.md': 0.1 };
             (service as any).runAlgo = vi.fn().mockResolvedValue(mockRank);
-            
+
             const result = await ladybugAdapter.getPageRank();
             expect(service.runAlgo).toHaveBeenCalledWith('pagerank');
             expect(result).toEqual(mockRank);
@@ -127,7 +139,7 @@ describe('LadybugAdapter', () => {
         it('getLouvainCommunities calls runAlgo on service', async () => {
             const mockCommunities = { 'a.md': 1 };
             (service as any).runAlgo = vi.fn().mockResolvedValue(mockCommunities);
-            
+
             const result = await ladybugAdapter.getLouvainCommunities();
             expect(service.runAlgo).toHaveBeenCalledWith('louvain');
             expect(result).toEqual(mockCommunities);

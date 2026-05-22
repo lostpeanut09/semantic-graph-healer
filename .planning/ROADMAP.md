@@ -18,11 +18,36 @@
 - [x] **Phase 14: WSL Support & Dependency Validation** - Ensure seamless cross-platform support and modern environment standards. ✅ 20266-05-20
 - [x] **Phase 15: GraphRAG & Embedding Hardening** - Integrate local embedding models for deep semantic indexing and graph-aware RAG. ✅ 2026-05-21
 - [x] **Phase 16: WASM Graph Engine (LadybugDB)** - Migrate to a high-performance WASM-based graph database for 50k+ node support. ✅ 2026-05-21
-- [ ] **Phase 17: Obsidian CLI Integration & Automation** - Enable deep automation and headless interaction via Obsidian CLI (v1.12+).
+- [x] **Phase 17: Obsidian CLI Integration & Automation** - Enable deep automation and "headless" interaction via Obsidian CLI (v1.12+). âœ… 2026-05-22
+- [x] **Phase 18: BRAT Support & Root Cleanup** - Pristine root directory and automated distribution for beta users. ✅ 2026-05-22
 
 ## Phase Details
 
+### Phase 18: BRAT Support & Root Cleanup
+
+**Goal:** Clean up the root directory, untrack build artifacts from `main`, and set up an automated `dist` branch for BRAT users.
+
+**Requirements:**
+
+- REQ-18.1 — Root Cleanup & AI Garbage Hiding (CLAUDE.md, etc.)
+- REQ-18.2 — CSS Consolidation & esbuild automation
+- REQ-18.3 — Automated BRAT Distribution (dist branch via GitHub Actions)
+
+**Plans:** 2 plans
+
+- [x] 18-01-PLAN.md — Root Cleanup, CSS Consolidation & Build Refactor
+- [x] 18-02-PLAN.md — BRAT Distribution & Documentation
+
+**Success Criteria:**
+
+- Root directory contains only essential source and config files.
+- `main.js`, `worker.js`, `ladybug-worker.js`, and `styles.css` are not tracked in `main`.
+- `styles.css` is the unified output for all plugin styles.
+- `dist` branch is automatically updated on push to `main` with deployment artifacts.
+- README provides clear BRAT installation instructions using the `dist` branch.
+
 ### Phase 17: Obsidian CLI Integration & Automation
+
 
 **Goal:** Enable deep automation and "headless" interaction via Obsidian CLI (v1.12+).
 
@@ -33,15 +58,18 @@
 - REQ-17.3 — Command registration (export-suggestions-json, export-metrics-json, apply-fixes-batch)
 - REQ-17.4 — Safety & Headless Execution (Mementos, Undo path, Confidence Gate)
 
-**Plans:** 1 plan
+**Plans:** 2 plans
 
-- [ ] 17-01-PLAN.md — Automation API & CLI Core
+- [x] 17-01-PLAN.md — Notifier Service & Automation API Foundation
+- [x] 17-02-PLAN.md — CLI/URI Handlers & Safe Batch repairs
 
 **Success Criteria:**
 
 - Users can run `obsidian eval` to extract all pending graph issues as JSON.
 - Analysis can be triggered and awaited from a terminal script.
 - Batch repairs can be executed headlessly with a full audit trail (Mementos) preserved in the history.
+- `undo-batch` command allows atomic rollback of automated changes.
+- Pure JSON output (including error states) allows robust shell piping.
 - No regressions in UI stability when programmatic commands are running.
 
 ### Phase 16: WASM Graph Engine (LadybugDB)

@@ -1,3 +1,4 @@
+import './styles.css';
 import { Plugin, Notice, WorkspaceLeaf, requestUrl, TFile } from 'obsidian';
 import { DASHBOARD_VIEW_TYPE, DEFAULT_SETTINGS } from './types';
 import type {
@@ -40,11 +41,13 @@ import { GraphRagService } from './core/services/GraphRagService';
 import { AjsonStorage } from './core/utils/AjsonStorage';
 import { EmbeddingService } from './core/EmbeddingService';
 import { GraphEngine } from './core/GraphEngine';
+import { AutomationApi } from './core/services/AutomationApi';
 
 export default class SemanticGraphHealer extends Plugin {
     settings: SemanticGraphHealerSettings;
 
     public topology: TopologyAnalyzer;
+    public api: AutomationApi;
     public quality: QualityAnalyzer;
     public llm: LlmService;
     public engine: UnifiedMetadataAdapter;
@@ -70,13 +73,13 @@ export default class SemanticGraphHealer extends Plugin {
         this.cache = new CacheService(this);
         await this.loadSettings();
 
-        // Attach settings to app for adapter access (Phase 4 Hardening)
+        // Attach settings to app for adapter access (Phase 18 Root Cleanup)
         (this.app as ExtendedApp).settings = this.settings;
 
         // 1. Initialize Infrastructure & Services
         this.logger = new InstanceLogger('SemanticGraphHealer', this, this.settings);
         LegacyLogger.setInstance(this.logger);
-        this.logger.info('Semantic Graph Healer Phase 4 loading...');
+        this.logger.info('Semantic Graph Healer Phase 18 loading...');
 
         this.keychainService = new KeychainService({
             app: this.app,
@@ -150,6 +153,8 @@ export default class SemanticGraphHealer extends Plugin {
             this.settings,
         );
 
+        this.api = new AutomationApi(this);
+
         // 1.5. Initialize Engine (HARDEN-03d Wiring)
         await this.engine.initialize();
 
@@ -158,6 +163,7 @@ export default class SemanticGraphHealer extends Plugin {
 
         // 3. Register Framework Extensions
         this.registerProtocolHandlers();
+        this.registerCliHandlers();
         this.registerViews();
         this.registerCommands();
         this.registerUI();
@@ -170,7 +176,7 @@ export default class SemanticGraphHealer extends Plugin {
         });
 
         this.addSettingTab(new SemanticHealerSettingTab(this.app, this));
-        this.logger.info('Semantic Graph Healer Phase 7 ready');
+        this.logger.info('Semantic Graph Healer Phase 18 ready');
     }
 
     /**
@@ -435,6 +441,141 @@ export default class SemanticGraphHealer extends Plugin {
                 await this.analyzeGraph();
             }
         });
+
+        this.registerObsidianProtocolHandler('healer-action', async (params) => {
+            try {
+                const action = params.action;
+                if (action === 'scan') {
+                    new Notice('Remote scan triggered.');
+                    await this.analyzeGraph(true);
+                } else if (action === 'apply-batch') {
+                    const confidence = params.confidence ? parseFloat(params.confidence) : 0.8;
+                    const category = params.category;
+                    new Notice(`Remote batch apply triggered (confidence >= ${confidence * 100}%)...`);
+                    const result = await this.api.executeBatch({ confidence, category });
+                    new Notice(
+                        `Batch applied: ${result.appliedCount} success, ${result.failedCount} fail. ID: ${result.batchId}`,
+                    );
+                } else if (action === 'undo-batch') {
+                    const batchId = params.batchId;
+                    if (!batchId) {
+                        new Notice('Batch parameter is missing.');
+                        return;
+                    }
+                    new Notice(`Remote batch undo triggered for ${batchId}...`);
+                    const result = await this.api.undoBatch(batchId);
+                    new Notice(`Batch undone: ${result.revertedCount} reverted, ${result.failedCount} fail.`);
+                }
+            } catch (e) {
+                this.logger.error('URI handler error', e);
+                const errMsg = e instanceof Error ? e.message : String(e);
+                new Notice(`Failed to execute remote action: ${errMsg}`);
+            }
+        });
+    }
+
+    private registerCliHandlers() {
+        if (typeof this.registerCliHandler !== 'function') {
+            this.logger.info('registerCliHandler is not supported by this version of Obsidian.');
+            return;
+        }
+
+        /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment */
+
+        this.registerCliHandler(
+            'healer:scan',
+            'Scan semantic graph for structural and semantic gaps',
+            {
+                silent: {
+                    description: 'Scan silently without showing UI notifications',
+                },
+            },
+            async (params) => {
+                try {
+                    const p = params as any;
+                    const silent = p?.silent !== undefined ? p.silent === 'true' || p.silent === true : true;
+                    const suggestions = await this.api.runAnalysis({ silent });
+                    return JSON.stringify(suggestions);
+                } catch (e) {
+                    return JSON.stringify({ status: 'error', message: e instanceof Error ? e.message : String(e) });
+                }
+            },
+        );
+
+        this.registerCliHandler(
+            'healer:export-suggestions',
+            'Export all currently cached suggestions as JSON',
+            null,
+            () => {
+                try {
+                    const suggestions = this.api.getSuggestions();
+                    return JSON.stringify(suggestions);
+                } catch (e) {
+                    return JSON.stringify({ status: 'error', message: e instanceof Error ? e.message : String(e) });
+                }
+            },
+        );
+
+        this.registerCliHandler(
+            'healer:apply-batch',
+            'Apply batch repairs matching a confidence threshold',
+            {
+                confidence: {
+                    value: '<number>',
+                    description: 'Confidence threshold (e.g., 0.8)',
+                },
+                category: {
+                    value: '<string>',
+                    description: 'Filter repairs by suggestion category',
+                },
+            },
+            async (params) => {
+                try {
+                    const p = params as any;
+                    const confidenceVal = p?.confidence;
+                    let confidence = 0.8;
+                    if (confidenceVal !== undefined && confidenceVal !== null) {
+                        const parsed =
+                            typeof confidenceVal === 'number' ? confidenceVal : parseFloat(String(confidenceVal));
+                        if (!isNaN(parsed)) {
+                            confidence = parsed;
+                        }
+                    }
+                    const category = p?.category ? String(p.category) : undefined;
+                    const result = await this.api.executeBatch({ confidence, category });
+                    return JSON.stringify(result);
+                } catch (e) {
+                    return JSON.stringify({ status: 'error', message: e instanceof Error ? e.message : String(e) });
+                }
+            },
+        );
+
+        this.registerCliHandler(
+            'healer:undo-batch',
+            'Undo a specific batch repair by its batch ID',
+            {
+                batchId: {
+                    value: '<string>',
+                    description: 'The batch ID to revert',
+                    required: true,
+                },
+            },
+            async (params) => {
+                try {
+                    const p = params as any;
+                    const batchId = p?.batchId ? String(p.batchId) : undefined;
+                    if (!batchId) {
+                        return JSON.stringify({ status: 'error', message: 'Missing required flag: batchId' });
+                    }
+                    const result = await this.api.undoBatch(batchId);
+                    return JSON.stringify(result);
+                } catch (e) {
+                    return JSON.stringify({ status: 'error', message: e instanceof Error ? e.message : String(e) });
+                }
+            },
+        );
+
+        /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment */
     }
 
     private registerViews() {
@@ -746,6 +887,46 @@ export default class SemanticGraphHealer extends Plugin {
                 }
 
                 void this.activateDashboard();
+            },
+        });
+
+        this.addCommand({
+            id: 'apply-batch-repairs-high-confidence',
+            name: 'Apply high-confidence batch repairs (>= 80%)',
+            callback: async () => {
+                try {
+                    new Notice('Applying high-confidence batch repairs...');
+                    const result = await this.api.executeBatch({ confidence: 0.8 });
+                    new Notice(
+                        `Batch applied: ${result.appliedCount} success, ${result.failedCount} fail. ID: ${result.batchId}`,
+                    );
+                } catch (e) {
+                    this.logger.error('Failed to apply high-confidence batch repairs', e);
+                    const errMsg = e instanceof Error ? e.message : String(e);
+                    new Notice(`Failed to apply batch: ${errMsg}`);
+                }
+            },
+        });
+
+        this.addCommand({
+            id: 'undo-last-batch-repair',
+            name: 'Undo last batch repair',
+            callback: async () => {
+                try {
+                    const lastBatchItem = [...this.cache.history].reverse().find((item) => item.batchId);
+                    if (!lastBatchItem || !lastBatchItem.batchId) {
+                        new Notice('No batch repairs found in history to undo.');
+                        return;
+                    }
+                    const batchId = lastBatchItem.batchId;
+                    new Notice(`Undoing last batch repair: ${batchId}...`);
+                    const result = await this.api.undoBatch(batchId);
+                    new Notice(`Batch undone: ${result.revertedCount} reverted, ${result.failedCount} fail.`);
+                } catch (e) {
+                    this.logger.error('Failed to undo last batch repair', e);
+                    const errMsg = e instanceof Error ? e.message : String(e);
+                    new Notice(`Failed to undo batch: ${errMsg}`);
+                }
             },
         });
     }
