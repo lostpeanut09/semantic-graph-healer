@@ -135,12 +135,10 @@ describe('DatacoreUtils', () => {
                         { type: 'file', path: 'nested/other.md' },
                         {
                             type: 'folder',
-                            items: [
-                                { type: 'file', path: 'target/path.md' }
-                            ]
-                        }
-                    ]
-                }
+                            items: [{ type: 'file', path: 'target/path.md' }],
+                        },
+                    ],
+                },
             ];
             expect(isPathBookmarked(items, 'target/path.md')).toBe(true);
         });
@@ -152,7 +150,7 @@ describe('DatacoreUtils', () => {
                 'string',
                 { type: 'file' }, // missing path
                 { type: 'group', items: null }, // invalid items array
-                { type: 'file', path: 'target/path.md' }
+                { type: 'file', path: 'target/path.md' },
             ];
             expect(isPathBookmarked(items, 'target/path.md')).toBe(true);
         });
