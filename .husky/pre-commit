@@ -1,22 +1,13 @@
-echo "🔍 Running ESLint..."
-npx eslint -c .config/eslint.config.js . --fix
-if [ $? -ne 0 ]; then
-  echo "❌ ESLint failed"
-  exit 1
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+# Detect WSL and normalize PATH if needed
+if grep -q Microsoft /proc/version 2>/dev/null; then
+  export PATH="$PATH:/mnt/c/Program Files/nodejs"
 fi
 
-echo "✨ Running Prettier..."
-npx prettier --config .config/.prettierrc --write .
-if [ $? -ne 0 ]; then
-  echo "❌ Prettier failed"
-  exit 1
-fi
-
-echo "🏗️  Building..."
-npm run build
-if [ $? -ne 0 ]; then
-  echo "❌ Build failed"
-  exit 1
-fi
+echo "🔍 Running Linting and Formatting..."
+npm run lint:fix || { echo "❌ Linting/Fix failed"; exit 1; }
+npm run format || { echo "❌ Formatting failed"; exit 1; }
 
 echo "✅ Pre-commit checks passed"

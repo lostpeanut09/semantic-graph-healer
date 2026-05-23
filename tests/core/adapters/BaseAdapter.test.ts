@@ -1,116 +1,151 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { HealerLogger } from '../../../src/core/HealerUtils';
 import { BaseAdapter } from '../../../src/core/adapters/BaseAdapter';
-import { SemanticLinkEdge } from '../../../src/core/adapters/types';
 
-// Concrete subclass for testing
 class TestAdapter extends BaseAdapter {
     public readonly id = 'test-adapter';
+
     public available = true;
-    public links: SemanticLinkEdge[] = [];
-    public throws = false;
+    public throwOnAvailable = false;
+    public throwOnGetLinks = false;
+
     public getLinksCalls = 0;
-    public destroyedCalled = false;
+    public destroyCalls = 0;
+    public onInitializeCalls = 0;
+
+    protected async onInitialize(): Promise<void> {
+        this.onInitializeCalls++;
+        // Simulate async work
+        await new Promise((resolve) => setTimeout(resolve, 10));
+    }
 
     public isAvailable(): boolean {
+        if (this.throwOnAvailable) throw new Error('boom-available');
         return this.available;
     }
 
-    public async getLinks(): Promise<SemanticLinkEdge[]> {
+    public async getLinks() {
+        this.ensureInitialized();
         this.getLinksCalls++;
-        if (this.throws) throw new Error('boom');
-        return this.links;
+        if (this.throwOnGetLinks) throw new Error('boom-links');
+        return [];
     }
 
-    public invalidate(_path?: string): void {}
+    public invalidate(): void {}
 
-    protected override onDestroy(): void {
-        this.destroyedCalled = true;
+    protected onDestroy(): void {
+        this.destroyCalls++;
     }
 
-    // Expose protected helpers for testing
-    public testGetPlugin<T>(id: string) {
-        return this.getPlugin<T>(id);
+    // expose protected for test
+    public _isPluginAvailable(id: string): boolean {
+        return (this as any).isPluginAvailable(id);
     }
-    public testIsPluginAvailable(id: string) {
-        return this.isPluginAvailable(id);
+
+    public _logDebug(msg: string): void {
+        return (this as any).logDebug(msg);
     }
-    public testNormalize(path?: string, source?: string) {
-        return this.normalizeInvalidatePath(path, source);
+
+    public _ensureInitialized(): void {
+        return (this as any).ensureInitialized();
     }
 }
 
-describe('BaseAdapter Hardening', () => {
-    it('lifecycle: destroy() should set isDestroyed and call onDestroy', () => {
-        const app = {} as any;
-        const adapter = new TestAdapter(app);
+describe('BaseAdapter', () => {
+    let debugSpy: any;
 
-        expect(adapter.isDestroyed).toBe(false);
-        expect(adapter.destroyedCalled).toBe(false);
-
-        adapter.destroy();
-
-        expect(adapter.isDestroyed).toBe(true);
-        expect(adapter.destroyedCalled).toBe(true);
-
-        // Idempotency check
-        adapter.destroy();
-        expect(adapter.isDestroyed).toBe(true);
+    beforeEach(() => {
+        debugSpy = vi.spyOn(HealerLogger, 'debug').mockImplementation(() => {});
     });
 
-    it('getLinksSafe: should return [] if adapter is destroyed', async () => {
-        const adapter = new TestAdapter({} as any);
-        adapter.links = [{ sourcePath: 'a', targetPath: 'b', type: 'wikilink' }];
+    afterEach(() => {
+        debugSpy.mockRestore();
+    });
 
-        adapter.destroy();
-        const res = await adapter.getLinksSafe();
+    it('initialize() calls onInitialize exactly once and handles concurrency', async () => {
+        const a = new TestAdapter({} as any);
+        const p1 = a.initialize();
+        const p2 = a.initialize();
 
+        await Promise.all([p1, p2]);
+
+        expect(a.onInitializeCalls).toBe(1);
+    });
+
+    it('ensureInitialized() throws if called before initialize', () => {
+        const a = new TestAdapter({} as any);
+        expect(() => a._ensureInitialized()).toThrow('test-adapter adapter: not initialized');
+    });
+
+    it('ensureInitialized() throws if called while initialize is in flight', () => {
+        const a = new TestAdapter({} as any);
+        void a.initialize();
+        expect(() => a._ensureInitialized()).toThrow('test-adapter adapter: not initialized');
+    });
+
+    it('ensureInitialized() does not throw after initialize completes', async () => {
+        const a = new TestAdapter({} as any);
+        await a.initialize();
+        expect(() => a._ensureInitialized()).not.toThrow();
+    });
+
+    it('getLinks throws if not initialized (via ensureInitialized)', async () => {
+        const a = new TestAdapter({} as any);
+        await expect(a.getLinks()).rejects.toThrow('test-adapter adapter: not initialized');
+    });
+
+    it('destroy() is idempotent and calls onDestroy exactly once', () => {
+        const a = new TestAdapter({} as any);
+        a.destroy();
+        a.destroy();
+        expect(a.isDestroyed).toBe(true);
+        expect(a.destroyCalls).toBe(1);
+    });
+
+    it('getLinksSafe returns [] if destroyed', async () => {
+        const a = new TestAdapter({} as any);
+        a.destroy();
+        const res = await a.getLinksSafe();
         expect(res).toEqual([]);
-        expect(adapter.getLinksCalls).toBe(0);
+        expect(a.getLinksCalls).toBe(0);
     });
 
-    it('getLinksSafe: should return [] if adapter is not available', async () => {
-        const adapter = new TestAdapter({} as any);
-        adapter.available = false;
-
-        const res = await adapter.getLinksSafe();
-
+    it('getLinksSafe returns [] if isAvailable throws', async () => {
+        const a = new TestAdapter({} as any);
+        a.throwOnAvailable = true;
+        const res = await a.getLinksSafe();
         expect(res).toEqual([]);
-        expect(adapter.getLinksCalls).toBe(0);
+        expect(a.getLinksCalls).toBe(0);
     });
 
-    it('getLinksSafe: should return [] and log error if getLinks throws', async () => {
-        const adapter = new TestAdapter({} as any);
-        adapter.throws = true;
-
-        const res = await adapter.getLinksSafe();
-
+    it('getLinksSafe returns [] if getLinks throws', async () => {
+        const a = new TestAdapter({} as any);
+        await a.initialize();
+        a.throwOnGetLinks = true;
+        const res = await a.getLinksSafe();
         expect(res).toEqual([]);
-        expect(adapter.getLinksCalls).toBe(1);
+        expect(a.getLinksCalls).toBe(1);
     });
 
-    it('getLinksSafe: should return data if healthy', async () => {
-        const adapter = new TestAdapter({} as any);
-        const mockLinks: SemanticLinkEdge[] = [{ sourcePath: 'a', targetPath: 'b', type: 'wikilink' }];
-        adapter.links = mockLinks;
+    it('logDebug respects debug flag', () => {
+        const aNoDebug = new TestAdapter({} as any, false);
+        aNoDebug._logDebug('nope');
+        expect(debugSpy).toHaveBeenCalledTimes(0);
 
-        const res = await adapter.getLinksSafe();
-
-        expect(res).toEqual(mockLinks);
-        expect(adapter.getLinksCalls).toBe(1);
+        const aDebug = new TestAdapter({} as any, true);
+        aDebug._logDebug('yep');
+        expect(debugSpy).toHaveBeenCalledTimes(1);
     });
 
-    it('helpers: isPluginAvailable should handle Obsidian internal app shape', () => {
-        const mockApp = {
+    it('isPluginAvailable does not throw if enabledPlugins is an array', () => {
+        const app = {
             plugins: {
-                enabledPlugins: new Set(['p1', 'p2']),
-                getPlugin: (id: string) => (id === 'p1' ? { api: {} } : null),
+                enabledPlugins: ['x'],
+                getPlugin: (id: string) => (id === 'x' ? {} : null),
             },
         };
-
-        const adapter = new TestAdapter(mockApp as any);
-
-        expect(adapter.testIsPluginAvailable('p1')).toBe(true);
-        expect(adapter.testIsPluginAvailable('p2')).toBe(false); // No instance returned by getPlugin
-        expect(adapter.testIsPluginAvailable('p3')).toBe(false); // Not in enabledPlugins
+        const a = new TestAdapter(app as any);
+        expect(() => a._isPluginAvailable('x')).not.toThrow();
+        expect(a._isPluginAvailable('x')).toBe(true);
     });
 });

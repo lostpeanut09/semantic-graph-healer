@@ -122,7 +122,7 @@ describe('BreadcrumbsAdapter', () => {
         },
     });
 
-    beforeEach(() => {
+    beforeEach(async () => {
         mockApp = {
             metadataCache: {
                 getFirstLinkpathDest: vi.fn((p: string) => {
@@ -148,6 +148,7 @@ describe('BreadcrumbsAdapter', () => {
         } as unknown as App;
 
         adapter = new BreadcrumbsAdapter(mockApp);
+        await adapter.initialize();
     });
 
     afterEach(() => {

@@ -1,4 +1,4 @@
-import { App, TAbstractFile, TFile, EventRef } from 'obsidian';
+import type { App, TAbstractFile, EventRef } from 'obsidian';
 import { HealerLogger } from './HealerUtils';
 
 /**
@@ -31,10 +31,7 @@ export class StructuralCache<T> {
             this.invalidate(oldPath);
             this.invalidate(file.path);
         };
-        this.changedRef = this.app.metadataCache.on(
-            'changed',
-            this.boundInvalidate as unknown as (file: TFile) => void,
-        );
+        this.changedRef = this.app.metadataCache.on('changed', this.boundInvalidate);
         this.renameRef = this.app.vault.on('rename', this.boundRename);
         this.deleteRef = this.app.vault.on('delete', this.boundInvalidate);
     }
@@ -60,8 +57,9 @@ export class StructuralCache<T> {
             return undefined;
         }
 
-        // LRU: Refresh position in Map by deleting and re-inserting
+        // LRU: Refresh position in Map and update timestamp
         this.cache.delete(path);
+        entry.timestamp = Date.now();
         this.cache.set(path, entry);
         return entry.value;
     }

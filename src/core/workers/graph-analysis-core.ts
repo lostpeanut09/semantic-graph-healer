@@ -3,6 +3,8 @@ import pagerank from 'graphology-metrics/centrality/pagerank';
 import louvain from 'graphology-communities-louvain';
 import betweennessCentrality from 'graphology-metrics/centrality/betweenness';
 import { z } from 'zod';
+import type { WorkerResponse, GraphAnalysisResult } from '../../types';
+export type { WorkerResponse, GraphAnalysisResult };
 
 // --- Phase 2: OSS Hardening (Zod Validation) ---
 
@@ -18,7 +20,15 @@ const EdgeSchema = z.object({
 });
 
 const WorkerMessageSchema = z.looseObject({
-    type: z.enum(['PAGERANK', 'COMMUNITY', 'BETWEENNESS', 'FULL_ANALYSIS', 'SIMILARITY', 'COCITATION']),
+    type: z.enum([
+        'PAGERANK',
+        'COMMUNITY',
+        'BETWEENNESS',
+        'FULL_ANALYSIS',
+        'SIMILARITY',
+        'COCITATION',
+        'TOPOLOGY_DIAGNOSTICS',
+    ]),
     payload: z.object({
         nodes: z.array(NodeSchema),
         edges: z.array(EdgeSchema),
@@ -39,20 +49,38 @@ const WorkerMessageSchema = z.looseObject({
             edgePolicy: z.enum(['strict', 'tolerant']).optional(),
             maxEdges: z.number().optional(),
             maxNodes: z.number().optional(),
+            blackHoleThreshold: z.number().optional(),
+            htrStructuralWeight: z.number().optional(),
+            embeddings: z.record(z.string(), z.array(z.number())).optional(),
         })
         .optional(),
 });
 
 export type WorkerMessage = z.infer<typeof WorkerMessageSchema>;
 
-export type WorkerResponse = {
-    type: 'RESULT' | 'ERROR' | 'PROGRESS';
-    payload: {
-        requestId: string;
-        data?: unknown;
-        message?: string;
-    };
-};
+/**
+ * Calculates cosine similarity between two vectors.
+ */
+function cosineSimilarity(v1: number[], v2: number[]): number {
+    if (!v1 || !v2 || v1.length === 0 || v1.length !== v2.length) return 0;
+    let dot = 0;
+    let norm1 = 0;
+    let norm2 = 0;
+    for (let i = 0; i < v1.length; i++) {
+        dot += v1[i] * v2[i];
+        norm1 += v1[i] * v1[i];
+        norm2 += v2[i] * v2[i];
+    }
+    const mag = Math.sqrt(norm1) * Math.sqrt(norm2);
+    return mag === 0 ? 0 : dot / mag;
+}
+
+/**
+ * Type guard for WorkerMessage validation.
+ */
+export function isWorkerMessage(data: unknown): data is WorkerMessage {
+    return WorkerMessageSchema.safeParse(data).success;
+}
 
 export interface ProgressReporter {
     postProgress: (requestId: string, pct: number, message: string) => void;
@@ -75,6 +103,7 @@ const DEFAULT_LIMITS = {
     SIMILARITY: 5000,
     FULL_ANALYSIS: 8000,
     COCITATION: 8000,
+    TOPOLOGY_DIAGNOSTICS: 10000,
     MAX_EDGES: 100_000,
 } as const;
 
@@ -131,6 +160,24 @@ export function handleGraphWorkerMessage(message: WorkerMessage, reporter?: Prog
             }
         });
 
+        // --- HTR v2: Vector-Weighted Centrality (HARDEN-09) ---
+        const htrWeight = options?.htrStructuralWeight ?? 1.0;
+        const embeddings = options?.embeddings;
+
+        if (embeddings && htrWeight < 1.0) {
+            graph.updateEachEdgeAttributes((edge, attrs, source, target) => {
+                const v1 = embeddings[source];
+                const v2 = embeddings[target];
+                const similarity = v1 && v2 ? cosineSimilarity(v1, v2) : 0;
+                const structural = (attrs.weight as number) || 1.0;
+                const newWeight = structural * htrWeight + similarity * (1 - htrWeight);
+                return {
+                    ...attrs,
+                    weight: newWeight,
+                };
+            });
+        }
+
         let result: unknown;
 
         switch (type) {
@@ -164,11 +211,19 @@ export function handleGraphWorkerMessage(message: WorkerMessage, reporter?: Prog
                     communities: louvain(graph, options as Parameters<typeof louvain>[1]),
                     betweenness:
                         graph.order <= DEFAULT_LIMITS.BETWEENNESS
-                            ? betweennessCentrality(graph, options as Parameters<typeof betweennessCentrality>[1])
+                            ? (betweennessCentrality(
+                                  graph,
+                                  options as Parameters<typeof betweennessCentrality>[1],
+                              ) as Record<string, number>)
                             : null,
                     nodeCount: graph.order,
                     edgeCount: graph.size,
                 };
+                break;
+
+            case 'TOPOLOGY_DIAGNOSTICS':
+                validateGraphSize('TOPOLOGY_DIAGNOSTICS', options, DEFAULT_LIMITS.TOPOLOGY_DIAGNOSTICS);
+                result = runTopologicalDiagnostics(graph, options, requestId, reporter);
                 break;
 
             default:
@@ -177,9 +232,9 @@ export function handleGraphWorkerMessage(message: WorkerMessage, reporter?: Prog
 
         return {
             type: 'RESULT',
-            payload: { requestId, data: result },
+            payload: { requestId, data: result as GraphAnalysisResult },
         };
-    } catch (error) {
+    } catch (error: unknown) {
         let message = (error as Error).message || 'Unknown analysis error';
 
         // --- Phase 2 Hardening: Structural Error Formatting ---
@@ -352,4 +407,111 @@ function runCoCitationAnalysis(graph: DirectedGraph, options: unknown, requestId
     });
 
     return results;
+}
+
+interface TopologyDiagnosticsOptions {
+    blackHoleThreshold?: number;
+}
+
+function runTopologicalDiagnostics(
+    graph: DirectedGraph,
+    options: unknown,
+    requestId: string,
+    reporter?: ProgressReporter,
+) {
+    const opts = options as TopologyDiagnosticsOptions | undefined;
+    const blackHoleThreshold = opts?.blackHoleThreshold || 7;
+
+    const bridges: Array<{ source: string; target: string; via: string; type: string }> = [];
+    const blackHoles: Array<{ path: string; inDegree: number }> = [];
+    const cycles: Array<{ path: string[]; type: string }> = [];
+
+    const nodeCount = graph.order;
+    let processedNodes = 0;
+
+    // 1. Black Holes & Bridges
+    graph.forEachNode((a) => {
+        processedNodes++;
+        if (processedNodes % 50 === 0 && reporter) {
+            reporter.postProgress(requestId, processedNodes / nodeCount, `Diagnosing topology for ${a}...`);
+        }
+
+        // Black Hole detection
+        const inDeg = graph.inDegree(a);
+        if (inDeg >= blackHoleThreshold && graph.outDegree(a) === 0) {
+            blackHoles.push({ path: a, inDegree: inDeg });
+        }
+
+        // Bridge Scrutiny (Depth 2)
+        graph.outEdges(a).forEach((edgeAB) => {
+            const b = graph.target(edgeAB);
+            const typeAB = graph.getEdgeAttribute(edgeAB, 'type') as string | undefined;
+
+            if (typeAB) {
+                graph.outEdges(b).forEach((edgeBC) => {
+                    const c = graph.target(edgeBC);
+                    const typeBC = graph.getEdgeAttribute(edgeBC, 'type') as string | undefined;
+
+                    if (typeAB === typeBC && a !== c && !graph.hasEdge(a, c)) {
+                        bridges.push({
+                            source: a,
+                            target: c,
+                            via: b,
+                            type: typeAB,
+                        });
+                    }
+                });
+            }
+        });
+    });
+
+    // 2. Cycle Detection (DFS)
+    const visited = new Set<string>();
+    const recursionStack = new Set<string>();
+    const path: string[] = [];
+
+    const dfs = (node: string) => {
+        visited.add(node);
+        recursionStack.add(node);
+        path.push(node);
+
+        graph.outNeighbors(node).forEach((neighbor) => {
+            if (!visited.has(neighbor)) {
+                dfs(neighbor);
+            } else if (recursionStack.has(neighbor)) {
+                const cycleStartIndex = path.indexOf(neighbor);
+                const cyclePath = path.slice(cycleStartIndex);
+
+                // Identify cycle type (if all edges in cycle share a type)
+                let cycleType = 'universal';
+                const edgeTypes = new Set<string>();
+                for (let i = 0; i < cyclePath.length; i++) {
+                    const src = cyclePath[i];
+                    const tgt = i === cyclePath.length - 1 ? cyclePath[0] : cyclePath[i + 1];
+                    const edgeType = graph.getEdgeAttribute(src, tgt, 'type') as string | undefined;
+                    if (edgeType) edgeTypes.add(edgeType);
+                }
+                if (edgeTypes.size === 1) {
+                    cycleType = Array.from(edgeTypes)[0];
+                }
+
+                cycles.push({ path: cyclePath, type: cycleType });
+            }
+        });
+
+        recursionStack.delete(node);
+        path.pop();
+    };
+
+    graph.forEachNode((node) => {
+        if (!visited.has(node)) {
+            dfs(node);
+        }
+    });
+
+    return {
+        bridges,
+        blackHoles,
+        cycles,
+    };
 }

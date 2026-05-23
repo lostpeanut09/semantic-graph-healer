@@ -1,25 +1,34 @@
 import type { DataviewApi, DataviewPage, RelatedNote, HierarchyNode } from '../../types';
-import { SemanticLinkEdge } from './types';
+import type { SemanticLinkEdge } from './types';
 
 /**
  * IMetadataAdapter: Unified Interface for External Plugin Data.
- * SOTA 2026 Strategy: Decoupling the Core Healer from external API changes.
+ * SOTA 2026 Strategy: Decoupling the Healer core from specific plugin API changes.
+ *
+ * This interface ensures all adapters provide normalized data formats regardless
+ * of their underlying source (Dataview, Datacore, Breadcrumbs, etc.).
  */
 export interface IMetadataAdapter {
     /**
-     * Unique identifier for the adapter.
+     * Unique, stable identifier for the adapter (e.g., "dataview", "datacore").
      */
     readonly id: string;
 
     /**
-     * Checks if the underlying source is ready.
+     * Checks if the underlying source/plugin is ready for operations.
      */
     isAvailable(): boolean;
 
     /**
-     * True if the adapter has been shut down.
+     * True if the adapter has been shut down via destroy().
      */
     readonly isDestroyed: boolean;
+
+    /**
+     * Initializes the adapter (e.g., registering event listeners, pre-fetching data).
+     * Must be idempotent and safe to call multiple times.
+     */
+    initialize(): Promise<void>;
 
     /**
      * Retrieves all semantic links extracted by this adapter.
@@ -27,7 +36,7 @@ export interface IMetadataAdapter {
     getLinks(): Promise<SemanticLinkEdge[]>;
 
     /**
-     * Safe wrapper for link extraction with built-in error handling.
+     * Safe wrapper for link extraction with built-in error handling and destruction guards.
      */
     getLinksSafe(): Promise<SemanticLinkEdge[]>;
 

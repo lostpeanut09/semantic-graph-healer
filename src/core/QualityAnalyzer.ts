@@ -1,5 +1,5 @@
 import { TFile } from 'obsidian';
-import { SemanticGraphHealerSettings, Suggestion, DataviewPage, ExtendedApp } from '../types';
+import type { SemanticGraphHealerSettings, Suggestion, DataviewPage, ExtendedApp } from '../types';
 import {
     HealerLogger,
     extractLinkpaths,
@@ -8,7 +8,8 @@ import {
     normalizeToLinkpath,
     safeCompileRegex,
 } from './HealerUtils';
-import { VaultQueryEngine, SmartConnectionsAdapter } from './DataAdapter';
+import { SmartConnectionsAdapter } from './DataAdapter';
+import type { VaultQueryEngine } from './DataAdapter';
 
 export class QualityAnalyzer {
     private scAdapter: SmartConnectionsAdapter;

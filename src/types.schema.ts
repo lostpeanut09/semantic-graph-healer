@@ -42,8 +42,10 @@ export const SettingsSchema = z
         maxNodes: z.number().default(5000),
         maxEdges: z.number().default(50000),
         aliasCacheTtl: z.number().default(300000),
+        pageChildrenCacheMaxSize: z.number().default(500),
         enableSmartConnections: z.boolean().default(false),
         smartConnectionsLimit: z.number().default(10),
+        smartConnectionsAjsonSizeCap: z.number().default(1024 * 1024),
         enableTagHierarchySync: z.boolean().default(true),
         strictDownCheck: z.boolean().default(true),
         scanFolder: z.string().default(''),
@@ -106,6 +108,22 @@ export const SettingsSchema = z
         logBufferSize: z.number().default(1000),
         workerTimeout: z.number().default(120),
 
+        // Wave 2: Adaptive Performance
+        enableSafetyMode: z.boolean().default(false),
+        safetyModeThresholdDesktop: z.number().default(10000),
+        safetyModeThresholdMobile: z.number().default(2500),
+        performanceMode: z.enum(['Standard', 'Safety']).optional().default('Standard'),
+
+        // Phase 5: Topological Diagnostics
+        ouroborosScope: z.enum(['universal', 'boundary']).default('universal'),
+        blackHoleThreshold: z.number().default(7),
+
+        // Phase 15: Embeddings
+        embeddingProvider: z.enum(['ollama', 'localai', 'openai']).default('ollama'),
+        embeddingModel: z.string().default('nomic-embed-text'),
+        embeddingEndpoint: z.string().default('http://localhost:11434'),
+        embeddingDimensions: z.number().default(768),
+
         // --- Encrypted Keys (P0 Audit Fix) ---
         openaiLlmApiKeyEncrypted: z.string().optional(),
         anthropicLlmApiKeyEncrypted: z.string().optional(),
@@ -113,5 +131,5 @@ export const SettingsSchema = z
         infranodusLlmApiKeyEncrypted: z.string().optional(),
         customLlmApiKeyEncrypted: z.string().optional(),
     })
-    // ✅ Prevent data loss of unknown keys during load/save cycles
+    // âœ… Prevent data loss of unknown keys during load/save cycles
     .catchall(z.unknown());

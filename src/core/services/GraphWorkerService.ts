@@ -1,9 +1,16 @@
 import { HealerLogger } from '../utils/HealerLogger';
 import { Platform, App } from 'obsidian';
-import { SemanticGraphHealerSettings } from '../../types';
+import type { SemanticGraphHealerSettings } from '../../types';
 import PQueue from 'p-queue';
 
-type AnalysisType = 'PAGERANK' | 'COMMUNITY' | 'BETWEENNESS' | 'FULL_ANALYSIS' | 'COCITATION' | 'SIMILARITY';
+type AnalysisType =
+    | 'PAGERANK'
+    | 'COMMUNITY'
+    | 'BETWEENNESS'
+    | 'FULL_ANALYSIS'
+    | 'COCITATION'
+    | 'SIMILARITY'
+    | 'TOPOLOGY_DIAGNOSTICS';
 
 interface PluginWithSettings {
     manifest: { dir?: string };
@@ -109,7 +116,9 @@ export class GraphWorkerService {
                 this.pendingCallbacks.delete(requestId);
             }
         } else if (type === 'PROGRESS') {
-            this.logger.debug('Progress:', payload);
+            if (this.plugin.settings.logLevel === 'debug') {
+                this.logger.debug('Progress:', payload);
+            }
         }
     }
 

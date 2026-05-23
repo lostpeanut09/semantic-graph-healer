@@ -1,6 +1,5 @@
 import { Setting } from 'obsidian';
 import type { SectionContext } from '../SectionContext';
-import { isObsidianInternalApp } from '../../core/HealerUtils';
 export function renderTribunalSettings(containerEl: HTMLElement, ctx: SectionContext) {
     const { plugin, refresh } = ctx;
 
@@ -28,7 +27,7 @@ export function renderTribunalSettings(containerEl: HTMLElement, ctx: SectionCon
 
     if (plugin.settings.enableAiTribunal) {
         const isRedundant =
-            plugin.settings.llmModelName === plugin.settings.secondaryLlmModelName &&
+            plugin.settings.primaryModel === plugin.settings.secondaryModel &&
             plugin.settings.llmEndpoint === plugin.settings.secondaryLlmEndpoint;
 
         if (isRedundant) {
@@ -40,59 +39,32 @@ export function renderTribunalSettings(containerEl: HTMLElement, ctx: SectionCon
     }
 
     new Setting(containerEl)
-        .setName('Secondary endpoint address')
-        .setDesc('Independent server for the secondary model verification.')
-        .addText((text) =>
-            text.setValue(plugin.settings.secondaryLlmEndpoint).onChange((value) => {
-                plugin.settings.secondaryLlmEndpoint = value;
-                void plugin.saveSettings();
-            }),
-        );
+        .setName('Safe zone threshold')
+        .setDesc('Confidence level (1-100) above which the secondary model is skipped (uncertainty triage).')
+        .addSlider((slider) => {
+            slider
+                .setLimits(1, 100, 1)
+                .setValue(plugin.settings.safeZoneThreshold)
+                .setDynamicTooltip()
+                .onChange(async (value) => {
+                    plugin.settings.safeZoneThreshold = value;
+                    await plugin.saveSettings();
+                });
+        });
 
     new Setting(containerEl)
-        .setName('Secondary model key')
+        .setName('Healer trust rate structural weight')
         .setDesc(
-            'Secure key for the verification endpoint. For local models, enter "sk-local". For cloud apis, enter the real key.',
+            'Weight (0% to 100%) of structural graph metrics vs semantic vectors (vector-topological merging). Default > 50% prioritizes structure.',
         )
-        .addText((text) => {
-            text.setPlaceholder('Enter key...').setValue(plugin.settings.secondaryLlmApiKey);
-            text.inputEl.type = 'password';
-            text.onChange(async (value) => {
-                const internalApp = plugin.app;
-                if (isObsidianInternalApp(internalApp)) {
-                    const isSkLocal = value === 'sk-local';
-                    if (internalApp.keychain && value !== '' && !isSkLocal) {
-                        await internalApp.keychain.set('semantic-healer-secondary', value);
-                        plugin.settings.secondaryLlmApiKey = '';
-                    } else {
-                        plugin.settings.secondaryLlmApiKey = value;
-                    }
+        .addSlider((slider) => {
+            slider
+                .setLimits(0, 100, 5)
+                .setValue((plugin.settings.htrStructuralWeight ?? 0.6) * 100)
+                .setDynamicTooltip()
+                .onChange(async (value) => {
+                    plugin.settings.htrStructuralWeight = value / 100;
                     await plugin.saveSettings();
-                }
-            });
+                });
         });
-
-    new Setting(containerEl)
-        .setName('Secondary model selection')
-        .setDesc('Select the target verification model.')
-        .addDropdown((dropdown) => {
-            const models = plugin.settings.secondaryDetectedModels || [];
-            models.forEach((m: string) => {
-                dropdown.addOption(m, m);
-            });
-            dropdown.setValue(plugin.settings.secondaryLlmModelName).onChange((value) => {
-                plugin.settings.secondaryLlmModelName = value;
-                void (async () => {
-                    await plugin.saveSettings();
-                    refresh(); // Refresh to update diversity check
-                })();
-            });
-        });
-
-    new Setting(containerEl)
-        .setName('Detect secondary models')
-        .setDesc('Scan the provided secondary endpoint for verification models.')
-        .addButton((btn) =>
-            btn.setButtonText('Scan secondary').onClick(async () => await ctx.runModelDetection(btn, false)),
-        );
 }

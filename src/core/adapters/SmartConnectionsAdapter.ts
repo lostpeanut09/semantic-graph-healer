@@ -1,8 +1,8 @@
 import { App, TFile } from 'obsidian';
 import { BaseAdapter } from './BaseAdapter';
-import { SemanticLinkEdge } from './types';
+import type { SemanticLinkEdge } from './types';
 import type { ISmartConnectionsPort } from '../ports/ISmartConnectionsPort';
-import { RelatedNote, ExtendedApp } from '../../types';
+import type { RelatedNote, ExtendedApp } from '../../types';
 import { HealerLogger, isObsidianInternalApp, pathToWikilink, normalizeVaultPath } from '../HealerUtils';
 
 interface LegacyScApi {
@@ -39,32 +39,35 @@ interface SmartConnectionsPluginShape {
  */
 export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnectionsPort {
     public readonly id = 'smart-connections';
-    private static readonly MAX_FALLBACK_FILE_SIZE = 50 * 1024 * 1024; // 50MB
     private semanticQueryCache = new Map<string, { mtime: number; query: string }>();
 
     constructor(app: App, debug: boolean = false) {
         super(app, debug);
     }
 
+    protected async onInitialize(): Promise<void> {
+        this.logDebug('SmartConnectionsAdapter: initialized');
+        return Promise.resolve();
+    }
+
     /**
      * Checks if Smart Connections plugin is enabled and active.
      */
     public isAvailable(): boolean {
-        if (!isObsidianInternalApp(this.app)) return false;
-        const plugin = (this.app as ExtendedApp).plugins.getPlugin('smart-connections');
-        return !!plugin;
+        return this.isPluginAvailable('smart-connections');
     }
 
     /**
      * Extracts links from Smart Connections similarity data.
      */
-    public async getLinks(): Promise<SemanticLinkEdge[]> {
-        return [];
+    public getLinks(): Promise<SemanticLinkEdge[]> {
+        this.ensureInitialized();
+        return Promise.resolve([]);
     }
 
     private getPluginShape(): SmartConnectionsPluginShape | null {
         if (!isObsidianInternalApp(this.app)) return null;
-        const raw = (this.app as ExtendedApp).plugins?.getPlugin?.('smart-connections');
+        const raw = this.app.plugins?.getPlugin?.('smart-connections');
         return raw && typeof raw === 'object' ? (raw as unknown as SmartConnectionsPluginShape) : null;
     }
 
@@ -144,7 +147,7 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
     private isEmptyCollection(value: unknown): boolean {
         if (value === null || value === undefined) return true;
         if (Array.isArray(value)) return value.length === 0;
-        if (typeof value === 'object') return Object.keys(value as Record<string, unknown>).length === 0;
+        if (typeof value === 'object') return Object.keys(value).length === 0;
         return false;
     }
 
@@ -159,19 +162,14 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
             try {
                 const res = await attempt.run();
                 if (Array.isArray(res) && res.length > 0) {
-                    HealerLogger.debug?.(
-                        `SmartConnectionsAdapter: using surface "${attempt.label}" for "${contextPath}"`,
-                    );
+                    this.logDebug(`SmartConnectionsAdapter: using surface "${attempt.label}" for "${contextPath}"`);
                     return res;
                 }
-                HealerLogger.debug?.(
+                this.logDebug(
                     `SmartConnectionsAdapter: surface "${attempt.label}" returned no results for "${contextPath}"`,
                 );
             } catch (e) {
-                HealerLogger.debug?.(
-                    `SmartConnectionsAdapter: surface "${attempt.label}" failed for "${contextPath}"`,
-                    e,
-                );
+                this.logDebug(`SmartConnectionsAdapter: surface "${attempt.label}" failed for "${contextPath}"`, e);
             }
         }
         return [];
@@ -264,6 +262,7 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
      * Fallback sequence: API -> Global Sources -> JSON Index Fallbacks.
      */
     async getRelatedNotes(path: string, limit: number): Promise<RelatedNote[]> {
+        this.ensureInitialized();
         const normalizedSource = normalizeVaultPath(this.app, path, path);
 
         try {
@@ -328,6 +327,9 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
         const results: SearchResult[] = [];
         const seen = new Set<string>();
 
+        // Phase 4: Use configurable size cap
+        const sizeCap = (this.app as ExtendedApp).settings?.smartConnectionsAjsonSizeCap ?? 1024 * 1024;
+
         const singleFileFallbacks = ['.smart-env/smart_sources.json', '.smart-env/smart_sources.ajson'];
         for (const singleFileFallback of singleFileFallbacks) {
             if (!(await adapter.exists(singleFileFallback))) continue;
@@ -338,15 +340,15 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
                     const stat = await adapter.stat(singleFileFallback);
                     statSize = typeof stat?.size === 'number' ? stat.size : null;
                 } catch (e) {
-                    HealerLogger.debug?.(
+                    this.logDebug(
                         `SmartConnectionsAdapter: stat() failed for ${singleFileFallback}, attempting read() anyway`,
                         e,
                     );
                 }
 
-                if (statSize !== null && statSize > SmartConnectionsAdapter.MAX_FALLBACK_FILE_SIZE) {
+                if (statSize !== null && statSize > sizeCap) {
                     HealerLogger.warn(
-                        `SmartConnectionsAdapter: skipping oversized ${singleFileFallback} (${statSize} bytes)`,
+                        `SmartConnectionsAdapter: skipping oversized ${singleFileFallback} (${statSize} bytes) > cap (${sizeCap})`,
                     );
                     continue;
                 }
@@ -358,7 +360,7 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
                 try {
                     data = JSON.parse(content) as Record<string, unknown>;
                 } catch (parseErr) {
-                    HealerLogger.debug?.(
+                    this.logDebug(
                         `SmartConnectionsAdapter: ${singleFileFallback} is not valid JSON, skipping JSON parse path`,
                         parseErr,
                     );
@@ -368,15 +370,24 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
 
                 // Se il file esiste ma contiene un oggetto/array vuoto, salta e prova il prossimo fallback
                 if (this.isEmptyCollection(data)) {
-                    HealerLogger.debug?.(
-                        `SmartConnectionsAdapter: fallback file ${singleFileFallback} is empty, trying next`,
-                    );
+                    this.logDebug(`SmartConnectionsAdapter: fallback file ${singleFileFallback} is empty, trying next`);
                     continue;
                 }
 
                 const items = data.items && typeof data.items === 'object' ? data.items : data;
+                const entries = Object.entries(items as Record<string, unknown>);
 
-                for (const [targetKey, targetVal] of Object.entries(items as Record<string, unknown>)) {
+                // SOTA 2026: Early break for performance on extremely dense indexes
+                const maxEntries = 5000;
+                let scanned = 0;
+
+                for (const [targetKey, targetVal] of entries) {
+                    if (++scanned > maxEntries) {
+                        HealerLogger.warn(
+                            `SmartConnectionsAdapter: hit max scan limit (${maxEntries}) in ${singleFileFallback}`,
+                        );
+                        break;
+                    }
                     if (targetKey === sourcePath) continue;
 
                     try {
@@ -385,9 +396,7 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
                         try {
                             serialized = JSON.stringify(targetVal);
                         } catch {
-                            HealerLogger.debug?.(
-                                `SmartConnectionsAdapter: skipping circular/malformed entry "${targetKey}"`,
-                            );
+                            this.logDebug(`SmartConnectionsAdapter: skipping circular/malformed entry "${targetKey}"`);
                             continue;
                         }
                         if (this.containsExactPath(serialized, sourcePath)) {
@@ -404,10 +413,7 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
                             if (results.length >= limit) return results;
                         }
                     } catch (entryErr) {
-                        HealerLogger.debug?.(
-                            `SmartConnectionsAdapter: skipping malformed entry "${targetKey}"`,
-                            entryErr,
-                        );
+                        this.logDebug(`SmartConnectionsAdapter: skipping malformed entry "${targetKey}"`, entryErr);
                     }
                 }
                 // Non uscire qui se suggestions è vuoto; lascia che il ciclo provi il prossimo file
@@ -434,9 +440,9 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
                     try {
                         try {
                             const fstat = await adapter.stat(readPath);
-                            if (fstat && fstat.size > SmartConnectionsAdapter.MAX_FALLBACK_FILE_SIZE) {
+                            if (fstat && fstat.size > sizeCap) {
                                 HealerLogger.warn(
-                                    `SmartConnectionsAdapter: skipping oversized ${readPath} (${fstat.size} bytes)`,
+                                    `SmartConnectionsAdapter: skipping oversized ${readPath} (${fstat.size} bytes) > cap (${sizeCap})`,
                                 );
                                 continue;
                             }
@@ -470,7 +476,7 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
 
                         if (results.length >= limit) return results;
                     } catch (fileErr) {
-                        HealerLogger.debug?.(`SmartConnectionsAdapter: skipping failed file ${readPath}`, fileErr);
+                        this.logDebug(`SmartConnectionsAdapter: skipping failed file ${readPath}`, fileErr);
                         continue;
                     }
                 }

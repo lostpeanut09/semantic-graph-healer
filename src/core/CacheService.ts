@@ -1,5 +1,5 @@
 import { Plugin, normalizePath } from 'obsidian';
-import { Suggestion, HistoryItem } from '../types';
+import type { Suggestion, HistoryItem, TopologicalMetrics } from '../types';
 import { HealerLogger } from './HealerUtils';
 
 /**
@@ -20,18 +20,26 @@ const SAVE_DEBOUNCE_MS = 500;
 interface HealerCache {
     pendingSuggestions: Suggestion[];
     history: HistoryItem[];
+    topologicalScores: TopologicalMetrics;
+    vectorEmbeddings: Record<string, { vector: number[]; hash: string }>;
 }
 
 const DEFAULT_CACHE: HealerCache = {
     pendingSuggestions: [],
     history: [],
+    topologicalScores: {
+        pageRank: {},
+        betweenness: {},
+        communities: {},
+        lastAnalysisTimestamp: 0,
+        graphVersion: '',
+    },
+    vectorEmbeddings: {},
 };
 
 export class CacheService {
     private _cache: HealerCache = {
         ...DEFAULT_CACHE,
-        pendingSuggestions: [],
-        history: [],
     };
     private _saveTimer: ReturnType<typeof setTimeout> | null = null;
     private _cacheFilePath: string;
@@ -57,6 +65,18 @@ export class CacheService {
         return this._cache.history;
     }
 
+    get topologicalScores(): TopologicalMetrics {
+        return this._cache.topologicalScores;
+    }
+
+    set topologicalScores(value: TopologicalMetrics) {
+        this._cache.topologicalScores = value;
+    }
+
+    get vectorEmbeddings(): Record<string, { vector: number[]; hash: string }> {
+        return this._cache.vectorEmbeddings;
+    }
+
     // ─── Core Operations ────────────────────────────────────────────────────────
 
     /**
@@ -75,6 +95,11 @@ export class CacheService {
                     this._cache = {
                         pendingSuggestions: Array.isArray(parsed.pendingSuggestions) ? parsed.pendingSuggestions : [],
                         history: Array.isArray(parsed.history) ? parsed.history : [],
+                        topologicalScores: parsed.topologicalScores || { ...DEFAULT_CACHE.topologicalScores },
+                        vectorEmbeddings:
+                            parsed.vectorEmbeddings && typeof parsed.vectorEmbeddings === 'object'
+                                ? parsed.vectorEmbeddings
+                                : {},
                     };
                 } catch (parseError) {
                     // PRESERVE CORRUPTION: Rename bad file instead of deleting
@@ -94,6 +119,8 @@ export class CacheService {
                 this._cache = {
                     pendingSuggestions: legacySettings.pendingSuggestions ?? [],
                     history: legacySettings.history ?? [],
+                    topologicalScores: { ...DEFAULT_CACHE.topologicalScores },
+                    vectorEmbeddings: {},
                 };
                 await this.saveImmediate();
                 HealerLogger.info(
@@ -101,11 +128,11 @@ export class CacheService {
                 );
             } else {
                 HealerLogger.info('CacheService: No cache file found, starting fresh.');
-                this._cache = { pendingSuggestions: [], history: [] };
+                this._cache = { ...DEFAULT_CACHE };
             }
         } catch (e) {
             HealerLogger.error('CacheService: Failed to load cache, starting fresh.', e);
-            this._cache = { pendingSuggestions: [], history: [] };
+            this._cache = { ...DEFAULT_CACHE };
         }
     }
 
@@ -157,6 +184,25 @@ export class CacheService {
             });
 
         return this._savePromise;
+    }
+
+    /**
+     * Retrieves a stored embedding for a note if the hash matches.
+     */
+    getStoredEmbedding(notePath: string, contentHash: string): number[] | null {
+        const entry = this._cache.vectorEmbeddings[notePath];
+        if (entry && entry.hash === contentHash) {
+            return entry.vector;
+        }
+        return null;
+    }
+
+    /**
+     * Stores an embedding for a note with its content hash.
+     */
+    storeEmbedding(notePath: string, vector: number[], contentHash: string): void {
+        this._cache.vectorEmbeddings[notePath] = { vector, hash: contentHash };
+        this.save();
     }
 
     /**

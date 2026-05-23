@@ -1,4 +1,4 @@
-import { HealerLogger } from '../HealerUtils';
+import { HealerLogger, getProviderFromEndpoint } from '../HealerUtils';
 import { isThenable } from '../HealerUtils';
 import type { ExtendedApp, ObsidianSecretStorage } from '../../types';
 import type { KeychainContext } from './PluginContext';
@@ -130,16 +130,34 @@ export class KeychainService {
         }
 
         // Attempt 3: Legacy Plaintext Settings (Migration Fallback)
-        // Settings object uses dynamic keys for optional encrypted fields
         const settings = this.context.settings as unknown as Record<string, string | undefined>;
-        const potentialKey = settings[`${type}LlmApiKey`];
+
+        // 3a. Check provider-specific legacy key (e.g. openaiLlmApiKey)
+        let potentialKey = settings[`${type}LlmApiKey`];
+
+        // 3b. Check generic legacy keys if they haven't been migrated yet
+        if (!potentialKey) {
+            const provider = getProviderFromEndpoint(this.context.settings.llmEndpoint);
+            if (type === (provider === 'openai' ? 'openai' : provider)) {
+                potentialKey = settings['llmApiKey'];
+            }
+            const secProvider = getProviderFromEndpoint(this.context.settings.secondaryLlmEndpoint);
+            if (!potentialKey && type === (secProvider === 'openai' ? 'openai' : secProvider)) {
+                potentialKey = settings['secondaryLlmApiKey'];
+            }
+        }
+
         if (potentialKey) {
-            HealerLogger.warn(`API Key ${type} found in plaintext settings (INSECURE). Migration triggered.`);
+            HealerLogger.warn(`API Key ${type} found in legacy plaintext settings. Migration triggered.`);
             // Auto-migrate: await encryption so plaintext is cleared only on success.
-            // Avoids data loss if CryptoUtils.encrypt throws.
             try {
                 await this.setApiKey(type, potentialKey);
-                settings[`${type}LlmApiKey`] = '';
+                // Clear original legacy source
+                if (settings[`${type}LlmApiKey`]) settings[`${type}LlmApiKey`] = '';
+                if (settings['llmApiKey'] && potentialKey === settings['llmApiKey']) settings['llmApiKey'] = '';
+                if (settings['secondaryLlmApiKey'] && potentialKey === settings['secondaryLlmApiKey'])
+                    settings['secondaryLlmApiKey'] = '';
+
                 await this.context.saveSettings();
             } catch (migErr) {
                 HealerLogger.error(`Plaintext migration failed for ${type} — key retained in plaintext.`, migErr);

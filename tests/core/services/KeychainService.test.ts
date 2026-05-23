@@ -13,6 +13,11 @@ vi.mock('../../../src/core/HealerUtils', () => ({
     },
     isObsidianInternalApp: vi.fn(() => true),
     isThenable: vi.fn((v: unknown) => v instanceof Promise),
+    getProviderFromEndpoint: vi.fn((ep: string) => {
+        if (ep?.includes('openai.com')) return 'openai';
+        if (ep?.includes('anthropic.com')) return 'anthropic';
+        return 'custom';
+    }),
 }));
 
 vi.mock('obsidian', () => ({ App: class MockApp {} }));

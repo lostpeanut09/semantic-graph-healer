@@ -1,5 +1,6 @@
 import { App, TFile } from 'obsidian';
-import { DataviewPage, Suggestion } from '../types';
+import { basename } from 'pathe';
+import type { DataviewPage, Suggestion } from '../types';
 import { HealerLogger, isObsidianInternalApp, pathToWikilink, generateId } from './HealerUtils';
 
 interface ObsidianPluginRegistry {
@@ -93,7 +94,7 @@ export class SmartConnectionsAdapter {
                                 confidence: Math.round(scoreNum * 100),
                                 description: 'Related concept found via vector embeddings.',
                             },
-                        } as Suggestion;
+                        };
                     });
             } catch (e) {
                 const errMsg = e instanceof Error ? e.message : String(e);
@@ -149,7 +150,7 @@ export class SmartConnectionsAdapter {
 
                 const content = await adapter.read(f);
                 if (content.includes(`"${sourcePath}"`)) {
-                    const targetBase = f.split('/').pop()?.replace('.ajson', '') || f;
+                    const targetBase = basename(f, '.ajson');
                     const targetFile = this.app.metadataCache.getFirstLinkpathDest(targetBase, sourcePath);
 
                     let link = `[[${targetBase}]]`;
@@ -170,7 +171,7 @@ export class SmartConnectionsAdapter {
                             description: 'Correlated via AJSON index.',
                             targetNote: targetBase,
                         },
-                    } as Suggestion);
+                    });
                 }
                 if (suggestions.length >= limit) break;
             }

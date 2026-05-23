@@ -3,6 +3,7 @@ import type { ButtonComponent } from 'obsidian';
 import type SemanticGraphHealer from '../main';
 import type { SectionContext } from './SectionContext';
 import type { ExtendedApp } from '../types';
+import { getProviderFromEndpoint } from '../core/HealerUtils';
 
 // Import section renderers
 import { renderCoreSettings } from './sections/CoreSettings';
@@ -21,10 +22,12 @@ import { renderPhase3InferenceSettings } from './sections/Phase3InferenceSetting
 import { renderInfranodusSettings } from './sections/InfranodusSettings';
 import { renderSecurityApiKeysSettings } from './sections/SecurityApiKeysSettings';
 import { renderLoggingSettings } from './sections/LoggingSettings';
+import { renderPerformanceSafetySettings } from './sections/PerformanceSafetySettings';
 import { renderExhaustedNotesSettings } from './sections/ExhaustedNotesSettings';
 import { renderBlacklistSettings } from './sections/BlacklistSettings';
 import { renderSettingsProfilesSettings } from './sections/SettingsProfilesSettings';
 import { renderAdvancedMaintenanceSettings } from './sections/AdvancedMaintenanceSettings';
+import { renderEmbeddingSettings } from './sections/EmbeddingSettings';
 
 export class SemanticHealerSettingTab extends PluginSettingTab {
     plugin: SemanticGraphHealer;
@@ -84,6 +87,8 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
         renderInfranodusSettings(containerEl, ctx);
         renderSecurityApiKeysSettings(containerEl, ctx);
         renderLoggingSettings(containerEl, ctx);
+        renderPerformanceSafetySettings(containerEl, ctx);
+        renderEmbeddingSettings(containerEl, ctx);
         renderExhaustedNotesSettings(containerEl, ctx);
         renderBlacklistSettings(containerEl, ctx);
         renderSettingsProfilesSettings(containerEl, ctx);
@@ -92,7 +97,10 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
 
     async runModelDetection(button: ButtonComponent, isPrimary: boolean) {
         const endpoint = isPrimary ? this.plugin.settings.llmEndpoint : this.plugin.settings.secondaryLlmEndpoint;
-        const apiKey = isPrimary ? await this.plugin.getApiKey('openai') : await this.plugin.getApiKey('anthropic');
+
+        const provider = getProviderFromEndpoint(endpoint);
+        const apiKey = await this.plugin.getApiKey(provider);
+
         const cloudFallbacks = ['gpt-4o', 'claude-3-5-sonnet-latest', 'gemini-1.5-pro', 'deepseek-chat', 'o3-mini'];
 
         try {

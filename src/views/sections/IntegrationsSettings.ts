@@ -43,5 +43,28 @@ export function renderIntegrationsSettings(containerEl: HTMLElement, ctx: Sectio
                     (slider as { setInstant(v: boolean): void }).setInstant(true);
                 }
             });
+
+        new Setting(containerEl)
+            .setName('Index size limit (bytes)')
+            .setDesc('Skip deep fallback parsing for index files exceeding this size.')
+            .addText((text) =>
+                text.setValue(String(plugin.settings.smartConnectionsAjsonSizeCap)).onChange((value) => {
+                    const num = parseInt(value);
+                    if (!isNaN(num)) {
+                        plugin.settings.smartConnectionsAjsonSizeCap = num;
+                        void plugin.saveSettings();
+                    }
+                }),
+            );
     }
+
+    new Setting(containerEl)
+        .setName('Other file types')
+        .setDesc('Include canvas and other searchable formats in graph extraction.')
+        .addToggle((toggle) =>
+            toggle.setValue(plugin.settings.includeNonMarkdownHubs).onChange((value) => {
+                plugin.settings.includeNonMarkdownHubs = value;
+                void plugin.saveSettings();
+            }),
+        );
 }

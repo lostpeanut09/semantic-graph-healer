@@ -1,8 +1,18 @@
-echo "🧪 Running tests..."
-npm test
-if [ $? -ne 0 ]; then
-  echo "❌ Tests failed"
-  exit 1
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+# Detect WSL and normalize PATH if needed
+if grep -q Microsoft /proc/version 2>/dev/null; then
+  export PATH="$PATH:/mnt/c/Program Files/nodejs"
 fi
 
-echo "✅ Tests passed"
+echo "🏗️ Building project..."
+npm run build || { echo "❌ Build failed"; exit 1; }
+
+echo "🔍 Running lint check..."
+npm run lint || { echo "❌ Lint failed — fix warnings before pushing (lint:fix recommended)"; exit 1; }
+
+echo "🧪 Running tests..."
+npm test || { echo "❌ Tests failed"; exit 1; }
+
+echo "✅ Pre-push checks passed"

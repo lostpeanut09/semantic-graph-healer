@@ -1,6 +1,7 @@
 import { App, TFile } from 'obsidian';
 import { BaseAdapter } from './BaseAdapter';
-import { SemanticLinkEdge } from './types';
+import type { SemanticLinkEdge } from './types';
+import { normalizeVaultPath } from '../HealerUtils';
 
 /**
  * NativeVaultAdapter: High-performance bridge to Obsidian's core MetadataCache.
@@ -8,6 +9,11 @@ import { SemanticLinkEdge } from './types';
  */
 export class NativeVaultAdapter extends BaseAdapter {
     public readonly id = 'native-vault';
+
+    protected async onInitialize(): Promise<void> {
+        return Promise.resolve();
+    }
+
     /**
      * Native vault metadata is always available.
      */
@@ -20,14 +26,33 @@ export class NativeVaultAdapter extends BaseAdapter {
      * Note: This primarily returns 'wikilink' and 'property' types as tracked by Obsidian.
      */
     public async getLinks(): Promise<SemanticLinkEdge[]> {
+        this.ensureInitialized();
         const edges: SemanticLinkEdge[] = [];
         const resolvedLinks = this.app.metadataCache.resolvedLinks;
+        const appWithSettings = this.app as App & { settings?: { includeNonMarkdownHubs?: boolean } };
+        const includeNonMarkdown = appWithSettings.settings?.includeNonMarkdownHubs ?? false;
 
-        for (const [sourcePath, targets] of Object.entries(resolvedLinks)) {
-            for (const [targetPath, count] of Object.entries(targets)) {
+        this.logDebug(`getLinks: resolvedLinks count: ${Object.keys(resolvedLinks).length}`);
+        for (const [rawSource, targets] of Object.entries(resolvedLinks)) {
+            const sourcePath = normalizeVaultPath(this.app, rawSource);
+            this.logDebug(`getLinks: sourcePath: ${sourcePath}, targets: ${Object.keys(targets).length}`);
+            for (const rawTarget of Object.keys(targets)) {
                 // If count > 1, we might want to extract individual positions,
                 // but resolvedLinks is an aggregate. For precision, we'd need getFileCache.
                 // For now, we return the aggregate edge.
+                const targetPath = normalizeVaultPath(this.app, rawTarget, sourcePath);
+                this.logDebug(`getLinks: checking targetPath: ${targetPath}`);
+
+                if (sourcePath === targetPath) {
+                    this.logDebug(`getLinks: skipping self-link: ${sourcePath}`);
+                    continue;
+                }
+                if (!includeNonMarkdown && !targetPath.toLowerCase().endsWith('.md')) {
+                    this.logDebug(`getLinks: skipping non-markdown: ${targetPath}`);
+                    continue;
+                }
+
+                this.logDebug(`getLinks: pushing edge: ${sourcePath} -> ${targetPath}`);
                 edges.push({
                     sourcePath,
                     targetPath,
@@ -36,7 +61,7 @@ export class NativeVaultAdapter extends BaseAdapter {
             }
         }
 
-        return edges;
+        return Promise.resolve(edges);
     }
 
     /**
@@ -44,6 +69,7 @@ export class NativeVaultAdapter extends BaseAdapter {
      * Use this for the "Precision Healing" phase.
      */
     public async getRichLinksForFile(file: TFile): Promise<SemanticLinkEdge[]> {
+        this.ensureInitialized();
         const cache = this.app.metadataCache.getFileCache(file);
         if (!cache) return [];
 
@@ -88,7 +114,7 @@ export class NativeVaultAdapter extends BaseAdapter {
             }
         }
 
-        return edges;
+        return Promise.resolve(edges);
     }
 
     public invalidate(_path?: string): void {
