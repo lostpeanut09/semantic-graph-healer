@@ -86,13 +86,15 @@ The project has completed its core v1.0 and v1.1 scope, including a high-perform
 
 ## Quick Tasks Completed
 
-| Task                             | Date       | Status       |
-| :------------------------------- | :--------- | :----------- |
-| execute-phase-18                 | 2026-05-22 | complete ✓   |
-| execute-phase-17                 | 2026-05-22 | complete ✓   |
-| milestone-audit                  | 2026-05-21 | complete ✓   |
-| check-wsl-deps                   | 2026-05-20 | complete ✓   |
-| fix-wsl-deps-plus-terminal-check | 2026-05-20 | complete ✓   |
-| check-online-fixes-may2026       | 2026-05-20 | complete ✓   |
-| rerun-quality-tools              | 2026-05-20 | complete ✓   |
-| repo-cleanup                     | 2026-05-22 | complete ✓   |
+| Task                             | Date       | Status     |
+| :------------------------------- | :--------- | :--------- |
+| execute-phase-18                 | 2026-05-22 | complete ✓ |
+| execute-phase-17                 | 2026-05-22 | complete ✓ |
+| milestone-audit                  | 2026-05-21 | complete ✓ |
+| check-wsl-deps                   | 2026-05-20 | complete ✓ |
+| fix-wsl-deps-plus-terminal-check | 2026-05-20 | complete ✓ |
+| check-online-fixes-may2026       | 2026-05-20 | complete ✓ |
+| rerun-quality-tools              | 2026-05-20 | complete ✓ |
+| repo-cleanup                     | 2026-05-22 | complete ✓ |
+| improve-gitignore-rules          | 2026-05-23 | complete ✓ |
+
