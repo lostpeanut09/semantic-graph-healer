@@ -59,12 +59,12 @@ CLAUDE.md
 REVIEW.md
 QUICK-TASKS.md
 
-# Generated Build Artifacts
-main.js
-worker.js
-ladybug-worker.js
-main.css
-styles.css
+# Generated Build Artifacts (root-level only — src/ CSS source is tracked)
+/main.js
+/worker.js
+/ladybug-worker.js
+/main.css
+/styles.css
 
 # Repository Garbage & Artifacts
 garbage/
