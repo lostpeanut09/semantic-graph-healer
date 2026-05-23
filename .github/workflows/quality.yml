@@ -55,4 +55,3 @@ jobs:
                   # without matching regular regex escapes or single backslashes in comments.
                   ! grep -rP '[a-zA-Z]:\\\\[A-Za-z0-9_]+\\\\[A-Za-z0-9_]+' src --exclude-dir=node_modules --exclude-dir=.git
                   ! grep -rP '[a-zA-Z]:\\\\\\\\[A-Za-z0-9_]+\\\\\\\\[A-Za-z0-9_]+' src --exclude-dir=node_modules --exclude-dir=.git
-
