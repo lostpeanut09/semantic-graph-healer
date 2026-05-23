@@ -1,12 +1,21 @@
-import { App, Notice, TFile } from 'obsidian';
-import { Suggestion } from '../types';
+import { App, TFile } from 'obsidian';
+import type { Suggestion, HistoryItem, HealerNotifier } from '../types';
 import { HealerLogger, resolveTargetFile } from './HealerUtils';
 import type { ExecutionContext } from './services/PluginContext';
 
 export class SuggestionExecutor {
     private queue: Promise<void> = Promise.resolve();
+    public activeBatchId?: string;
 
     constructor(private context: ExecutionContext) {}
+
+    public setNotifier(notifier: HealerNotifier) {
+        this.context.notifier = notifier;
+    }
+
+    public getNotifier(): HealerNotifier {
+        return this.context.notifier;
+    }
 
     private get app(): App {
         return this.context.app;
@@ -39,9 +48,9 @@ export class SuggestionExecutor {
 
             if (!(targetFile instanceof TFile)) {
                 if (suggestion.type === 'infra') {
-                    new Notice('Advisory acknowledged.');
+                    this.context.notifier.show('Advisory acknowledged.');
                 } else {
-                    new Notice(`File could not be resolved: ${suggestion.link}`);
+                    this.context.notifier.show(`File could not be resolved: ${suggestion.link}`, 'error');
                     return false;
                 }
             } else if (suggestion.meta?.sourcePath && (suggestion.meta?.propertyKey || suggestion.meta?.property)) {
@@ -53,6 +62,12 @@ export class SuggestionExecutor {
                     sourceFile instanceof TFile
                         ? this.context.app.metadataCache.fileToLinktext(sourceFile, targetFile.path, true)
                         : sourcePath;
+
+                // Capture Memento
+                const originalValue = (
+                    this.app.metadataCache.getFileCache(targetFile)?.frontmatter as Record<string, unknown>
+                )?.[prop];
+                const mementoData = [{ path: targetFile.path, property: prop, originalValue }];
 
                 await this.context.app.fileManager.processFrontMatter(targetFile, (fm: Record<string, unknown>) => {
                     let existing = fm[prop];
@@ -90,7 +105,9 @@ export class SuggestionExecutor {
                         }
                     }
                 });
-                new Notice(`Fixed ${targetFile.basename}`);
+                this.context.notifier.show(`Fixed ${targetFile.basename}`);
+                await this.finalizeSuggestion(suggestion, targetFile?.path || suggestion.link, undefined, mementoData);
+                return true;
             } else {
                 await this.context.app.workspace.openLinkText(targetFile?.path || suggestion.link, '');
             }
@@ -128,12 +145,18 @@ export class SuggestionExecutor {
             const targetPath = suggestion.meta?.targetPath;
             const prop = suggestion.meta?.property;
             if (!targetPath || !prop) {
-                new Notice('Missing structured metadata for resolution.');
+                this.context.notifier.show('Missing structured metadata for resolution.', 'error');
                 return false;
             }
 
             const targetFile = this.app.vault.getAbstractFileByPath(targetPath);
             if (!(targetFile instanceof TFile)) return false;
+
+            // Capture Memento
+            const originalValue = (
+                this.app.metadataCache.getFileCache(targetFile)?.frontmatter as Record<string, unknown>
+            )?.[prop];
+            const mementoData = [{ path: targetFile.path, property: prop, originalValue }];
 
             await this.context.app.fileManager.processFrontMatter(targetFile, (fm: Record<string, unknown>) => {
                 const existing = fm[prop];
@@ -153,8 +176,8 @@ export class SuggestionExecutor {
                 }
             });
 
-            new Notice(`Resolved ${targetFile.basename}: kept ${winner}`);
-            await this.finalizeSuggestion(suggestion, targetFile.path, `Resolved choice: kept ${winner}`);
+            this.context.notifier.show(`Resolved ${targetFile.basename}: kept ${winner}`);
+            await this.finalizeSuggestion(suggestion, targetFile.path, `Resolved choice: kept ${winner}`, mementoData);
             return true;
         } catch (e) {
             HealerLogger.error('Resolve choice failed', e);
@@ -187,6 +210,7 @@ export class SuggestionExecutor {
     }
 
     private async innerExecuteRelink(suggestion: Suggestion): Promise<boolean> {
+        const mementoData: Array<{ path: string; property: string; originalValue: unknown }> = [];
         try {
             const pathA = suggestion.meta?.sourcePath;
             const pathB = suggestion.meta?.targetPath;
@@ -210,32 +234,60 @@ export class SuggestionExecutor {
             }
 
             const invProp = prop === 'next' ? 'prev' : 'next';
+
+            // 1. Capture Memento for Atomicity & Undo
+            const getFM = (f: TFile) =>
+                (this.app.metadataCache.getFileCache(f)?.frontmatter as Record<string, unknown>) || {};
+            mementoData.push({ path: fileA.path, property: prop, originalValue: getFM(fileA)[prop] });
+            mementoData.push({ path: fileB.path, property: prop, originalValue: getFM(fileB)[prop] });
+            mementoData.push({ path: fileB.path, property: invProp, originalValue: getFM(fileB)[invProp] });
+            mementoData.push({ path: fileC.path, property: invProp, originalValue: getFM(fileC)[invProp] });
+
             const nameA = this.app.metadataCache.fileToLinktext(fileA, fileB.path, true);
             const nameB_forA = this.app.metadataCache.fileToLinktext(fileB, fileA.path, true);
             const nameB_forC = this.app.metadataCache.fileToLinktext(fileB, fileC.path, true);
             const nameC = this.app.metadataCache.fileToLinktext(fileC, fileB.path, true);
 
-            // 1. Update A -> B (Standard Set logic for chains)
-            await this.context.app.fileManager.processFrontMatter(fileA, (fm: Record<string, unknown>) => {
-                fm[prop] = `[[${nameB_forA}]]`;
-            });
+            try {
+                // 2. Update A -> B (Standard Set logic for chains)
+                await this.context.app.fileManager.processFrontMatter(fileA, (fm: Record<string, unknown>) => {
+                    fm[prop] = `[[${nameB_forA}]]`;
+                });
 
-            // 2. Update B -> A (prev) & B -> C (next)
-            await this.context.app.fileManager.processFrontMatter(fileB, (fm: Record<string, unknown>) => {
-                fm[invProp] = `[[${nameA}]]`;
-                fm[prop] = `[[${nameC}]]`;
-            });
+                // 3. Update B -> A (prev) & B -> C (next)
+                await this.context.app.fileManager.processFrontMatter(fileB, (fm: Record<string, unknown>) => {
+                    fm[invProp] = `[[${nameA}]]`;
+                    fm[prop] = `[[${nameC}]]`;
+                });
 
-            // 3. Update C -> B
-            await this.context.app.fileManager.processFrontMatter(fileC, (fm: Record<string, unknown>) => {
-                fm[invProp] = `[[${nameB_forC}]]`;
-            });
+                // 4. Update C -> B
+                await this.context.app.fileManager.processFrontMatter(fileC, (fm: Record<string, unknown>) => {
+                    fm[invProp] = `[[${nameB_forC}]]`;
+                });
+            } catch (innerError) {
+                HealerLogger.error('Relink failed during file writing. Attempting rollback...', innerError);
+                // Rollback
+                for (const memento of mementoData) {
+                    try {
+                        const f = this.app.vault.getAbstractFileByPath(memento.path);
+                        if (f instanceof TFile) {
+                            await this.context.app.fileManager.processFrontMatter(f, (fm: Record<string, unknown>) => {
+                                fm[memento.property] = memento.originalValue;
+                            });
+                        }
+                    } catch (rollbackError) {
+                        HealerLogger.error(`Rollback failed for ${memento.path}`, rollbackError);
+                    }
+                }
+                return false;
+            }
 
-            new Notice(`Chain repaired: ${fileA.basename} ↔ ${fileB.basename} ↔ ${fileC.basename}`);
+            this.context.notifier.show(`Chain repaired: ${fileA.basename} ↔ ${fileB.basename} ↔ ${fileC.basename}`);
             await this.finalizeSuggestion(
                 suggestion,
                 fileB.path,
                 `Structural Bridge Repair: ${fileA.basename}->${fileB.basename}->${fileC.basename}`,
+                mementoData,
             );
             return true;
         } catch (e) {
@@ -244,7 +296,12 @@ export class SuggestionExecutor {
         }
     }
 
-    private async finalizeSuggestion(suggestion: Suggestion, targetPath: string, customAction?: string) {
+    private async finalizeSuggestion(
+        suggestion: Suggestion,
+        targetPath: string,
+        customAction?: string,
+        mementoData?: Array<{ path: string; property: string; originalValue: unknown }>,
+    ) {
         this.context.cache.suggestions = this.context.cache.suggestions.filter((s) => s.id !== suggestion.id);
 
         this.context.cache.pushHistory({
@@ -252,10 +309,42 @@ export class SuggestionExecutor {
             file: targetPath,
             timestamp: Date.now(),
             type: 'fix',
+            mementoData,
+            batchId: this.activeBatchId,
         });
 
         // BUG FIX (Bug 4): Await to prevent race conditions during rapid batches
         await this.context.saveSettings();
         await this.context.refreshDashboard();
+    }
+
+    /**
+     * UNDO EXECUTION: RESTORES STATE FROM MEMENTO
+     */
+    async undo(historyItem: HistoryItem): Promise<boolean> {
+        if (!historyItem.mementoData || historyItem.mementoData.length === 0) {
+            this.context.notifier.show('No undo data available for this action.', 'warning');
+            return false;
+        }
+
+        try {
+            for (const memento of historyItem.mementoData) {
+                const file = this.app.vault.getAbstractFileByPath(memento.path);
+                if (file instanceof TFile) {
+                    await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+                        fm[memento.property] = memento.originalValue;
+                    });
+                } else {
+                    HealerLogger.warn(`Undo failed for file: ${memento.path}. File not found.`);
+                }
+            }
+            this.context.notifier.show(`Reverted: ${historyItem.action}`);
+            await this.context.refreshDashboard();
+            return true;
+        } catch (e) {
+            HealerLogger.error('Undo failed', e);
+            this.context.notifier.show('Undo failed. Check logs.', 'error');
+            return false;
+        }
     }
 }

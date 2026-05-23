@@ -1,11 +1,50 @@
+<!-- generated-by: gsd-doc-writer -->
+
 ![Banner](assets/banner.png)
 
 # Semantic Graph Healer
 
-[![Obsidian Plugin](https://img.shields.io/badge/Obsidian-Plugin-purple.svg)](https://obsidian.md/)
+Topological restoration engine that utilizes Dataview, Breadcrumbs, and ExcaliBrain metadata to identify and resolve structural inconsistencies in the knowledge graph.
+
+[![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)](https://github.com/lostpeanut09/semantic-graph-healer)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![CI](https://github.com/lostpeanut09/semantic-graph-healer/actions/workflows/quality.yml/badge.svg)](https://github.com/lostpeanut09/semantic-graph-healer/actions/workflows/quality.yml)
 
 **Semantic Graph Healer** is a topological restoration and deep graph analysis engine for Obsidian. It leverages [Datacore](https://github.com/blacksmithgu/datacore), [Breadcrumbs](https://github.com/Sirenko/obsidian-breadcrumbs), [ExcaliBrain](https://github.com/zsviczian/excalibrain), and [Graphology](https://graphology.github.io/) to identify and resolve structural inconsistencies in the knowledge graph. It's designed for researchers and curators managing large-scale digital gardens where manual link auditing is no longer feasible.
+
+## Installation
+
+### For Users (Obsidian BRAT)
+
+To install the pre-release version using [BRAT](https://github.com/TfTHacker/obsidian42-brat):
+
+1. Install the BRAT plugin from the Community Plugins list.
+2. Go to BRAT settings and add the beta plugin repository: `lostpeanut09/semantic-graph-healer`.
+3. Enable the plugin in your Obsidian settings.
+
+### For Developers
+
+To build the plugin from source:
+
+```bash
+git clone https://github.com/lostpeanut09/semantic-graph-healer.git
+cd semantic-graph-healer
+npm install
+npm run build
+```
+
+## Quick Start
+
+1. Ensure required dependencies like **Datacore** are installed and enabled in your Obsidian vault.
+2. Enable **Semantic Graph Healer** in Obsidian settings.
+3. Open the Command Palette (`Ctrl/Cmd + P`) and search for **Semantic Graph Healer**.
+4. Open the **Dashboard** to view structural gaps, orphans, and semantic conflicts, then click **Execute** on any suggestion to repair the topology.
+
+## Usage Examples
+
+1. **Repairing Structural Gaps**: The engine detects a chain `A -> C` where a note `B` logically fits between them (`A -> B -> C`). Use the **Triple Relink Executor** in the dashboard to repair the entire chain in one action, automatically updating the frontmatter for all three notes.
+2. **Finding Information Sinks (Black Holes)**: Switch the dashboard filter to **Black Holes** to find notes with high in-degree but zero out-degree. These are notes that attract links but lead nowhere.
+3. **AI Consensus Validation**: Use the **AI Tribunal** to verify missing links. If a structural gap is detected, click **Check results / Re-reason** to have a dual-LLM setup (e.g., local Ollama + Cloud GPT) verify the conceptual validity of the link before applying it.
 
 ## Technical Features
 
@@ -193,8 +232,10 @@ Each suggestion card supports:
 - [Smart Connections](https://github.com/brianpetro/obsidian-smart-connections) (optional, for vector discovery).
 - [Graphology](https://graphology.github.io/) is bundled — no external install required.
 
----
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
-Since this plugin was fully vibe coded, it is distributed under the **GNU GPL v3 License**. See the `LICENSE` file for the full text.
+This project is licensed under the [GPL-3.0 License](LICENSE).

@@ -1,5 +1,6 @@
 import { App, TFile } from 'obsidian';
-import { Suggestion, DataviewApi, ReasoningResult, SemanticGraphHealerSettings } from '../types';
+import { basename } from 'pathe';
+import type { Suggestion, DataviewApi, ReasoningResult, SemanticGraphHealerSettings } from '../types';
 import { HealerLogger, resolveTargetFile, formatIncongruencePrompt, calculateHtrScore } from './HealerUtils';
 import { SmartConnectionsAdapter } from './DataAdapter';
 
@@ -32,7 +33,7 @@ export class ReasoningService {
         const noteName =
             suggestion.meta?.targetNote ||
             suggestion.meta?.sourceNote ||
-            (suggestion.meta?.sourcePath ? suggestion.meta.sourcePath.split('/').pop()?.replace('.md', '') : null);
+            (suggestion.meta?.sourcePath ? basename(suggestion.meta.sourcePath, '.md') : null);
 
         const prop = suggestion.meta?.property;
         const values = suggestion.meta?.competingValues ?? suggestion.meta?.losers;
@@ -48,17 +49,26 @@ export class ReasoningService {
         }
 
         try {
+            HealerLogger.info(`ReasoningService: Analyzing suggestion ${suggestion.id} for note ${noteName}`);
             const targetFile = resolveTargetFile(this.app, suggestion);
 
             if (!(targetFile instanceof TFile)) {
-                HealerLogger.warn(`Target file not found or invalid for suggestion ${suggestion.id}`);
+                HealerLogger.error(
+                    `ReasoningService: Target file not found or invalid for suggestion ${suggestion.id}`,
+                    {
+                        link: suggestion.link,
+                        meta: suggestion.meta,
+                    },
+                );
                 return null;
             }
 
             const content = await this.app.vault.read(targetFile);
+            HealerLogger.debug('ReasoningService: Target file read successfully.');
 
             // 1. Gather candidate metadata
             const candidateData = await this.gatherCandidateData(suggestion, values, targetFile.path);
+            HealerLogger.debug('ReasoningService: Candidate data gathered.', candidateData);
 
             // 2. Build prompt
             const isInfraNodus = suggestion.source.toLowerCase().includes('infranodus');
@@ -70,10 +80,23 @@ export class ReasoningService {
                 candidateData,
                 isInfraNodus,
             );
+            HealerLogger.debug('ReasoningService: Prompt generated.');
 
             // 3. Call LLM
+            HealerLogger.info('ReasoningService: Dispatching call to LlmService...');
             const response = await this.llm.callLlm(prompt, this.settings.enableAiTribunal);
+
+            if (!response || response.startsWith('Error:')) {
+                HealerLogger.error(`ReasoningService: LLM call returned error or empty response: ${response}`);
+                return null;
+            }
+
+            HealerLogger.info('ReasoningService: LLM response received. Parsing...');
             const parsed = this.llm.parseReasoningResult(response);
+
+            if (!parsed.winner) {
+                HealerLogger.warn('ReasoningService: LLM response parsed but no WINNER identified.', { response });
+            }
 
             // 4. Return result (no side-effects on input suggestion)
             return {
@@ -81,7 +104,10 @@ export class ReasoningService {
                 rawResponse: response,
             };
         } catch (error) {
-            HealerLogger.error(`Error during analysis for suggestion ${suggestion.id}:`, error);
+            HealerLogger.error(
+                `ReasoningService: UNCAUGHT EXCEPTION during analysis for suggestion ${suggestion.id}:`,
+                error,
+            );
             return null;
         }
     }
@@ -109,7 +135,7 @@ export class ReasoningService {
 
             if (!cFile) continue;
 
-            const folderDepth = cFile.path.split('/').length;
+            const folderDepth = cFile.path.split('/').length; // Obsidian paths are always forward-slash
             let scScore = 0;
 
             // Use cached SC results

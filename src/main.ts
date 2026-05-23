@@ -1,8 +1,8 @@
+import './styles.css';
 import { Plugin, Notice, WorkspaceLeaf, requestUrl, TFile } from 'obsidian';
-import {
-    DASHBOARD_VIEW_TYPE,
+import { DASHBOARD_VIEW_TYPE, DEFAULT_SETTINGS } from './types';
+import type {
     SemanticGraphHealerSettings,
-    DEFAULT_SETTINGS,
     Suggestion,
     HistoryItem,
     SuggestionType,
@@ -20,7 +20,9 @@ import {
 import { HealerLogger as InstanceLogger } from './core/utils/HealerLogger';
 import { KeychainService } from './core/services/KeychainService';
 import { GraphWorkerService } from './core/services/GraphWorkerService';
+import { PerformanceService } from './core/services/PerformanceService';
 import type { AnalysisContext, ExecutionContext } from './core/services/PluginContext';
+import { ObsidianNotifier } from './core/services/Notifier';
 import { TopologyAnalyzer } from './core/TopologyAnalyzer';
 import { QualityAnalyzer } from './core/QualityAnalyzer';
 import { LlmService } from './core/LlmService';
@@ -30,26 +32,37 @@ import { BreadcrumbsAdapter } from './core/adapters/BreadcrumbsAdapter';
 import { SmartConnectionsAdapter } from './core/adapters/SmartConnectionsAdapter';
 import { SuggestionExecutor } from './core/SuggestionExecutor';
 import { ReasoningService } from './core/ReasoningService';
-import { QuarantineDashboardView, ReasoningView, REASONING_VIEW_TYPE } from './views/DashboardView';
+import { DashboardView, ReasoningView, REASONING_VIEW_TYPE } from './views/DashboardView';
+import { GraphVisualizerView, GRAPH_VIEW_TYPE } from './views/GraphVisualizerView';
 import { SemanticHealerSettingTab } from './views/SettingsTab';
 import { CacheService } from './core/CacheService';
 import { SemanticTagPropagator } from './core/SemanticTagPropagator';
+import { GraphRagService } from './core/services/GraphRagService';
+import { AjsonStorage } from './core/utils/AjsonStorage';
+import { EmbeddingService } from './core/EmbeddingService';
+import { GraphEngine } from './core/GraphEngine';
+import { AutomationApi } from './core/services/AutomationApi';
 
 export default class SemanticGraphHealer extends Plugin {
     settings: SemanticGraphHealerSettings;
 
     public topology: TopologyAnalyzer;
+    public api: AutomationApi;
     public quality: QualityAnalyzer;
     public llm: LlmService;
     public engine: UnifiedMetadataAdapter;
     public executor: SuggestionExecutor;
     public reasoner: ReasoningService;
     public tagPropagator: SemanticTagPropagator;
+    public graphRag: GraphRagService;
+    public embedding: EmbeddingService;
+    public graphEngine: GraphEngine;
 
     // Phase 1 Services
     public logger: InstanceLogger;
     public keychainService: KeychainService;
     public graphWorkerService: GraphWorkerService;
+    public performanceService: PerformanceService;
     public cache: CacheService;
 
     private isAnalyzing = false;
@@ -60,10 +73,13 @@ export default class SemanticGraphHealer extends Plugin {
         this.cache = new CacheService(this);
         await this.loadSettings();
 
+        // Attach settings to app for adapter access (Phase 18 Root Cleanup)
+        (this.app as ExtendedApp).settings = this.settings;
+
         // 1. Initialize Infrastructure & Services
         this.logger = new InstanceLogger('SemanticGraphHealer', this, this.settings);
         LegacyLogger.setInstance(this.logger);
-        this.logger.info('Semantic Graph Healer Phase 4 loading...');
+        this.logger.info('Semantic Graph Healer Phase 18 loading...');
 
         this.keychainService = new KeychainService({
             app: this.app,
@@ -73,17 +89,20 @@ export default class SemanticGraphHealer extends Plugin {
         this.graphWorkerService = new GraphWorkerService(this.logger, this);
         await this.graphWorkerService.initialize();
 
+        this.performanceService = new PerformanceService(this.app, this.settings, this.logger);
+        this.performanceService.reEvaluate();
+
         // 1.5. Instantiate Adapters (Composition Root) — DIP: core depends on ports, not concrete classes
         const datacore = new DatacoreAdapter(
-            this.app as ExtendedApp,
+            this.app,
             this.settings.logLevel === 'debug',
             this.settings.pageChildrenCacheMaxSize ?? 500,
         );
-        const breadcrumbs = new BreadcrumbsAdapter(this.app as ExtendedApp);
-        const smartConnections = new SmartConnectionsAdapter(this.app as ExtendedApp);
+        const breadcrumbs = new BreadcrumbsAdapter(this.app, this.settings.logLevel === 'debug');
+        const smartConnections = new SmartConnectionsAdapter(this.app, this.settings.logLevel === 'debug');
 
         // 2. Initialize Core Engine with injected dependencies
-        this.engine = new UnifiedMetadataAdapter(this.app as ExtendedApp, this.settings, {
+        this.engine = new UnifiedMetadataAdapter(this.app, this.settings, {
             datacore,
             breadcrumbs,
             smartConnections,
@@ -95,6 +114,8 @@ export default class SemanticGraphHealer extends Plugin {
             cache: this.cache,
             manifest: this.manifest,
             graphWorkerService: this.graphWorkerService,
+            performanceService: this.performanceService,
+            notifier: new ObsidianNotifier(),
             saveSettings: () => this.saveSettings(),
             refreshDashboard: () => this.refreshDashboard(),
         };
@@ -106,22 +127,43 @@ export default class SemanticGraphHealer extends Plugin {
             settings: this.settings,
             cache: this.cache,
             graphWorkerService: this.graphWorkerService,
+            performanceService: this.performanceService,
+            notifier: executorContext.notifier,
         };
         this.topology = new TopologyAnalyzer(analysisContext, this.llm, this.engine);
         this.quality = new QualityAnalyzer(this.app as ExtendedApp, this.settings, this.engine);
-        this.reasoner = new ReasoningService(
-            this.app as ExtendedApp,
-            this.settings,
+        this.reasoner = new ReasoningService(this.app, this.settings, this.llm, this.engine.getDataviewApi());
+        this.tagPropagator = new SemanticTagPropagator(this.app, this.settings, this.engine, this.llm);
+
+        // Phase 15: GraphRAG & Embeddings
+        this.embedding = new EmbeddingService(this.settings);
+        this.graphEngine = new GraphEngine({
+            app: this.app,
+            settings: this.settings,
+            cache: this.cache,
+            graphWorkerService: this.graphWorkerService,
+            performanceService: this.performanceService,
+        });
+        this.graphRag = new GraphRagService(
+            this.graphEngine,
             this.llm,
-            this.engine.getDataviewApi(),
+            this.embedding,
+            new AjsonStorage(this.app.vault.adapter),
+            this.app.vault.adapter,
+            this.settings,
         );
-        this.tagPropagator = new SemanticTagPropagator(this.app as ExtendedApp, this.settings, this.engine, this.llm);
+
+        this.api = new AutomationApi(this);
+
+        // 1.5. Initialize Engine (HARDEN-03d Wiring)
+        await this.engine.initialize();
 
         // 2. Setup Security & Identity
         await this.initializeSecurity();
 
         // 3. Register Framework Extensions
         this.registerProtocolHandlers();
+        this.registerCliHandlers();
         this.registerViews();
         this.registerCommands();
         this.registerUI();
@@ -134,7 +176,7 @@ export default class SemanticGraphHealer extends Plugin {
         });
 
         this.addSettingTab(new SemanticHealerSettingTab(this.app, this));
-        this.logger.info('Semantic Graph Healer Phase 4 ready');
+        this.logger.info('Semantic Graph Healer Phase 18 ready');
     }
 
     /**
@@ -145,6 +187,7 @@ export default class SemanticGraphHealer extends Plugin {
         try {
             this.logger.info('External settings change detected. Re-initializing engine...');
             await this.loadSettings();
+            (this.app as ExtendedApp).settings = this.settings;
 
             // 1. Hot Reload Infrastructure
             if (this.engine) {
@@ -153,28 +196,31 @@ export default class SemanticGraphHealer extends Plugin {
 
             // Recreate adapters with new settings and inject
             const datacore = new DatacoreAdapter(
-                this.app as ExtendedApp,
+                this.app,
                 this.settings.logLevel === 'debug',
                 this.settings.pageChildrenCacheMaxSize ?? 500,
             );
-            const breadcrumbs = new BreadcrumbsAdapter(this.app as ExtendedApp);
-            const smartConnections = new SmartConnectionsAdapter(this.app as ExtendedApp);
+            const breadcrumbs = new BreadcrumbsAdapter(this.app, this.settings.logLevel === 'debug');
+            const smartConnections = new SmartConnectionsAdapter(this.app, this.settings.logLevel === 'debug');
 
-            this.engine = new UnifiedMetadataAdapter(this.app as ExtendedApp, this.settings, {
+            this.engine = new UnifiedMetadataAdapter(this.app, this.settings, {
                 datacore,
                 breadcrumbs,
                 smartConnections,
             });
+            await this.engine.initialize();
 
-            // 2. Hot Reload Logic Services
             this.llm = new LlmService(this.settings, (type) => this.getApiKey(type));
             this.quality = new QualityAnalyzer(this.app as ExtendedApp, this.settings, this.engine);
+            this.reasoner = new ReasoningService(this.app, this.settings, this.llm, this.engine.getDataviewApi());
             // Build analysis context for TopologyAnalyzer (break circular dep)
             const analysisContext: AnalysisContext = {
                 app: this.app,
                 settings: this.settings,
                 cache: this.cache,
                 graphWorkerService: this.graphWorkerService,
+                performanceService: this.performanceService,
+                notifier: new ObsidianNotifier(),
             };
             this.topology = new TopologyAnalyzer(analysisContext, this.llm, this.engine);
 
@@ -185,6 +231,9 @@ export default class SemanticGraphHealer extends Plugin {
             this.graphWorkerService = new GraphWorkerService(this.logger, this);
             await this.graphWorkerService.initialize();
 
+            this.performanceService = new PerformanceService(this.app, this.settings, this.logger);
+            this.performanceService.reEvaluate();
+
             // 3. Hot Reload Executor (break circular dep)
             const executorContext: ExecutionContext = {
                 app: this.app,
@@ -192,6 +241,8 @@ export default class SemanticGraphHealer extends Plugin {
                 cache: this.cache,
                 manifest: this.manifest,
                 graphWorkerService: this.graphWorkerService,
+                performanceService: this.performanceService,
+                notifier: new ObsidianNotifier(),
                 saveSettings: () => this.saveSettings(),
                 refreshDashboard: () => this.refreshDashboard(),
             };
@@ -218,11 +269,13 @@ export default class SemanticGraphHealer extends Plugin {
                 clearTimeout(this.analysisDebounce.get(file.path));
             }
 
+            const debounceTime = this.performanceService.isSafetyModeActive() ? 15000 : 5000;
+
             const timer = setTimeout(() => {
                 if (this.isAnalyzing) return;
                 void this.analyzeFileContext(file);
                 this.analysisDebounce.delete(file.path);
-            }, 5000);
+            }, debounceTime);
 
             this.analysisDebounce.set(file.path, timer);
         };
@@ -388,11 +441,147 @@ export default class SemanticGraphHealer extends Plugin {
                 await this.analyzeGraph();
             }
         });
+
+        this.registerObsidianProtocolHandler('healer-action', async (params) => {
+            try {
+                const action = params.action;
+                if (action === 'scan') {
+                    new Notice('Remote scan triggered.');
+                    await this.analyzeGraph(true);
+                } else if (action === 'apply-batch') {
+                    const confidence = params.confidence ? parseFloat(params.confidence) : 0.8;
+                    const category = params.category;
+                    new Notice(`Remote batch apply triggered (confidence >= ${confidence * 100}%)...`);
+                    const result = await this.api.executeBatch({ confidence, category });
+                    new Notice(
+                        `Batch applied: ${result.appliedCount} success, ${result.failedCount} fail. ID: ${result.batchId}`,
+                    );
+                } else if (action === 'undo-batch') {
+                    const batchId = params.batchId;
+                    if (!batchId) {
+                        new Notice('Batch parameter is missing.');
+                        return;
+                    }
+                    new Notice(`Remote batch undo triggered for ${batchId}...`);
+                    const result = await this.api.undoBatch(batchId);
+                    new Notice(`Batch undone: ${result.revertedCount} reverted, ${result.failedCount} fail.`);
+                }
+            } catch (e) {
+                this.logger.error('URI handler error', e);
+                const errMsg = e instanceof Error ? e.message : String(e);
+                new Notice(`Failed to execute remote action: ${errMsg}`);
+            }
+        });
+    }
+
+    private registerCliHandlers() {
+        if (typeof this.registerCliHandler !== 'function') {
+            this.logger.info('registerCliHandler is not supported by this version of Obsidian.');
+            return;
+        }
+
+        /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment */
+
+        this.registerCliHandler(
+            'healer:scan',
+            'Scan semantic graph for structural and semantic gaps',
+            {
+                silent: {
+                    description: 'Scan silently without showing UI notifications',
+                },
+            },
+            async (params) => {
+                try {
+                    const p = params as any;
+                    const silent = p?.silent !== undefined ? p.silent === 'true' || p.silent === true : true;
+                    const suggestions = await this.api.runAnalysis({ silent });
+                    return JSON.stringify(suggestions);
+                } catch (e) {
+                    return JSON.stringify({ status: 'error', message: e instanceof Error ? e.message : String(e) });
+                }
+            },
+        );
+
+        this.registerCliHandler(
+            'healer:export-suggestions',
+            'Export all currently cached suggestions as JSON',
+            null,
+            () => {
+                try {
+                    const suggestions = this.api.getSuggestions();
+                    return JSON.stringify(suggestions);
+                } catch (e) {
+                    return JSON.stringify({ status: 'error', message: e instanceof Error ? e.message : String(e) });
+                }
+            },
+        );
+
+        this.registerCliHandler(
+            'healer:apply-batch',
+            'Apply batch repairs matching a confidence threshold',
+            {
+                confidence: {
+                    value: '<number>',
+                    description: 'Confidence threshold (e.g., 0.8)',
+                },
+                category: {
+                    value: '<string>',
+                    description: 'Filter repairs by suggestion category',
+                },
+            },
+            async (params) => {
+                try {
+                    const p = params as any;
+                    const confidenceVal = p?.confidence;
+                    let confidence = 0.8;
+                    if (confidenceVal !== undefined && confidenceVal !== null) {
+                        const parsed =
+                            typeof confidenceVal === 'number' ? confidenceVal : parseFloat(String(confidenceVal));
+                        if (!isNaN(parsed)) {
+                            confidence = parsed;
+                        }
+                    }
+                    const category = p?.category ? String(p.category) : undefined;
+                    const result = await this.api.executeBatch({ confidence, category });
+                    return JSON.stringify(result);
+                } catch (e) {
+                    return JSON.stringify({ status: 'error', message: e instanceof Error ? e.message : String(e) });
+                }
+            },
+        );
+
+        this.registerCliHandler(
+            'healer:undo-batch',
+            'Undo a specific batch repair by its batch ID',
+            {
+                batchId: {
+                    value: '<string>',
+                    description: 'The batch ID to revert',
+                    required: true,
+                },
+            },
+            async (params) => {
+                try {
+                    const p = params as any;
+                    const batchId = p?.batchId ? String(p.batchId) : undefined;
+                    if (!batchId) {
+                        return JSON.stringify({ status: 'error', message: 'Missing required flag: batchId' });
+                    }
+                    const result = await this.api.undoBatch(batchId);
+                    return JSON.stringify(result);
+                } catch (e) {
+                    return JSON.stringify({ status: 'error', message: e instanceof Error ? e.message : String(e) });
+                }
+            },
+        );
+
+        /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment */
     }
 
     private registerViews() {
-        this.registerView(DASHBOARD_VIEW_TYPE, (leaf) => new QuarantineDashboardView(leaf, this));
+        this.registerView(DASHBOARD_VIEW_TYPE, (leaf) => new DashboardView(leaf, this));
         this.registerView(REASONING_VIEW_TYPE, (leaf) => new ReasoningView(leaf));
+        this.registerView(GRAPH_VIEW_TYPE, (leaf) => new GraphVisualizerView(leaf, this));
     }
 
     private registerUI() {
@@ -411,6 +600,19 @@ export default class SemanticGraphHealer extends Plugin {
                 } catch (e) {
                     this.logger.error('Failed to open Graph Healer Dashboard', e);
                     new Notice('Error opening the dashboard.');
+                }
+            },
+        });
+
+        this.addCommand({
+            id: 'open-healer-graph',
+            name: 'Open healer graph',
+            callback: async () => {
+                try {
+                    await this.activateGraphView();
+                } catch (e) {
+                    this.logger.error('Failed to open Healer Graph', e);
+                    new Notice('Error opening the graph view.');
                 }
             },
         });
@@ -687,6 +889,46 @@ export default class SemanticGraphHealer extends Plugin {
                 void this.activateDashboard();
             },
         });
+
+        this.addCommand({
+            id: 'apply-batch-repairs-high-confidence',
+            name: 'Apply high-confidence batch repairs (>= 80%)',
+            callback: async () => {
+                try {
+                    new Notice('Applying high-confidence batch repairs...');
+                    const result = await this.api.executeBatch({ confidence: 0.8 });
+                    new Notice(
+                        `Batch applied: ${result.appliedCount} success, ${result.failedCount} fail. ID: ${result.batchId}`,
+                    );
+                } catch (e) {
+                    this.logger.error('Failed to apply high-confidence batch repairs', e);
+                    const errMsg = e instanceof Error ? e.message : String(e);
+                    new Notice(`Failed to apply batch: ${errMsg}`);
+                }
+            },
+        });
+
+        this.addCommand({
+            id: 'undo-last-batch-repair',
+            name: 'Undo last batch repair',
+            callback: async () => {
+                try {
+                    const lastBatchItem = [...this.cache.history].reverse().find((item) => item.batchId);
+                    if (!lastBatchItem || !lastBatchItem.batchId) {
+                        new Notice('No batch repairs found in history to undo.');
+                        return;
+                    }
+                    const batchId = lastBatchItem.batchId;
+                    new Notice(`Undoing last batch repair: ${batchId}...`);
+                    const result = await this.api.undoBatch(batchId);
+                    new Notice(`Batch undone: ${result.revertedCount} reverted, ${result.failedCount} fail.`);
+                } catch (e) {
+                    this.logger.error('Failed to undo last batch repair', e);
+                    const errMsg = e instanceof Error ? e.message : String(e);
+                    new Notice(`Failed to undo batch: ${errMsg}`);
+                }
+            },
+        });
     }
 
     async activateDashboard() {
@@ -703,10 +945,24 @@ export default class SemanticGraphHealer extends Plugin {
         if (leaf) await workspace.revealLeaf(leaf);
     }
 
+    async activateGraphView() {
+        const { workspace } = this.app;
+        let leaf: WorkspaceLeaf | null = null;
+        const leaves = workspace.getLeavesOfType(GRAPH_VIEW_TYPE);
+
+        if (leaves.length > 0) {
+            leaf = leaves[0];
+        } else {
+            leaf = workspace.getLeaf('tab'); // Open in a new tab by default for better experience
+            if (leaf) await leaf.setViewState({ type: GRAPH_VIEW_TYPE, active: true });
+        }
+        if (leaf) await workspace.revealLeaf(leaf);
+    }
+
     async refreshDashboard() {
         const leaves = this.app.workspace.getLeavesOfType(DASHBOARD_VIEW_TYPE);
         for (const leaf of leaves) {
-            if (leaf.view instanceof QuarantineDashboardView) {
+            if (leaf.view instanceof DashboardView) {
                 await leaf.view.refresh();
             }
         }
@@ -802,6 +1058,9 @@ export default class SemanticGraphHealer extends Plugin {
                 advancedSuggestions.push(...(await this.analyzeDeepGraph()));
             }
 
+            // NEW: Cross-Thematic Suggestions
+            const crossThematicIssues = await this.topology.runCrossThematicAnalysis();
+
             const newTopologicalIssues = [
                 ...deterministicIssues,
                 ...cycleIssues,
@@ -811,6 +1070,7 @@ export default class SemanticGraphHealer extends Plugin {
                 ...tagSiblings,
                 ...semanticIssues, // â†  NEW
                 ...advancedSuggestions,
+                ...crossThematicIssues, // â†  NEW
             ];
             this.cache.suggestions = this.pruneStaleSuggestions(newTopologicalIssues);
             this.cache.save();
@@ -846,7 +1106,9 @@ export default class SemanticGraphHealer extends Plugin {
             const engine = new GraphEngine({
                 app: this.app,
                 settings: this.settings,
+                cache: this.cache,
                 graphWorkerService: this.graphWorkerService,
+                performanceService: this.performanceService,
             });
 
             engine.buildGraph();
@@ -968,7 +1230,7 @@ export default class SemanticGraphHealer extends Plugin {
 
     async loadSettings() {
         const loadedData = (await this.loadData()) as Partial<SemanticGraphHealerSettings>;
-        const baseSettings = Object.assign({}, DEFAULT_SETTINGS, loadedData) as SemanticGraphHealerSettings;
+        const baseSettings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
 
         // --- MIGRATION: Ensure all hierarchies have all keys (related, next, prev) ---
         if (baseSettings.hierarchies && Array.isArray(baseSettings.hierarchies)) {
@@ -992,7 +1254,7 @@ export default class SemanticGraphHealer extends Plugin {
             const result = SettingsSchema.safeParse(baseSettings);
 
             if (result.success) {
-                this.settings = result.data as SemanticGraphHealerSettings;
+                this.settings = result.data as unknown as SemanticGraphHealerSettings;
             } else {
                 const errorMessage = JSON.stringify(result.error.issues, null, 2);
                 this.logger.warn(

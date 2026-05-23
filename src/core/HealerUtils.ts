@@ -1,5 +1,7 @@
 import { App, TFile, parseLinktext } from 'obsidian';
-import { ObsidianInternalApp } from '../types';
+import type { ObsidianInternalApp } from '../types';
+
+export type ApiKeyType = 'openai' | 'anthropic' | 'deepseek' | 'infranodus' | 'custom';
 
 /**
  * HealerLogger: Centralized logging for SOTA compliance.
@@ -50,6 +52,17 @@ export class HealerLogger {
             console.debug(`[SemanticHealer][DEBUG] ${message}`, ...args);
         }
     }
+}
+
+/**
+ * Detects LLM provider from endpoint URL.
+ */
+export function getProviderFromEndpoint(endpoint: string): ApiKeyType {
+    const ep = (endpoint || '').toLowerCase();
+    if (ep.includes('anthropic.com')) return 'anthropic';
+    if (ep.includes('openai.com')) return 'openai';
+    if (ep.includes('deepseek')) return 'deepseek';
+    return 'custom';
 }
 
 /**
@@ -340,6 +353,23 @@ Output format:
 WINNER: [[Note Name]] | SCORE: % | WHY: reason
 RUNNERUP: [[Note Name]] | SCORE: % | WHY: reason
 `;
+}
+
+/**
+ * Calculates cosine similarity between two vectors.
+ */
+export function cosineSimilarity(v1: number[], v2: number[]): number {
+    if (!v1 || !v2 || v1.length === 0 || v1.length !== v2.length) return 0;
+    let dot = 0;
+    let norm1 = 0;
+    let norm2 = 0;
+    for (let i = 0; i < v1.length; i++) {
+        dot += v1[i] * v2[i];
+        norm1 += v1[i] * v1[i];
+        norm2 += v2[i] * v2[i];
+    }
+    const mag = Math.sqrt(norm1) * Math.sqrt(norm2);
+    return mag === 0 ? 0 : dot / mag;
 }
 
 /**

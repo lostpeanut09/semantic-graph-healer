@@ -1,5 +1,6 @@
 import { TFile } from 'obsidian';
-import { Suggestion, DataviewPage } from '../types';
+import { basename } from 'pathe';
+import type { Suggestion, DataviewPage } from '../types';
 import {
     HealerLogger,
     extractLinkpaths,
@@ -9,17 +10,21 @@ import {
     safeString,
     isObsidianInternalApp,
     sleep,
+    cosineSimilarity,
 } from './HealerUtils';
 
-import { IMetadataAdapter } from './adapters/IMetadataAdapter';
+import type { IMetadataAdapter } from './adapters/IMetadataAdapter';
 import { LlmService } from './LlmService';
 import { GraphEngine } from './GraphEngine';
+import { CrossThematicProvider } from './services/CrossThematicProvider';
+import { AjsonStorage } from './utils/AjsonStorage';
 import { Platform } from 'obsidian';
 import type { AnalysisContext } from './services/PluginContext';
 
 export class TopologyAnalyzer {
     private BATCH_SIZE: number;
     private YIELD_INTERVAL: number;
+    private crossThematicProvider: CrossThematicProvider;
 
     constructor(
         private context: AnalysisContext,
@@ -29,6 +34,10 @@ export class TopologyAnalyzer {
         // Hybrid Batching SOTA 2026: Mobile vs Desktop Optimization
         this.BATCH_SIZE = Platform.isMobile ? 20 : 100;
         this.YIELD_INTERVAL = Platform.isMobile ? 120 : 0; // 120ms yield for mobile responsiveness
+
+        const storage = new AjsonStorage(this.context.app.vault.adapter);
+        const graphEngine = new GraphEngine(this.context);
+        this.crossThematicProvider = new CrossThematicProvider(graphEngine, storage, this.context.settings);
     }
 
     /**
@@ -161,7 +170,7 @@ export class TopologyAnalyzer {
                             // Severity mapping based on strict check
                             const severity =
                                 this.context.settings.strictDownCheck && relType === 'down' ? 'error' : 'suggestion';
-                            const targetBasename = pathB.split('/').pop()?.replace('.md', '') || pathB;
+                            const targetBasename = basename(pathB, '.md');
                             suggestions.push({
                                 id: `missing_reciprocity:${pathA}:${relType}:${pathB}`,
                                 type: 'topology_gap',
@@ -189,7 +198,7 @@ export class TopologyAnalyzer {
                         const targetInvType = relType === 'next' ? 'prev' : 'next';
                         const bTargetsBack = relMaps[targetInvType].get(pathB) || new Set();
                         if (!bTargetsBack.has(pathA)) {
-                            const targetBasename = pathB.split('/').pop()?.replace('.md', '') || pathB;
+                            const targetBasename = basename(pathB, '.md');
                             suggestions.push({
                                 id: `missing_directional_reciprocity:${pathA}:${relType}:${pathB}`,
                                 type: 'topology_gap',
@@ -318,6 +327,13 @@ export class TopologyAnalyzer {
                         source: `${isVerifiableBranching ? '[AI Verifiable] ' : ''}Topology incongruence: ${pathToWikilink(this.context.app, file.path, file.path)} has multiple conflicting '${dir.type}' references: ${competitorLinks.join(', ')}.`,
                         timestamp: Date.now(),
                         category: isVerifiableBranching ? 'suggestion' : 'error',
+                        meta: {
+                            property: dir.type,
+                            sourcePath: file.path,
+                            sourceNote: file.basename,
+                            competingValues: competingSorted,
+                            description: `Conflicting '${dir.type}' relations detected.`,
+                        },
                     });
                 }
             }
@@ -601,196 +617,100 @@ export class TopologyAnalyzer {
     }
 
     public async runBridgeScrutiny(scopeFile?: TFile): Promise<Suggestion[]> {
-        await Promise.resolve();
-        const query = this.getScanQuery();
-        let pages = this.engine.getPages(query);
+        HealerLogger.info('Running Bridge Scrutiny (Worker-delegated)...');
+        const graphEngine = new GraphEngine(this.context);
+        graphEngine.buildGraph();
+
+        const results = await graphEngine.runTopologicalAnalysis({
+            bridgeDepth: 2,
+            scopeFile: scopeFile?.path,
+        });
+
         const suggestions: Suggestion[] = [];
-        const hierarchy = this.context.settings.hierarchies?.[0];
-        if (!hierarchy) return [];
+        for (const bridge of results.bridges) {
+            const fileA = this.context.app.vault.getAbstractFileByPath(bridge.source);
+            const fileC = this.context.app.vault.getAbstractFileByPath(bridge.target);
 
-        // P1: Dynamic Graph Size Guardrail
-        // If the workspace is too large or Deep Graph is enabled, we adjust the limit to avoid O(N^2) UI freezing.
-        // We SKIP this guard if we are scoped to a single file.
-        const bridgeLimit = this.context.settings.enableDeepGraphAnalysis ? 1500 : 2500;
-        if (!scopeFile && pages.length > bridgeLimit) {
-            HealerLogger.warn(
-                `Bridge Scrutiny skipped: vault too large (${pages.length} nodes, limit: ${bridgeLimit}).`,
-            );
-            return [];
-        }
-
-        // 1. Build Adjacency Maps
-        const relMaps: Record<string, Map<string, Set<string>>> = {
-            up: new Map(),
-            down: new Map(),
-            next: new Map(),
-            prev: new Map(),
-        };
-        const resolverCache = new Map<string, string | null>();
-
-        pages.forEach((p: DataviewPage) => {
-            (['up', 'down', 'next', 'prev'] as const).forEach((rel) => {
-                const linkpaths = extractLinkpaths(p, hierarchy[rel]);
-                const resolved = resolveLinkpathsToPaths(this.context.app, linkpaths, p.file.path, resolverCache);
-                relMaps[rel].set(p.file.path, new Set(resolved));
-            });
-        });
-
-        // P1b Scoping: If we have a scope file, we only care about chains that involve it
-        if (scopeFile) {
-            const scopePath = scopeFile.path;
-            const neighbors = new Set<string>([scopePath]);
-            (['up', 'down', 'next', 'prev'] as const).forEach((rel) => {
-                const related = relMaps[rel].get(scopePath);
-                if (related) related.forEach((r) => neighbors.add(r));
-                // Also reverse lookup: who points to scopePath?
-                relMaps[rel].forEach((targets, source) => {
-                    if (targets.has(scopePath)) neighbors.add(source);
+            if (fileA instanceof TFile && fileC instanceof TFile) {
+                suggestions.push({
+                    id: `bridge_gap:${bridge.type}:${bridge.source}:${bridge.via}:${bridge.target}`,
+                    type: 'topology_gap',
+                    link: pathToWikilink(this.context.app, bridge.target, bridge.source),
+                    source: `Structural Gap (${bridge.type}): Hierarchy ${pathToWikilink(this.context.app, bridge.source, bridge.source)} â†’ ${pathToWikilink(this.context.app, bridge.via, bridge.via)} â†’ ${pathToWikilink(this.context.app, bridge.target, bridge.target)} is missing a direct link. Consider completing the bridge.`,
+                    timestamp: Date.now(),
+                    category: 'info',
+                    meta: {
+                        property: bridge.type,
+                        sourcePath: bridge.source,
+                        targetPath: bridge.target,
+                        sourceNote: fileA.basename,
+                        targetNote: fileC.basename,
+                        description: `Inferred transitive link (${bridge.type}, depth=2)`,
+                        confidence: 85,
+                    },
                 });
-            });
-            pages = pages.filter((p) => neighbors.has(p.file.path));
+            }
         }
-
-        const maxDepth = this.context.settings.bridgeScrutinyMaxDepth ?? 1;
-        if (maxDepth === 0) {
-            HealerLogger.info('Bridge Scrutiny disabled (bridgeScrutinyMaxDepth = 0).');
-            return [];
-        }
-
-        const directions = this.context.settings.enableVastBridgeScrutiny
-            ? (['up', 'down', 'next', 'prev'] as const)
-            : (['up'] as const);
-
-        directions.forEach((dir: 'up' | 'down' | 'next' | 'prev') => {
-            const map = relMaps[dir];
-
-            pages.forEach((pageA) => {
-                const pathA = pageA.file.path;
-                const targetsOfA = map.get(pathA) || new Set<string>();
-
-                targetsOfA.forEach((pathB) => {
-                    if (pathB === pathA) return;
-                    const targetsOfB = map.get(pathB) || new Set<string>();
-
-                    targetsOfB.forEach((pathC) => {
-                        if (pathC === pathA || pathC === pathB) return;
-
-                        // DEPTH GUARD: For maxDepth=1, we stop here (Aâ†’Bâ†’C only).
-                        // For maxDepth>1 we'd recurse further â€” but for now the loop
-                        // structure inherently scans only one level deep, so this check
-                        // is a semantic annotation and future-proofing flag.
-                        if (!targetsOfA.has(pathC)) {
-                            const fileC = this.context.app.vault.getAbstractFileByPath(pathC);
-                            if (!(fileC instanceof TFile)) return;
-
-                            suggestions.push({
-                                id: `bridge_gap:${dir}:${pathA}:${pathB}:${pathC}`,
-                                type: 'deterministic',
-                                link: pathToWikilink(this.context.app, pathC, pathA),
-                                source: `Structural Gap (${dir}): Hierarchy ${pathToWikilink(this.context.app, pathA, pathA)} â†’ ${pathToWikilink(this.context.app, pathB, pathB)} â†’ ${pathToWikilink(this.context.app, pathC, pathC)} is missing a direct link. Consider completing the bridge.`,
-                                timestamp: Date.now(),
-                                category: 'info',
-                                meta: {
-                                    property: dir,
-                                    sourcePath: pathA,
-                                    targetPath: pathC,
-                                    sourceNote: pageA.file.basename,
-                                    targetNote: fileC.basename,
-                                    description: `Inferred transitive link (${dir}, depth=${maxDepth})`,
-                                    confidence: 85,
-                                },
-                            });
-                        }
-                    });
-                });
-            });
-        });
-
         return suggestions;
     }
 
     public async runCycleAnalysis(): Promise<Suggestion[]> {
-        await Promise.resolve();
-        HealerLogger.info('Starting hierarchical cycle detection (Precision Path mode)...');
+        HealerLogger.info('Running Hierarchical Cycle Detection (Worker-delegated)...');
+        const graphEngine = new GraphEngine(this.context);
+        graphEngine.buildGraph();
+
+        const results = await graphEngine.runTopologicalAnalysis();
         const suggestions: Suggestion[] = [];
-        const hierarchy = this.context.settings.hierarchies?.[0];
-        if (!hierarchy) return [];
 
-        const query = this.getScanQuery();
-        const pages = this.engine.getPages(query);
-
-        const performCycleCheck = (propertyKeys: string[], edgeType: string) => {
-            const graph = new Map<string, string[]>();
-            const resolverCache = new Map<string, string | null>();
-
-            pages.forEach((p: DataviewPage) => {
-                const linkpaths = extractLinkpaths(p, propertyKeys);
-                const resolved = resolveLinkpathsToPaths(this.context.app, linkpaths, p.file.path, resolverCache);
-                if (resolved.length > 0) graph.set(p.file.path, resolved);
-            });
-
-            const visited = new Set<string>();
-            const recursionStack = new Set<string>();
-
-            const detectCycle = (node: string, path: string[]): string[] | null => {
-                visited.add(node);
-                recursionStack.add(node);
-                path.push(node);
-
-                const targets = graph.get(node) || [];
-                for (const target of targets) {
-                    if (!visited.has(target)) {
-                        const cycle = detectCycle(target, path);
-                        if (cycle) return cycle;
-                    } else if (recursionStack.has(target)) {
-                        const cycleStartIndex = path.indexOf(target);
-                        return [...path.slice(cycleStartIndex), target];
-                    }
-                }
-
-                recursionStack.delete(node);
-                path.pop();
-                return null;
-            };
-
-            for (const [nodePath] of graph) {
-                if (!visited.has(nodePath)) {
-                    const cyclePath = detectCycle(nodePath, []);
-                    if (cyclePath) {
-                        const stableKey = [...new Set(cyclePath)].sort().join('|');
-                        const stableId = `cycle_ouroboros:${edgeType}:${stableKey}`;
-
-                        let severity: 'error' | 'suggestion' | 'info' = 'error';
-                        if (edgeType !== 'sequence') {
-                            if (cyclePath.length <= 3) severity = 'error';
-                            else if (cyclePath.length <= 5) severity = 'suggestion';
-                            else severity = 'info';
-                        }
-
-                        suggestions.push({
-                            id: stableId,
-                            type: 'quality',
-                            link: pathToWikilink(this.context.app, cyclePath[0], cyclePath[0]),
-                            source: `Ouroboros (${edgeType}): Infinite loop detected. Path: ${cyclePath.map((p) => pathToWikilink(this.context.app, p, p)).join(' â†’ ')}`,
-                            timestamp: Date.now(),
-                            category: severity,
-                            meta: {
-                                description: `Circular dependency in '${edgeType}' flow.`,
-                                sourcePath: cyclePath[0],
-                                losers: cyclePath,
-                            },
-                        });
-                    }
-                }
+        for (const cycle of results.cycles) {
+            // Filter if boundary scope is selected
+            if (this.context.settings.ouroborosScope === 'boundary') {
+                if (!this.isCycleBoundary(cycle.path)) continue;
             }
-        };
 
-        // ✅ FIX BUG 4: Controllo cicli anche su percorsi inversi
-        performCycleCheck(hierarchy.up || [], 'hierarchy');
-        performCycleCheck(hierarchy.down || [], 'hierarchy_down');
-        performCycleCheck(hierarchy.next || [], 'sequence');
-        performCycleCheck(hierarchy.prev || [], 'sequence_prev');
+            const stableKey = [...new Set(cycle.path)].sort().join('|');
+            const stableId = `cycle_ouroboros:${cycle.type}:${stableKey}`;
+
+            let severity: 'error' | 'suggestion' | 'info' = 'error';
+            if (cycle.type !== 'sequence') {
+                if (cycle.path.length <= 3) severity = 'error';
+                else if (cycle.path.length <= 5) severity = 'suggestion';
+                else severity = 'info';
+            }
+
+            suggestions.push({
+                id: stableId,
+                type: 'quality',
+                link: pathToWikilink(this.context.app, cycle.path[0], cycle.path[0]),
+                source: `Ouroboros (${cycle.type}): Infinite loop detected. Path: ${cycle.path.map((p) => pathToWikilink(this.context.app, p, p)).join(' â†’ ')}`,
+                timestamp: Date.now(),
+                category: severity,
+                meta: {
+                    description: `Circular dependency in '${cycle.type}' flow.`,
+                    sourcePath: cycle.path[0],
+                    losers: cycle.path,
+                },
+            });
+        }
         return suggestions;
+    }
+
+    /**
+     * Checks if a cycle crosses folder or hierarchy boundaries.
+     */
+    private isCycleBoundary(path: string[]): boolean {
+        if (path.length < 2) return false;
+
+        const folders = new Set<string>();
+        for (const p of path) {
+            const file = this.context.app.vault.getAbstractFileByPath(p);
+            if (file instanceof TFile) {
+                folders.add(file.parent?.path || '/');
+            }
+        }
+
+        // If nodes in the cycle span multiple folders, it is a boundary cycle.
+        return folders.size > 1;
     }
 
     public async runDanglingLinkAnalysis(): Promise<Suggestion[]> {
@@ -835,72 +755,38 @@ export class TopologyAnalyzer {
     }
 
     public async runFlowStagnationAnalysis(): Promise<Suggestion[]> {
-        await Promise.resolve();
-        HealerLogger.info('Starting flow stagnation analysis (Precision Path mode)...');
+        HealerLogger.info('Running Flow Stagnation Analysis (Worker-delegated)...');
+        const graphEngine = new GraphEngine(this.context);
+        graphEngine.buildGraph();
+
+        const results = await graphEngine.runTopologicalAnalysis({
+            blackHoleThreshold: this.context.settings.blackHoleThreshold,
+        });
+
         const suggestions: Suggestion[] = [];
+        for (const bh of results.blackHoles) {
+            const file = this.context.app.vault.getAbstractFileByPath(bh.path);
+            if (!(file instanceof TFile)) continue;
 
-        const resolvedLinks = this.context.app.metadataCache.resolvedLinks;
-        const unresolvedLinks = this.context.app.metadataCache.unresolvedLinks;
-
-        const inDegree = new Map<string, number>();
-        const outDegree = new Map<string, number>();
-
-        for (const [source, targets] of Object.entries(resolvedLinks)) {
-            const targetPaths = Object.keys(targets);
-            outDegree.set(source, (outDegree.get(source) || 0) + targetPaths.length);
-
-            for (const target of targetPaths) {
-                inDegree.set(target, (inDegree.get(target) || 0) + 1);
-            }
-        }
-
-        for (const [source, targets] of Object.entries(unresolvedLinks)) {
-            const targetNames = Object.keys(targets);
-            outDegree.set(source, (outDegree.get(source) || 0) + targetNames.length);
-        }
-
-        const mdFiles = this.context.app.vault.getMarkdownFiles();
-        const fileMap = new Map<string, TFile>();
-        mdFiles.forEach((f) => fileMap.set(f.path, f));
-
-        if (this.context.settings.includeNonMarkdownHubs) {
-            this.context.app.vault.getFiles().forEach((f) => {
-                const isCanvas = f.extension === 'canvas';
-                if (isCanvas) fileMap.set(f.path, f);
-            });
-        }
-
-        const MIN_BACKLINKS = 5;
-
-        fileMap.forEach((file, path) => {
             const isCanvas = file.extension === 'canvas';
             const isExcalidraw = file.name.endsWith('.excalidraw.md') || file.extension === 'excalidraw';
+            const typeLabel = isCanvas ? 'Canvas' : isExcalidraw ? 'Excalidraw' : 'Note';
 
-            const outs = outDegree.get(path) || 0;
-
-            if (outs === 0) {
-                const ins = inDegree.get(path) || 0;
-                if (ins >= MIN_BACKLINKS) {
-                    const stableId = `sink_stagnation:${path}`;
-                    const typeLabel = isCanvas ? 'Canvas' : isExcalidraw ? 'Excalidraw' : 'Note';
-
-                    suggestions.push({
-                        id: stableId,
-                        type: 'quality',
-                        link: pathToWikilink(this.context.app, path, path),
-                        source: `Flow Stagnation: This ${typeLabel} attracts ${ins} links but leads nowhere (0 outgoing).`,
-                        timestamp: Date.now(),
-                        category: isCanvas ? 'info' : 'suggestion',
-                        meta: {
-                            description: 'High in-degree, zero out-degree.',
-                            sourcePath: path,
-                            sourceNote: file.basename,
-                            confidence: isCanvas ? 60 : 95,
-                        },
-                    });
-                }
-            }
-        });
+            suggestions.push({
+                id: `sink_stagnation:${bh.path}`,
+                type: 'quality',
+                link: pathToWikilink(this.context.app, bh.path, bh.path),
+                source: `Flow Stagnation: This ${typeLabel} attracts ${bh.inDegree} links but leads nowhere (0 outgoing).`,
+                timestamp: Date.now(),
+                category: isCanvas ? 'info' : 'suggestion',
+                meta: {
+                    description: 'High in-degree, zero out-degree.',
+                    sourcePath: bh.path,
+                    sourceNote: file.basename,
+                    confidence: isCanvas ? 60 : 95,
+                },
+            });
+        }
         return suggestions;
     }
 
@@ -966,7 +852,9 @@ export class TopologyAnalyzer {
      */
     public async runSemanticChildValidation(signal?: AbortSignal): Promise<Suggestion[]> {
         if (!this.context.settings.enableSemanticAudit) {
-            HealerLogger.debug('Semantic child validation disabled in settings.');
+            if (this.context.settings.logLevel === 'debug') {
+                HealerLogger.debug('Semantic child validation disabled in settings.');
+            }
             return [];
         }
 
@@ -1068,5 +956,81 @@ export class TopologyAnalyzer {
         }
 
         return suggestions;
+    }
+
+    /**
+     * âœ… NEW: Semantic Incongruence Diagnostic (Phase 15, HARDEN-04/D-04)
+     * Scans existing links and flags them if the semantic similarity is below a threshold.
+     */
+    public async runSemanticIncongruenceAnalysis(): Promise<Suggestion[]> {
+        HealerLogger.info('Starting Semantic Incongruence Analysis...');
+        const suggestions: Suggestion[] = [];
+        const threshold = 0.2; // Default threshold
+
+        const query = this.getScanQuery();
+        const pages = this.engine.getPages(query);
+
+        // Access vector embeddings from the global cache
+        const embeddings = this.context.cache.vectorEmbeddings || {};
+
+        const resolvedLinks = this.context.app.metadataCache.resolvedLinks;
+
+        let processedCount = 0;
+        for (const page of pages) {
+            processedCount++;
+            if (this.YIELD_INTERVAL > 0 && processedCount % this.BATCH_SIZE === 0) {
+                await sleep(this.YIELD_INTERVAL);
+            }
+
+            const pathA = page.file.path;
+            const targets = resolvedLinks[pathA];
+
+            if (!targets) continue;
+
+            const vectorA = embeddings[pathA]?.vector;
+            if (!vectorA) continue;
+
+            for (const pathB of Object.keys(targets)) {
+                if (pathA === pathB) continue;
+
+                const vectorB = embeddings[pathB]?.vector;
+                if (!vectorB) continue;
+
+                const similarity = cosineSimilarity(vectorA, vectorB);
+
+                if (similarity < threshold) {
+                    const targetFile = this.context.app.vault.getAbstractFileByPath(pathB);
+                    const targetName = targetFile instanceof TFile ? targetFile.basename : pathB;
+
+                    suggestions.push({
+                        id: `semantic_incongruence:${pathA}:${pathB}`,
+                        type: 'incongruence',
+                        link:
+                            pathToWikilink(this.context.app, pathA, pathA) +
+                            ' \u2192 ' +
+                            pathToWikilink(this.context.app, pathB, pathB),
+                        source: `Semantic Incongruence: Review link - notes appear to have diverged semantically (similarity: ${similarity.toFixed(2)}).`,
+                        timestamp: Date.now(),
+                        category: 'suggestion',
+                        meta: {
+                            sourcePath: pathA,
+                            targetPath: pathB,
+                            sourceNote: page.file.basename,
+                            targetNote: targetName,
+                            description: `Link exists but semantic similarity is very low (${similarity.toFixed(2)} < ${threshold}).`,
+                        },
+                    });
+                }
+            }
+        }
+
+        return suggestions;
+    }
+
+    /**
+     * ✅ NEW: Cross-Thematic Discovery (Phase 15, D-05)
+     */
+    public async runCrossThematicAnalysis(): Promise<Suggestion[]> {
+        return await this.crossThematicProvider.getSuggestions();
     }
 }

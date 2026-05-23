@@ -1,5 +1,5 @@
 import { Plugin, TFile, TFolder, normalizePath } from 'obsidian';
-import { SemanticGraphHealerSettings } from '../../types';
+import type { SemanticGraphHealerSettings } from '../../types';
 
 /**
  * High-Fidelity API Augmentation (SOTA 2026)
@@ -117,7 +117,7 @@ export class HealerLogger {
 
     private shouldLog(level: LogLevel): boolean {
         if (!this.settings) return true;
-        const currentLevel = this.settings.logLevel as LogLevel;
+        const currentLevel = this.settings.logLevel;
         return LOG_LEVELS[level] >= LOG_LEVELS[currentLevel];
     }
 
@@ -306,6 +306,7 @@ export class HealerLogger {
         const logLine = this.formatLogLine(entry);
         if (level === 'error') console.error(logLine);
         else if (level === 'warn') console.warn(logLine);
+        else if (level === 'info') console.info(logLine);
         else console.debug(logLine);
 
         // File output

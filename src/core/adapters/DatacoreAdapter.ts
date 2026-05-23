@@ -1,8 +1,8 @@
 import { App, TFile, parseLinktext } from 'obsidian';
 import { BaseAdapter } from './BaseAdapter';
-import { SemanticLinkEdge } from './types';
+import type { SemanticLinkEdge } from './types';
 import type { IDataviewPort } from '../ports/IDataviewPort';
-import { DataviewApi, DataviewPage, MarkdownPage, ExtendedApp, DatacoreApi, DataviewLink } from '../../types';
+import type { DataviewApi, DataviewPage, MarkdownPage, ExtendedApp, DatacoreApi, DataviewLink } from '../../types';
 import { HealerLogger, isObsidianInternalApp, normalizeVaultPath } from '../HealerUtils';
 
 import { BoundedMap } from '../utils/BoundedMap';
@@ -14,8 +14,8 @@ import {
     unwrapInternalPluginInstance,
     isPathBookmarked,
     normalizeDataviewFieldName,
-    DatacoreLink,
 } from '../utils/DatacoreUtils';
+import type { DatacoreLink } from '../utils/DatacoreUtils';
 
 /**
  * Structural bridge types for Dataview parity.
@@ -62,10 +62,15 @@ export class DatacoreAdapter extends BaseAdapter implements IDataviewPort {
         this.listenerManager = new ListenerManager(this.app, () => this.invalidateBacklinkIndex(), 250);
     }
 
+    protected async onInitialize(): Promise<void> {
+        return Promise.resolve();
+    }
+
     /**
      * Checks if Datacore plugin is enabled and API is ready.
      */
     public isAvailable(): boolean {
+        if (!this.isPluginAvailable('datacore')) return false;
         return this.getApi() !== null;
     }
 
@@ -73,9 +78,10 @@ export class DatacoreAdapter extends BaseAdapter implements IDataviewPort {
      * Extracts links via Datacore query.
      */
     public async getLinks(): Promise<SemanticLinkEdge[]> {
+        this.ensureInitialized();
         // High-level extraction using Datacore query
         // For a full graph scan, this would use '@page' query and map outlinks
-        return [];
+        return Promise.resolve([]);
     }
 
     protected override onDestroy(): void {
@@ -86,12 +92,12 @@ export class DatacoreAdapter extends BaseAdapter implements IDataviewPort {
     }
 
     private getApi(): DatacoreApi | null {
-        if (!isObsidianInternalApp(this.app)) return null;
+        if (!this.isPluginAvailable('datacore')) return null;
         const app = this.app as ExtendedApp;
         const plugin = app.plugins.getPlugin('datacore');
-        const api = plugin && 'api' in plugin ? (plugin as { api: DatacoreApi }).api : null;
+        const api = plugin && 'api' in plugin ? plugin.api : null;
         if (api && (typeof api.tryQuery === 'function' || typeof api.query === 'function')) return api;
-        if (this.debug) HealerLogger.warn('DatacoreAdapter: Datacore API not ready yet.');
+        this.logDebug('DatacoreAdapter: Datacore API not ready yet.');
         return null;
     }
 
@@ -112,7 +118,7 @@ export class DatacoreAdapter extends BaseAdapter implements IDataviewPort {
                 return r.value ?? [];
             } catch (e) {
                 if (this.debug) {
-                    HealerLogger.error(`DatacoreAdapter: tryQuery threw exception for "${q}"`, e);
+                    this.logDebug(`DatacoreAdapter: tryQuery threw exception for "${q}"`, e);
                 }
                 // Fallback to query() if tryQuery throws
             }
@@ -152,6 +158,7 @@ export class DatacoreAdapter extends BaseAdapter implements IDataviewPort {
      * Retrieves a single page by path using a robust query-first fallback strategy.
      */
     getPage(path: string): DataviewPage | null {
+        this.ensureInitialized();
         const dc = this.getApi();
         if (!dc) return null;
 
@@ -200,9 +207,9 @@ export class DatacoreAdapter extends BaseAdapter implements IDataviewPort {
 
     public getDataviewApi(): DataviewApi | null {
         if (!isObsidianInternalApp(this.app)) return null;
-        const app = this.app as ExtendedApp;
+        const app = this.app;
         const plugin = app.plugins.getPlugin('dataview');
-        return plugin && 'api' in plugin ? (plugin as { api: DataviewApi }).api : null;
+        return plugin && 'api' in plugin ? plugin.api : null;
     }
 
     private buildBacklinkIndex(): Map<string, Set<string>> {
@@ -223,6 +230,7 @@ export class DatacoreAdapter extends BaseAdapter implements IDataviewPort {
     }
 
     public getBacklinks(targetPath: string): string[] {
+        this.ensureInitialized();
         const normalized = normalizeVaultPath(this.app, targetPath);
         if (!this.backlinkIndex) {
             this.backlinkIndex = this.buildBacklinkIndex();
@@ -234,6 +242,7 @@ export class DatacoreAdapter extends BaseAdapter implements IDataviewPort {
      * Executes a metadata query with strict result filtering and error handling.
      */
     public getPages(query: string): DataviewPage[] {
+        this.ensureInitialized();
         const api = this.getApi();
         if (!api) return [];
         try {
@@ -493,7 +502,7 @@ export class DatacoreAdapter extends BaseAdapter implements IDataviewPort {
             ...inheritedPageFields,
         } satisfies MappedDataviewPage;
 
-        return mapped as unknown as DataviewPage;
+        return mapped;
     }
 
     /**

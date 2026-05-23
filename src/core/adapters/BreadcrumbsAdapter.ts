@@ -1,9 +1,9 @@
 import { App } from 'obsidian';
 import { BaseAdapter } from './BaseAdapter';
-import { SemanticLinkEdge } from './types';
+import type { SemanticLinkEdge } from './types';
 import type { MultiGraph } from 'graphology';
 import type { IBreadcrumbsPort } from '../ports/IBreadcrumbsPort';
-import { BreadcrumbsApi, HierarchyNode, BCDirection } from '../../types';
+import type { BreadcrumbsApi, HierarchyNode, BCDirection } from '../../types';
 import { HealerLogger, isObsidianInternalApp, normalizeVaultPath } from '../HealerUtils';
 
 /**
@@ -27,28 +27,35 @@ export class BreadcrumbsAdapter extends BaseAdapter implements IBreadcrumbsPort 
         super(app, debug);
     }
 
+    protected async onInitialize(): Promise<void> {
+        return Promise.resolve();
+    }
+
     /**
      * Checks if Breadcrumbs plugin is available (V3 or V4).
      */
     public isAvailable(): boolean {
+        if (!this.isPluginAvailable('breadcrumbs')) return false;
         return this.getV4Api() !== null || this.getApi() !== null;
     }
 
     /**
      * Extracts links from Breadcrumbs graph.
      */
-    public async getLinks(): Promise<SemanticLinkEdge[]> {
+    public getLinks(): Promise<SemanticLinkEdge[]> {
+        this.ensureInitialized();
         // Implementation for graph extraction if needed.
-        return [];
+        return Promise.resolve([]);
     }
 
     private getV4Api(): BCAPIV4Like | null {
+        // No guard here as it's private and used by public methods that have guards
         const w = window as { BCAPI?: { get_neighbours?: unknown } };
         if (w?.BCAPI && typeof w.BCAPI.get_neighbours === 'function') return w.BCAPI as BCAPIV4Like;
 
         // fallback: plugin.api (in V4 è proprio BCAPI)
         if (!isObsidianInternalApp(this.app)) return null;
-        const plugin = (this.app as import('../../types').ExtendedApp).plugins.getPlugin('breadcrumbs');
+        const plugin = this.app.plugins.getPlugin('breadcrumbs');
         const api = (plugin as { api?: { get_neighbours?: unknown } })?.api;
         if (api && typeof api.get_neighbours === 'function') return api as BCAPIV4Like;
 
@@ -58,12 +65,12 @@ export class BreadcrumbsAdapter extends BaseAdapter implements IBreadcrumbsPort 
     private getApi(): BreadcrumbsApi | null {
         if (!isObsidianInternalApp(this.app)) return null;
         try {
-            const plugin = (this.app as import('../../types').ExtendedApp).plugins.getPlugin('breadcrumbs');
+            const plugin = this.app.plugins.getPlugin('breadcrumbs');
             if (!plugin?.api) return null;
             const api = plugin.api;
             const graph = api.closedG ?? api.mainG;
             if (graph && graph.order === 0) {
-                HealerLogger.debug?.('BreadcrumbsAdapter: graph order=0 (empty).');
+                this.logDebug('BreadcrumbsAdapter: graph order=0 (empty).');
             } else if (!graph) {
                 HealerLogger.warn('BreadcrumbsAdapter: graphs are null.');
             }
@@ -81,6 +88,7 @@ export class BreadcrumbsAdapter extends BaseAdapter implements IBreadcrumbsPort 
      * Fallback chain: Breadcrumbs V4 API -> Legacy Matrix -> Closed Graph -> Main Graph
      */
     async getHierarchy(path: string): Promise<HierarchyNode | null> {
+        this.ensureInitialized();
         const normalizedPath = normalizeVaultPath(this.app, path);
 
         // 1) Breadcrumbs V4 path (BCAPI.get_neighbours → outgoing edges)
@@ -106,7 +114,7 @@ export class BreadcrumbsAdapter extends BaseAdapter implements IBreadcrumbsPort 
                     else if (edge.dir === 'prev') prev.push(normalizedTarget);
                     else if (edge.dir === 'down') children.push(normalizedTarget);
                     else {
-                        HealerLogger.debug?.(
+                        this.logDebug(
                             `BreadcrumbsAdapter: Unknown or missing edge direction for target "${normalizedTarget}". Ignoring.`,
                         );
                     }
@@ -132,7 +140,7 @@ export class BreadcrumbsAdapter extends BaseAdapter implements IBreadcrumbsPort 
             if (typeof api.getMatrixNeighbours === 'function') {
                 const fromMatrix = this.fromMatrixNeighbours(api, normalizedPath);
                 if (fromMatrix) return Promise.resolve(fromMatrix);
-                HealerLogger.debug?.(
+                this.logDebug(
                     `BreadcrumbsAdapter: getMatrixNeighbours returned null for "${normalizedPath}", falling back to graph.`,
                 );
             }
@@ -243,7 +251,7 @@ export class BreadcrumbsAdapter extends BaseAdapter implements IBreadcrumbsPort 
 
     private fromGraph(graph: MultiGraph, path: string, reverseIn: boolean): HierarchyNode | null {
         if (!graph.hasNode(path)) {
-            HealerLogger.debug(`BreadcrumbsAdapter: "${path}" not found in graph (${graph.order} nodes).`);
+            this.logDebug(`BreadcrumbsAdapter: "${path}" not found in graph (${graph.order} nodes).`);
             return null;
         }
         const parents: string[] = [],

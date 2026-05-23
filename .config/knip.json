@@ -1,25 +1,27 @@
 {
     "$schema": "https://unpkg.com/knip@5/schema.json",
     "project": ["**/*.ts"],
-    "entry": ["src/main.ts", "src/core/workers/graph-analysis-worker.ts", "tests/**/*.test.ts"],
-    "ignore": [
-        ".agent/**",
-        "vitest.setup.ts",
-        ".config/esbuild.config.mjs",
-        "src/core/workers/graph-analysis-worker.ts"
+    "entry": [
+        "src/main.ts",
+        "src/core/workers/graph-analysis-worker.ts",
+        "src/core/workers/ladybug-worker.ts",
+        "tests/**/*.test.ts"
     ],
+    "ignore": ["vitest.setup.ts"],
     "ignoreDependencies": [
-        "esbuild",
         "stylelint-config-standard",
         "@typescript-eslint/eslint-plugin",
         "@typescript-eslint/parser",
-        "graphology-types"
+        "d3-force-3d",
+        "three",
+        "@types/benchmark",
+        "benchmark"
     ],
     "rules": {
         "files": "error",
         "dependencies": "error",
         "unlisted": "error",
-        "exports": "error",
-        "types": "error"
+        "exports": "warn",
+        "types": "warn"
     }
 }

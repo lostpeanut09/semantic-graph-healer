@@ -1,4 +1,4 @@
-import { App, EventRef, TAbstractFile } from 'obsidian';
+import type { App, EventRef, TAbstractFile } from 'obsidian';
 
 export class ListenerManager {
     private resolveListenerRef: EventRef | null = null;
