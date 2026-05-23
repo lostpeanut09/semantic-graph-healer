@@ -7,19 +7,15 @@ describe('Phase 18 Validation: BRAT Support & Root Cleanup', () => {
     const root = process.cwd();
 
     it('should have a clean root directory (no tracked .js/.css or planning files)', () => {
-        const planningFiles = [
-            'SPEC.md',
-            'CHANGELOG.md',
-            'CLAUDE.md'
-        ];
+        const planningFiles = ['SPEC.md', 'CHANGELOG.md', 'CLAUDE.md'];
 
-        planningFiles.forEach(file => {
+        planningFiles.forEach((file) => {
             expect(existsSync(join(root, file)), `${file} should not exist in root`).toBe(false);
         });
 
         // Check that no .js or .css files are tracked in root (shallow check)
         const trackedFiles = execSync('git ls-files').toString().split('\n');
-        const trackedRootJsCss = trackedFiles.filter(f => {
+        const trackedRootJsCss = trackedFiles.filter((f) => {
             const isJsCss = f.endsWith('.js') || f.endsWith('.css');
             const isRoot = !f.includes('/') && !f.includes('\\');
             return isJsCss && isRoot;
@@ -28,14 +24,9 @@ describe('Phase 18 Validation: BRAT Support & Root Cleanup', () => {
     });
 
     it('should have build artifacts ignored by Git', () => {
-        const artifacts = [
-            'main.js',
-            'worker.js',
-            'ladybug-worker.js',
-            'styles.css'
-        ];
+        const artifacts = ['main.js', 'worker.js', 'ladybug-worker.js', 'styles.css'];
 
-        artifacts.forEach(artifact => {
+        artifacts.forEach((artifact) => {
             // If the file exists, it must be ignored
             if (existsSync(join(root, artifact))) {
                 const isIgnored = execSync(`git check-ignore ${artifact} || true`).toString().trim();

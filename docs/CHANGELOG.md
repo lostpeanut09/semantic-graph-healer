@@ -8,6 +8,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [3.0.0] — 2026-05-22 (Milestone v1.1: CLI & Automation)
 
 ### Added
+
 - **LadybugDB (WASM)**: Integrated a high-performance WASM-based graph database for 50k+ node support with Cypher query capability.
 - **GraphRAG**: Deep semantic indexing and community-centric summarization using local embedding models.
 - **Obsidian CLI Integration**: Programmatic API (`AutomationApi`) and URI endpoints for headless analysis and batch repairs.
@@ -15,12 +16,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Healer Topological Rank (HTR) v2**: Advanced scoring integrating vector similarity and graph centrality.
 
 ### Improved
+
 - **Root Cleanup**: Relocated all documentation to `docs/` and untracked build artifacts from the source branch.
 - **Safety Mode**: Adaptive performance throttling for extremely large vaults (10k+ nodes).
 - **Atomic Batch Rolls**: Multi-file edits are now grouped by `batchId` with full Memento-based undo support.
 - **Type Safety**: Eliminated all explicit `any` and `as any` from core logic and UI components.
 
 ### Fixed
+
 - **Icebug dependency**: Corrected to `@ladybugmem/icebug` with WASM verification.
 - **Zod v4 compatibility**: Resolved all TS1259 default-import regressions.
 

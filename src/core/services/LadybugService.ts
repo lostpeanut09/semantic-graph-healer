@@ -39,7 +39,10 @@ export class LadybugService {
     private initResolver: (() => void) | null = null;
     private initRejecter: ((reason: Error) => void) | null = null;
 
-    constructor(private app: App, private manifest: ExtendedManifest) {}
+    constructor(
+        private app: App,
+        private manifest: ExtendedManifest,
+    ) {}
 
     get initializationStatus(): InitializationStatus {
         return this.status;
@@ -178,4 +181,3 @@ export class LadybugService {
         this.status = 'none';
     }
 }
-

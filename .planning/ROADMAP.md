@@ -48,7 +48,6 @@
 
 ### Phase 17: Obsidian CLI Integration & Automation
 
-
 **Goal:** Enable deep automation and "headless" interaction via Obsidian CLI (v1.12+).
 
 **Requirements:**

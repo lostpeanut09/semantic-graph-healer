@@ -40,6 +40,7 @@ The project follows a modular structure that separates core logic from the UI la
 ### TypeScript Strict Mode
 
 The project leverages a strict configuration in `tsconfig.json` to prevent runtime errors:
+
 - **`noImplicitAny: true`**: Do not use implicit `any`. Always type variables explicitly if they cannot be inferred.
 - **`strictNullChecks: true`**: Handle `null` and `undefined` explicitly.
 
@@ -50,15 +51,19 @@ While `eslint` rules currently warn on `any` (`@typescript-eslint/no-explicit-an
 ### Architectural Patterns
 
 #### Port/Adapter (Hexagonal Architecture)
+
 The project utilizes a Port/Adapter pattern to decouple core logic from external dependencies (Obsidian API, third-party plugins).
+
 - Core services should depend on **Ports** (interfaces) located in `src/core/ports/`.
 - Concrete implementations are located in `src/core/adapters/`.
 
 #### Dependency Injection
+
 - Service instantiation and dependency wiring happen in the `onload` method of `src/main.ts` (the Composition Root).
 - Avoid hardcoding singleton access; prefer passing dependencies via constructors.
 
 #### Service-Oriented Logic
+
 - Logic is encapsulated in **Services** (e.g., `LlmService`, `EmbeddingService`).
 - Services are typically instantiated once and held by the main plugin instance.
 
@@ -138,6 +143,7 @@ The project enforces strict linting and formatting rules via ESLint, Prettier, a
 ### Prettier (Styling)
 
 Configuration is managed in `.config/.prettierrc`. Key styling rules include:
+
 - **Indentation**: 4 spaces (`tabWidth: 4`).
 - **Quotes**: Single quotes (`singleQuote: true`).
 - **Line Length**: 120 characters (`printWidth: 120`).
@@ -147,6 +153,7 @@ Configuration is managed in `.config/.prettierrc`. Key styling rules include:
 ### ESLint
 
 Configuration is managed in `.config/eslint.config.js`. Key rules include:
+
 - **Type-Checked Rules**: Full TypeScript strict checking via `@typescript-eslint`.
 - **obsidianmd/no-tfile-tfolder-cast**: Do not cast abstract files to `TFile`/`TFolder`; use type guards (`error`).
 - **obsidianmd/ui/sentence-case**: Use sentence case for UI labels (`warn`).
