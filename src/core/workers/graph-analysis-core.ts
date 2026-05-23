@@ -393,7 +393,8 @@ function runCoCitationAnalysis(graph: DirectedGraph, options: unknown, requestId
         });
 
         candidates.forEach((target) => {
-            const pairId = [source, target].sort().join('|||');
+            // ⚡ Bolt Optimization: Use direct string concatenation instead of array allocation and sorting to improve performance in O(N^2) loop
+            const pairId = source < target ? `${source}|||${target}` : `${target}|||${source}`;
             if (processedPairs.has(pairId)) return;
             processedPairs.add(pairId);
 
