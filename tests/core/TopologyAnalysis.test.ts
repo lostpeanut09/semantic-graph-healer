@@ -9,7 +9,7 @@ import { DEFAULT_SETTINGS } from '../../src/types';
 // Mock GraphEngine
 vi.mock('../../src/core/GraphEngine');
 
-describe('Phase 5 Nyquist Validation', () => {
+describe('Topology Diagnostics & Analysis', () => {
     describe('TOPOL-05: Black Hole Detection Thresholds', () => {
         const mockReporter = { postProgress: vi.fn() };
 

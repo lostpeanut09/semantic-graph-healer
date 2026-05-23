@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { join } from 'node:path';
 
-describe('Phase 18 Validation: BRAT Support & Root Cleanup', () => {
+describe('BRAT Support & Root Cleanup Validation', () => {
     const root = process.cwd();
 
     it('should have a clean root directory (no tracked .js/.css or planning files)', () => {

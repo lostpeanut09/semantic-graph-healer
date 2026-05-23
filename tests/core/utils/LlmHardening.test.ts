@@ -10,7 +10,7 @@ vi.mock('obsidian', () => ({
 
 import { requestUrl } from 'obsidian';
 
-describe('LLM Hardening (Phase 5)', () => {
+describe('LLM Hardening', () => {
     let mockGetKey: any;
     let settings: any;
     let plugin: any;
