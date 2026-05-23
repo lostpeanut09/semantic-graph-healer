@@ -55,6 +55,7 @@ data.json
 .planning/
 .agent/
 .kilo/
+.antigravitycli/
 CLAUDE.md
 REVIEW.md
 QUICK-TASKS.md
