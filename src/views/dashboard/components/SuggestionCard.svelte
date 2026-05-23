@@ -76,16 +76,16 @@
   {/if}
 
   <div class="healer-btn-container" style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
-    <button class="healer-btn-execute" disabled={isFixed} onclick={() => onExecute(suggestion)}>Execute</button>
-    <button class="healer-btn-reason" disabled={isFixed || suggestion.isVerifying} onclick={() => onReasoning(suggestion)}>
+    <button class="healer-btn-execute" disabled={isFixed} onclick={() => onExecute(suggestion)} aria-label="Execute fix for {suggestion.link}" title={isFixed ? "Already fixed" : "Execute fix"} style={isFixed ? 'cursor: not-allowed;' : ''}>Execute</button>
+    <button class="healer-btn-reason" disabled={isFixed || suggestion.isVerifying} onclick={() => onReasoning(suggestion)} aria-label="{suggestion.reasoning ? 'Re-reason for' : 'Get reasoning for'} {suggestion.link}" title={isFixed || suggestion.isVerifying ? "Action unavailable" : "Get AI reasoning"} style={isFixed || suggestion.isVerifying ? 'cursor: not-allowed;' : ''}>
       {suggestion.reasoning ? 'Re-reason' : 'Reasoning'}
     </button>
     {#if onVerifyAI && (suggestion.type === 'ai' || suggestion.id.startsWith('branch_') || suggestion.id.startsWith('tag_'))}
-      <button class="healer-btn-verify" disabled={isFixed || suggestion.isVerifying} onclick={() => onVerifyAI(suggestion)}>
+      <button class="healer-btn-verify" disabled={isFixed || suggestion.isVerifying} aria-busy={suggestion.isVerifying} onclick={() => onVerifyAI(suggestion)} aria-label="Verify AI suggestion for {suggestion.link}" title={isFixed ? "Already fixed" : suggestion.isVerifying ? "Verifying..." : "Verify AI suggestion"} style={isFixed || suggestion.isVerifying ? 'cursor: not-allowed;' : ''}>
         {suggestion.isVerifying ? 'Verifying...' : 'AI Verify'}
       </button>
     {/if}
-    <button class="healer-btn-ignore" disabled={isFixed} onclick={() => onIgnore(suggestion)}>Ignore</button>
+    <button class="healer-btn-ignore" disabled={isFixed} onclick={() => onIgnore(suggestion)} aria-label="Ignore suggestion for {suggestion.link}" title={isFixed ? "Already fixed" : "Ignore this suggestion"} style={isFixed ? 'cursor: not-allowed;' : ''}>Ignore</button>
   </div>
 </div>
 
