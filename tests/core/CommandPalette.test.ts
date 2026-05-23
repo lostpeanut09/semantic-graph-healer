@@ -52,10 +52,10 @@ describe('CommandPalette', () => {
                 { id: '3', batchId: 'batch-latest' },
             ];
             mockPlugin.api.undoBatch.mockResolvedValue({ revertedCount: 1, failedCount: 0 });
-            
+
             const cmd = commands.get('undo-last-batch-repair')!;
             await cmd.callback();
-            
+
             expect(mockPlugin.api.undoBatch).toHaveBeenCalledWith('batch-latest');
         });
 

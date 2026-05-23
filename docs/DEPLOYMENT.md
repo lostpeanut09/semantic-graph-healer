@@ -19,20 +19,22 @@ The plugin is distributed through the following channels:
 The project uses GitHub Actions to automate the build and release process.
 
 ### Production Release (`release.yml`)
+
 1. **Trigger**: Triggered when a new tag matching the `v*` pattern (e.g., `v3.0.0`) is pushed to the repository.
 2. **Build**: Runs on `ubuntu-latest` with Node.js 22.
 3. **Commands**:
-   - `npm install --legacy-peer-deps`
-   - `npm run build`
+    - `npm install --legacy-peer-deps`
+    - `npm run build`
 4. **Deploy**: Creates a GitHub release using `gh release create` and uploads `main.js`, `worker.js`, `manifest.json`, and `styles.css`.
-   <!-- VERIFY: ladybug-worker.js is built but missing from release.yml upload step -->
+ <!-- VERIFY: ladybug-worker.js is built but missing from release.yml upload step -->
 
 ### BRAT Beta Release (`release-brat.yml`)
+
 1. **Trigger**: Triggered on push to the `main` branch or via `workflow_dispatch`.
 2. **Build**: Runs on `ubuntu-latest`.
 3. **Commands**:
-   - `npm install`
-   - `npm run build`
+    - `npm install`
+    - `npm run build`
 4. **Deploy**: Copies `main.js`, `manifest.json`, `styles.css`, `worker.js`, and `ladybug-worker.js` into a `dist_bundle` folder, and publishes this directory to the `dist` branch using `s0/git-publish-subdir-action`.
 
 ## Versioning and Compatibility
@@ -46,7 +48,7 @@ The project uses GitHub Actions to automate the build and release process.
 
 To run the deployment pipeline locally or in CI:
 
-- **Node.js**: The codebase requires Node.js `>=24.0.0` and npm `>=11.0.0` (as defined in `package.json`). *Note: CI currently runs on Node 22.*
+- **Node.js**: The codebase requires Node.js `>=24.0.0` and npm `>=11.0.0` (as defined in `package.json`). _Note: CI currently runs on Node 22._
 - **GITHUB_TOKEN**: A secret token with `contents: write` permissions is required for the GitHub Action to create releases and push to the `dist` branch.
 - **Legacy Peer Deps**: Due to specific dependency constraints, `npm install --legacy-peer-deps` is used in the production pipeline.
 

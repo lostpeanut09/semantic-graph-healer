@@ -18,22 +18,22 @@ This guide is for developers who want to contribute to the Semantic Graph Healer
 
 ## Build Commands
 
-| Command | Description |
-| :--- | :--- |
-| `npm run dev` | Compiles the plugin and worker in development mode with source maps. |
-| `npm run build` | Compiles the plugin for production (minified, no source maps) via `tsc` and `esbuild`. |
-| `npm run lint` | Runs ESLint to check for TypeScript code issues. |
-| `npm run lint:css` | Runs Stylelint to check for CSS style issues. |
-| `npm run lint:fix` | Automatically fixes ESLint and Stylelint issues. |
-| `npm run format` | Uses Prettier to automatically format the codebase. |
-| `npm run knip` | Identifies unused files, dependencies, and exports. |
-| `npm run nano-staged` | Runs linting and formatting on staged files (used via Husky pre-commit hook). |
-| `npm test` | Runs the full test suite using Vitest. |
-| `npm run test:adapter` | Runs only the DatacoreAdapter tests. |
-| `npm run test:breadcrumbs` | Runs only the BreadcrumbsAdapter tests. |
-| `npm run test:worker` | Runs only the GraphAnalysisWorkerCore tests. |
-| `npm run bench:generate` | Generates a mock vault for benchmarking. |
-| `npm run bench:run` | Runs the performance benchmarks. |
+| Command                    | Description                                                                            |
+| :------------------------- | :------------------------------------------------------------------------------------- |
+| `npm run dev`              | Compiles the plugin and worker in development mode with source maps.                   |
+| `npm run build`            | Compiles the plugin for production (minified, no source maps) via `tsc` and `esbuild`. |
+| `npm run lint`             | Runs ESLint to check for TypeScript code issues.                                       |
+| `npm run lint:css`         | Runs Stylelint to check for CSS style issues.                                          |
+| `npm run lint:fix`         | Automatically fixes ESLint and Stylelint issues.                                       |
+| `npm run format`           | Uses Prettier to automatically format the codebase.                                    |
+| `npm run knip`             | Identifies unused files, dependencies, and exports.                                    |
+| `npm run nano-staged`      | Runs linting and formatting on staged files (used via Husky pre-commit hook).          |
+| `npm test`                 | Runs the full test suite using Vitest.                                                 |
+| `npm run test:adapter`     | Runs only the DatacoreAdapter tests.                                                   |
+| `npm run test:breadcrumbs` | Runs only the BreadcrumbsAdapter tests.                                                |
+| `npm run test:worker`      | Runs only the GraphAnalysisWorkerCore tests.                                           |
+| `npm run bench:generate`   | Generates a mock vault for benchmarking.                                               |
+| `npm run bench:run`        | Runs the performance benchmarks.                                                       |
 
 ## Code Style
 

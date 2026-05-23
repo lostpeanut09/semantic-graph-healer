@@ -22,19 +22,24 @@ The plugin distributes data across several specialized storage locations based o
 ## Local Databases & Indexing
 
 ### LadybugDB (WASM Graph Database)
+
 The plugin integrates **LadybugDB** (`@ladybugdb/wasm-core`) in a dedicated Web Worker (`ladybug-worker.ts`).
+
 - **Initialization**: Automatically degrades to a single-threaded WASM version (or skips entirely on mobile) depending on `SharedArrayBuffer` support.
 - **Schema**: Maintains an explicit schema (`Metadata`, `Node`, `SemanticLink`) for Cypher-like query execution.
 - **Graph Algorithms**: Offloads heavy tasks such as PageRank and Louvain community detection to the worker, extracting from LadybugDB directly to Graphology.
 
 ### Datacore Integration
+
 Instead of building a separate metadata index, the plugin connects to **Datacore** via `DatacoreAdapter`.
+
 - **Query Bridge**: Executes queries directly against the Datacore API (falling back from `tryQuery` to `query`).
 - **Semantic Mapping**: Normalizes Datacore's `MarkdownPage` format into `DataviewPage` equivalents for backwards compatibility and structural analysis.
 
 ## Cache Management (`healer-cache.json`)
 
 The `CacheService` manages a dedicated cache file to prevent settings bloat and ensure fast re-hydration.
+
 - **Topological Metrics**: Caches PageRank scores, Betweenness Centrality, and Louvain Community assignments.
 - **Vector Embeddings**: Stores embeddings indexed by content hash. This prevents redundant API calls to embedding providers when note content hasn't changed.
 - **Consistency**: Uses a debounced, atomic write pattern (temp file + rename) with a single-writer promise chain to prevent JSON corruption during system crashes.
@@ -42,12 +47,14 @@ The `CacheService` manages a dedicated cache file to prevent settings bloat and 
 ## State Management & LRU Cache
 
 The `StructuralCache` is an LRU (Least Recently Used) cache implementation designed to prevent memory bloat on low-end devices.
+
 - **Eviction**: Evicts oldest entries when the node limit (`maxNodes`) is reached or TTL (`ttlMs`) expires.
 - **Invalidation**: Subscribes to Obsidian's `metadataCache` and `vault` events (`changed`, `rename`, `delete`) to ensure metadata freshness.
 
 ## GraphRAG Persistence (AJSON)
 
 For large-scale indexing required by GraphRAG, the plugin utilizes `AjsonStorage` (Append-only JSON lines).
+
 - **Optimized for Scale**: Allows the plugin to append new data without rewriting the entire file or keeping the whole JSON tree in memory. `readAll` parses line-by-line.
 - **Key Files**:
     - `community_summaries.ajson`: Thematic summaries of graph clusters.

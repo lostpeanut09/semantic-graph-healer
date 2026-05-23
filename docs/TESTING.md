@@ -4,7 +4,7 @@
 
 ## Test framework and setup
 
-The Semantic Graph Healer project uses **Vitest** (v4.1.6) as its primary testing framework. 
+The Semantic Graph Healer project uses **Vitest** (v4.1.6) as its primary testing framework.
 
 - **Environment**: Tests run in the `jsdom` environment to simulate the browser and Obsidian UI contexts.
 - **Worker Support**: The `@vitest/web-worker` package is used to test background graph analysis logic (e.g., `ladybug-worker.js`).
@@ -40,25 +40,25 @@ npm run bench:run
 
 ## Writing new tests
 
-- **File naming conventions**: 
-  - Unit and integration tests: `tests/**/*.test.ts` (mirroring the `src/` directory structure).
-  - Benchmarks: `tests/benchmarks/*.benchmark.test.ts`.
-  - Specialized suites: `*.security.test.ts` or `*.race.test.ts`.
+- **File naming conventions**:
+    - Unit and integration tests: `tests/**/*.test.ts` (mirroring the `src/` directory structure).
+    - Benchmarks: `tests/benchmarks/*.benchmark.test.ts`.
+    - Specialized suites: `*.security.test.ts` or `*.race.test.ts`.
 
-- **Mocking Obsidian APIs**: 
+- **Mocking Obsidian APIs**:
   We use a custom mock located at `tests/obsidian.ts` to simulate the Obsidian Vault, `MetadataCache`, and UI components (like `Modal`, `Notice`, and `Setting`). Import `obsidian` directly in your test, and Vitest will use the aliased mock.
-  
-  ```typescript
-  import { describe, it, expect } from 'vitest';
-  import { Notice } from 'obsidian';
 
-  describe('Feature', () => {
-      it('shows a notice', () => {
-          new Notice('Success!');
-          // Assertions
-      });
-  });
-  ```
+    ```typescript
+    import { describe, it, expect } from 'vitest';
+    import { Notice } from 'obsidian';
+
+    describe('Feature', () => {
+        it('shows a notice', () => {
+            new Notice('Success!');
+            // Assertions
+        });
+    });
+    ```
 
 - **Worker testing**:
   When testing background workers, leverage `@vitest/web-worker` APIs to instantiate workers directly inside the test environment without needing a real browser shell.
@@ -68,14 +68,14 @@ npm run bench:run
 
 ## Coverage requirements
 
-No coverage threshold configured. 
+No coverage threshold configured.
 
-| Type | Threshold |
-| :--- | :--- |
-| Lines | N/A |
-| Branches | N/A |
-| Functions | N/A |
-| Statements | N/A |
+| Type       | Threshold |
+| :--------- | :-------- |
+| Lines      | N/A       |
+| Branches   | N/A       |
+| Functions  | N/A       |
+| Statements | N/A       |
 
 ## CI integration
 

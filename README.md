@@ -1,4 +1,5 @@
 <!-- generated-by: gsd-doc-writer -->
+
 ![Banner](assets/banner.png)
 
 # Semantic Graph Healer
@@ -14,13 +15,17 @@ Topological restoration engine that utilizes Dataview, Breadcrumbs, and ExcaliBr
 ## Installation
 
 ### For Users (Obsidian BRAT)
+
 To install the pre-release version using [BRAT](https://github.com/TfTHacker/obsidian42-brat):
+
 1. Install the BRAT plugin from the Community Plugins list.
 2. Go to BRAT settings and add the beta plugin repository: `lostpeanut09/semantic-graph-healer`.
 3. Enable the plugin in your Obsidian settings.
 
 ### For Developers
+
 To build the plugin from source:
+
 ```bash
 git clone https://github.com/lostpeanut09/semantic-graph-healer.git
 cd semantic-graph-healer

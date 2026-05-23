@@ -1,4 +1,5 @@
 <!-- generated-by: gsd-doc-writer -->
+
 # ARCHITECTURE.md
 
 ## System Overview

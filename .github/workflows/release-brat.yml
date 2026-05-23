@@ -1,39 +1,39 @@
 name: BRAT Release (Beta)
 
 on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
+    push:
+        branches:
+            - main
+    workflow_dispatch:
 
 jobs:
-  publish-dist:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+    publish-dist:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
 
-      - name: Install dependencies
-        run: npm install
+            - name: Install dependencies
+              run: npm install
 
-      - name: Build plugin
-        run: npm run build
+            - name: Build plugin
+              run: npm run build
 
-      - name: Prepare dist bundle
-        run: |
-          mkdir dist_bundle
-          cp main.js manifest.json styles.css dist_bundle/
-          # Include workers if they exist
-          [ -f ladybug-worker.js ] && cp ladybug-worker.js dist_bundle/
-          [ -f worker.js ] && cp worker.js dist_bundle/ || true
+            - name: Prepare dist bundle
+              run: |
+                  mkdir dist_bundle
+                  cp main.js manifest.json styles.css dist_bundle/
+                  # Include workers if they exist
+                  [ -f ladybug-worker.js ] && cp ladybug-worker.js dist_bundle/
+                  [ -f worker.js ] && cp worker.js dist_bundle/ || true
 
-      - name: Publish to dist branch
-        uses: s0/git-publish-subdir-action@v2.6.0
-        env:
-          REPO: self
-          BRANCH: dist
-          FOLDER: dist_bundle
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          MESSAGE: "Release: ${{ github.sha }} [skip ci]"
-          CLEAR_GLOBS: "*"
+            - name: Publish to dist branch
+              uses: s0/git-publish-subdir-action@v2.6.0
+              env:
+                  REPO: self
+                  BRANCH: dist
+                  FOLDER: dist_bundle
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  MESSAGE: 'Release: ${{ github.sha }} [skip ci]'
+                  CLEAR_GLOBS: '*'

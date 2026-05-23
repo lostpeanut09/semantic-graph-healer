@@ -32,9 +32,9 @@ Upon first run, the plugin will create a default configuration. Use the Settings
 To start the plugin in development mode and observe the live changes in your Obsidian vault:
 
 1. In your terminal, within the plugin directory, start the esbuild compiler:
-   ```bash
-   npm run dev
-   ```
+    ```bash
+    npm run dev
+    ```
 2. Open Obsidian and create or open a development vault.
 3. Open Obsidian settings, go to **Community plugins**, and ensure that **Semantic Graph Healer** is toggled on.
 4. If you make code modifications, the plugin will automatically rebuild, and you can reload the plugin inside Obsidian using the `Reload` command in the Obsidian Command Palette.
@@ -48,6 +48,7 @@ To start the plugin in development mode and observe the live changes in your Obs
 ## Next Steps
 
 Now that you have the plugin installed and configured, you can learn more by checking these documents:
+
 - [DEVELOPMENT.md](DEVELOPMENT.md) — Learn about building, linting, formatting, and branch conventions.
 - [TESTING.md](TESTING.md) — Information on how to run our unit tests, integration tests, and benchmarks.
 - [CONFIGURATION.md](CONFIGURATION.md) — Detailed guide on all options available in Obsidian settings.

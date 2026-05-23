@@ -70,8 +70,8 @@ The project is bundled using `esbuild` to produce optimized assets for Obsidian.
 
 - **TypeScript**: `tsc` is used strictly for type checking (`--noEmit`) prior to production builds.
 - **Esbuild (`.config/esbuild.config.mjs`)**: Orchestrates the bundling process.
-  - **Main Context**: Compiles `src/main.ts` into a CommonJS (`main.js`) module for the Obsidian plugin runtime. It uses `esbuild-svelte` to compile Svelte components and extracts associated styles into `styles.css`.
-  - **Worker Context**: Compiles background workers (`graph-analysis-worker.ts`, `ladybug-worker.ts`) into IIFE format (`worker.js`, `ladybug-worker.js`) suitable for browser `Worker` initialization.
+    - **Main Context**: Compiles `src/main.ts` into a CommonJS (`main.js`) module for the Obsidian plugin runtime. It uses `esbuild-svelte` to compile Svelte components and extracts associated styles into `styles.css`.
+    - **Worker Context**: Compiles background workers (`graph-analysis-worker.ts`, `ladybug-worker.ts`) into IIFE format (`worker.js`, `ladybug-worker.js`) suitable for browser `Worker` initialization.
 
 ### Linting & Formatting
 
