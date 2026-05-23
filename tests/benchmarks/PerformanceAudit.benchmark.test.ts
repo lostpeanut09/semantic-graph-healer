@@ -9,7 +9,7 @@ vi.mock('obsidian', () => ({
     requestUrl: vi.fn(),
 }));
 
-describe('Phase 15 Performance & Resource Audit', () => {
+describe('Performance & Resource Audit Benchmarks', () => {
     describe('AjsonStorage Memory Footprint (Large Load)', () => {
         it('should handle reading 5000 lines of JSON without failure', async () => {
             const mockAdapter = {

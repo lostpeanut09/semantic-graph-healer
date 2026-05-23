@@ -3,7 +3,7 @@ import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 
 describe('Nyquist Validation Audit - Deep Architectural Alignment', () => {
-    describe('Phase 13: Hardening & Release Readiness', () => {
+    describe('Hardening & Release Readiness', () => {
         it('should have Husky pre-commit hook with lint:fix and format', () => {
             const path = join(process.cwd(), '.husky', 'pre-commit');
             expect(existsSync(path)).toBe(true);
@@ -45,7 +45,7 @@ describe('Nyquist Validation Audit - Deep Architectural Alignment', () => {
         });
     });
 
-    describe('Phase 7: AI Tribunal & HTR Integration', () => {
+    describe('AI Tribunal & HTR Integration', () => {
         it('NYQ-07-06: should implement explicit Primary and Secondary model selection in Settings UI', () => {
             const settingsPath = join(process.cwd(), 'src', 'views', 'sections', 'PrimaryModelSettings.ts');
             const content = readFileSync(settingsPath, 'utf-8');
@@ -86,7 +86,7 @@ describe('Nyquist Validation Audit - Deep Architectural Alignment', () => {
         });
     });
 
-    describe('Phase 3: Setting Resilience & UX Stability', () => {
+    describe('Setting Resilience & UX Stability', () => {
         it('should implement onExternalSettingsChange for hot-reload in main.ts', () => {
             const mainPath = join(process.cwd(), 'src', 'main.ts');
             const content = readFileSync(mainPath, 'utf-8');
@@ -108,7 +108,7 @@ describe('Nyquist Validation Audit - Deep Architectural Alignment', () => {
         });
     });
 
-    describe('Phase 17: Obsidian CLI Integration & Automation', () => {
+    describe('Obsidian CLI Integration & Automation', () => {
         it('should have Husky configuration for hooks', () => {
             const preCommitPath = join(process.cwd(), '.husky', 'pre-commit');
             const prePushPath = join(process.cwd(), '.husky', 'pre-push');

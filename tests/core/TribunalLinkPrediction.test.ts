@@ -29,7 +29,7 @@ vi.mock('../../src/core/adapters/SmartConnectionsAdapter', () => {
     };
 });
 
-describe('Phase 7 Nyquist Validation - AI Tribunal & HTR Edge Cases', () => {
+describe('AI Tribunal & HTR Edge Cases Validation', () => {
     describe('LlmService - AI Tribunal Robustness', () => {
         let service: LlmService;
         let mockSettings: SemanticGraphHealerSettings;
@@ -50,7 +50,7 @@ describe('Phase 7 Nyquist Validation - AI Tribunal & HTR Edge Cases', () => {
             vi.clearAllMocks();
         });
 
-        it('NYQUIST: should handle secondary model failure by falling back to primary result', async () => {
+        it('should handle secondary model failure by falling back to primary result', async () => {
             // Primary succeeds with low confidence
             vi.mocked(requestUrl).mockResolvedValueOnce({
                 status: 200,
@@ -69,7 +69,7 @@ describe('Phase 7 Nyquist Validation - AI Tribunal & HTR Edge Cases', () => {
             expect(result).toContain('PrimaryReasoning: Low confidence');
         });
 
-        it('NYQUIST: should handle UNCERTAIN status when winners cannot be parsed', async () => {
+        it('should handle UNCERTAIN status when winners cannot be parsed', async () => {
             // Primary malformed
             vi.mocked(requestUrl).mockResolvedValueOnce({
                 status: 200,
@@ -88,7 +88,7 @@ describe('Phase 7 Nyquist Validation - AI Tribunal & HTR Edge Cases', () => {
             expect(result).toContain('ConfidenceScore: 0');
         });
 
-        it('NYQUIST: should return primary result if secondary model is not configured', async () => {
+        it('should return primary result if secondary model is not configured', async () => {
             mockSettings.secondaryLlmModelName = '';
 
             vi.mocked(requestUrl).mockResolvedValueOnce({
@@ -130,7 +130,7 @@ describe('Phase 7 Nyquist Validation - AI Tribunal & HTR Edge Cases', () => {
             mockGetRelatedNotes.mockResolvedValue([]);
         });
 
-        it('NYQUIST: should correctly weight HTR with extreme weights (1.0 structural)', async () => {
+        it('should correctly weight HTR with extreme weights (1.0 structural)', async () => {
             mockContext.settings.htrStructuralWeight = 1.0;
             const mockNodes = [
                 { key: 'A', attributes: {} },
@@ -151,7 +151,7 @@ describe('Phase 7 Nyquist Validation - AI Tribunal & HTR Edge Cases', () => {
             expect(suggestions[0].meta?.confidence).toBe(90);
         });
 
-        it('NYQUIST: should correctly weight HTR with extreme weights (0.0 structural)', async () => {
+        it('should correctly weight HTR with extreme weights (0.0 structural)', async () => {
             mockContext.settings.htrStructuralWeight = 0.0;
             const mockNodes = [
                 { key: 'A', attributes: {} },
@@ -172,7 +172,7 @@ describe('Phase 7 Nyquist Validation - AI Tribunal & HTR Edge Cases', () => {
             expect(suggestions[0].meta?.confidence).toBe(20);
         });
 
-        it('NYQUIST: should handle Smart Connections being unavailable gracefully', async () => {
+        it('should handle Smart Connections being unavailable gracefully', async () => {
             mockIsAvailable.mockReturnValue(false);
             mockGetRelatedNotes.mockClear();
             const mockNodes = [
@@ -193,7 +193,7 @@ describe('Phase 7 Nyquist Validation - AI Tribunal & HTR Edge Cases', () => {
             expect(mockGetRelatedNotes).not.toHaveBeenCalled();
         });
 
-        it('NYQUIST: should normalize mixed scales correctly (0.5 structural, 80 semantic)', async () => {
+        it('should normalize mixed scales correctly (0.5 structural, 80 semantic)', async () => {
             const mockNodes = [
                 { key: 'A', attributes: {} },
                 { key: 'B', attributes: {} },
