@@ -51,7 +51,7 @@ jobs:
             - uses: actions/checkout@v6
             - name: Scan for Windows-specific separators
               run: |
-                  # Detect hardcoded Windows absolute paths (e.g. C:\Users\foo).
-                  # Only matches drive-letter:\word-character sequences.
-                  # JS regex escapes like \s \d \[ \] \| do NOT match this pattern.
-                  ! grep -rP "[A-Za-z]:\\\\[A-Za-z0-9_]" src --exclude-dir=node_modules --exclude-dir=.git
+                  # Windows paths in JS strings use double-backslash: "C:\\Users\\foo"
+                  # Regex escapes (\s \d \[ \n) use single backslash — they won't match.
+                  # We grep for two consecutive backslashes to catch real path separators only.
+                  ! grep -rP "\\\\\\\\" src --exclude-dir=node_modules --exclude-dir=.git
