@@ -18,6 +18,11 @@ interface PluginWithSettings {
     settings: SemanticGraphHealerSettings;
 }
 
+/**
+ * Service responsible for managing the background Web Worker for heavy graph computations.
+ * Offloads compute-intensive tasks (like PageRank, communities, topological diagnostics)
+ * off the main UI thread to maintain Obsidian's responsiveness.
+ */
 export class GraphWorkerService {
     private worker: Worker | null = null;
     private workerUrl: string | null = null; // Store for memory revocation
@@ -36,12 +41,24 @@ export class GraphWorkerService {
     > = new Map();
     private requestId: number = 0;
 
+    /**
+     * Creates a new instance of GraphWorkerService.
+     *
+     * @param logger - The logger instance.
+     * @param plugin - The plugin instance providing access to the app, manifest, and settings.
+     */
     constructor(logger: HealerLogger, plugin: PluginWithSettings) {
         this.plugin = plugin;
         this.logger = logger;
         this.queue = new PQueue({ concurrency: 1 });
     }
 
+    /**
+     * Initializes the Web Worker if it hasn't been initialized yet.
+     * On mobile platforms, initialization is skipped to prevent crashes.
+     *
+     * @returns A promise that resolves when the worker is initialized or gracefully degraded.
+     */
     async initialize(): Promise<void> {
         if (this.worker) {
             this.logger.warn('Worker already initialized');
@@ -140,6 +157,17 @@ export class GraphWorkerService {
         this.terminate();
     }
 
+    /**
+     * Submits an analysis task to the Web Worker for background processing.
+     * Tasks are queued and executed with a concurrency of 1.
+     *
+     * @param type - The type of graph analysis to run (e.g., PAGERANK, COMMUNITY).
+     * @param nodes - Array of nodes to process.
+     * @param edges - Array of edges to process.
+     * @param options - Additional options for the analysis type.
+     * @returns A promise resolving to the generic result type `T`.
+     * @throws {Error} If the worker is not initialized or if the analysis times out.
+     */
     async runAnalysis<T = unknown>(
         type: AnalysisType,
         nodes: Array<{ key: string; attributes: Record<string, unknown> }>,
