@@ -29,50 +29,48 @@ The plugin integrates **LadybugDB** (`@ladybugdb/wasm-core`) in a dedicated Web 
 - **Schema**: Maintains an explicit schema (`Metadata`, `Node`, `SemanticLink`) for Cypher-like query execution.
 - **Graph Algorithms**: Offloads heavy tasks such as PageRank and Louvain community detection to the worker, extracting from LadybugDB directly to Graphology.
 
-### Datacore Integration
-
-Instead of building a separate metadata index, the plugin connects to **Datacore** via `DatacoreAdapter`.
-
-- **Query Bridge**: Executes queries directly against the Datacore API (falling back from `tryQuery` to `query`).
-- **Semantic Mapping**: Normalizes Datacore's `MarkdownPage` format into `DataviewPage` equivalents for backwards compatibility and structural analysis.
-
-## Cache Management (`healer-cache.json`)
-
-The `CacheService` manages a dedicated cache file to prevent settings bloat and ensure fast re-hydration.
-
-- **Topological Metrics**: Caches PageRank scores, Betweenness Centrality, and Louvain Community assignments.
-- **Vector Embeddings**: Stores embeddings indexed by content hash. This prevents redundant API calls to embedding providers when note content hasn't changed.
-- **Consistency**: Uses a debounced, atomic write pattern (temp file + rename) with a single-writer promise chain to prevent JSON corruption during system crashes.
-
-## State Management & LRU Cache
-
-The `StructuralCache` is an LRU (Least Recently Used) cache implementation designed to prevent memory bloat on low-end devices.
-
-- **Eviction**: Evicts oldest entries when the node limit (`maxNodes`) is reached or TTL (`ttlMs`) expires.
-- **Invalidation**: Subscribes to Obsidian's `metadataCache` and `vault` events (`changed`, `rename`, `delete`) to ensure metadata freshness.
-
-## GraphRAG Persistence (AJSON)
+### GraphRAG Persistence (`AjsonStorage`)
 
 For large-scale indexing required by GraphRAG, the plugin utilizes `AjsonStorage` (Append-only JSON lines).
 
-- **Optimized for Scale**: Allows the plugin to append new data without rewriting the entire file or keeping the whole JSON tree in memory. `readAll` parses line-by-line.
-- **Key Files**:
+- **Optimized for Scale**: Allows the plugin to append new data (`appendLine`) without rewriting the entire file or keeping the whole JSON tree in memory.
+- **Memory Safety**: `readAll` parses the file line-by-line, which is critical for handling large indices (thousands of entities or relationships) without exceeding memory limits.
+- **Key Files** (stored in `.planning/index/`):
     - `community_summaries.ajson`: Thematic summaries of graph clusters.
     - `entities.ajson`: Extracted entities and their semantic types.
     - `relationships.ajson`: Semantic connections discovered by the AI.
 
-## Security & Encryption
+## Cache Management (`CacheService`)
+
+The `CacheService` manages `healer-cache.json` to prevent settings bloat and ensure fast re-hydration of analysis results.
+
+- **Storage Scope**: Caches PageRank scores, Betweenness Centrality, Louvain Community assignments, pending suggestions, and history.
+- **Vector Embeddings**: Stores embeddings indexed by content hash. This prevents redundant API calls to embedding providers when note content hasn't changed.
+- **Data Integrity (Atomic Writes)**:
+    - **Single-Writer Chain**: Uses a promise-based queue to ensure that concurrent save operations are linearized, preventing race conditions during disk I/O.
+    - **Temp-File Pattern**: Writes data to `healer-cache.json.tmp` first. Once the write is confirmed, it renames the temp file to the target path. This ensures that a power loss or crash during writing doesn't leave the main cache file truncated or corrupted.
+    - **Corruption Recovery**: If JSON parsing fails during load, the service renames the corrupt file to `healer-cache.json.corrupt` and starts fresh rather than deleting the potentially valuable data.
+
+## Memory Safety & LRU Cache (`StructuralCache`)
+
+The `StructuralCache` is a memory-only LRU (Least Recently Used) cache designed to hold metadata and structural analysis results without leaking memory.
+
+- **Eviction Strategy**: Automatically evicts the oldest entries when the node limit (`maxNodes`, default 10,000) is reached or the Time-To-Live (`ttlMs`, default 5 minutes) expires.
+- **Automated Invalidation**: Listens to Obsidian's `metadataCache` and `vault` events (`changed`, `rename`, `delete`) to ensure cached metadata stays synchronized with physical file changes.
+- **Lifecycle Management**: Implements an explicit `destroy()` method to unregister global event listeners, preventing memory leaks when the plugin is disabled or reloaded.
+
+## Security & Encryption (`KeychainService`)
 
 Credential management is handled by `KeychainService`, which implements a "Double-Lock" security model:
 
-1.  **Layer 1 (Local)**: Keys are stored in Obsidian's `SecretStorage` (or legacy `keychain`) to keep them out of plaintext files.
-2.  **Layer 2 (Encryption)**: Before storage, keys are encrypted using AES-256-GCM with a `vault-id` salt derived from the Obsidian application ID.
-3.  **Sync Resilience**: Encrypted versions of keys are mirrored in `data.json`. This allows users to sync their settings across devices while ensuring that keys remain encrypted at rest and cannot be decrypted without the specific vault's context.
+1.  **Layer 1 (Local)**: Keys are stored in Obsidian's `SecretStorage` (v1.11.4+) to keep them out of plaintext files.
+2.  **Layer 2 (Encryption)**: Before storage, keys are encrypted using **AES-256-GCM** via `CryptoUtils`. The encryption key is derived using PBKDF2 (600,000 iterations) with a `vault-id` salt (unique per vault).
+3.  **Sync Resilience**: Encrypted versions of keys are mirrored in `data.json`. This allows users to sync settings across devices while ensuring that keys cannot be decrypted on another machine without the specific vault's context/salt.
 
 ## Memory Guardrails
 
 To ensure stability in large environments, the data layer includes active memory management:
 
-- **Safety Mode**: Automatically restricts graph construction and suspends heavy analysis (like community detection) if the vault size exceeds platform-specific thresholds.
-- **Worker Offloading**: Heavy computation is pushed to `ladybug-worker.js` (LadybugDB) and standard Graphology workers.
-- **Disposal**: Explicit event unregistration (`destroy()`) inside `StructuralCache` and `LadybugService` prevents memory leaks when the plugin unloads.
+- **Safety Mode** (`PerformanceService`): Automatically restricts graph construction and suspends heavy analysis if the vault size exceeds thresholds (e.g., 2000 nodes on mobile).
+- **Worker Offloading**: Heavy computation is pushed to `ladybug-worker.ts` and `graph-analysis-worker.ts`, keeping the main Obsidian UI thread responsive.
+- **Graph Capping**: `GraphEngine` applies strict caps on the number of nodes and edges during graph construction based on performance mode.
