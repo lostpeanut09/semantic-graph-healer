@@ -7,7 +7,7 @@ import type { HealerNotifier } from '../../types';
 export class ObsidianNotifier implements HealerNotifier {
     /**
      * Displays a notification to the user using Obsidian's Notice API.
-     * 
+     *
      * @param message - The message to display in the notice.
      * @param type - Optional styling category for the notification ('info', 'error', 'warning').
      */
