@@ -26,6 +26,15 @@ export class GraphRagService {
     private readonly entitiesFile = 'entities.ajson';
     private readonly relationshipsFile = 'relationships.ajson';
 
+    /**
+     * Initializes the GraphRagService.
+     * @param graphEngine - The graph engine used for topology analysis.
+     * @param llmService - Service for LLM communication.
+     * @param embeddingService - Service for generating vector embeddings.
+     * @param storage - Storage service for persisting summaries and entities.
+     * @param adapter - Obsidian data adapter for file system operations.
+     * @param settings - Plugin settings.
+     */
     constructor(
         private graphEngine: GraphEngine,
         private llmService: LlmService,
@@ -37,6 +46,7 @@ export class GraphRagService {
 
     /**
      * Builds the community-centric summarization and vector indexing pipeline.
+     * @returns A promise that resolves when community indexing is complete.
      */
     public async indexCommunities(): Promise<void> {
         HealerLogger.info('GraphRagService: Starting community indexing...');
@@ -93,6 +103,8 @@ export class GraphRagService {
 
     /**
      * Executes a context-aware RAG query using community and entity indices.
+     * @param queryText - The user's query string.
+     * @returns A promise resolving to the RAG result containing the answer and related communities.
      */
     public async query(queryText: string): Promise<GraphRagResult> {
         HealerLogger.info(`GraphRagService: Executing RAG query: "${queryText}"`);

@@ -12,6 +12,12 @@ import { join } from 'pathe';
 export class CrossThematicProvider {
     private readonly summaryFile = 'community_summaries.ajson';
 
+    /**
+     * Initializes the CrossThematicProvider.
+     * @param graphEngine - The graph engine used for topology analysis.
+     * @param storage - Storage service for reading community summaries.
+     * @param settings - Plugin settings.
+     */
     constructor(
         private graphEngine: GraphEngine,
         private storage: AjsonStorage,
@@ -19,7 +25,8 @@ export class CrossThematicProvider {
     ) {}
 
     /**
-     * Identifies potential cross-thematic links.
+     * Identifies potential cross-thematic links by comparing community embeddings.
+     * @returns A promise that resolves to an array of semantic link suggestions.
      */
     async getSuggestions(): Promise<Suggestion[]> {
         HealerLogger.info('CrossThematicProvider: Analyzing thematic overlaps...');

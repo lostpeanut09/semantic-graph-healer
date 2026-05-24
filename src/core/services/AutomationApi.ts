@@ -37,8 +37,18 @@ export interface AutomationPluginContext {
 export class AutomationApi implements HealerAutomationApi {
     private silentNotifier = new SilentNotifier();
 
+    /**
+     * Initializes the Automation API.
+     * @param plugin - Context providing executor, cache, and analysis functions.
+     */
     constructor(private plugin: AutomationPluginContext) {}
 
+    /**
+     * Runs a full graph analysis to generate new suggestions.
+     * @param options - Configuration options for the analysis run.
+     * @param options.silent - Whether to suppress notifications during the run.
+     * @returns A promise that resolves to an array of generated suggestions.
+     */
     async runAnalysis(options: { silent: boolean }): Promise<Suggestion[]> {
         const originalNotifier = this.plugin.executor.getNotifier();
 
@@ -56,6 +66,10 @@ export class AutomationApi implements HealerAutomationApi {
         }
     }
 
+    /**
+     * Retrieves the current list of pending suggestions.
+     * @returns An array of suggestions available for execution.
+     */
     getSuggestions(): Suggestion[] {
         // Optimize cloning for large vaults (e.g., shallow clone of properties needed for JSON output only).
         return this.plugin.cache.suggestions.map((s) => ({
@@ -70,6 +84,10 @@ export class AutomationApi implements HealerAutomationApi {
         }));
     }
 
+    /**
+     * Retrieves the latest calculated topological metrics.
+     * @returns The graph metrics or null if analysis hasn't run.
+     */
     getMetrics(): TopologicalMetrics | null {
         const cache = this.plugin.cache;
         if (!cache.topologicalScores) return null;
@@ -83,6 +101,13 @@ export class AutomationApi implements HealerAutomationApi {
         };
     }
 
+    /**
+     * Executes a batch of suggestions automatically based on criteria.
+     * @param options - Criteria for selecting suggestions to execute.
+     * @param options.confidence - Minimum confidence threshold (0-100 or 0-1).
+     * @param options.category - Optional category to restrict execution to.
+     * @returns A promise resolving to the execution batch results.
+     */
     async executeBatch(options: { confidence: number; category?: string }): Promise<{
         success: boolean;
         batchId: string;
@@ -142,6 +167,11 @@ export class AutomationApi implements HealerAutomationApi {
         };
     }
 
+    /**
+     * Reverts a previously executed batch of suggestions.
+     * @param batchId - The ID of the batch to revert.
+     * @returns A promise resolving to the revert batch results.
+     */
     async undoBatch(batchId: string): Promise<{
         success: boolean;
         revertedCount: number;
