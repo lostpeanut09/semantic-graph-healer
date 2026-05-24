@@ -56,7 +56,7 @@ describe('AutomationBatch', () => {
         mockContext.executor.execute.mockImplementation(async (s: Suggestion) => {
             expect(mockContext.executor.activeBatchId).toBeDefined();
             expect(mockContext.executor.activeBatchId).toMatch(
-                /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+                /^batch_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
             );
             return true;
         });
