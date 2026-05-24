@@ -24,10 +24,10 @@ Credentials and API keys are managed by the `KeychainService`, which implements 
 - **Double-Layer Protection ("Double-Locking")**: To mitigate potential host-level plaintext vulnerabilities, keys stored in SecretStorage are encrypted using **AES-256-GCM** with a vault-specific salt before being passed to the OS storage.
 - **Sync-Resilient Encryption**: For users syncing their vault, keys are stored encrypted in `data.json` using AES-256-GCM. This ensures keys remain protected during transport and on other devices.
 - **Cryptographic Implementation (`CryptoUtils.ts`)**:
-  - Uses the **Web Crypto API** for SOTA security.
-  - Keys are derived using **PBKDF2** with **600,000 iterations** and **SHA-256**.
-  - Uses a stable unique salt derived from the `appId` or a generated `cryptoSalt`.
-  - Implements chunked Base64 encoding to prevent memory overflows when handling encrypted buffers.
+    - Uses the **Web Crypto API** for SOTA security.
+    - Keys are derived using **PBKDF2** with **600,000 iterations** and **SHA-256**.
+    - Uses a stable unique salt derived from the `appId` or a generated `cryptoSalt`.
+    - Implements chunked Base64 encoding to prevent memory overflows when handling encrypted buffers.
 
 ## Hardened Logging (`HealerLogger`)
 
@@ -41,18 +41,22 @@ The `HealerLogger` is designed to prevent accidental leaks of Personally Identif
 ## Threat Model
 
 ### 1. Local Access & Malicious Plugins
+
 - **Threat**: A user or malicious plugin with local access to the vault attempts to steal API keys.
 - **Mitigation**: Keys are stored in OS-level `SecretStorage` and are "double-locked" with AES-256-GCM. Even if `SecretStorage` is compromised, the keys remain encrypted with a vault-specific salt.
 
 ### 2. Network Interception (MITM)
+
 - **Threat**: Data sent to LLM providers is intercepted during transit.
 - **Mitigation**: All external communication is performed over HTTPS. Data sent is minimized to snippets rather than full notes.
 
 ### 3. LLM Provider Trust
+
 - **Threat**: A compromised or malicious LLM provider returns harmful or misleading graph suggestions.
 - **Mitigation**: The **AI Tribunal** uses consensus between two different models/providers to validate suggestions. Users can switch to local providers (Ollama/LM Studio) to eliminate third-party risk.
 
 ### 4. Log Exposure
+
 - **Threat**: Sensitive data is exposed through the Obsidian console or shared log files.
 - **Mitigation**: Automatic redaction of secrets, pattern masking for tokens, and control character sanitization.
 

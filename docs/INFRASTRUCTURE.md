@@ -24,9 +24,9 @@ The plugin utilizes two distinct workers, bundled as IIFE modules via `esbuild`:
 
 ### Platform Constraints & Degradation
 
--   **Desktop**: Full Web Worker support enabled. Workers are initialized as Blobs created from the plugin directory's `.js` files.
--   **Mobile (iOS/Android)**: Web Workers are **explicitly disabled** to prevent stability issues and crashes in Capacitor-based environments.
--   **Graceful Degradation**: When workers are unavailable, the plugin falls back to main-thread execution for standard analysis and "Legacy" mode for WASM-heavy operations, often utilizing adaptive batching to preserve UI responsiveness.
+- **Desktop**: Full Web Worker support enabled. Workers are initialized as Blobs created from the plugin directory's `.js` files.
+- **Mobile (iOS/Android)**: Web Workers are **explicitly disabled** to prevent stability issues and crashes in Capacitor-based environments.
+- **Graceful Degradation**: When workers are unavailable, the plugin falls back to main-thread execution for standard analysis and "Legacy" mode for WASM-heavy operations, often utilizing adaptive batching to preserve UI responsiveness.
 
 ## External AI Services
 
@@ -36,16 +36,16 @@ Semantic Graph Healer integrates with various Large Language Model (LLM) and Emb
 
 Supports multiple providers for reasoning, validation, and metadata extraction:
 
--   **Cloud Providers**: OpenAI, Anthropic, DeepSeek.
--   **Local Providers**: Ollama (native `/api/generate`), LocalAI, and custom OpenAI-compatible endpoints.
--   **Tribunal System**: A dual-model consensus mechanism (AI Tribunal) that validates suggestions using primary and secondary models.
+- **Cloud Providers**: OpenAI, Anthropic, DeepSeek.
+- **Local Providers**: Ollama (native `/api/generate`), LocalAI, and custom OpenAI-compatible endpoints.
+- **Tribunal System**: A dual-model consensus mechanism (AI Tribunal) that validates suggestions using primary and secondary models.
 
 ### Embedding Integration (`EmbeddingService`)
 
 Handles vector generation for GraphRAG and similarity-based link prediction:
 
--   **Supported Providers**: Ollama (native `/api/embeddings`), LocalAI, and OpenAI.
--   **Semantic Anchors**: Periodic alignment checks compare vector similarities of known concept pairs to verify the stability of the configured embedding model.
+- **Supported Providers**: Ollama (native `/api/embeddings`), LocalAI, and OpenAI.
+- **Semantic Anchors**: Periodic alignment checks compare vector similarities of known concept pairs to verify the stability of the configured embedding model.
 
 ## Security & Keychain Integration
 
@@ -61,9 +61,9 @@ Storage and retrieval of secrets follow a strict hierarchy:
 
 ### Encryption Specifications (`CryptoUtils`)
 
--   **Algorithm**: AES-256-GCM (Authenticated Encryption).
--   **Key Derivation**: PBKDF2 with 600,000 iterations and SHA-256 hashing.
--   **Entropy/Salt**: Utilizes the unique `app.appId` (vault identifier) as a stable salt, ensuring that encrypted keys are specific to the local vault and cannot be decrypted if moved to another vault.
+- **Algorithm**: AES-256-GCM (Authenticated Encryption).
+- **Key Derivation**: PBKDF2 with 600,000 iterations and SHA-256 hashing.
+- **Entropy/Salt**: Utilizes the unique `app.appId` (vault identifier) as a stable salt, ensuring that encrypted keys are specific to the local vault and cannot be decrypted if moved to another vault.
 
 ## Build System & Tooling
 
@@ -73,65 +73,72 @@ The project uses a modern toolchain located in the `.config/` directory to manag
 
 Orchestrates the build process into two primary contexts:
 
--   **Main Context**: Compiles `src/main.ts` into CommonJS (`main.js`) for the Obsidian plugin runtime. Includes Svelte compilation and style extraction into `styles.css`.
--   **Worker Context**: Compiles background workers into IIFE format (`worker.js`, `ladybug-worker.js`) for browser `Worker` compatibility.
+- **Main Context**: Compiles `src/main.ts` into CommonJS (`main.js`) for the Obsidian plugin runtime. Includes Svelte compilation and style extraction into `styles.css`.
+- **Worker Context**: Compiles background workers into IIFE format (`worker.js`, `ladybug-worker.js`) for browser `Worker` compatibility.
 
 ### Linting & Static Analysis
 
--   **ESLint**: Strict TypeScript linting via `.config/eslint.config.js`, including `eslint-plugin-obsidianmd`.
--   **Stylelint**: CSS validation via `.config/.stylelintrc.json`.
--   **Prettier**: Code formatting enforced via `.config/.prettierrc`.
--   **Knip**: Audits for unused files, exports, and dependencies via `.config/knip.json`.
--   **nano-staged**: Runs linters and formatters on staged files during the commit process.
+- **ESLint**: Strict TypeScript linting via `.config/eslint.config.js`, including `eslint-plugin-obsidianmd`.
+- **Stylelint**: CSS validation via `.config/.stylelintrc.json`.
+- **Prettier**: Code formatting enforced via `.config/.prettierrc`.
+- **Knip**: Audits for unused files, exports, and dependencies via `.config/knip.json`.
+- **nano-staged**: Runs linters and formatters on staged files during the commit process.
 
 ### Git Hooks (Husky)
 
 Husky manages client-side Git hooks to enforce quality standards:
--   **`pre-commit`**: Runs `npm run lint:fix` and `npm run format`.
--   **`pre-push`**: Executes `npm run build`, `npm run lint`, and `npm test`.
+
+- **`pre-commit`**: Runs `npm run lint:fix` and `npm run format`.
+- **`pre-push`**: Executes `npm run build`, `npm run lint`, and `npm test`.
 
 ## Testing Infrastructure
 
 Unit and integration tests are powered by **Vitest**, optimized for the Obsidian environment.
 
--   **Environment**: `jsdom` (simulated browser).
--   **Mocking**: The Obsidian API is mocked via `tests/obsidian.ts`, aliased in `vitest.config.ts`.
--   **Web Workers**: Tested using `@vitest/web-worker`.
--   **Benchmarks**: Custom benchmarking suite for performance auditing (`tests/benchmarks/`).
+- **Environment**: `jsdom` (simulated browser).
+- **Mocking**: The Obsidian API is mocked via `tests/obsidian.ts`, aliased in `vitest.config.ts`.
+- **Web Workers**: Tested using `@vitest/web-worker`.
+- **Benchmarks**: Custom benchmarking suite for performance auditing (`tests/benchmarks/`).
 
 ## Continuous Integration & Deployment (CI/CD)
 
 Automated pipelines run on **GitHub Actions** across three primary workflows:
 
 ### Quality Pipeline (`quality.yml`)
+
 Runs on every push/PR to `main` or `master`.
--   **Jobs**:
-    -   `quality`: Full suite of Linting, Prettier checks, Knip audit, Vitest tests, and Build validation.
-    -   `verify-platform-agnostic`: Scans the codebase for hardcoded Windows-specific path separators to ensure cross-platform compatibility.
+
+- **Jobs**:
+    - `quality`: Full suite of Linting, Prettier checks, Knip audit, Vitest tests, and Build validation.
+    - `verify-platform-agnostic`: Scans the codebase for hardcoded Windows-specific path separators to ensure cross-platform compatibility.
 
 ### Release Pipeline (`release.yml`)
+
 Triggered on tag creation (`v*`).
--   **Artifacts**: Bundles `main.js`, `worker.js`, `manifest.json`, and `styles.css`.
--   **Deployment**: Automatically creates a GitHub Release and uploads the production assets.
+
+- **Artifacts**: Bundles `main.js`, `worker.js`, `manifest.json`, and `styles.css`.
+- **Deployment**: Automatically creates a GitHub Release and uploads the production assets.
 
 ### BRAT Release (`release-brat.yml`)
+
 Automates early-access releases for the BRAT community.
--   **Deployment**: Pushes the compiled bundle to a dedicated `dist` branch.
+
+- **Deployment**: Pushes the compiled bundle to a dedicated `dist` branch.
 
 ## Runtime Requirements
 
--   **Runtime**: Node.js >= 24.0.0
--   **Package Manager**: NPM >= 11.0.0
--   **Obsidian API**: Optimized for Obsidian v1.11.4+ (required for native `SecretStorage`).
--   **Plugin Dependencies**: Strictly requires the [Datacore](https://github.com/blacksmithgu/datacore) plugin for the core query engine.
+- **Runtime**: Node.js >= 24.0.0
+- **Package Manager**: NPM >= 11.0.0
+- **Obsidian API**: Optimized for Obsidian v1.11.4+ (required for native `SecretStorage`).
+- **Plugin Dependencies**: Strictly requires the [Datacore](https://github.com/blacksmithgu/datacore) plugin for the core query engine.
 
 ## Core Dependencies (NPM)
 
-| Library                | Purpose                                                              |
-| ---------------------- | -------------------------------------------------------------------- |
-| `graphology`           | Foundation for graph data structures and topological metrics.        |
-| `@ladybugdb/wasm-core` | WASM-based graph engine for high-performance analysis.               |
-| `3d-force-graph`       | 3D visualization engine for the Graph Visualizer.                    |
-| `svelte`               | Reactive UI framework for the Dashboard and Settings.                |
-| `zod`                  | Schema validation for internal data structures and API responses.    |
-| `p-queue`              | Concurrency management for worker requests and AI calls.             |
+| Library                | Purpose                                                           |
+| ---------------------- | ----------------------------------------------------------------- |
+| `graphology`           | Foundation for graph data structures and topological metrics.     |
+| `@ladybugdb/wasm-core` | WASM-based graph engine for high-performance analysis.            |
+| `3d-force-graph`       | 3D visualization engine for the Graph Visualizer.                 |
+| `svelte`               | Reactive UI framework for the Dashboard and Settings.             |
+| `zod`                  | Schema validation for internal data structures and API responses. |
+| `p-queue`              | Concurrency management for worker requests and AI calls.          |

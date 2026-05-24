@@ -4,7 +4,7 @@
 
 ## System Overview
 
-Semantic Graph Healer is an Obsidian plugin designed for topological restoration and multi-layered semantic optimization of the knowledge graph. It automatically identifies structural inconsistencies (orphans, dangling links, black holes) and provides context-aware "healing" suggestions to improve vault connectivity. The system aggregates metadata via a `UnifiedMetadataAdapter` interfacing with plugins like **Datacore**, **Breadcrumbs**, and **Smart Connections**, while synchronizing hierarchy definitions from **ExcaliBrain**. 
+Semantic Graph Healer is an Obsidian plugin designed for topological restoration and multi-layered semantic optimization of the knowledge graph. It automatically identifies structural inconsistencies (orphans, dangling links, black holes) and provides context-aware "healing" suggestions to improve vault connectivity. The system aggregates metadata via a `UnifiedMetadataAdapter` interfacing with plugins like **Datacore**, **Breadcrumbs**, and **Smart Connections**, while synchronizing hierarchy definitions from **ExcaliBrain**.
 
 The architecture is built on a dual-engine strategy: a primary in-memory `Graphology` graph for real-time analysis and a WASM-based `@ladybugdb` engine offloaded to Web Workers for heavy computations. Beyond traditional graph theory (PageRank, Louvain communities), the system incorporates an AI-driven `GraphRAG` layer, an autonomous `ReasoningService` for explaining structural gaps, and a `SemanticTagPropagator` for hierarchical taxonomy inference.
 
@@ -46,7 +46,7 @@ graph TD
         Plugin --> Rag[GraphRAG Service]
         Rag --> Embed[Embedding Service]
         Plugin --> Keychain[Keychain Service]
-        
+
         RS --> LLM
         STP --> LLM
         TA --> LLM
