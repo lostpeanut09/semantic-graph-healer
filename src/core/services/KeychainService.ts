@@ -346,7 +346,7 @@ export class KeychainService {
         const types: ApiKeyType[] = ['openai', 'anthropic', 'deepseek', 'infranodus', 'custom'];
         for (const type of types) {
             const settingsKey = `${type}LlmApiKeyEncrypted`;
-            (this.context.settings as any)[settingsKey] = undefined;
+            (this.context.settings as unknown)[settingsKey] = undefined;
 
             const storageKey = `semantic-graph-healer-${type}-key`;
             if (this.isSecureStorageAvailable && this.storage) {

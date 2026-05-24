@@ -2,12 +2,6 @@ import { App, TFile, type EventRef } from 'obsidian';
 import type { MultiGraph } from 'graphology';
 export const DASHBOARD_VIEW_TYPE = 'semantic-healer-dashboard';
 
-// --- Internal Obsidian API interfaces ---
-export interface ObsidianKeychain {
-    get(key: string): Promise<string | null>;
-    set(key: string, value: string): Promise<void>;
-}
-
 export interface ObsidianSecretStorage {
     getSecret(key: string): Promise<string | null> | (string | null);
     setSecret(key: string, value: string): Promise<void> | void;
@@ -19,10 +13,10 @@ export interface ObsidianInternalApp {
     appId?: string;
     settings: SemanticGraphHealerSettings;
     secretStorage?: ObsidianSecretStorage;
-    keychain?: ObsidianKeychain;
+    keychain?: unknown;
     plugins: {
         enabledPlugins: Set<string>;
-        getPlugin(name: string): ObsidianPlugin | null;
+        getPlugin(name: string): any;
         getPlugin(name: 'datacore'): { api: DatacoreApi } | null;
         getPlugin(name: 'dataview'): { api: DataviewApi } | null;
         getPlugin(name: 'breadcrumbs'): { api: BreadcrumbsApi } | null;
@@ -35,12 +29,6 @@ export interface ExtendedManifest {
     [key: string]: unknown;
 }
 
-export interface ObsidianPlugin {
-    api?: unknown;
-    manifest: ExtendedManifest;
-    [key: string]: unknown;
-}
-
 export type ExtendedApp = App & ObsidianInternalApp;
 
 declare module 'obsidian' {
@@ -50,17 +38,9 @@ declare module 'obsidian' {
 }
 
 // --- Dataview / Datacore API interfaces ---
-export interface DataArray<T> {
-    array(): T[];
-    forEach(cb: (v: T) => void): void;
-    filter(cb: (v: T) => boolean): DataArray<T>;
-    where(cb: (v: T) => boolean): DataArray<T>;
-    length: number;
-    [index: number]: T;
-}
 
 export interface DataviewApi {
-    pages(query?: string): DataArray<DataviewPage>;
+    pages(query?: string): unknown;
     page(path: string): DataviewPage | null;
     fileToLinktext(file: TFile, origin: string, omit?: boolean): string;
 }
@@ -429,35 +409,6 @@ export interface RelatedNote {
     link: string;
 }
 
-/**
- * Worker Communication Types
- */
-export type WorkerActionType =
-    | 'PAGERANK'
-    | 'COMMUNITY'
-    | 'BETWEENNESS'
-    | 'FULL_ANALYSIS'
-    | 'SIMILARITY'
-    | 'COCITATION'
-    | 'TOPOLOGY_DIAGNOSTICS';
-
-export interface WorkerNode {
-    key: string;
-    attributes: Record<string, unknown>;
-}
-
-export interface WorkerEdge {
-    source: string;
-    target: string;
-    attributes: Record<string, unknown>;
-}
-
-export interface WorkerPayload {
-    nodes: WorkerNode[];
-    edges: WorkerEdge[];
-    requestId: string;
-}
-
 export type GraphAnalysisResult =
     | Record<string, number>
     | Array<{ source: string; target: string; score: number }>
@@ -474,28 +425,6 @@ export type GraphAnalysisResult =
           blackHoles: Array<{ path: string; inDegree: number }>;
           cycles: Array<{ path: string[]; type: string }>;
       };
-
-interface WorkerOptions {
-    limit?: number;
-    minScore?: number;
-    weights?: {
-        jaccard: number;
-        adamicAdar: number;
-        resourceAllocation: number;
-    };
-    fileStats?: Record<string, { mtime: number }>;
-    edgePolicy?: 'strict' | 'tolerant';
-    maxEdges?: number;
-    maxNodes?: number;
-    blackHoleThreshold?: number;
-    [key: string]: unknown;
-}
-
-export interface WorkerMessage {
-    type: WorkerActionType;
-    payload: WorkerPayload;
-    options?: WorkerOptions;
-}
 
 interface WorkerResponseResult {
     type: 'RESULT';

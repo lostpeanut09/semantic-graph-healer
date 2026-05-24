@@ -4,7 +4,7 @@ import louvain from 'graphology-communities-louvain';
 import betweennessCentrality from 'graphology-metrics/centrality/betweenness';
 import { z } from 'zod';
 import type { WorkerResponse, GraphAnalysisResult } from '../../types';
-export type { WorkerResponse, GraphAnalysisResult };
+export type { WorkerResponse };
 
 // --- Phase 2: OSS Hardening (Zod Validation) ---
 
@@ -73,13 +73,6 @@ function cosineSimilarity(v1: number[], v2: number[]): number {
     }
     const mag = Math.sqrt(norm1) * Math.sqrt(norm2);
     return mag === 0 ? 0 : dot / mag;
-}
-
-/**
- * Type guard for WorkerMessage validation.
- */
-export function isWorkerMessage(data: unknown): data is WorkerMessage {
-    return WorkerMessageSchema.safeParse(data).success;
 }
 
 export interface ProgressReporter {
