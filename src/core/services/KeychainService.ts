@@ -27,6 +27,11 @@ interface ObsidianSecretStorageWithDelete extends ObsidianSecretStorage {
     deleteSecret?(key: string): Promise<void> | void;
 }
 
+/**
+ * Service responsible for managing secure storage of sensitive API keys and master keys.
+ * Interfaces with Obsidian's native SecretStorage (v1.11.4+) or legacy Keychain,
+ * and provides AES-256-GCM encrypted fallback for cross-device sync resilience.
+ */
 export class KeychainService {
     private storage: SecureStorage | null = null;
     private app: ExtendedApp;
@@ -34,6 +39,11 @@ export class KeychainService {
     private dynamicMasterKey: CryptoKey | null = null;
     private readonly LEGACY_MASTER_KEY = 'semantic-healer-sota-2026';
 
+    /**
+     * Creates a new instance of KeychainService.
+     * 
+     * @param context - The plugin context providing app access and settings.
+     */
     constructor(private context: KeychainContext) {
         this.app = context.app as ExtendedApp;
         this.checkKeychainAvailability();
@@ -98,8 +108,10 @@ export class KeychainService {
     }
 
     /**
-     * Initializes the dynamic master key.
-     * D-01, D-02, D-05, D-06, D-09
+     * Initializes the dynamic master key from secure storage or settings fallback.
+     * Generates a new key if none exists.
+     * 
+     * @returns A promise that resolves when initialization is complete.
      */
     async initializeMasterKey(): Promise<void> {
         const keyName = 'sghealer-masterkey';
@@ -331,8 +343,10 @@ export class KeychainService {
     }
 
     /**
-     * Resets the keychain by generating a new master key.
-     * D-08
+     * Resets the keychain by clearing all keys and generating a new master key.
+     * Used for recovery when the master key is lost or corrupted.
+     * 
+     * @returns A promise that resolves when the reset is complete.
      */
     async resetKeychain(): Promise<void> {
         HealerLogger.info('Resetting keychain and generating new master key...');
@@ -414,6 +428,11 @@ export class KeychainService {
         return true;
     }
 
+    /**
+     * Checks whether the underlying platform provides native secure storage (e.g. Obsidian SecretStorage).
+     * 
+     * @returns True if secure storage is available, false otherwise.
+     */
     isSecure(): boolean {
         return this.isSecureStorageAvailable;
     }
