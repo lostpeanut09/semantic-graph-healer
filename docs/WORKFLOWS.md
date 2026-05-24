@@ -1,21 +1,19 @@
-<!-- generated-by: gsd-doc-writer -->
-
 # WORKFLOWS.md
 
 ## Overview
 
 This document outlines the standard workflows for developing, testing, auditing, and releasing the Semantic Graph Healer plugin. It serves as a guide for maintainers and contributors to ensure consistency and quality across the codebase.
 
-## GSD Audit & Planning Workflows
+## Audit & Planning Workflows
 
-The project utilizes GSD methodology for tracking tasks, auditing implementations, and performing User Acceptance Testing (UAT).
+The project utilizes automated workflows for tracking tasks, auditing implementations, and performing User Acceptance Testing (UAT).
 
 ### Extracting Audit Findings
 
-We use a custom Python script to extract UAT and VERIFICATION items across all implementation phases. This serves as a reliable cross-platform alternative to the standard `gsd-sdk query audit-uat`.
+We use a custom Python script to extract UAT and VERIFICATION items across all implementation steps. This serves as a reliable cross-platform alternative for checking UAT status.
 
 - **Script:** `scripts/extract-audit-findings.py`
-- **Purpose:** Scans the project (such as the `.planning/` directory) for UAT items and summarizes their status (pending, blocked, skipped, passed).
+- **Purpose:** Scans the project for UAT items and summarizes their status (pending, blocked, skipped, passed).
 - **Usage Examples:**
 
     ```bash
