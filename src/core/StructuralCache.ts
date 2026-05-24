@@ -80,6 +80,10 @@ export class StructuralCache<T> {
         });
     }
 
+    /**
+     * Invalidates a specific cache entry or clears the entire cache.
+     * @param path Optional. The file path to invalidate. If omitted, clears all entries.
+     */
     public invalidate(path?: string): void {
         if (path) {
             this.cache.delete(path);

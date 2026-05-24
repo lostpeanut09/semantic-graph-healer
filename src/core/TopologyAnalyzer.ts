@@ -241,6 +241,10 @@ export class TopologyAnalyzer {
         return suggestions;
     }
 
+    /**
+     * Detects incongruences where a node violates hierarchical constraints, such as having multiple conflicting parents.
+     * @returns A promise resolving to an array of incongruence suggestions.
+     */
     public async runIncongruenceAnalysis(): Promise<Suggestion[]> {
         HealerLogger.info('Starting incongruence analysis (Precision Path mode)...');
 
@@ -713,6 +717,10 @@ export class TopologyAnalyzer {
         return folders.size > 1;
     }
 
+    /**
+     * Identifies unresolved links where the target note does not exist in the vault.
+     * @returns A promise resolving to an array of dangling link suggestions.
+     */
     public async runDanglingLinkAnalysis(): Promise<Suggestion[]> {
         await Promise.resolve();
         HealerLogger.info('Running Dangling Link Analysis...');
@@ -847,8 +855,10 @@ export class TopologyAnalyzer {
     }
 
     /**
-     * âœ… NEW: Phase 3 - Detect Semantically Incorrect Children (Deep AI Audit)
-     * Runs AI validation on down relationships.
+     * Phase 3 - Detect Semantically Incorrect Children (Deep AI Audit)
+     * Runs AI validation on 'down' (child) relationships to ensure semantic alignment.
+     * @param signal Optional AbortSignal to cancel the operation.
+     * @returns A promise resolving to an array of semantic child validation suggestions.
      */
     public async runSemanticChildValidation(signal?: AbortSignal): Promise<Suggestion[]> {
         if (!this.context.settings.enableSemanticAudit) {
@@ -1033,4 +1043,10 @@ export class TopologyAnalyzer {
     public async runCrossThematicAnalysis(): Promise<Suggestion[]> {
         return await this.crossThematicProvider.getSuggestions();
     }
+}
+unCrossThematicAnalysis(): Promise<Suggestion[]> {
+        return await this.crossThematicProvider.getSuggestions();
+    }
+}
+ }
 }
