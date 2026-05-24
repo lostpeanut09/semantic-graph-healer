@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { AutomationApi } from '../../src/core/services/AutomationApi';
-import type { HealerNotifier, Suggestion } from '../../src/types';
+import { AutomationApi } from '../../../src/core/services/AutomationApi';
+import type { HealerNotifier, Suggestion } from '../../../src/types';
 
 describe('AutomationApi', () => {
     let mockNotifier: HealerNotifier;

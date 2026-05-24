@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { DirectedGraph } from 'graphology';
-import { handleGraphWorkerMessage } from '../../src/core/workers/graph-analysis-core';
-import { TopologyAnalyzer } from '../../src/core/TopologyAnalyzer';
-import { GraphEngine } from '../../src/core/GraphEngine';
+import { handleGraphWorkerMessage } from '../../../src/core/workers/graph-analysis-core';
+import { TopologyAnalyzer } from '../../../src/core/TopologyAnalyzer';
+import { GraphEngine } from '../../../src/core/GraphEngine';
 import { TFile } from 'obsidian';
-import { DEFAULT_SETTINGS } from '../../src/types';
+import { DEFAULT_SETTINGS } from '../../../src/types';
 
 // Mock GraphEngine
-vi.mock('../../src/core/GraphEngine');
+vi.mock('../../../src/core/GraphEngine');
 
 describe('Topology Diagnostics & Analysis', () => {
     describe('TOPOL-05: Black Hole Detection Thresholds', () => {

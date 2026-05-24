@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Plugin, normalizePath } from 'obsidian';
-import { CacheService } from '../../../src/core/CacheService';
+import { CacheService } from '../../src/core/CacheService';
 
 // Mocks
 vi.mock('obsidian', async () => {
@@ -11,7 +11,7 @@ vi.mock('obsidian', async () => {
     };
 });
 
-vi.mock('../../../src/core/HealerUtils', () => ({
+vi.mock('../../src/core/HealerUtils', () => ({
     HealerLogger: {
         info: vi.fn(),
         error: vi.fn(),

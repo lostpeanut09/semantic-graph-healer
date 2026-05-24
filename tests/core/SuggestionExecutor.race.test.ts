@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { SuggestionExecutor } from '../src/core/SuggestionExecutor';
+import { SuggestionExecutor } from '../../src/core/SuggestionExecutor';
 import { TFile } from 'obsidian';
 
 vi.mock('obsidian', () => ({

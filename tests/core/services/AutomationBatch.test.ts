@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AutomationApi } from '../../src/core/services/AutomationApi';
-import type { Suggestion, HistoryItem } from '../../src/types';
+import { AutomationApi } from '../../../src/core/services/AutomationApi';
+import type { Suggestion, HistoryItem } from '../../../src/types';
 
 describe('AutomationBatch', () => {
     let mockContext: any;

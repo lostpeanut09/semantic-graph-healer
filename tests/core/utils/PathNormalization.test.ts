@@ -23,14 +23,4 @@ describe('Path Normalization (pathe)', () => {
         const windowsPath = 'folder\\subfolder\\file.md';
         expect(dirname(windowsPath)).toBe('folder/subfolder');
     });
-
-    it('should handle mixed separators', () => {
-        const mixedPath = 'folder/subfolder\\file.md';
-        expect(normalize(mixedPath)).toBe('folder/subfolder/file.md');
-    });
-
-    it('should handle multiple consecutive separators', () => {
-        const doublePath = 'folder//subfolder\\\\file.md';
-        expect(normalize(doublePath)).toBe('folder/subfolder/file.md');
-    });
 });

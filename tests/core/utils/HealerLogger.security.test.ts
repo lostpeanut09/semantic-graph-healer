@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { HealerLogger } from '../src/core/utils/HealerLogger';
+import { HealerLogger } from '../../../src/core/utils/HealerLogger';
 
 describe('HealerLogger Security', () => {
     it('should redact sensitive keys from log data', () => {
