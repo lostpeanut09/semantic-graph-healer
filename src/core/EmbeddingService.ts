@@ -4,7 +4,7 @@ import { HealerLogger, cosineSimilarity } from './HealerUtils';
 
 export type ModelStatus = 'STABLE' | 'MISALIGNED' | 'OFFLINE';
 
-export interface EmbeddingResponse {
+interface EmbeddingResponse {
     embedding?: number[];
     embeddings?: number[][];
     data?: Array<{ embedding: number[] }>;

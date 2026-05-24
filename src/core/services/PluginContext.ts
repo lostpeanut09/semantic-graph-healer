@@ -39,4 +39,5 @@ export interface KeychainContext {
     app: App;
     settings: SemanticGraphHealerSettings;
     saveSettings(): Promise<void>;
+    onCorruptionDetected?(): void;
 }

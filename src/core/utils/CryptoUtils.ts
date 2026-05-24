@@ -29,12 +29,42 @@ export class CryptoUtils {
     }
 
     /**
+     * Generates a new random 256-bit AES-GCM key.
+     */
+    public static async generateKey(): Promise<CryptoKey> {
+        return await crypto.subtle.generateKey(
+            { name: this.ALGORITHM, length: this.KEY_LENGTH },
+            true, // extractable
+            ['encrypt', 'decrypt'],
+        );
+    }
+
+    /**
+     * Exports a CryptoKey to a JWK string.
+     */
+    public static async exportKey(key: CryptoKey): Promise<string> {
+        const jwk = await crypto.subtle.exportKey('jwk', key);
+        return JSON.stringify(jwk);
+    }
+
+    /**
+     * Imports a CryptoKey from a JWK string.
+     */
+    public static async importKey(jwk: string): Promise<CryptoKey> {
+        const jwkObj = JSON.parse(jwk) as JsonWebKey;
+        return await crypto.subtle.importKey('jwk', jwkObj, { name: this.ALGORITHM, length: this.KEY_LENGTH }, true, [
+            'encrypt',
+            'decrypt',
+        ]);
+    }
+
+    /**
      * Encrypts a string using AES-256-GCM.
      * Returns: base64(iv + ciphertext)
      */
-    public static async encrypt(text: string, master: string, salt: string): Promise<string> {
+    public static async encrypt(text: string, keyOrMaster: string | CryptoKey, salt: string): Promise<string> {
         try {
-            const key = await this.deriveKey(master, salt);
+            const key = keyOrMaster instanceof CryptoKey ? keyOrMaster : await this.deriveKey(keyOrMaster, salt);
             const iv = crypto.getRandomValues(new Uint8Array(12));
             const encoder = new TextEncoder();
 
@@ -56,13 +86,17 @@ export class CryptoUtils {
     /**
      * Decrypts a base64 combined string.
      */
-    public static async decrypt(combinedBase64: string, master: string, salt: string): Promise<string | null> {
+    public static async decrypt(
+        combinedBase64: string,
+        keyOrMaster: string | CryptoKey,
+        salt: string,
+    ): Promise<string | null> {
         try {
             const combined = this.base64ToUint8(combinedBase64);
             const iv = combined.slice(0, 12);
             const ciphertext = combined.slice(12);
 
-            const key = await this.deriveKey(master, salt);
+            const key = keyOrMaster instanceof CryptoKey ? keyOrMaster : await this.deriveKey(keyOrMaster, salt);
             const decrypted = await crypto.subtle.decrypt({ name: this.ALGORITHM, iv }, key, ciphertext);
 
             return new TextDecoder().decode(decrypted);

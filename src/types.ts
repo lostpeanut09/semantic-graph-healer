@@ -151,14 +151,14 @@ export interface DatacoreApi {
     resolvePath(path: string, sourcePath?: string): string;
 }
 
-export interface InlineField {
+interface InlineField {
     key: string;
     value: unknown;
     raw: string;
     position: { line: number; col: number; offset: number };
 }
 
-export interface FrontmatterEntry {
+interface FrontmatterEntry {
     key: string;
     raw: string;
     value: unknown;
@@ -233,7 +233,7 @@ export interface TopologicalMetrics {
     graphVersion: string;
 }
 
-export interface SuggestionMeta {
+interface SuggestionMeta {
     property?: string; // Logical type: 'up', 'down', 'next', 'prev', 'same'
     propertyKey?: string; // Actual YAML key: 'parent', 'right', 'procedural-next', etc.
     sourcePath?: string; // Canonical TFile.path for logic
@@ -408,6 +408,11 @@ export interface SemanticGraphHealerSettings {
     embeddingEndpoint: string;
     embeddingDimensions: number;
 
+    // Keychain Migration
+    keychainMigrationComplete: boolean;
+    keychainCorrupted: boolean;
+    sghealerMasterKeyJWK?: string;
+
     // Encrypted Keys
     openaiLlmApiKeyEncrypted?: string;
     anthropicLlmApiKeyEncrypted?: string;
@@ -470,7 +475,7 @@ export type GraphAnalysisResult =
           cycles: Array<{ path: string[]; type: string }>;
       };
 
-export interface WorkerOptions {
+interface WorkerOptions {
     limit?: number;
     minScore?: number;
     weights?: {
@@ -492,7 +497,7 @@ export interface WorkerMessage {
     options?: WorkerOptions;
 }
 
-export interface WorkerResponseResult {
+interface WorkerResponseResult {
     type: 'RESULT';
     payload: {
         requestId: string;
@@ -500,7 +505,7 @@ export interface WorkerResponseResult {
     };
 }
 
-export interface WorkerResponseError {
+interface WorkerResponseError {
     type: 'ERROR';
     payload: {
         requestId: string;
@@ -508,7 +513,7 @@ export interface WorkerResponseError {
     };
 }
 
-export interface WorkerResponseProgress {
+interface WorkerResponseProgress {
     type: 'PROGRESS';
     payload: {
         requestId: string;
@@ -650,4 +655,6 @@ export const DEFAULT_SETTINGS: SemanticGraphHealerSettings = {
     embeddingModel: 'nomic-embed-text',
     embeddingEndpoint: 'http://localhost:11434',
     embeddingDimensions: 768,
+    keychainMigrationComplete: false,
+    keychainCorrupted: false,
 };

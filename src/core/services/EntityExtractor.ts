@@ -10,7 +10,7 @@ export interface Entity {
     notePath: string;
 }
 
-export interface Relationship {
+interface Relationship {
     source: string;
     target: string;
     type: string;

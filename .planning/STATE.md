@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: quality-update
 milestone_name: Quality Update
 status: Initializing new milestone for quality improvements.
-last_updated: "2026-05-24T17:36:59.379Z"
+last_updated: '2026-05-24T17:36:59.379Z'
 progress:
-  total_phases: 19
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+    total_phases: 19
+    completed_phases: 0
+    total_plans: 0
+    completed_plans: 0
+    percent: 0
 ---
 
 # Project State: Semantic Graph Healer

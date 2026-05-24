@@ -31,7 +31,8 @@ export class KeychainService {
     private storage: SecureStorage | null = null;
     private app: ExtendedApp;
     private isSecureStorageAvailable: boolean = false;
-    private readonly MASTER_KEY = 'semantic-healer-sota-2026';
+    private dynamicMasterKey: CryptoKey | null = null;
+    private readonly LEGACY_MASTER_KEY = 'semantic-healer-sota-2026';
 
     constructor(private context: KeychainContext) {
         this.app = context.app as ExtendedApp;
@@ -96,7 +97,117 @@ export class KeychainService {
         }
     }
 
+    /**
+     * Initializes the dynamic master key.
+     * D-01, D-02, D-05, D-06, D-09
+     */
+    async initializeMasterKey(): Promise<void> {
+        const keyName = 'sghealer-masterkey';
+        let jwk: string | null = null;
+
+        // 1. Try to load from SecretStorage
+        if (this.isSecureStorageAvailable && this.storage) {
+            try {
+                jwk = await this.storage.get(keyName);
+                if (jwk) HealerLogger.info('Master key found in SecretStorage.');
+            } catch (e) {
+                HealerLogger.error('Failed to read master key from SecretStorage.', e);
+            }
+        }
+
+        // 2. Try to load from data.json fallback
+        if (!jwk) {
+            jwk = this.context.settings.sghealerMasterKeyJWK || null;
+            if (jwk) HealerLogger.info('Master key found in data.json fallback.');
+        }
+
+        if (jwk) {
+            try {
+                this.dynamicMasterKey = await CryptoUtils.importKey(jwk);
+                HealerLogger.info('Dynamic master key loaded successfully.');
+            } catch (e) {
+                HealerLogger.error('Failed to import master key JWK. Key might be corrupted.', e);
+                // Flag corruption to trigger Reset modal in handleDecryptionFailure
+                this.context.settings.keychainCorrupted = true;
+                void this.context.saveSettings();
+            }
+        }
+
+        // 3. Generate new key if still missing (and not explicitly corrupted)
+        if (!this.dynamicMasterKey && !this.context.settings.keychainCorrupted) {
+            HealerLogger.info('No master key found. Generating a new dynamic key.');
+            this.dynamicMasterKey = await CryptoUtils.generateKey();
+            const exportedJwk = await CryptoUtils.exportKey(this.dynamicMasterKey);
+
+            // Save to SecretStorage
+            if (this.isSecureStorageAvailable && this.storage) {
+                try {
+                    await this.storage.set(keyName, exportedJwk);
+                    HealerLogger.info('New master key saved to SecretStorage.');
+                } catch (e) {
+                    HealerLogger.error('Failed to save new master key to SecretStorage.', e);
+                }
+            }
+
+            // Save to data.json as fallback
+            this.context.settings.sghealerMasterKeyJWK = exportedJwk;
+            await this.context.saveSettings();
+            HealerLogger.info('New master key saved to data.json fallback.');
+        }
+    }
+
+    /**
+     * Migrates keys from legacy hardcoded key to the new dynamic key.
+     * D-03
+     */
+    async migrateLegacyKeys(): Promise<boolean> {
+        if (this.context.settings.keychainMigrationComplete) return false;
+        if (!this.dynamicMasterKey) await this.initializeMasterKey();
+
+        HealerLogger.info('Starting keychain migration to dynamic encryption...');
+        const types: ApiKeyType[] = ['openai', 'anthropic', 'deepseek', 'infranodus', 'custom'];
+        const salt = this.getStableSalt();
+        let migratedAny = false;
+
+        for (const type of types) {
+            const storageKey = `semantic-graph-healer-${type}-key`;
+            let plaintext: string | null = null;
+
+            // 1. Try to get from storage (Double-Locked)
+            if (this.isSecureStorageAvailable && this.storage) {
+                const encVal = await this.storage.get(storageKey);
+                if (encVal && encVal.startsWith('enc:')) {
+                    plaintext = await CryptoUtils.decrypt(encVal.substring(4), this.LEGACY_MASTER_KEY, salt);
+                }
+            }
+
+            // 2. Try to get from settings (Encrypted)
+            if (!plaintext) {
+                const settingsKey = `${type}LlmApiKeyEncrypted` as keyof typeof this.context.settings;
+                const encVal = this.context.settings[settingsKey];
+                if (encVal && typeof encVal === 'string') {
+                    plaintext = await CryptoUtils.decrypt(encVal, this.LEGACY_MASTER_KEY, salt);
+                }
+            }
+
+            if (plaintext) {
+                // Re-encrypt with new dynamic key
+                await this.setApiKey(type, plaintext);
+                migratedAny = true;
+                HealerLogger.info(`Migrated ${type} key to dynamic encryption.`);
+            }
+        }
+
+        this.context.settings.keychainMigrationComplete = true;
+        await this.context.saveSettings();
+        HealerLogger.info('Keychain migration complete.');
+        return migratedAny;
+    }
+
     async getApiKey(type: ApiKeyType): Promise<string | null> {
+        if (!this.dynamicMasterKey) await this.initializeMasterKey();
+        if (!this.dynamicMasterKey) return null; // Should not happen
+
         const storageKey = `semantic-graph-healer-${type}-key`;
         const appId = this.getStableSalt();
 
@@ -107,8 +218,11 @@ export class KeychainService {
                 if (key) {
                     // SOTA 2026: Double-Layer Decryption (mitigate SecretStorage plaintext exploit v1.11.4)
                     if (key.startsWith('enc:')) {
-                        const decrypted = await CryptoUtils.decrypt(key.substring(4), this.MASTER_KEY, appId);
+                        const decrypted = await CryptoUtils.decrypt(key.substring(4), this.dynamicMasterKey, appId);
                         if (decrypted) return decrypted;
+
+                        // Decryption failed but we have data - potential key loss
+                        this.handleDecryptionFailure();
                     }
                     return key; // Legacy fallback for unencrypted local keys
                 }
@@ -122,8 +236,11 @@ export class KeychainService {
         const encrypted = this.context.settings[settingsKey];
         if (encrypted && typeof encrypted === 'string') {
             try {
-                const decrypted = await CryptoUtils.decrypt(encrypted, this.MASTER_KEY, appId);
+                const decrypted = await CryptoUtils.decrypt(encrypted, this.dynamicMasterKey, appId);
                 if (decrypted) return decrypted;
+
+                // Decryption failed but we have data - potential key loss
+                this.handleDecryptionFailure();
             } catch (e) {
                 HealerLogger.error(`Failed to decrypt sync-resilient key for ${type}`, e);
             }
@@ -169,6 +286,9 @@ export class KeychainService {
     }
 
     async setApiKey(type: ApiKeyType, key: string): Promise<void> {
+        if (!this.dynamicMasterKey) await this.initializeMasterKey();
+        if (!this.dynamicMasterKey) throw new Error('Keychain not initialized');
+
         const storageKey = `semantic-graph-healer-${type}-key`;
         const appId = this.getStableSalt();
 
@@ -177,14 +297,14 @@ export class KeychainService {
         // A. Secure Local Storage (Obsidian 1.11.4+)
         if (this.isSecureStorageAvailable && this.storage) {
             // FIX: Double-locking encryption layer (Obsidian SecretStorage plaintext bug mitigation)
-            const encryptedForLocal = await CryptoUtils.encrypt(key, this.MASTER_KEY, appId);
+            const encryptedForLocal = await CryptoUtils.encrypt(key, this.dynamicMasterKey, appId);
             await this.storage.set(storageKey, `enc:${encryptedForLocal}`);
             HealerLogger.info(`API Key ${type} persisted to vault-local SecretStorage (Double-Locked).`);
         }
 
         // B. Sync-Resilient Storage (Encrypted in data.json)
         try {
-            const encrypted = await CryptoUtils.encrypt(key, this.MASTER_KEY, appId);
+            const encrypted = await CryptoUtils.encrypt(key, this.dynamicMasterKey, appId);
             const settingsKey = `${type}LlmApiKeyEncrypted` as keyof typeof this.context.settings;
 
             // Use double-cast to access dynamic keys not in type's index signature
@@ -196,6 +316,49 @@ export class KeychainService {
         } catch (e) {
             HealerLogger.error(`Failed to encrypt API Key ${type} for sync.`, e);
         }
+    }
+
+    private handleDecryptionFailure(): void {
+        HealerLogger.error('Decryption failed with dynamic master key. Key might be lost or corrupted.');
+        // This will trigger the ResetKeychainModal via the UI layer or a notification
+        // For now, we'll mark a flag to show it on next boot or UI interaction
+        this.context.settings.keychainCorrupted = true;
+        void this.context.saveSettings();
+
+        if (this.context.onCorruptionDetected) {
+            this.context.onCorruptionDetected();
+        }
+    }
+
+    /**
+     * Resets the keychain by generating a new master key.
+     * D-08
+     */
+    async resetKeychain(): Promise<void> {
+        HealerLogger.info('Resetting keychain and generating new master key...');
+
+        // 1. Clear existing dynamic key
+        this.dynamicMasterKey = null;
+        this.context.settings.sghealerMasterKeyJWK = undefined;
+        this.context.settings.keychainCorrupted = false;
+
+        // 2. Clear all encrypted keys to avoid confusion
+        const types: ApiKeyType[] = ['openai', 'anthropic', 'deepseek', 'infranodus', 'custom'];
+        for (const type of types) {
+            const settingsKey = `${type}LlmApiKeyEncrypted`;
+            (this.context.settings as any)[settingsKey] = undefined;
+
+            const storageKey = `semantic-graph-healer-${type}-key`;
+            if (this.isSecureStorageAvailable && this.storage) {
+                await this.storage.delete(storageKey);
+            }
+        }
+
+        await this.context.saveSettings();
+
+        // 3. Re-initialize with a fresh key
+        await this.initializeMasterKey();
+        HealerLogger.info('Keychain reset complete. New dynamic key generated.');
     }
 
     async deleteApiKey(type: ApiKeyType): Promise<void> {

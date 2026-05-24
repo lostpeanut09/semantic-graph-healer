@@ -30,15 +30,20 @@
 
 **Requirements:**
 
-- QUAL-01 â€” Knip Cleanup (Unused exports/types)
-- QUAL-02 â€” Performance Audit Tooling (CLI args for vault size)
-- QUAL-03 â€” Docstring Hardening (TSDoc compliance)
-- QUAL-04 â€” Test Resilience (Vitest warning fixes)
-- QUAL-05 â€” CI Pipeline Optimization (Knip in hooks, robust path checks)
+- QUAL-01 — Knip Cleanup (Unused exports/types)
+- QUAL-02 — Performance Audit Tooling (CLI args for vault size)
+- QUAL-03 — Docstring Hardening (TSDoc compliance)
+- QUAL-04 — Test Resilience (Vitest warning fixes)
+- QUAL-05 — CI Pipeline Optimization (Knip in hooks, robust path checks)
+- QUAL-06 — Secure Keychain Migration (Dynamic JWK master key)
 
-**Plans:** 1 plan
+**Plans:** 5 plans
 
-- [ ] 19-01-PLAN.md â€” Quality Update Implementation
+- [ ] 19-01-PLAN.md — Secure Keychain Migration
+- [ ] 19-02-PLAN.md — Knip Cleanup & Benchmark Parameterization
+- [ ] 19-03-PLAN.md — TSDoc Hardening: Core Tiers
+- [ ] 19-04-PLAN.md — TSDoc Hardening: Services Layer
+- [ ] 19-05-PLAN.md — CI/CD & Hook Optimization
 
 **Success Criteria:**
 
@@ -47,6 +52,7 @@
 - All core service methods have TSDoc comments.
 - Vitest runs without `localstorage-file` warnings.
 - CI pipeline includes automated Knip audit on pre-push.
+- Keychain migrated to dynamic JWK master key with decryption fallback.
 
 ### Phase 18: BRAT Support & Root Cleanup
 
