@@ -31,6 +31,11 @@ interface AlgoResultResponse {
 
 type LadybugWorkerResponse = QueryResultResponse | SyncCompleteResponse | AlgoResultResponse | ErrorResponse;
 
+/**
+ * Service managing the LadybugDB WASM engine.
+ * Handles worker initialization, progress tracking, and communication
+ * for running graph algorithms and Cypher queries in a background thread.
+ */
 export class LadybugService {
     private worker: Worker | null = null;
     private workerUrl: string | null = null;
@@ -39,19 +44,38 @@ export class LadybugService {
     private initResolver: (() => void) | null = null;
     private initRejecter: ((reason: Error) => void) | null = null;
 
+    /**
+     * Creates a new instance of LadybugService.
+     * 
+     * @param app - The Obsidian App instance.
+     * @param manifest - The extended plugin manifest.
+     */
     constructor(
         private app: App,
         private manifest: ExtendedManifest,
     ) {}
 
+    /**
+     * Gets the current initialization status of the Ladybug worker.
+     */
     get initializationStatus(): InitializationStatus {
         return this.status;
     }
 
+    /**
+     * Gets the current loading progress percentage (0-100).
+     */
     get loadingProgress(): number {
         return this.progress;
     }
 
+    /**
+     * Initializes the WASM worker for LadybugDB.
+     * Triggers fallback to legacy mode on mobile devices or if initialization fails.
+     * 
+     * @returns A promise that resolves when the worker is successfully initialized.
+     * @throws {Error} If worker script creation or loading fails.
+     */
     async initialize(): Promise<void> {
         if (this.status !== 'none') return;
 
@@ -111,6 +135,14 @@ export class LadybugService {
         }
     }
 
+    /**
+     * Executes a Cypher query via the LadybugDB worker.
+     * 
+     * @param query - The Cypher query string to execute.
+     * @param params - Optional parameter mapping for the query.
+     * @returns A promise resolving to an array of query results.
+     * @throws {Error} If the worker is not ready or if the query fails.
+     */
     async query(query: string, params: Record<string, unknown> = {}): Promise<unknown[]> {
         if (this.status !== 'ready' || !this.worker) {
             throw new Error('LadybugDB not ready');
@@ -131,6 +163,13 @@ export class LadybugService {
         });
     }
 
+    /**
+     * Synchronizes a batch of nodes or links to the LadybugDB instance.
+     * 
+     * @param batch - Array of data batches to sync (nodes or links).
+     * @returns A promise resolving when the synchronization is complete.
+     * @throws {Error} If the worker is not ready or if sync fails.
+     */
     async sync(batch: { type: 'node' | 'link'; data: unknown[] }[]): Promise<void> {
         if (this.status !== 'ready' || !this.worker) {
             throw new Error('LadybugDB not ready');
@@ -151,6 +190,13 @@ export class LadybugService {
         });
     }
 
+    /**
+     * Runs a specified graph algorithm on the LadybugDB worker.
+     * 
+     * @param algoName - The name of the algorithm to run ('pagerank' or 'louvain').
+     * @returns A promise resolving to the generic result of the algorithm.
+     * @throws {Error} If the worker is not ready or if the algorithm execution fails.
+     */
     async runAlgo(algoName: 'pagerank' | 'louvain'): Promise<unknown> {
         if (this.status !== 'ready' || !this.worker) {
             throw new Error('LadybugDB not ready');
@@ -171,6 +217,9 @@ export class LadybugService {
         });
     }
 
+    /**
+     * Terminates the LadybugDB worker and frees allocated memory URLs.
+     */
     terminate(): void {
         this.worker?.terminate();
         this.worker = null;
