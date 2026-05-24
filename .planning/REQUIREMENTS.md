@@ -96,56 +96,56 @@
 
 ## Traceability
 
-| Req ID    | Phase    | Status      |
-| --------- | -------- | ----------- |
-| INFRA-01  | Phase 1  | ✓ Validated |
-| INFRA-02  | Phase 1  | ✓ Validated |
-| INFRA-03  | Phase 1  | ✓ Validated |
-| INFRA-04  | Phase 2  | ✓ Validated |
-| INFRA-05  | Phase 1  | ✓ Validated |
-| INFRA-06  | Phase 16 | ✓ Validated |
-| INFRA-07  | Phase 16 | ✓ Validated |
-| INFRA-08  | Phase 15 | ✓ Validated |
-| TOPOL-01  | Phase 5  | ✓ Validated |
-| TOPOL-02  | Phase 6  | ✓ Validated |
-| TOPOL-03  | Phase 6  | ✓ Validated |
-| TOPOL-04  | Phase 5  | ✓ Validated |
-| TOPOL-05  | Phase 5  | ✓ Validated |
-| AI-01     | Phase 7  | ✓ Validated |
-| AI-02     | Phase 8  | ✓ Validated |
-| AI-03     | Phase 7  | ✓ Validated |
-| AI-05     | Phase 15 | ✓ Validated |
-| AI-06     | Phase 15 | ✓ Validated |
-| UI-01     | Phase 9  | ✓ Validated |
-| UI-02     | Phase 9  | ✓ Validated |
-| UX-01     | Phase 10 | ✓ Validated |
-| UX-02     | Phase 11 | ✓ Validated |
-| UX-03     | Phase 3  | ✓ Validated |
-| UX-04     | Phase 3  | ✓ Validated |
-| UX-09     | Phase 15 | ✓ Validated |
-| HARDEN-01 | Phase 2  | ✓ Validated |
-| HARDEN-02 | Phase 2  | ✓ Validated |
-| HARDEN-03 | Phase 4  | ✓ Validated |
-| HARDEN-04 | Phase 13 | ✓ Validated |
-| HARDEN-05 | Phase 13 | ✓ Validated |
-| HARDEN-06 | Phase 13 | ✓ Validated |
-| HARDEN-07 | Phase 14 | ✓ Validated |
-| HARDEN-08 | Phase 15 | ✓ Validated |
-| HARDEN-09 | Phase 15 | ✓ Validated |
-| HARDEN-10 | Phase 16 | ✓ Validated |
-| ENV-01    | Phase 14 | ✓ Validated |
-| REQ-17.1  | Phase 17 | ✓ Validated |
-| REQ-17.2  | Phase 17 | ✓ Validated |
-| REQ-17.3  | Phase 17 | ✓ Validated |
-| REQ-17.4  | Phase 17 | ✓ Validated |
+| Req ID    | Phase    | Status        |
+| --------- | -------- | ------------- |
+| INFRA-01  | Phase 1  | ✓ Validated   |
+| INFRA-02  | Phase 1  | ✓ Validated   |
+| INFRA-03  | Phase 1  | ✓ Validated   |
+| INFRA-04  | Phase 2  | ✓ Validated   |
+| INFRA-05  | Phase 1  | ✓ Validated   |
+| INFRA-06  | Phase 16 | ✓ Validated   |
+| INFRA-07  | Phase 16 | ✓ Validated   |
+| INFRA-08  | Phase 15 | ✓ Validated   |
+| TOPOL-01  | Phase 5  | ✓ Validated   |
+| TOPOL-02  | Phase 6  | ✓ Validated   |
+| TOPOL-03  | Phase 6  | ✓ Validated   |
+| TOPOL-04  | Phase 5  | ✓ Validated   |
+| TOPOL-05  | Phase 5  | ✓ Validated   |
+| AI-01     | Phase 7  | ✓ Validated   |
+| AI-02     | Phase 8  | ✓ Validated   |
+| AI-03     | Phase 7  | ✓ Validated   |
+| AI-05     | Phase 15 | ✓ Validated   |
+| AI-06     | Phase 15 | ✓ Validated   |
+| UI-01     | Phase 9  | ✓ Validated   |
+| UI-02     | Phase 9  | ✓ Validated   |
+| UX-01     | Phase 10 | ✓ Validated   |
+| UX-02     | Phase 11 | ✓ Validated   |
+| UX-03     | Phase 3  | ✓ Validated   |
+| UX-04     | Phase 3  | ✓ Validated   |
+| UX-09     | Phase 15 | ✓ Validated   |
+| HARDEN-01 | Phase 2  | ✓ Validated   |
+| HARDEN-02 | Phase 2  | ✓ Validated   |
+| HARDEN-03 | Phase 4  | ✓ Validated   |
+| HARDEN-04 | Phase 13 | ✓ Validated   |
+| HARDEN-05 | Phase 13 | ✓ Validated   |
+| HARDEN-06 | Phase 13 | ✓ Validated   |
+| HARDEN-07 | Phase 14 | ✓ Validated   |
+| HARDEN-08 | Phase 15 | ✓ Validated   |
+| HARDEN-09 | Phase 15 | ✓ Validated   |
+| HARDEN-10 | Phase 16 | ✓ Validated   |
+| ENV-01    | Phase 14 | ✓ Validated   |
+| REQ-17.1  | Phase 17 | ✓ Validated   |
+| REQ-17.2  | Phase 17 | ✓ Validated   |
+| REQ-17.3  | Phase 17 | ✓ Validated   |
+| REQ-17.4  | Phase 17 | ✓ Validated   |
 | REQ-18.1  | Phase 18 | âœ“ Validated |
 | REQ-18.2  | Phase 18 | âœ“ Validated |
 | REQ-18.3  | Phase 18 | âœ“ Validated |
-| QUAL-01   | Phase 19 | Pending     |
-| QUAL-02   | Phase 19 | Pending     |
-| QUAL-03   | Phase 19 | Pending     |
-| QUAL-04   | Phase 19 | Pending     |
-| QUAL-05   | Phase 19 | Pending     |
+| QUAL-01   | Phase 19 | Pending       |
+| QUAL-02   | Phase 19 | Pending       |
+| QUAL-03   | Phase 19 | Pending       |
+| QUAL-04   | Phase 19 | Pending       |
+| QUAL-05   | Phase 19 | Pending       |
 
 ---
 

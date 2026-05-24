@@ -86,6 +86,6 @@ The project has completed its core v1.0 and v1.1 scope. The current milestone "Q
 
 ## Quick Tasks Completed
 
-| Task                             | Date       | Status     |
-| :------------------------------- | :--------- | :--------- |
-| milestone-init-quality-update    | 2026-05-24 | complete ✓ |
+| Task                          | Date       | Status     |
+| :---------------------------- | :--------- | :--------- |
+| milestone-init-quality-update | 2026-05-24 | complete ✓ |
