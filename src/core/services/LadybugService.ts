@@ -37,11 +37,17 @@ type LadybugWorkerResponse = QueryResultResponse | SyncCompleteResponse | AlgoRe
  * for running graph algorithms and Cypher queries in a background thread.
  */
 export class LadybugService {
+    /** The active Web Worker instance for LadybugDB. */
     private worker: Worker | null = null;
+    /** The temporary Object URL created for the worker script. */
     private workerUrl: string | null = null;
+    /** The current initialization status of the service. */
     private status: InitializationStatus = 'none';
+    /** The current loading progress percentage (0-100). */
     private progress: number = 0;
+    /** Resolver for the initialization promise. */
     private initResolver: (() => void) | null = null;
+    /** Rejecter for the initialization promise. */
     private initRejecter: ((reason: Error) => void) | null = null;
 
     /**

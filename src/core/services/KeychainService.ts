@@ -4,6 +4,9 @@ import type { ExtendedApp, ObsidianSecretStorage } from '../../types';
 import type { KeychainContext } from './PluginContext';
 import { CryptoUtils } from '../utils/CryptoUtils';
 
+/**
+ * Supported API key types for LLM providers and integrations.
+ */
 type ApiKeyType = 'openai' | 'anthropic' | 'deepseek' | 'infranodus' | 'custom';
 
 /**
@@ -11,19 +14,31 @@ type ApiKeyType = 'openai' | 'anthropic' | 'deepseek' | 'infranodus' | 'custom';
  * Adapts both SecretStorage (Official) and Keychain (Legacy/UI)
  */
 interface SecureStorage {
+    /** Retrieves a secret by its key. */
     get(key: string): Promise<string | null>;
+    /** Persists a secret with a unique key. */
     set(key: string, value: string): Promise<void>;
+    /** Deletes a secret from storage. */
     delete(key: string): Promise<void>;
 }
 
+/**
+ * Interface for the legacy Obsidian keychain implementation.
+ */
 interface LegacyKeychain {
+    /** Retrieves a value by its key. */
     get(key: string): string | null | Promise<string | null>;
+    /** Sets a value for a unique key. */
     set(key: string, value: string): void | Promise<void>;
+    /** Deletes a value by its key. */
     delete(key: string): void | Promise<void>;
 }
 
-// Extended interface including optional deleteSecret for newer Obsidian versions
+/**
+ * Extended interface including optional deleteSecret for newer Obsidian versions.
+ */
 interface ObsidianSecretStorageWithDelete extends ObsidianSecretStorage {
+    /** Native Obsidian method to delete a secret. */
     deleteSecret?(key: string): Promise<void> | void;
 }
 
@@ -33,10 +48,15 @@ interface ObsidianSecretStorageWithDelete extends ObsidianSecretStorage {
  * and provides AES-256-GCM encrypted fallback for cross-device sync resilience.
  */
 export class KeychainService {
+    /** The active secure storage adapter. */
     private storage: SecureStorage | null = null;
+    /** Reference to the Obsidian App. */
     private app: ExtendedApp;
+    /** Flag indicating whether native secure storage is available on this platform. */
     private isSecureStorageAvailable: boolean = false;
+    /** The dynamic master key used for the second layer of encryption. */
     private dynamicMasterKey: CryptoKey | null = null;
+    /** Hardcoded key used for decrypting legacy keys during migration. */
     private readonly LEGACY_MASTER_KEY = 'semantic-healer-sota-2026';
 
     /**
@@ -49,6 +69,11 @@ export class KeychainService {
         this.checkKeychainAvailability();
     }
 
+    /**
+     * Retrieves a stable salt for encryption, using the App ID or a generated value.
+     *
+     * @returns A stable string used as a salt for cryptographic operations.
+     */
     private getStableSalt(): string {
         const appId = this.context.app.appId;
         if (typeof appId === 'string' && appId) return appId;
@@ -65,6 +90,10 @@ export class KeychainService {
         return salt;
     }
 
+    /**
+     * Checks if native SecretStorage or legacy Keychain is available.
+     * Initializes the storage adapter accordingly.
+     */
     private checkKeychainAvailability(): void {
         const app = this.app;
 
@@ -216,6 +245,12 @@ export class KeychainService {
         return migratedAny;
     }
 
+    /**
+     * Retrieves an API key from secure storage or sync-resilient settings.
+     * Automatically handles decryption and legacy migration.
+     * @param type - The type of API key to retrieve.
+     * @returns A promise resolving to the plaintext API key, or null if not found.
+     */
     async getApiKey(type: ApiKeyType): Promise<string | null> {
         if (!this.dynamicMasterKey) await this.initializeMasterKey();
         if (!this.dynamicMasterKey) return null; // Should not happen
@@ -297,6 +332,12 @@ export class KeychainService {
         return null;
     }
 
+    /**
+     * Persists an API key securely using double-layer encryption.
+     * Saves to both local SecretStorage and sync-resilient data.json.
+     * @param type - The type of API key to store.
+     * @param key - The plaintext API key content.
+     */
     async setApiKey(type: ApiKeyType, key: string): Promise<void> {
         if (!this.dynamicMasterKey) await this.initializeMasterKey();
         if (!this.dynamicMasterKey) throw new Error('Keychain not initialized');
@@ -330,6 +371,10 @@ export class KeychainService {
         }
     }
 
+    /**
+     * Handles encryption/decryption failures by logging errors and flagging corruption.
+     * Triggers the corruption recovery flow.
+     */
     private handleDecryptionFailure(): void {
         HealerLogger.error('Decryption failed with dynamic master key. Key might be lost or corrupted.');
         // This will trigger the ResetKeychainModal via the UI layer or a notification
@@ -375,6 +420,10 @@ export class KeychainService {
         HealerLogger.info('Keychain reset complete. New dynamic key generated.');
     }
 
+    /**
+     * Permanently deletes an API key from all storage locations.
+     * @param type - The type of API key to delete.
+     */
     async deleteApiKey(type: ApiKeyType): Promise<void> {
         const storageKey = `semantic-graph-healer-${type}-key`;
 
