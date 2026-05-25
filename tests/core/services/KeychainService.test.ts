@@ -30,6 +30,9 @@ vi.mock('../../../src/core/utils/CryptoUtils', () => ({
             if (cipher.startsWith('ENC:')) return cipher.slice(4);
             return null;
         }),
+        generateKey: vi.fn(async () => ({ type: 'secret' })),
+        exportKey: vi.fn(async () => JSON.stringify({ kty: 'oct', k: 'mock-key' })),
+        importKey: vi.fn(async (jwk: string) => ({ type: 'secret' })),
     },
 }));
 
@@ -44,7 +47,11 @@ function makePlugin(initial: Record<string, unknown> = {}): {
     settings: Record<string, unknown>;
     saveSettings: ReturnType<typeof vi.fn>;
 } {
-    const settings: Record<string, unknown> = { ...initial };
+    const settings: Record<string, unknown> = {
+        keychainMigrationComplete: false,
+        keychainCorrupted: false,
+        ...initial,
+    };
     const saveSettings = vi.fn(async () => {});
 
     const plugin = {
@@ -60,6 +67,51 @@ function makePlugin(initial: Record<string, unknown> = {}): {
 
 describe('KeychainService', () => {
     afterEach(() => vi.clearAllMocks());
+
+    // ── initializeMasterKey ──────────────────────────────────────────────────
+
+    describe('initializeMasterKey', () => {
+        it('loads key from SecretStorage if available', async () => {
+            const getSecret = vi.fn(async () => '{"kty":"oct","k":"secret-jwk"}');
+            const { plugin } = makePlugin();
+            plugin.app.secretStorage = { getSecret } as any;
+
+            const svc = new KeychainService(plugin);
+            await svc.initializeMasterKey();
+
+            expect(getSecret).toHaveBeenCalledWith('sghealer-masterkey');
+        });
+
+        it('falls back to data.json if SecretStorage is empty', async () => {
+            const getSecret = vi.fn(async () => null);
+            const { plugin, settings } = makePlugin({
+                sghealerMasterKeyJWK: '{"kty":"oct","k":"fallback-jwk"}',
+            });
+            plugin.app.secretStorage = { getSecret } as any;
+
+            const svc = new KeychainService(plugin);
+            await svc.initializeMasterKey();
+
+            expect(getSecret).toHaveBeenCalledWith('sghealer-masterkey');
+            expect(settings['sghealerMasterKeyJWK']).toBe('{"kty":"oct","k":"fallback-jwk"}');
+        });
+
+        it('generates a new key if no key found anywhere', async () => {
+            const setSecret = vi.fn(async () => {});
+            const { plugin, saveSettings, settings } = makePlugin();
+            plugin.app.secretStorage = {
+                getSecret: vi.fn(async () => null),
+                setSecret,
+            } as any;
+
+            const svc = new KeychainService(plugin);
+            await svc.initializeMasterKey();
+
+            expect(setSecret).toHaveBeenCalledWith('sghealer-masterkey', expect.any(String));
+            expect(settings['sghealerMasterKeyJWK']).toBe(JSON.stringify({ kty: 'oct', k: 'mock-key' }));
+            expect(saveSettings).toHaveBeenCalled();
+        });
+    });
 
     // ── deleteApiKey ──────────────────────────────────────────────────────────
 

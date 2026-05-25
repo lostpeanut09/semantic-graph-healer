@@ -1044,9 +1044,3 @@ export class TopologyAnalyzer {
         return await this.crossThematicProvider.getSuggestions();
     }
 }
-unCrossThematicAnalysis(): Promise<Suggestion[]> {
-        return await this.crossThematicProvider.getSuggestions();
-    }
-}
- }
-}

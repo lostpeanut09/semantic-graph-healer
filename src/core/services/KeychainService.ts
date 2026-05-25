@@ -41,7 +41,7 @@ export class KeychainService {
 
     /**
      * Creates a new instance of KeychainService.
-     * 
+     *
      * @param context - The plugin context providing app access and settings.
      */
     constructor(private context: KeychainContext) {
@@ -110,7 +110,7 @@ export class KeychainService {
     /**
      * Initializes the dynamic master key from secure storage or settings fallback.
      * Generates a new key if none exists.
-     * 
+     *
      * @returns A promise that resolves when initialization is complete.
      */
     async initializeMasterKey(): Promise<void> {
@@ -345,7 +345,7 @@ export class KeychainService {
     /**
      * Resets the keychain by clearing all keys and generating a new master key.
      * Used for recovery when the master key is lost or corrupted.
-     * 
+     *
      * @returns A promise that resolves when the reset is complete.
      */
     async resetKeychain(): Promise<void> {
@@ -430,7 +430,7 @@ export class KeychainService {
 
     /**
      * Checks whether the underlying platform provides native secure storage (e.g. Obsidian SecretStorage).
-     * 
+     *
      * @returns True if secure storage is available, false otherwise.
      */
     isSecure(): boolean {

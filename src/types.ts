@@ -16,7 +16,7 @@ export interface ObsidianInternalApp {
     keychain?: unknown;
     plugins: {
         enabledPlugins: Set<string>;
-        getPlugin(name: string): any;
+        getPlugin(name: string): unknown;
         getPlugin(name: 'datacore'): { api: DatacoreApi } | null;
         getPlugin(name: 'dataview'): { api: DataviewApi } | null;
         getPlugin(name: 'breadcrumbs'): { api: BreadcrumbsApi } | null;
