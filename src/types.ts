@@ -9,11 +9,16 @@ export interface ObsidianSecretStorage {
     listSecrets?(): Promise<string[]> | string[];
 }
 
+export interface LegacyKeychain {
+    get(key: string): Promise<string | null> | (string | null);
+    set(key: string, value: string): Promise<void> | void;
+}
+
 export interface ObsidianInternalApp {
     appId?: string;
     settings: SemanticGraphHealerSettings;
     secretStorage?: ObsidianSecretStorage;
-    keychain?: unknown;
+    keychain?: LegacyKeychain;
     plugins: {
         enabledPlugins: Set<string>;
         getPlugin(name: string): unknown;

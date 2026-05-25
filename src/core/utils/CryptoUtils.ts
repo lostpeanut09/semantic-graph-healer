@@ -1,6 +1,6 @@
 /**
  * CryptoUtils
- * 
+ *
  * SOTA 2026 Web Crypto implementation providing AES-256-GCM encryption
  * for local-first security. Designed for mobile and sync compatibility.
  */
@@ -10,7 +10,7 @@ export class CryptoUtils {
 
     /**
      * Derives a stable 256-bit CryptoKey from a master string and salt using PBKDF2.
-     * 
+     *
      * @param master - The master password or secret string.
      * @param salt - The salt used for derivation.
      * @returns A promise resolving to the derived CryptoKey.
@@ -35,7 +35,7 @@ export class CryptoUtils {
 
     /**
      * Generates a new random 256-bit AES-GCM key.
-     * 
+     *
      * @returns A promise resolving to a new extractable CryptoKey.
      */
     public static async generateKey(): Promise<CryptoKey> {
@@ -48,7 +48,7 @@ export class CryptoUtils {
 
     /**
      * Exports a CryptoKey to a JWK (JSON Web Key) string representation.
-     * 
+     *
      * @param key - The CryptoKey to export.
      * @returns A promise resolving to the JWK string.
      */
@@ -59,7 +59,7 @@ export class CryptoUtils {
 
     /**
      * Imports a CryptoKey from its JWK string representation.
-     * 
+     *
      * @param jwk - The JWK string.
      * @returns A promise resolving to the imported CryptoKey.
      */
@@ -74,16 +74,22 @@ export class CryptoUtils {
     /**
      * Encrypts a string using AES-256-GCM.
      * Uses a fresh 12-byte IV for every encryption.
-     * 
+     *
      * @param text - The plaintext to encrypt.
      * @param keyOrMaster - Either an existing CryptoKey or a master string to derive a key from.
-     * @param salt - The salt to use if keyOrMaster is a string.
+     * @param salt - The salt to use if keyOrMaster is a string. Optional if keyOrMaster is a CryptoKey.
      * @returns A promise resolving to a base64 string containing iv + ciphertext.
      * @throws Error if encryption fails.
      */
-    public static async encrypt(text: string, keyOrMaster: string | CryptoKey, salt: string): Promise<string> {
+    public static async encrypt(text: string, keyOrMaster: string | CryptoKey, salt?: string): Promise<string> {
         try {
-            const key = keyOrMaster instanceof CryptoKey ? keyOrMaster : await this.deriveKey(keyOrMaster, salt);
+            let key: CryptoKey;
+            if (keyOrMaster instanceof CryptoKey) {
+                key = keyOrMaster;
+            } else {
+                if (!salt) throw new Error('SALT_REQUIRED_FOR_STRING_KEY');
+                key = await this.deriveKey(keyOrMaster, salt);
+            }
             const iv = crypto.getRandomValues(new Uint8Array(12));
             const encoder = new TextEncoder();
 
@@ -104,23 +110,29 @@ export class CryptoUtils {
 
     /**
      * Decrypts a base64 combined string (iv + ciphertext).
-     * 
+     *
      * @param combinedBase64 - The encrypted base64 string.
      * @param keyOrMaster - Either an existing CryptoKey or a master string to derive a key from.
-     * @param salt - The salt to use if keyOrMaster is a string.
+     * @param salt - The salt to use if keyOrMaster is a string. Optional if keyOrMaster is a CryptoKey.
      * @returns A promise resolving to the decrypted plaintext string or null if decryption fails.
      */
     public static async decrypt(
         combinedBase64: string,
         keyOrMaster: string | CryptoKey,
-        salt: string,
+        salt?: string,
     ): Promise<string | null> {
         try {
             const combined = this.base64ToUint8(combinedBase64);
             const iv = combined.slice(0, 12);
             const ciphertext = combined.slice(12);
 
-            const key = keyOrMaster instanceof CryptoKey ? keyOrMaster : await this.deriveKey(keyOrMaster, salt);
+            let key: CryptoKey;
+            if (keyOrMaster instanceof CryptoKey) {
+                key = keyOrMaster;
+            } else {
+                if (!salt) return null;
+                key = await this.deriveKey(keyOrMaster, salt);
+            }
             const decrypted = await crypto.subtle.decrypt({ name: this.ALGORITHM, iv }, key, ciphertext);
 
             return new TextDecoder().decode(decrypted);
@@ -132,7 +144,7 @@ export class CryptoUtils {
 
     /**
      * Encodes a Uint8Array to a base64 string using chunking to prevent stack overflow.
-     * 
+     *
      * @param u8 - The byte array to encode.
      * @returns The base64 encoded string.
      */
@@ -147,7 +159,7 @@ export class CryptoUtils {
 
     /**
      * Decodes a base64 string to a Uint8Array.
-     * 
+     *
      * @param b64 - The base64 string to decode.
      * @returns The resulting byte array.
      */

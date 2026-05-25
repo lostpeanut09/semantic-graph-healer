@@ -2,7 +2,7 @@ import type { App, EventRef, TAbstractFile } from 'obsidian';
 
 /**
  * ListenerManager
- * 
+ *
  * Manages Obsidian event listeners for metadata and vault changes.
  * Consolidates multiple event sources into a single debounced invalidation signal.
  */
@@ -17,7 +17,7 @@ export class ListenerManager {
 
     /**
      * Creates a new ListenerManager and registers listeners.
-     * 
+     *
      * @param app - The Obsidian App instance.
      * @param onInvalidate - Callback triggered when an invalidation event occurs.
      * @param debounceMs - Milliseconds to wait before firing the callback (default: 250).

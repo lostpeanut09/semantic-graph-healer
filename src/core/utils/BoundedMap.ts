@@ -1,14 +1,14 @@
 /**
  * BoundedMap
- * 
- * An extension of the native Map that implements LRU (Least Recently Used) 
+ *
+ * An extension of the native Map that implements LRU (Least Recently Used)
  * eviction to prevent unlimited memory growth.
- * 
+ *
  * LRU Policy:
  * - Reads (get) move the key to the end (MRU).
  * - Updates (set) move the key to the end.
  * - New insertions (set) evict the oldest entry (the first key) if maxSize is reached.
- * 
+ *
  * @template K - Type of the map keys.
  * @template V - Type of the map values.
  */
@@ -23,7 +23,7 @@ export class BoundedMap<K, V> extends Map<K, V> {
 
     /**
      * Retrieves a value and refreshes its position (Touch-on-get).
-     * 
+     *
      * @param key - The key to retrieve.
      * @returns The value if found, undefined otherwise.
      */
@@ -38,9 +38,9 @@ export class BoundedMap<K, V> extends Map<K, V> {
     }
 
     /**
-     * Sets a value in the map. Triggers eviction of the oldest entry 
+     * Sets a value in the map. Triggers eviction of the oldest entry
      * if size exceeds maxSize and the key is new.
-     * 
+     *
      * @param key - The key to set.
      * @param value - The value to associate with the key.
      * @returns The BoundedMap instance.

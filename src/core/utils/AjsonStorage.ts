@@ -2,10 +2,10 @@ import type { DataAdapter } from 'obsidian';
 
 /**
  * AjsonStorage
- * 
+ *
  * High-performance utility for JSON-per-line (AJSON) persistence.
  * Optimized for large indices (entities, relationships, community reports).
- * Uses an append-only pattern for high-frequency writes and line-by-line 
+ * Uses an append-only pattern for high-frequency writes and line-by-line
  * parsing for memory safety.
  */
 export class AjsonStorage {
@@ -18,7 +18,7 @@ export class AjsonStorage {
     /**
      * Appends a single JSON object as a new line to the file.
      * If the file doesn't exist, it will be created.
-     * 
+     *
      * @param filePath - The path to the AJSON file.
      * @param data - The object to serialize and append.
      * @returns A promise that resolves when the write is complete.
@@ -36,7 +36,7 @@ export class AjsonStorage {
     /**
      * Reads all lines from an AJSON file and parses them into an array of objects.
      * Handles large files by reading the entire content and splitting by line.
-     * 
+     *
      * @template T - The expected type of the parsed objects.
      * @param filePath - The path to the AJSON file.
      * @returns A promise resolving to an array of parsed objects.
@@ -65,9 +65,9 @@ export class AjsonStorage {
 
     /**
      * Upserts an object into an AJSON file based on a specific key.
-     * This operation involves reading the whole file, updating the matching item, 
+     * This operation involves reading the whole file, updating the matching item,
      * and rewriting the entire file. Use sparingly for large files.
-     * 
+     *
      * @param filePath - The path to the AJSON file.
      * @param key - The property name used as a unique identifier for upserting.
      * @param data - The data object containing the key and updated values.

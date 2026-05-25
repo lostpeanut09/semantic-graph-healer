@@ -85,7 +85,7 @@ interface LogEntry {
 
 /**
  * HealerLogger
- * 
+ *
  * Advanced logging utility for the Semantic Graph Healer plugin.
  * Features:
  * - Level-based filtering (debug, info, warn, error).
@@ -106,7 +106,7 @@ export class HealerLogger {
 
     /**
      * Creates a new HealerLogger instance for a specific module.
-     * 
+     *
      * @param module - Name of the module/service being logged.
      * @param plugin - The main Plugin instance.
      * @param settings - Current plugin settings for configuration.
@@ -132,7 +132,7 @@ export class HealerLogger {
 
     /**
      * Configures file-based logging.
-     * 
+     *
      * @param enabled - Whether to write logs to a file.
      * @param path - Optional folder path for logs.
      */
@@ -370,7 +370,7 @@ export class HealerLogger {
 
     /**
      * Logs an error message and extracts error details.
-     * 
+     *
      * @param message - The message text.
      * @param error - Optional error object or context.
      */

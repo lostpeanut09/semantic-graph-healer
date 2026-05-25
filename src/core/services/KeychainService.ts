@@ -145,8 +145,9 @@ export class KeychainService {
     async initializeMasterKey(): Promise<void> {
         const keyName = 'sghealer-masterkey';
         let jwk: string | null = null;
+        let foundInSettings = false;
 
-        // 1. Try to load from SecretStorage
+        // 1. Try to load from SecretStorage (Primary)
         if (this.isSecureStorageAvailable && this.storage) {
             try {
                 jwk = await this.storage.get(keyName);
@@ -156,31 +157,44 @@ export class KeychainService {
             }
         }
 
-        // 2. Try to load from data.json fallback
+        // 2. Try to load from data.json fallback (Secondary/Legacy)
         if (!jwk) {
             jwk = this.context.settings.sghealerMasterKeyJWK || null;
-            if (jwk) HealerLogger.info('Master key found in data.json fallback.');
+            if (jwk) {
+                HealerLogger.info('Master key found in data.json fallback.');
+                foundInSettings = true;
+            }
         }
 
         if (jwk) {
             try {
                 this.dynamicMasterKey = await CryptoUtils.importKey(jwk);
                 HealerLogger.info('Dynamic master key loaded successfully.');
+
+                // Migration: If found in settings but SecureStorage is available, move it and clear settings
+                if (foundInSettings && this.isSecureStorageAvailable && this.storage) {
+                    try {
+                        await this.storage.set(keyName, jwk);
+                        this.context.settings.sghealerMasterKeyJWK = undefined;
+                        await this.context.saveSettings();
+                        HealerLogger.info('Master key migrated from data.json to SecretStorage.');
+                    } catch (e) {
+                        HealerLogger.error('Failed to migrate master key to SecretStorage.', e);
+                    }
+                }
             } catch (e) {
                 HealerLogger.error('Failed to import master key JWK. Key might be corrupted.', e);
-                // Flag corruption to trigger Reset modal in handleDecryptionFailure
                 this.context.settings.keychainCorrupted = true;
                 void this.context.saveSettings();
             }
         }
 
-        // 3. Generate new key if still missing (and not explicitly corrupted)
+        // 3. Generate new key if still missing
         if (!this.dynamicMasterKey && !this.context.settings.keychainCorrupted) {
             HealerLogger.info('No master key found. Generating a new dynamic key.');
             this.dynamicMasterKey = await CryptoUtils.generateKey();
             const exportedJwk = await CryptoUtils.exportKey(this.dynamicMasterKey);
 
-            // Save to SecretStorage
             if (this.isSecureStorageAvailable && this.storage) {
                 try {
                     await this.storage.set(keyName, exportedJwk);
@@ -188,12 +202,12 @@ export class KeychainService {
                 } catch (e) {
                     HealerLogger.error('Failed to save new master key to SecretStorage.', e);
                 }
+            } else {
+                // ONLY save to data.json if NO secure storage is available
+                this.context.settings.sghealerMasterKeyJWK = exportedJwk;
+                await this.context.saveSettings();
+                HealerLogger.warn('Master key saved to unencrypted data.json (No secure storage available).');
             }
-
-            // Save to data.json as fallback
-            this.context.settings.sghealerMasterKeyJWK = exportedJwk;
-            await this.context.saveSettings();
-            HealerLogger.info('New master key saved to data.json fallback.');
         }
     }
 
@@ -256,7 +270,6 @@ export class KeychainService {
         if (!this.dynamicMasterKey) return null; // Should not happen
 
         const storageKey = `semantic-graph-healer-${type}-key`;
-        const appId = this.getStableSalt();
 
         // Attempt 1: Secure Local Storage (Obsidian 1.11.4+)
         if (this.isSecureStorageAvailable && this.storage) {
@@ -265,7 +278,7 @@ export class KeychainService {
                 if (key) {
                     // SOTA 2026: Double-Layer Decryption (mitigate SecretStorage plaintext exploit v1.11.4)
                     if (key.startsWith('enc:')) {
-                        const decrypted = await CryptoUtils.decrypt(key.substring(4), this.dynamicMasterKey, appId);
+                        const decrypted = await CryptoUtils.decrypt(key.substring(4), this.dynamicMasterKey);
                         if (decrypted) return decrypted;
 
                         // Decryption failed but we have data - potential key loss
@@ -283,7 +296,7 @@ export class KeychainService {
         const encrypted = this.context.settings[settingsKey];
         if (encrypted && typeof encrypted === 'string') {
             try {
-                const decrypted = await CryptoUtils.decrypt(encrypted, this.dynamicMasterKey, appId);
+                const decrypted = await CryptoUtils.decrypt(encrypted, this.dynamicMasterKey);
                 if (decrypted) return decrypted;
 
                 // Decryption failed but we have data - potential key loss
@@ -343,21 +356,20 @@ export class KeychainService {
         if (!this.dynamicMasterKey) throw new Error('Keychain not initialized');
 
         const storageKey = `semantic-graph-healer-${type}-key`;
-        const appId = this.getStableSalt();
 
         // 1. Double-Layer Protection: SecretStorage (Local) + AES-256-GCM (Sync)
 
         // A. Secure Local Storage (Obsidian 1.11.4+)
         if (this.isSecureStorageAvailable && this.storage) {
             // FIX: Double-locking encryption layer (Obsidian SecretStorage plaintext bug mitigation)
-            const encryptedForLocal = await CryptoUtils.encrypt(key, this.dynamicMasterKey, appId);
+            const encryptedForLocal = await CryptoUtils.encrypt(key, this.dynamicMasterKey);
             await this.storage.set(storageKey, `enc:${encryptedForLocal}`);
             HealerLogger.info(`API Key ${type} persisted to vault-local SecretStorage (Double-Locked).`);
         }
 
         // B. Sync-Resilient Storage (Encrypted in data.json)
         try {
-            const encrypted = await CryptoUtils.encrypt(key, this.dynamicMasterKey, appId);
+            const encrypted = await CryptoUtils.encrypt(key, this.dynamicMasterKey);
             const settingsKey = `${type}LlmApiKeyEncrypted` as keyof typeof this.context.settings;
 
             // Use double-cast to access dynamic keys not in type's index signature
@@ -401,11 +413,16 @@ export class KeychainService {
         this.context.settings.sghealerMasterKeyJWK = undefined;
         this.context.settings.keychainCorrupted = false;
 
+        const keyName = 'sghealer-masterkey';
+        if (this.isSecureStorageAvailable && this.storage) {
+            await this.storage.delete(keyName);
+        }
+
         // 2. Clear all encrypted keys to avoid confusion
         const types: ApiKeyType[] = ['openai', 'anthropic', 'deepseek', 'infranodus', 'custom'];
         for (const type of types) {
             const settingsKey = `${type}LlmApiKeyEncrypted`;
-            (this.context.settings as unknown)[settingsKey] = undefined;
+            (this.context.settings as unknown as Record<string, unknown>)[settingsKey] = undefined;
 
             const storageKey = `semantic-graph-healer-${type}-key`;
             if (this.isSecureStorageAvailable && this.storage) {

@@ -3,11 +3,11 @@ import { HealerLogger } from './HealerUtils';
 
 /**
  * StructuralCache
- * 
+ *
  * Manages an in-memory cache of structural data with LRU (Least Recently Used) eviction
  * and TTL (Time-To-Live) support. Automatically synchronizes with Obsidian's vault
  * events to invalidate entries when files change, are renamed, or deleted.
- * 
+ *
  * @template T - The type of data stored in the cache.
  */
 export class StructuralCache<T> {
@@ -24,7 +24,7 @@ export class StructuralCache<T> {
 
     /**
      * Creates a new instance of StructuralCache.
-     * 
+     *
      * @param app - The Obsidian App instance.
      * @param options - Cache configuration.
      * @param options.maxNodes - Maximum number of entries before LRU eviction (default: 10000).
@@ -63,7 +63,7 @@ export class StructuralCache<T> {
     /**
      * Retrieves an entry from the cache.
      * Refreshes the entry's position for LRU and checks for expiration.
-     * 
+     *
      * @param path - The file path key.
      * @returns The cached value or undefined if not found or expired.
      */
@@ -87,7 +87,7 @@ export class StructuralCache<T> {
     /**
      * Adds or updates an entry in the cache.
      * Triggers LRU eviction if the cache exceeds maxNodes.
-     * 
+     *
      * @param path - The file path key.
      * @param value - The value to cache.
      */
@@ -109,7 +109,7 @@ export class StructuralCache<T> {
 
     /**
      * Invalidates a specific cache entry or clears the entire cache.
-     * 
+     *
      * @param path - Optional. The file path to invalidate. If omitted, clears all entries.
      */
     public invalidate(path?: string): void {
@@ -122,7 +122,7 @@ export class StructuralCache<T> {
 
     /**
      * Returns statistics about the current cache state.
-     * 
+     *
      * @returns Object containing current size and max limit.
      */
     public getStats() {

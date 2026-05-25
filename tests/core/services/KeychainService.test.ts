@@ -47,29 +47,27 @@ describe('KeychainService', () => {
     });
 
     describe('initializeMasterKey', () => {
-        it('should generate and save a new master key if none exists', async () => {
+        it('should generate and save a new master key to SecretStorage and NOT to data.json if available', async () => {
             mockSecretStorage.getSecret.mockResolvedValue(null);
 
             await service.initializeMasterKey();
 
             expect(mockSecretStorage.setSecret).toHaveBeenCalledWith('sghealer-masterkey', expect.any(String));
+            expect(mockContext.settings.sghealerMasterKeyJWK).toBeUndefined();
+            expect(mockContext.saveSettings).not.toHaveBeenCalled();
+        });
+
+        it('should save to data.json only if SecretStorage is NOT available', async () => {
+            mockApp.secretStorage = null; // Disable secret storage
+            const serviceNoSS = new KeychainService(mockContext);
+
+            await serviceNoSS.initializeMasterKey();
+
             expect(mockContext.settings.sghealerMasterKeyJWK).toBeDefined();
             expect(mockContext.saveSettings).toHaveBeenCalled();
         });
 
-        it('should load an existing master key from SecretStorage', async () => {
-            const key = await CryptoUtils.generateKey();
-            const jwk = await CryptoUtils.exportKey(key);
-            mockSecretStorage.getSecret.mockResolvedValue(jwk);
-
-            await service.initializeMasterKey();
-
-            expect(mockSecretStorage.setSecret).not.toHaveBeenCalled();
-            // @ts-ignore - accessing private member for verification
-            expect(service.dynamicMasterKey).toBeDefined();
-        });
-
-        it('should fallback to data.json if SecretStorage is empty', async () => {
+        it('should migrate master key from data.json to SecretStorage if available', async () => {
             const key = await CryptoUtils.generateKey();
             const jwk = await CryptoUtils.exportKey(key);
             mockSecretStorage.getSecret.mockResolvedValue(null);
@@ -77,8 +75,9 @@ describe('KeychainService', () => {
 
             await service.initializeMasterKey();
 
-            // @ts-ignore
-            expect(service.dynamicMasterKey).toBeDefined();
+            expect(mockSecretStorage.setSecret).toHaveBeenCalledWith('sghealer-masterkey', jwk);
+            expect(mockContext.settings.sghealerMasterKeyJWK).toBeUndefined();
+            expect(mockContext.saveSettings).toHaveBeenCalled();
         });
 
         it('should flag corruption if JWK import fails', async () => {
@@ -109,10 +108,10 @@ describe('KeychainService', () => {
 
             expect(migrated).toBe(true);
             expect(mockContext.settings.keychainMigrationComplete).toBe(true);
-            
+
             // Verify it was re-encrypted with the new key (which we don't know, so we check if it's different)
             expect(mockContext.settings.openaiLlmApiKeyEncrypted).not.toBe(encrypted);
-            
+
             // Verify we can decrypt it with getApiKey
             const retrieved = await service.getApiKey('openai');
             expect(retrieved).toBe(plaintext);
@@ -129,7 +128,7 @@ describe('KeychainService', () => {
             // Should be in SecretStorage with enc: prefix
             expect(mockSecretStorage.setSecret).toHaveBeenCalledWith(
                 'semantic-graph-healer-anthropic-key',
-                expect.stringMatching(/^enc:/)
+                expect.stringMatching(/^enc:/),
             );
 
             // Should be in settings encrypted
@@ -142,12 +141,12 @@ describe('KeychainService', () => {
 
         it('should handle decryption failure by triggering corruption flow', async () => {
             await service.initializeMasterKey();
-            
+
             // Manually corrupt the encrypted value in settings
             mockContext.settings.openaiLlmApiKeyEncrypted = 'short-and-invalid';
 
             const retrieved = await service.getApiKey('openai');
-            
+
             expect(retrieved).toBeNull();
             expect(mockContext.settings.keychainCorrupted).toBe(true);
             expect(mockContext.onCorruptionDetected).toHaveBeenCalled();
@@ -156,14 +155,25 @@ describe('KeychainService', () => {
 
     describe('resetKeychain', () => {
         it('should clear all keys and generate a new master key', async () => {
+            // First initialize
             await service.initializeMasterKey();
-            const originalJWK = mockContext.settings.sghealerMasterKeyJWK;
+            expect(mockSecretStorage.setSecret).toHaveBeenCalledWith('sghealer-masterkey', expect.any(String));
+            const firstKeyJWK = mockSecretStorage.setSecret.mock.calls[0][1];
 
             await service.setApiKey('openai', 'some-key');
-            
+
+            // Reset
+            vi.clearAllMocks();
             await service.resetKeychain();
 
-            expect(mockContext.settings.sghealerMasterKeyJWK).not.toBe(originalJWK);
+            // Should delete old key and set a new one
+            expect(mockSecretStorage.deleteSecret).toHaveBeenCalledWith('sghealer-masterkey');
+            expect(mockSecretStorage.setSecret).toHaveBeenCalledWith('sghealer-masterkey', expect.any(String));
+            const newKeyJWK = mockSecretStorage.setSecret.mock.calls.find(
+                (c: [string, string]) => c[0] === 'sghealer-masterkey',
+            )![1];
+            expect(newKeyJWK).not.toBe(firstKeyJWK);
+
             expect(mockContext.settings.openaiLlmApiKeyEncrypted).toBeUndefined();
             expect(mockSecretStorage.deleteSecret).toHaveBeenCalledWith('semantic-graph-healer-openai-key');
             expect(mockContext.settings.keychainCorrupted).toBe(false);

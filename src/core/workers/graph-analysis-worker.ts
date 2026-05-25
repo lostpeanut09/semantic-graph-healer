@@ -1,6 +1,6 @@
 /**
  * Graph Analysis Worker
- * 
+ *
  * Entry point for the graph analysis web worker.
  * Orchestrates messages between the main thread and the Graph Analysis Core algorithms.
  * Handles progress reporting and result delivery back to the main thread.

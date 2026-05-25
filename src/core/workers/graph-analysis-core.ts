@@ -19,46 +19,49 @@ const EdgeSchema = z.object({
     attributes: z.record(z.string(), z.unknown()).default({}),
 });
 
-const WorkerMessageSchema = z.looseObject({
-    type: z.enum([
-        'PAGERANK',
-        'COMMUNITY',
-        'BETWEENNESS',
-        'FULL_ANALYSIS',
-        'SIMILARITY',
-        'COCITATION',
-        'TOPOLOGY_DIAGNOSTICS',
-    ]),
-    payload: z.object({
-        nodes: z.array(NodeSchema),
-        edges: z.array(EdgeSchema),
-        requestId: z.string(),
-    }),
-    options: z
-        .looseObject({
-            limit: z.number().optional(),
-            minScore: z.number().optional(),
-            weights: z
-                .object({
-                    jaccard: z.number(),
-                    adamicAdar: z.number(),
-                    resourceAllocation: z.number(),
-                })
-                .optional(),
-            fileStats: z.record(z.string(), z.object({ mtime: z.number() })).optional(),
-            edgePolicy: z.enum(['strict', 'tolerant']).optional(),
-            maxEdges: z.number().optional(),
-            maxNodes: z.number().optional(),
-            blackHoleThreshold: z.number().optional(),
-            htrStructuralWeight: z.number().optional(),
-            embeddings: z.record(z.string(), z.array(z.number())).optional(),
-        })
-        .optional(),
-});
+const WorkerMessageSchema = z
+    .object({
+        type: z.enum([
+            'PAGERANK',
+            'COMMUNITY',
+            'BETWEENNESS',
+            'FULL_ANALYSIS',
+            'SIMILARITY',
+            'COCITATION',
+            'TOPOLOGY_DIAGNOSTICS',
+        ]),
+        payload: z.object({
+            nodes: z.array(NodeSchema),
+            edges: z.array(EdgeSchema),
+            requestId: z.string(),
+        }),
+        options: z
+            .object({
+                limit: z.number().optional(),
+                minScore: z.number().optional(),
+                weights: z
+                    .object({
+                        jaccard: z.number(),
+                        adamicAdar: z.number(),
+                        resourceAllocation: z.number(),
+                    })
+                    .optional(),
+                fileStats: z.record(z.string(), z.object({ mtime: z.number() })).optional(),
+                edgePolicy: z.enum(['strict', 'tolerant']).optional(),
+                maxEdges: z.number().optional(),
+                maxNodes: z.number().optional(),
+                blackHoleThreshold: z.number().optional(),
+                htrStructuralWeight: z.number().optional(),
+                embeddings: z.record(z.string(), z.array(z.number())).optional(),
+            })
+            .loose()
+            .optional(),
+    })
+    .loose();
 
 /**
  * WorkerMessage
- * 
+ *
  * Zod-validated schema for messages sent to the Graph Analysis worker.
  * Defines supported analysis types (PAGERANK, COMMUNITY, etc.) and payload structure.
  */
@@ -66,7 +69,7 @@ export type WorkerMessage = z.infer<typeof WorkerMessageSchema>;
 
 /**
  * Calculates cosine similarity between two vectors.
- * 
+ *
  * @param v1 - The first vector.
  * @param v2 - The second vector.
  * @returns The cosine similarity score (0 to 1).
@@ -87,8 +90,8 @@ function cosineSimilarity(v1: number[], v2: number[]): number {
 
 /**
  * ProgressReporter
- * 
- * Interface for reporting progress from long-running worker tasks back 
+ *
+ * Interface for reporting progress from long-running worker tasks back
  * to the main thread.
  */
 export interface ProgressReporter {
@@ -97,7 +100,7 @@ export interface ProgressReporter {
 
 /**
  * Creates a ProgressReporter that sends messages to the postMessage function.
- * 
+ *
  * @param postMessageFn - The function to call for posting worker responses.
  * @returns A ProgressReporter instance.
  */
@@ -130,11 +133,11 @@ const numOpt = (opts: unknown, key: string, fallback: number): number => {
 
 /**
  * handleGraphWorkerMessage
- * 
+ *
  * The main entry point for processing messages in the graph analysis worker.
  * Orchestrates various graph algorithms (Pagerank, Louvain, Betweenness, etc.)
  * with structural validation and size limit enforcement.
- * 
+ *
  * @param message - The raw WorkerMessage from the main thread.
  * @param reporter - Optional ProgressReporter for updates.
  * @returns A WorkerResponse containing the analysis result or an error message.
@@ -286,10 +289,10 @@ interface SimilarityOptions {
 
 /**
  * runSimilarityAnalysis
- * 
- * Performs semantic similarity analysis between nodes in the graph using 
+ *
+ * Performs semantic similarity analysis between nodes in the graph using
  * Jaccard, Adamic-Adar, Resource Allocation, and temporal heuristics.
- * 
+ *
  * @param graph - The DirectedGraph instance.
  * @param options - Similarity options (weights, limits, file stats).
  * @param requestId - Unique ID for the request.
@@ -399,9 +402,9 @@ interface CoCitationOptions {
 
 /**
  * runCoCitationAnalysis
- * 
+ *
  * Identifies nodes that are frequently cited together by other nodes.
- * 
+ *
  * @param graph - The DirectedGraph instance.
  * @param options - Co-citation options (minScore).
  * @param requestId - Unique ID for the request.
@@ -461,9 +464,9 @@ interface TopologyDiagnosticsOptions {
 
 /**
  * runTopologicalDiagnostics
- * 
+ *
  * Analyzes the graph structure to identify bridges, black holes, and cycles.
- * 
+ *
  * @param graph - The DirectedGraph instance.
  * @param options - Diagnostic options (blackHoleThreshold).
  * @param requestId - Unique ID for the request.

@@ -1,6 +1,6 @@
 /**
  * LadybugDB Worker
- * 
+ *
  * Background worker thread for LadybugDB, a WASM-based graph database.
  * Handles schema initialization, Cypher queries, data synchronization,
  * and graph algorithm execution (Pagerank, Louvain) using LadybugDB and Graphology.
@@ -44,7 +44,7 @@ interface IncomingMessage {
 /**
  * Initializes the LadybugDB schema if it's missing or outdated.
  * Creates Metadata, Node, and SemanticLink tables.
- * 
+ *
  * @param conn - The active LadybugDB connection.
  * @returns A promise that resolves when the schema is initialized.
  */

@@ -10,6 +10,7 @@ import { join } from 'pathe';
  * Uses community embeddings to find 'invisible' relationships across the vault.
  */
 export class CrossThematicProvider {
+    /** The filename for community summaries in the GraphRAG index. */
     private readonly summaryFile = 'community_summaries.ajson';
 
     /**

@@ -8,22 +8,41 @@ import { HealerLogger, cosineSimilarity } from '../HealerUtils';
 import { join } from 'pathe';
 import type { Entity } from './EntityExtractor';
 
+/**
+ * Represents the summarized semantic profile of a topological community.
+ */
 export interface CommunitySummary {
+    /** Unique identifier for the community. */
     communityId: number;
+    /** LLM-generated summary of the community's theme. */
     summary: string;
+    /** Vector embedding of the community summary. */
     embedding: number[];
+    /** List of note paths belonging to this community. */
     notes: string[];
+    /** Generation timestamp. */
     timestamp: number;
 }
 
+/**
+ * Represents the result of a GraphRAG query execution.
+ */
 export interface GraphRagResult {
+    /** The LLM-generated response. */
     answer: string;
+    /** The communities that contributed to the context, with relevance scores. */
     communities: (CommunitySummary & { score: number })[];
 }
 
+/**
+ * GraphRagService: Orchestrates community-centric summarization and RAG query execution.
+ */
 export class GraphRagService {
+    /** Filename for community summaries index. */
     private readonly summaryFile = 'community_summaries.ajson';
+    /** Filename for entity index. */
     private readonly entitiesFile = 'entities.ajson';
+    /** Filename for relationship index. */
     private readonly relationshipsFile = 'relationships.ajson';
 
     /**

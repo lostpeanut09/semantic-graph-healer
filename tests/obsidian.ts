@@ -129,7 +129,7 @@ export class ButtonComponent {
     setCta() {
         return this;
     }
-    onClick(cb: (evt: MouseEvent) => any) {
+    onClick(cb: (evt: MouseEvent) => unknown) {
         this.buttonEl.addEventListener('click', cb);
         return this;
     }
@@ -159,7 +159,7 @@ export class TextComponent {
         this.inputEl.placeholder = text;
         return this;
     }
-    onChange(cb: (val: string) => any) {
+    onChange(cb: (val: string) => unknown) {
         this.inputEl.addEventListener('input', () => cb(this.inputEl.value));
         return this;
     }
@@ -183,7 +183,11 @@ if (typeof HTMLElement !== 'undefined') {
         return div;
     };
     // @ts-ignore
-    HTMLElement.prototype.createEl = function (this: HTMLElement, tag: string, options?: { cls?: string; text?: string }) {
+    HTMLElement.prototype.createEl = function (
+        this: HTMLElement,
+        tag: string,
+        options?: { cls?: string; text?: string },
+    ) {
         const el = document.createElement(tag);
         if (options?.cls) el.className = options.cls;
         if (options?.text) el.textContent = options.text;

@@ -3,8 +3,8 @@ import type { ForceGraphNode, ForceGraphLink, ForceGraphData } from '../../types
 
 /**
  * GraphMapper
- * 
- * Provides utilities for mapping internal Graphology structures to 
+ *
+ * Provides utilities for mapping internal Graphology structures to
  * external visualization formats.
  */
 

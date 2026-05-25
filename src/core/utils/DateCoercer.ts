@@ -2,10 +2,10 @@ import { isRecord } from './DatacoreUtils';
 
 /**
  * coerceToMillis
- * 
+ *
  * Coerces unknown values (number, Date, or Luxon DateTime) to milliseconds without
  * requiring a runtime dependency on Luxon.
- * 
+ *
  * @param v - The value to coerce.
  * @returns The timestamp in milliseconds or null if coercion fails.
  */
@@ -27,10 +27,10 @@ export function coerceToMillis(v: unknown): number | null {
 
 /**
  * coerceToStartOfDay
- * 
+ *
  * Truncate a date to midnight while preserving Luxon identity when possible.
  * Fallback to native Date if Luxon is not available.
- * 
+ *
  * @param v - The date value to truncate.
  * @param fallbackMillis - Fallback timestamp if v is invalid.
  * @returns A Luxon DateTime object or native Date at the start of the day.
@@ -62,10 +62,10 @@ export function coerceToStartOfDay(v: unknown, fallbackMillis: number): unknown 
 
 /**
  * coerceToDateTime
- * 
+ *
  * Preserves Luxon identity for "Date with Time" objects when possible.
  * Handles strings, numbers, and native Date objects.
- * 
+ *
  * @param v - The value to convert to a date/time object.
  * @param fallbackMillis - Fallback timestamp if conversion fails.
  * @param dv - Optional Dataview API for its specialized date parsing.
@@ -110,10 +110,10 @@ export function coerceToDateTime(
 
 /**
  * normalizeStrictDateString
- * 
+ *
  * Strict Date Parsing aligned with Dataview inference.
  * Supports YYYYMMDD, YYYY-MM-DD, and ISO8601 strings.
- * 
+ *
  * @param value - The raw date string.
  * @returns A normalized YYYY-MM-DD or ISO string, or null if invalid.
  */
@@ -131,10 +131,10 @@ export function normalizeStrictDateString(value: string): string | null {
 
 /**
  * parseDateStrict
- * 
- * Comprehensive date parser that attempts to resolve unknown values into 
+ *
+ * Comprehensive date parser that attempts to resolve unknown values into
  * date objects using various available APIs (Datacore, Dataview, Native).
- * 
+ *
  * @param value - The value to parse.
  * @param dcApi - Datacore API instance for coercion.
  * @param dvApi - Dataview API instance for parsing.

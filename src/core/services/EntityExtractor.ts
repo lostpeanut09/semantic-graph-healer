@@ -4,16 +4,29 @@ import type { LlmService } from '../LlmService';
 import type { AjsonStorage } from '../utils/AjsonStorage';
 import { HealerLogger } from '../HealerUtils';
 
+/**
+ * Represents a semantic entity extracted from a note.
+ */
 export interface Entity {
+    /** The name of the entity (e.g., 'Albert Einstein'). */
     name: string;
+    /** The semantic category of the entity. */
     type: 'Person' | 'Project' | 'Concept' | 'Organization' | 'Technology' | 'Location';
+    /** The path to the Obsidian note from which this entity was extracted. */
     notePath: string;
 }
 
+/**
+ * Represents a semantic relationship between two entities.
+ */
 interface Relationship {
+    /** The name of the source entity. */
     source: string;
+    /** The name of the target entity. */
     target: string;
+    /** The nature of the relationship (e.g., 'works_on', 'born_in'). */
     type: string;
+    /** The path to the Obsidian note from which this relationship was extracted. */
     notePath: string;
 }
 
@@ -23,6 +36,7 @@ interface Relationship {
  * Persists data to AJSON storage for scalability.
  */
 export class EntityExtractor {
+    /** Flag indicating whether an indexing operation is currently in progress. */
     private isIndexing = false;
 
     /**

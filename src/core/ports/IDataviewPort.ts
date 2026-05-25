@@ -2,14 +2,14 @@ import type { DataviewApi, DataviewPage } from '../../types';
 
 /**
  * IDataviewPort
- * 
+ *
  * Port abstraction for the Dataview integration layer.
  * Defines the contract for querying and interacting with Dataview metadata.
  */
 export interface IDataviewPort {
     /**
      * Retrieves the Dataview page object for a specific file.
-     * 
+     *
      * @param path - The absolute path of the note.
      * @returns The DataviewPage object or null if not found.
      */
@@ -22,7 +22,7 @@ export interface IDataviewPort {
 
     /**
      * Executes an asynchronous Dataview query.
-     * 
+     *
      * @param query - The DQL query string.
      * @returns A promise resolving to an array of DataviewPage objects.
      */
@@ -30,7 +30,7 @@ export interface IDataviewPort {
 
     /**
      * Executes a synchronous Dataview query.
-     * 
+     *
      * @param query - The DQL query string.
      * @returns An array of DataviewPage objects.
      */
@@ -38,7 +38,7 @@ export interface IDataviewPort {
 
     /**
      * Retrieves paths of notes that link to the specified note.
-     * 
+     *
      * @param path - The target note path.
      * @returns Array of source paths.
      */
@@ -46,14 +46,14 @@ export interface IDataviewPort {
 
     /**
      * Provides access to the raw Dataview API if available.
-     * 
+     *
      * @returns The DataviewApi instance or null if not installed/enabled.
      */
     getDataviewApi(): DataviewApi | null;
 
     /**
      * Invalidates cached data for the given path.
-     * 
+     *
      * @param path - Optional. The file path to invalidate. If omitted, clears all entries.
      */
     invalidate(path?: string): void;
