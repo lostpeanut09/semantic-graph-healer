@@ -43,12 +43,15 @@
       type="text" 
       bind:value={query} 
       placeholder="Ask a global question about your vault..." 
+      aria-label="Ask a global question about your vault"
+      disabled={loading}
       style="flex-grow: 1;"
       onkeydown={(e) => e.key === 'Enter' && handleSearch()}
     />
     <button 
       class="mod-cta" 
       disabled={loading} 
+      aria-busy={loading}
       onclick={handleSearch}
     >
       {loading ? 'Searching...' : 'Search'}
