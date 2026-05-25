@@ -3,6 +3,9 @@ import { Platform, App } from 'obsidian';
 import type { SemanticGraphHealerSettings } from '../../types';
 import PQueue from 'p-queue';
 
+/**
+ * Supported graph analysis algorithms and operations executed in the worker.
+ */
 type AnalysisType =
     | 'PAGERANK'
     | 'COMMUNITY'
@@ -12,20 +15,38 @@ type AnalysisType =
     | 'SIMILARITY'
     | 'TOPOLOGY_DIAGNOSTICS';
 
+/**
+ * Partial plugin context required by the worker service.
+ */
 interface PluginWithSettings {
+    /** Plugin manifest providing access to the installation directory. */
     manifest: { dir?: string };
+    /** Reference to the Obsidian App instance. */
     app: App;
+    /** Current plugin settings. */
     settings: SemanticGraphHealerSettings;
 }
 
+/**
+ * Service responsible for managing the background Web Worker for heavy graph computations.
+ * Offloads compute-intensive tasks (like PageRank, communities, topological diagnostics)
+ * off the main UI thread to maintain Obsidian's responsiveness.
+ */
 export class GraphWorkerService {
+    /** The active Web Worker instance. */
     private worker: Worker | null = null;
+    /** The temporary Object URL created for the worker script. */
     private workerUrl: string | null = null; // Store for memory revocation
+    /** The logger instance. */
     private logger: HealerLogger;
+    /** The plugin instance providing access to the app, manifest, and settings. */
     private plugin: PluginWithSettings;
+    /** Priority queue for sequential analysis task execution. */
     private queue: PQueue;
 
+    /** Promise used to synchronize concurrent initialization calls. */
     private initPromise: Promise<void> | null = null;
+    /** Registry of pending requests waiting for worker response. */
     private pendingCallbacks: Map<
         string,
         {
@@ -34,14 +55,27 @@ export class GraphWorkerService {
             timeoutId?: ReturnType<typeof setTimeout>;
         }
     > = new Map();
+    /** Incrementing counter for generating unique request IDs. */
     private requestId: number = 0;
 
+    /**
+     * Creates a new instance of GraphWorkerService.
+     *
+     * @param logger - The logger instance.
+     * @param plugin - The plugin instance providing access to the app, manifest, and settings.
+     */
     constructor(logger: HealerLogger, plugin: PluginWithSettings) {
         this.plugin = plugin;
         this.logger = logger;
         this.queue = new PQueue({ concurrency: 1 });
     }
 
+    /**
+     * Initializes the Web Worker if it hasn't been initialized yet.
+     * On mobile platforms, initialization is skipped to prevent crashes.
+     *
+     * @returns A promise that resolves when the worker is initialized or gracefully degraded.
+     */
     async initialize(): Promise<void> {
         if (this.worker) {
             this.logger.warn('Worker already initialized');
@@ -93,6 +127,12 @@ export class GraphWorkerService {
         return this.initPromise;
     }
 
+    /**
+     * Processes messages received from the Web Worker.
+     * Matches results to pending requests and handles progress/error updates.
+     *
+     * @param e - The MessageEvent from the worker.
+     */
     private handleWorkerMessage(e: MessageEvent): void {
         const data = e.data as {
             type: string;
@@ -122,6 +162,12 @@ export class GraphWorkerService {
         }
     }
 
+    /**
+     * Handles fatal errors from the Web Worker.
+     * Rejects all pending requests and terminates the worker.
+     *
+     * @param e - The ErrorEvent from the worker.
+     */
     private handleWorkerError(e: ErrorEvent): void {
         this.logger.error('Worker error:', {
             message: e.message,
@@ -140,6 +186,17 @@ export class GraphWorkerService {
         this.terminate();
     }
 
+    /**
+     * Submits an analysis task to the Web Worker for background processing.
+     * Tasks are queued and executed with a concurrency of 1.
+     *
+     * @param type - The type of graph analysis to run (e.g., PAGERANK, COMMUNITY).
+     * @param nodes - Array of nodes to process.
+     * @param edges - Array of edges to process.
+     * @param options - Additional options for the analysis type.
+     * @returns A promise resolving to the generic result type `T`.
+     * @throws {Error} If the worker is not initialized or if the analysis times out.
+     */
     async runAnalysis<T = unknown>(
         type: AnalysisType,
         nodes: Array<{ key: string; attributes: Record<string, unknown> }>,
@@ -183,6 +240,10 @@ export class GraphWorkerService {
         );
     }
 
+    /**
+     * Terminate the worker and clear all pending requests.
+     * Revokes the blob URL to free memory.
+     */
     terminate(): void {
         this.queue.clear();
         // MED-1: reject pending callers before clearing — prevents hanging promise chains
@@ -204,6 +265,9 @@ export class GraphWorkerService {
         }
     }
 
+    /**
+     * Completely shuts down the worker service.
+     */
     destroy(): void {
         this.terminate();
         this.logger.info('GraphWorkerService destroyed');

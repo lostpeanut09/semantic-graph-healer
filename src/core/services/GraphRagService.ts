@@ -8,24 +8,52 @@ import { HealerLogger, cosineSimilarity } from '../HealerUtils';
 import { join } from 'pathe';
 import type { Entity } from './EntityExtractor';
 
+/**
+ * Represents the summarized semantic profile of a topological community.
+ */
 export interface CommunitySummary {
+    /** Unique identifier for the community. */
     communityId: number;
+    /** LLM-generated summary of the community's theme. */
     summary: string;
+    /** Vector embedding of the community summary. */
     embedding: number[];
+    /** List of note paths belonging to this community. */
     notes: string[];
+    /** Generation timestamp. */
     timestamp: number;
 }
 
+/**
+ * Represents the result of a GraphRAG query execution.
+ */
 export interface GraphRagResult {
+    /** The LLM-generated response. */
     answer: string;
+    /** The communities that contributed to the context, with relevance scores. */
     communities: (CommunitySummary & { score: number })[];
 }
 
+/**
+ * GraphRagService: Orchestrates community-centric summarization and RAG query execution.
+ */
 export class GraphRagService {
+    /** Filename for community summaries index. */
     private readonly summaryFile = 'community_summaries.ajson';
+    /** Filename for entity index. */
     private readonly entitiesFile = 'entities.ajson';
+    /** Filename for relationship index. */
     private readonly relationshipsFile = 'relationships.ajson';
 
+    /**
+     * Initializes the GraphRagService.
+     * @param graphEngine - The graph engine used for topology analysis.
+     * @param llmService - Service for LLM communication.
+     * @param embeddingService - Service for generating vector embeddings.
+     * @param storage - Storage service for persisting summaries and entities.
+     * @param adapter - Obsidian data adapter for file system operations.
+     * @param settings - Plugin settings.
+     */
     constructor(
         private graphEngine: GraphEngine,
         private llmService: LlmService,
@@ -37,6 +65,7 @@ export class GraphRagService {
 
     /**
      * Builds the community-centric summarization and vector indexing pipeline.
+     * @returns A promise that resolves when community indexing is complete.
      */
     public async indexCommunities(): Promise<void> {
         HealerLogger.info('GraphRagService: Starting community indexing...');
@@ -93,6 +122,8 @@ export class GraphRagService {
 
     /**
      * Executes a context-aware RAG query using community and entity indices.
+     * @param queryText - The user's query string.
+     * @returns A promise resolving to the RAG result containing the answer and related communities.
      */
     public async query(queryText: string): Promise<GraphRagResult> {
         HealerLogger.info(`GraphRagService: Executing RAG query: "${queryText}"`);

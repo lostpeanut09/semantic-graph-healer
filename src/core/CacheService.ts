@@ -45,6 +45,10 @@ export class CacheService {
     private _cacheFilePath: string;
     private _savePromise: Promise<void> = Promise.resolve();
 
+    /**
+     * Initializes the CacheService.
+     * @param plugin - The Obsidian plugin instance.
+     */
     constructor(private plugin: Plugin) {
         const manifest = plugin.manifest as { dir?: string; id?: string };
         const pluginDir = manifest.dir ?? `.obsidian/plugins/${manifest.id ?? 'semantic-graph-healer'}`;
@@ -53,26 +57,50 @@ export class CacheService {
 
     // ─── Public Accessors ───────────────────────────────────────────────────────
 
+    /**
+     * Gets the list of pending suggestions.
+     * @returns Array of pending suggestions.
+     */
     get suggestions(): Suggestion[] {
         return this._cache.pendingSuggestions;
     }
 
+    /**
+     * Sets the list of pending suggestions.
+     * @param value - Array of pending suggestions.
+     */
     set suggestions(value: Suggestion[]) {
         this._cache.pendingSuggestions = value;
     }
 
+    /**
+     * Gets the history items.
+     * @returns Array of history items.
+     */
     get history(): HistoryItem[] {
         return this._cache.history;
     }
 
+    /**
+     * Gets the topological metrics scores.
+     * @returns The topological metrics.
+     */
     get topologicalScores(): TopologicalMetrics {
         return this._cache.topologicalScores;
     }
 
+    /**
+     * Sets the topological metrics scores.
+     * @param value - The topological metrics.
+     */
     set topologicalScores(value: TopologicalMetrics) {
         this._cache.topologicalScores = value;
     }
 
+    /**
+     * Gets the stored vector embeddings.
+     * @returns A record of note paths to embeddings and their hashes.
+     */
     get vectorEmbeddings(): Record<string, { vector: number[]; hash: string }> {
         return this._cache.vectorEmbeddings;
     }
@@ -82,6 +110,9 @@ export class CacheService {
     /**
      * Load cache from disk. On first run, transparently migrates data from
      * data.json (legacy location) if present.
+     * @param legacySettings - Optional legacy settings to migrate from.
+     * @returns A promise that resolves when loading is complete.
+     * @throws Error if loading fails.
      */
     async load(legacySettings?: { pendingSuggestions?: Suggestion[]; history?: HistoryItem[] }): Promise<void> {
         try {
@@ -149,6 +180,7 @@ export class CacheService {
     /**
      * Immediate save. Uses atomic write pattern (temp + rename) and
      * single-writer promise chain to ensure consistency.
+     * @returns A promise that resolves when the save is complete.
      */
     async saveImmediate(): Promise<void> {
         // Linear writing: each save waits for the previous one
@@ -188,6 +220,9 @@ export class CacheService {
 
     /**
      * Retrieves a stored embedding for a note if the hash matches.
+     * @param notePath - The path to the note.
+     * @param contentHash - The hash of the note content.
+     * @returns The embedding vector if found and hash matches, null otherwise.
      */
     getStoredEmbedding(notePath: string, contentHash: string): number[] | null {
         const entry = this._cache.vectorEmbeddings[notePath];
@@ -199,6 +234,9 @@ export class CacheService {
 
     /**
      * Stores an embedding for a note with its content hash.
+     * @param notePath - The path to the note.
+     * @param vector - The embedding vector.
+     * @param contentHash - The hash of the note content.
      */
     storeEmbedding(notePath: string, vector: number[], contentHash: string): void {
         this._cache.vectorEmbeddings[notePath] = { vector, hash: contentHash };
@@ -207,6 +245,7 @@ export class CacheService {
 
     /**
      * Push a history entry and trigger a debounced save.
+     * @param item - The history item to add.
      */
     pushHistory(item: HistoryItem): void {
         this._cache.history.push(item);
@@ -215,6 +254,7 @@ export class CacheService {
 
     /**
      * Cleanup: flush pending writes on plugin unload.
+     * @returns A promise that resolves when cleanup is complete.
      */
     async destroy(): Promise<void> {
         if (this._saveTimer) {

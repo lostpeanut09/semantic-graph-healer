@@ -1,3 +1,5 @@
+import { vi } from 'vitest';
+
 export class App {}
 export class EventRef {}
 export class TAbstractFile {}
@@ -17,12 +19,14 @@ export class PluginSettingTab {
     hide() {}
 }
 export class Notice {
-    noticeEl: unknown;
-    constructor(msg: unknown, duration?: number) {
+    noticeEl: HTMLElement;
+    constructor(msg: string, duration?: number) {
         this.noticeEl = document.createElement('div');
+        Notice.recordCall(msg, duration);
     }
     setMessage() {}
     hide() {}
+    static recordCall = vi.fn();
 }
 export const parseLinktext = (linktext: string) => {
     const [path, subpath] = linktext.split('#');
@@ -92,10 +96,12 @@ export class Setting {
     addSlider() {
         return this;
     }
-    addText() {
+    addText(cb: (text: unknown) => unknown) {
+        cb(new TextComponent(this.settingEl));
         return this;
     }
-    addButton() {
+    addButton(cb: (btn: ButtonComponent) => unknown) {
+        cb(new ButtonComponent(this.settingEl));
         return this;
     }
     setHeading() {
@@ -112,14 +118,19 @@ export class Setting {
     }
 }
 export class ButtonComponent {
-    constructor(containerEl: HTMLElement) {}
-    setButtonText() {
+    public buttonEl: HTMLButtonElement;
+    constructor(containerEl: HTMLElement) {
+        this.buttonEl = containerEl.appendChild(document.createElement('button'));
+    }
+    setButtonText(text: string) {
+        this.buttonEl.textContent = text;
         return this;
     }
     setCta() {
         return this;
     }
-    onClick() {
+    onClick(cb: (evt: MouseEvent) => unknown) {
+        this.buttonEl.addEventListener('click', cb);
         return this;
     }
     setDisabled() {
@@ -132,6 +143,27 @@ export class ButtonComponent {
         return this;
     }
     setTooltip() {
+        return this;
+    }
+}
+export class TextComponent {
+    public inputEl: HTMLInputElement;
+    constructor(containerEl: HTMLElement) {
+        this.inputEl = containerEl.appendChild(document.createElement('input'));
+    }
+    setValue(val: string) {
+        this.inputEl.value = val;
+        return this;
+    }
+    setPlaceholder(text: string) {
+        this.inputEl.placeholder = text;
+        return this;
+    }
+    onChange(cb: (val: string) => unknown) {
+        this.inputEl.addEventListener('input', () => cb(this.inputEl.value));
+        return this;
+    }
+    setDisabled() {
         return this;
     }
 }
@@ -149,5 +181,17 @@ if (typeof HTMLElement !== 'undefined') {
         if (options?.text) div.textContent = options.text;
         this.appendChild(div);
         return div;
+    };
+    // @ts-ignore
+    HTMLElement.prototype.createEl = function (
+        this: HTMLElement,
+        tag: string,
+        options?: { cls?: string; text?: string },
+    ) {
+        const el = document.createElement(tag);
+        if (options?.cls) el.className = options.cls;
+        if (options?.text) el.textContent = options.text;
+        this.appendChild(el);
+        return el;
     };
 }

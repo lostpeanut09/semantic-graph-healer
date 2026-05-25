@@ -86,9 +86,18 @@ function createLargeMockContext(numNodes: number, edgesPerNode: number) {
     };
 }
 
+function getNumFilesArg(fallback: number): number {
+    const arg = process.argv.find((a) => a.startsWith('--num-files='));
+    if (arg) {
+        const val = parseInt(arg.split('=')[1]);
+        if (!isNaN(val)) return val;
+    }
+    return fallback;
+}
+
 describe('Performance Benchmarks (Manual)', () => {
     test('measure buildGraph latency', async () => {
-        const LARGE_VAULT_SIZE = 1000;
+        const LARGE_VAULT_SIZE = getNumFilesArg(1000);
         const context = createLargeMockContext(LARGE_VAULT_SIZE, 3);
         const graphEngine = new GraphEngine(context as any);
 
@@ -103,7 +112,7 @@ describe('Performance Benchmarks (Manual)', () => {
     });
 
     test('measure deterministic analysis latency', async () => {
-        const VAULT_SIZE = 500;
+        const VAULT_SIZE = getNumFilesArg(500);
         const context = createLargeMockContext(VAULT_SIZE, 2);
         const topologyAnalyzer = new TopologyAnalyzer(
             context as any,
