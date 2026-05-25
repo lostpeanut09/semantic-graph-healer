@@ -83,6 +83,17 @@ interface LogEntry {
     data?: unknown;
 }
 
+/**
+ * HealerLogger
+ * 
+ * Advanced logging utility for the Semantic Graph Healer plugin.
+ * Features:
+ * - Level-based filtering (debug, info, warn, error).
+ * - Circular in-memory buffer for exportable logs.
+ * - Secure logging: masks sensitive keys and patterns (API keys, tokens, JWT).
+ * - Control character neutralization to prevent log injection.
+ * - Persistent file logging with size-based rotation and auto-disable on failure.
+ */
 export class HealerLogger {
     private module: string;
     private plugin: Plugin;
@@ -93,6 +104,13 @@ export class HealerLogger {
     private fileWriteFailures: number = 0;
     private logFilePath: string = 'SemanticGraphHealer/logs';
 
+    /**
+     * Creates a new HealerLogger instance for a specific module.
+     * 
+     * @param module - Name of the module/service being logged.
+     * @param plugin - The main Plugin instance.
+     * @param settings - Current plugin settings for configuration.
+     */
     constructor(module: string, plugin: Plugin, settings: SemanticGraphHealerSettings) {
         this.module = module;
         this.plugin = plugin;
@@ -104,10 +122,20 @@ export class HealerLogger {
         }
     }
 
+    /**
+     * Updates the active log level.
+     * @param level - The new LogLevel.
+     */
     setLevel(level: LogLevel): void {
         if (this.settings) this.settings.logLevel = level;
     }
 
+    /**
+     * Configures file-based logging.
+     * 
+     * @param enabled - Whether to write logs to a file.
+     * @param path - Optional folder path for logs.
+     */
     setFileLogging(enabled: boolean, path?: string): void {
         this.fileLoggingEnabled = enabled;
         if (path) {
@@ -313,28 +341,56 @@ export class HealerLogger {
         void this.writeToFile(entry);
     }
 
+    /**
+     * Logs a debug message.
+     * @param message - The message text.
+     * @param data - Optional data object to stringify.
+     */
     debug(message: string, data?: unknown): void {
         this.log('debug', message, data);
     }
 
+    /**
+     * Logs an info message.
+     * @param message - The message text.
+     * @param data - Optional data object to stringify.
+     */
     info(message: string, data?: unknown): void {
         this.log('info', message, data);
     }
 
+    /**
+     * Logs a warning message.
+     * @param message - The message text.
+     * @param data - Optional data object to stringify.
+     */
     warn(message: string, data?: unknown): void {
         this.log('warn', message, data);
     }
 
+    /**
+     * Logs an error message and extracts error details.
+     * 
+     * @param message - The message text.
+     * @param error - Optional error object or context.
+     */
     error(message: string, error?: unknown): void {
         const errorData =
             error instanceof Error ? { message: error.message, stack: error.stack, name: error.name } : error;
         this.log('error', message, errorData);
     }
 
+    /**
+     * Exports all logs currently in the buffer as a single string.
+     * @returns A multi-line string of formatted logs.
+     */
     exportLogs(): string {
         return this.logBuffer.map((entry) => this.formatLogLine(entry)).join('\n');
     }
 
+    /**
+     * Clears the in-memory log buffer.
+     */
     clearBuffer(): void {
         const prevSize = this.logBuffer.length;
         this.logBuffer = [];
@@ -368,6 +424,10 @@ export class HealerLogger {
         }
     }
 
+    /**
+     * Retrieves statistics about the current log buffer.
+     * @returns Object with total count and counts per level.
+     */
     getStats(): { total: number; byLevel: Record<LogLevel, number> } {
         const stats = {
             total: this.logBuffer.length,

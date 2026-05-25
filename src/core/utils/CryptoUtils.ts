@@ -1,14 +1,19 @@
 /**
- * CryptoUtils: AES-256-GCM encryption for local-first security.
- * SOTA 2026 Web Crypto Implementation.
- * Ensuring mobile & sync compatibility by using app.appId as salt.
+ * CryptoUtils
+ * 
+ * SOTA 2026 Web Crypto implementation providing AES-256-GCM encryption
+ * for local-first security. Designed for mobile and sync compatibility.
  */
 export class CryptoUtils {
     private static readonly ALGORITHM = 'AES-GCM';
     private static readonly KEY_LENGTH = 256;
 
     /**
-     * Derives a stable 256-bit key from a salt and a master string.
+     * Derives a stable 256-bit CryptoKey from a master string and salt using PBKDF2.
+     * 
+     * @param master - The master password or secret string.
+     * @param salt - The salt used for derivation.
+     * @returns A promise resolving to the derived CryptoKey.
      */
     private static async deriveKey(master: string, salt: string): Promise<CryptoKey> {
         const encoder = new TextEncoder();
@@ -30,6 +35,8 @@ export class CryptoUtils {
 
     /**
      * Generates a new random 256-bit AES-GCM key.
+     * 
+     * @returns A promise resolving to a new extractable CryptoKey.
      */
     public static async generateKey(): Promise<CryptoKey> {
         return await crypto.subtle.generateKey(
@@ -40,7 +47,10 @@ export class CryptoUtils {
     }
 
     /**
-     * Exports a CryptoKey to a JWK string.
+     * Exports a CryptoKey to a JWK (JSON Web Key) string representation.
+     * 
+     * @param key - The CryptoKey to export.
+     * @returns A promise resolving to the JWK string.
      */
     public static async exportKey(key: CryptoKey): Promise<string> {
         const jwk = await crypto.subtle.exportKey('jwk', key);
@@ -48,7 +58,10 @@ export class CryptoUtils {
     }
 
     /**
-     * Imports a CryptoKey from a JWK string.
+     * Imports a CryptoKey from its JWK string representation.
+     * 
+     * @param jwk - The JWK string.
+     * @returns A promise resolving to the imported CryptoKey.
      */
     public static async importKey(jwk: string): Promise<CryptoKey> {
         const jwkObj = JSON.parse(jwk) as JsonWebKey;
@@ -60,7 +73,13 @@ export class CryptoUtils {
 
     /**
      * Encrypts a string using AES-256-GCM.
-     * Returns: base64(iv + ciphertext)
+     * Uses a fresh 12-byte IV for every encryption.
+     * 
+     * @param text - The plaintext to encrypt.
+     * @param keyOrMaster - Either an existing CryptoKey or a master string to derive a key from.
+     * @param salt - The salt to use if keyOrMaster is a string.
+     * @returns A promise resolving to a base64 string containing iv + ciphertext.
+     * @throws Error if encryption fails.
      */
     public static async encrypt(text: string, keyOrMaster: string | CryptoKey, salt: string): Promise<string> {
         try {
@@ -84,7 +103,12 @@ export class CryptoUtils {
     }
 
     /**
-     * Decrypts a base64 combined string.
+     * Decrypts a base64 combined string (iv + ciphertext).
+     * 
+     * @param combinedBase64 - The encrypted base64 string.
+     * @param keyOrMaster - Either an existing CryptoKey or a master string to derive a key from.
+     * @param salt - The salt to use if keyOrMaster is a string.
+     * @returns A promise resolving to the decrypted plaintext string or null if decryption fails.
      */
     public static async decrypt(
         combinedBase64: string,
@@ -107,7 +131,10 @@ export class CryptoUtils {
     }
 
     /**
-     * SOTA 2026: Chunked base64 encoding to prevent stack overflow.
+     * Encodes a Uint8Array to a base64 string using chunking to prevent stack overflow.
+     * 
+     * @param u8 - The byte array to encode.
+     * @returns The base64 encoded string.
      */
     private static uint8ToBase64(u8: Uint8Array): string {
         const CHUNK_SIZE = 0x8000; // 32KB
@@ -119,7 +146,10 @@ export class CryptoUtils {
     }
 
     /**
-     * Robust base64 decoding.
+     * Decodes a base64 string to a Uint8Array.
+     * 
+     * @param b64 - The base64 string to decode.
+     * @returns The resulting byte array.
      */
     private static base64ToUint8(b64: string): Uint8Array {
         const binary = atob(b64);
