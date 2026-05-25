@@ -13,6 +13,13 @@ export class PerformanceService {
     private logger: HealerLogger;
     private _performanceMode: 'Standard' | 'Safety' = 'Standard';
 
+    /**
+     * Initializes the PerformanceService.
+     *
+     * @param app - The Obsidian App instance.
+     * @param settings - The plugin settings.
+     * @param logger - The logger instance.
+     */
     constructor(app: App, settings: SemanticGraphHealerSettings, logger: HealerLogger) {
         this.app = app;
         this.settings = settings;
@@ -21,6 +28,8 @@ export class PerformanceService {
 
     /**
      * The current performance mode.
+     *
+     * @returns The active performance mode ('Standard' or 'Safety').
      */
     get performanceMode(): 'Standard' | 'Safety' {
         return this._performanceMode;
@@ -29,6 +38,8 @@ export class PerformanceService {
     /**
      * Re-evaluates the performance mode based on vault size, platform, and settings.
      * Transitions the state machine and logs the outcome.
+     *
+     * @returns The newly evaluated performance mode.
      */
     reEvaluate(): 'Standard' | 'Safety' {
         if (!this.settings.enableSafetyMode) {
@@ -68,6 +79,8 @@ export class PerformanceService {
 
     /**
      * Returns true if Safety Mode is currently active.
+     *
+     * @returns True if the performance mode is 'Safety', false otherwise.
      */
     isSafetyModeActive(): boolean {
         return this._performanceMode === 'Safety';
@@ -75,6 +88,8 @@ export class PerformanceService {
 
     /**
      * Returns recommended batch size for operations based on current mode.
+     *
+     * @returns The recommended batch size.
      */
     getRecommendedBatchSize(): number {
         return this._performanceMode === 'Safety' ? 10 : 50;
@@ -82,6 +97,8 @@ export class PerformanceService {
 
     /**
      * Returns recommended delay (ms) between background tasks.
+     *
+     * @returns The recommended delay in milliseconds.
      */
     getRecommendedDelay(): number {
         return this._performanceMode === 'Safety' ? 1000 : 100;

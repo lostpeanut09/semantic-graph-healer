@@ -101,7 +101,7 @@ export default defineConfig([
 
     // 7. Relaxed rules for scripts (allowing Node.js built-ins and console)
     {
-        files: ['scripts/**/*.ts'],
+        files: ['scripts/**/*.ts', '**/scripts/**/*.ts'],
         languageOptions: {
             globals: {
                 // Node-only environment for scripts
