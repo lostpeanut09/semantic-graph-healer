@@ -46,7 +46,7 @@ export class LadybugService {
 
     /**
      * Creates a new instance of LadybugService.
-     * 
+     *
      * @param app - The Obsidian App instance.
      * @param manifest - The extended plugin manifest.
      */
@@ -72,7 +72,7 @@ export class LadybugService {
     /**
      * Initializes the WASM worker for LadybugDB.
      * Triggers fallback to legacy mode on mobile devices or if initialization fails.
-     * 
+     *
      * @returns A promise that resolves when the worker is successfully initialized.
      * @throws {Error} If worker script creation or loading fails.
      */
@@ -137,7 +137,7 @@ export class LadybugService {
 
     /**
      * Executes a Cypher query via the LadybugDB worker.
-     * 
+     *
      * @param query - The Cypher query string to execute.
      * @param params - Optional parameter mapping for the query.
      * @returns A promise resolving to an array of query results.
@@ -165,7 +165,7 @@ export class LadybugService {
 
     /**
      * Synchronizes a batch of nodes or links to the LadybugDB instance.
-     * 
+     *
      * @param batch - Array of data batches to sync (nodes or links).
      * @returns A promise resolving when the synchronization is complete.
      * @throws {Error} If the worker is not ready or if sync fails.
@@ -192,7 +192,7 @@ export class LadybugService {
 
     /**
      * Runs a specified graph algorithm on the LadybugDB worker.
-     * 
+     *
      * @param algoName - The name of the algorithm to run ('pagerank' or 'louvain').
      * @returns A promise resolving to the generic result of the algorithm.
      * @throws {Error} If the worker is not ready or if the algorithm execution fails.

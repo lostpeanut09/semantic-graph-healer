@@ -56,10 +56,20 @@ const WorkerMessageSchema = z.looseObject({
         .optional(),
 });
 
+/**
+ * WorkerMessage
+ * 
+ * Zod-validated schema for messages sent to the Graph Analysis worker.
+ * Defines supported analysis types (PAGERANK, COMMUNITY, etc.) and payload structure.
+ */
 export type WorkerMessage = z.infer<typeof WorkerMessageSchema>;
 
 /**
  * Calculates cosine similarity between two vectors.
+ * 
+ * @param v1 - The first vector.
+ * @param v2 - The second vector.
+ * @returns The cosine similarity score (0 to 1).
  */
 function cosineSimilarity(v1: number[], v2: number[]): number {
     if (!v1 || !v2 || v1.length === 0 || v1.length !== v2.length) return 0;
@@ -75,12 +85,21 @@ function cosineSimilarity(v1: number[], v2: number[]): number {
     return mag === 0 ? 0 : dot / mag;
 }
 
+/**
+ * ProgressReporter
+ * 
+ * Interface for reporting progress from long-running worker tasks back 
+ * to the main thread.
+ */
 export interface ProgressReporter {
     postProgress: (requestId: string, pct: number, message: string) => void;
 }
 
 /**
  * Creates a ProgressReporter that sends messages to the postMessage function.
+ * 
+ * @param postMessageFn - The function to call for posting worker responses.
+ * @returns A ProgressReporter instance.
  */
 export const createProgressReporter = (postMessageFn: (msg: WorkerResponse) => void): ProgressReporter => ({
     postProgress: (requestId: string, pct: number, message: string) => {
@@ -109,6 +128,17 @@ const numOpt = (opts: unknown, key: string, fallback: number): number => {
     return Math.max(1, Math.floor(v));
 };
 
+/**
+ * handleGraphWorkerMessage
+ * 
+ * The main entry point for processing messages in the graph analysis worker.
+ * Orchestrates various graph algorithms (Pagerank, Louvain, Betweenness, etc.)
+ * with structural validation and size limit enforcement.
+ * 
+ * @param message - The raw WorkerMessage from the main thread.
+ * @param reporter - Optional ProgressReporter for updates.
+ * @returns A WorkerResponse containing the analysis result or an error message.
+ */
 export function handleGraphWorkerMessage(message: WorkerMessage, reporter?: ProgressReporter): WorkerResponse {
     let requestId = 'unknown';
 
@@ -254,6 +284,18 @@ interface SimilarityOptions {
     fileStats?: Record<string, { mtime: number }>;
 }
 
+/**
+ * runSimilarityAnalysis
+ * 
+ * Performs semantic similarity analysis between nodes in the graph using 
+ * Jaccard, Adamic-Adar, Resource Allocation, and temporal heuristics.
+ * 
+ * @param graph - The DirectedGraph instance.
+ * @param options - Similarity options (weights, limits, file stats).
+ * @param requestId - Unique ID for the request.
+ * @param reporter - Optional reporter for progress updates.
+ * @returns Array of node pairs with their similarity scores.
+ */
 function runSimilarityAnalysis(graph: DirectedGraph, options: unknown, requestId: string, reporter?: ProgressReporter) {
     const opts = options as SimilarityOptions | undefined;
     const weights = opts?.weights || {
@@ -355,6 +397,17 @@ interface CoCitationOptions {
     minScore?: number;
 }
 
+/**
+ * runCoCitationAnalysis
+ * 
+ * Identifies nodes that are frequently cited together by other nodes.
+ * 
+ * @param graph - The DirectedGraph instance.
+ * @param options - Co-citation options (minScore).
+ * @param requestId - Unique ID for the request.
+ * @param reporter - Optional reporter for progress updates.
+ * @returns Array of node pairs with their co-citation count.
+ */
 function runCoCitationAnalysis(graph: DirectedGraph, options: unknown, requestId: string, reporter?: ProgressReporter) {
     const opts = options as CoCitationOptions | undefined;
     const minScore = opts?.minScore || 2;
@@ -406,6 +459,17 @@ interface TopologyDiagnosticsOptions {
     blackHoleThreshold?: number;
 }
 
+/**
+ * runTopologicalDiagnostics
+ * 
+ * Analyzes the graph structure to identify bridges, black holes, and cycles.
+ * 
+ * @param graph - The DirectedGraph instance.
+ * @param options - Diagnostic options (blackHoleThreshold).
+ * @param requestId - Unique ID for the request.
+ * @param reporter - Optional reporter for progress updates.
+ * @returns Object containing detected bridges, black holes, and cycles.
+ */
 function runTopologicalDiagnostics(
     graph: DirectedGraph,
     options: unknown,
