@@ -56,9 +56,14 @@ data.json
 .agent/
 .kilo/
 .antigravitycli/
+.jules/
 CLAUDE.md
 REVIEW.md
 QUICK-TASKS.md
+STATE.md
+ROADMAP.md
+PROJECT.md
+REQUIREMENTS.md
 
 # Generated Build Artifacts (root-level only — src/ CSS source is tracked)
 /main.js
@@ -66,6 +71,7 @@ QUICK-TASKS.md
 /ladybug-worker.js
 /main.css
 /styles.css
+*.tsbuildinfo
 
 # Repository Garbage & Artifacts
 garbage/
@@ -74,3 +80,5 @@ run/
 *.log
 !README.md
 !CONTRIBUTING.md
+benchmark_results.txt
+data.json
