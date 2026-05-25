@@ -1,4 +1,5 @@
 import type { HealerAutomationApi, HealerNotifier, Suggestion, TopologicalMetrics, HistoryItem } from '../../types';
+import { generateId } from '../HealerUtils';
 
 /**
  * A notification provider that redirects messages to the console instead of the UI.
@@ -142,11 +143,7 @@ export class AutomationApi implements HealerAutomationApi {
         appliedCount: number;
         failedCount: number;
     }> {
-        const batchId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-            const r = (Math.random() * 16) | 0;
-            const v = c === 'x' ? r : (r & 0x3) | 0x8;
-            return v.toString(16);
-        });
+        const batchId = generateId('batch');
 
         // Normalize confidence (0-1 range to 0-100 range)
         const targetConfidence = options.confidence <= 1 ? options.confidence * 100 : options.confidence;
