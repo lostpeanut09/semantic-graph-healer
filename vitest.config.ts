@@ -16,7 +16,7 @@ export default defineConfig({
         deps: {
             inline: ['obsidian'],
         },
-        setupFiles: ['@vitest/web-worker'],
+        setupFiles: ['@vitest/web-worker', './vitest.setup.ts'],
         exclude: ['**/node_modules/**', '**/node_modules_bak/**', '**/.kilo/**', '**/.agent/**'],
     },
 });

@@ -4,16 +4,29 @@ import type { LlmService } from '../LlmService';
 import type { AjsonStorage } from '../utils/AjsonStorage';
 import { HealerLogger } from '../HealerUtils';
 
+/**
+ * Represents a semantic entity extracted from a note.
+ */
 export interface Entity {
+    /** The name of the entity (e.g., 'Albert Einstein'). */
     name: string;
+    /** The semantic category of the entity. */
     type: 'Person' | 'Project' | 'Concept' | 'Organization' | 'Technology' | 'Location';
+    /** The path to the Obsidian note from which this entity was extracted. */
     notePath: string;
 }
 
-export interface Relationship {
+/**
+ * Represents a semantic relationship between two entities.
+ */
+interface Relationship {
+    /** The name of the source entity. */
     source: string;
+    /** The name of the target entity. */
     target: string;
+    /** The nature of the relationship (e.g., 'works_on', 'born_in'). */
     type: string;
+    /** The path to the Obsidian note from which this relationship was extracted. */
     notePath: string;
 }
 
@@ -23,8 +36,15 @@ export interface Relationship {
  * Persists data to AJSON storage for scalability.
  */
 export class EntityExtractor {
+    /** Flag indicating whether an indexing operation is currently in progress. */
     private isIndexing = false;
 
+    /**
+     * Initializes the EntityExtractor.
+     * @param settings - Plugin settings.
+     * @param llmService - Service for LLM communication.
+     * @param storage - Storage service for persisting entities and relationships.
+     */
     constructor(
         private settings: SemanticGraphHealerSettings,
         private llmService: LlmService,
@@ -32,7 +52,10 @@ export class EntityExtractor {
     ) {}
 
     /**
-     * Extracts entities and relationships from a single note.
+     * Extracts entities and relationships from a single note using an LLM.
+     * @param file - The Obsidian file object representing the note.
+     * @param content - The raw textual content of the note.
+     * @returns A promise that resolves when extraction and storage are complete.
      */
     async extractFromNote(file: TFile, content: string): Promise<void> {
         if (!this.settings.llmEndpoint || !this.settings.llmModelName) return;
@@ -102,9 +125,11 @@ Only return the JSON. No markdown or meta-talk.
     }
 
     /**
-     * Clears the index for a specific note (to be used before re-indexing).
+     * Clears the extracted entity and relationship index for a specific note.
      * Currently implemented as a simple append-only store; full re-index would involve rewriting.
      * For now, we use AjsonStorage.upsert if we wanted uniqueness, but append is faster for background tasks.
+     * @param notePath - The path of the note to clear from the index.
+     * @returns A promise that resolves when the index is cleared.
      */
     async clearNoteIndex(notePath: string): Promise<void> {
         // Implementation for cleanup would go here if we used a more complex storage strategy.

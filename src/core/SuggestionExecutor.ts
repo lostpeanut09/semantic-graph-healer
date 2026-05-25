@@ -21,6 +21,11 @@ export class SuggestionExecutor {
         return this.context.app;
     }
 
+    /**
+     * Executes a single suggestion asynchronously within a queue, applying a timeout to avoid blocking.
+     * @param suggestion The suggestion to execute.
+     * @returns A promise resolving to true if the suggestion was executed successfully, false otherwise.
+     */
     async execute(suggestion: Suggestion): Promise<boolean> {
         return new Promise((resolve) => {
             this.queue = this.queue.then(async () => {

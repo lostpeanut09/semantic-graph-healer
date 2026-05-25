@@ -8,6 +8,12 @@ import type { ApiKeyType } from './HealerUtils';
  * Custom Error for LLM operations.
  */
 class LlmError extends Error {
+    /**
+     * Creates an instance of LlmError.
+     * @param model - The name of the model that failed.
+     * @param status - The HTTP status code of the failure.
+     * @param message - The error message.
+     */
     constructor(
         public readonly model: string,
         public readonly status: number,
@@ -17,19 +23,29 @@ class LlmError extends Error {
     }
 }
 
+/**
+ * Standard structure for LLM API responses.
+ */
 interface LlmResponse {
+    /** OpenAI-style choices array. */
     choices?: Array<{
         message?: {
             content?: string;
         };
     }>;
+    /** Anthropic/Custom-style output array. */
     output?: unknown[];
+    /** Generic message object. */
     message?: {
         content?: string;
     };
+    /** Generic response string. */
     response?: string;
+    /** Generic data object. */
     data?: unknown;
+    /** Model list data. */
     models?: unknown;
+    /** Error message or object. */
     error?: string | { message?: string };
 }
 
@@ -42,6 +58,11 @@ export class LlmService {
     private readonly CACHE_TTL = 300000; // 5 minutes
     private cacheCleanupInterval: ReturnType<typeof setInterval>;
 
+    /**
+     * Initializes the LlmService.
+     * @param settings - The plugin settings.
+     * @param getKey - Function to retrieve API keys for specific providers.
+     */
     constructor(
         private settings: SemanticGraphHealerSettings,
         private getKey: (type: ApiKeyType) => Promise<string>,
@@ -50,12 +71,18 @@ export class LlmService {
         this.cacheCleanupInterval = setInterval(() => this.cleanupCache(), 600000);
     }
 
+    /**
+     * Cleans up resources used by the service.
+     */
     public destroy(): void {
         if (this.cacheCleanupInterval) {
             clearInterval(this.cacheCleanupInterval);
         }
     }
 
+    /**
+     * Removes expired entries from the verification cache.
+     */
     private cleanupCache(): void {
         const now = Date.now();
         for (const [key, value] of this.verificationCache.entries()) {
@@ -67,6 +94,12 @@ export class LlmService {
 
     /**
      * Executes an AI query against the configured provider.
+     * @param prompt - The instruction or content to send to the LLM.
+     * @param useTribunal - Whether to use the AI Tribunal (dual-LLM consensus) for this call.
+     * @param signal - Optional abort signal to cancel the request.
+     * @param embeddings - Optional embeddings for pre-filtering (similarity check).
+     * @returns A promise that resolves to the LLM's response string.
+     * @throws LlmError if the API request fails.
      */
     public async callLlm(
         prompt: string,
@@ -352,6 +385,12 @@ export class LlmService {
 
     /**
      * ✅ NEW: Phase 3 - Semantic Tag Propagation Validation (Binary YES/NO)
+     * @param childName - The name of the child note.
+     * @param tag - The tag to validate for inheritance.
+     * @param parentName - The name of the parent note.
+     * @param childContent - Optional content of the child note.
+     * @param parentContent - Optional content of the parent note.
+     * @returns A promise that resolves to true if the inheritance is logically valid.
      */
     public async validateTagInheritance(
         childName: string,
@@ -411,6 +450,12 @@ Respond ONLY with: YES or NO`.trim();
 
     /**
      * ✅ NEW: Phase 3 - Branch Sequence Validation (Binary VALID/CONTRADICTION)
+     * @param sourceName - The name of the source note.
+     * @param targetNames - Array of names for the target notes.
+     * @param sourceContent - Optional content of the source note.
+     * @param targetContents - Optional array of contents for the target notes.
+     * @param existingRelations - Optional string describing existing relationships.
+     * @returns A promise that resolves to true if the branching is logically valid.
      */
     public async validateBranching(
         sourceName: string,
@@ -482,7 +527,14 @@ Respond ONLY with: VALID or CONTRADICTION
 
     /**
      * ✅ NEW: Phase 3 - Validate Parent-Child Semantic Relationship
-     * Returns: { valid: boolean; reason: string }
+     * @param parentName - Name of the parent note.
+     * @param childName - Name of the child note.
+     * @param parentContent - Optional content of the parent note.
+     * @param childContent - Optional content of the child note.
+     * @param mtimeParent - Modification time of the parent note.
+     * @param mtimeChild - Modification time of the child note.
+     * @param signal - Optional abort signal.
+     * @returns A promise that resolves to an object containing validity and reasoning.
      */
     public async validateParentChildRelationship(
         parentName: string,
@@ -559,6 +611,12 @@ INVALID: <brief explanation why>
     /**
      * ✅ NEW: Phase 3 - BATCH Semantic Audit (Cost & Speed Optimization)
      * Validates multiple children against a single parent in ONE LLM call.
+     * @param parentName - Name of the parent note.
+     * @param children - Array of children note data.
+     * @param parentContent - Content of the parent note.
+     * @param mtimeParent - Modification time of the parent note.
+     * @param signal - Optional abort signal.
+     * @returns A promise that resolves to a record of child names and their validation results.
      */
     public async validateRelationshipsBatch(
         parentName: string,
@@ -654,6 +712,8 @@ Only return the JSON. No markdown or meta-talk.
 
     /**
      * Helper to extract text from an OpenAI Responses API response
+     * @param json - The LLM response object.
+     * @returns The extracted text string.
      */
     private extractResponsesText(json: LlmResponse): string {
         const output = Array.isArray(json?.output) ? json.output : [];
@@ -677,6 +737,9 @@ Only return the JSON. No markdown or meta-talk.
 
     /**
      * Validation method for LLM responses
+     * @param json - The LLM response object to validate.
+     * @param isResponsesApi - Whether the response is from the Responses API.
+     * @returns True if the response structure is valid.
      */
     private validateLlmResponse(json: LlmResponse, isResponsesApi: boolean = false): boolean {
         if (!json) return false;
@@ -689,6 +752,12 @@ Only return the JSON. No markdown or meta-talk.
         return !!(json.message?.content || json.response);
     }
 
+    /**
+     * Detects available models at a given endpoint.
+     * @param endpoint - The API endpoint URL.
+     * @param apiKey - The API key to use for authentication.
+     * @returns A promise that resolves to an array of model names.
+     */
     public async runModelDetection(endpoint: string, apiKey: string): Promise<string[]> {
         const tryEndpoints = [
             endpoint.endsWith('/') ? `${endpoint}v1/models` : `${endpoint}/v1/models`,
@@ -741,6 +810,8 @@ Only return the JSON. No markdown or meta-talk.
 
     /**
      * Parses the LLM reasoning response into structured data.
+     * @param raw - The raw string response from the LLM.
+     * @returns A structured ReasoningResult object.
      */
     public parseReasoningResult(raw: string): ReasoningResult {
         const result: ReasoningResult = {

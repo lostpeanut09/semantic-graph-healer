@@ -35,6 +35,7 @@ import { ReasoningService } from './core/ReasoningService';
 import { DashboardView, ReasoningView, REASONING_VIEW_TYPE } from './views/DashboardView';
 import { GraphVisualizerView, GRAPH_VIEW_TYPE } from './views/GraphVisualizerView';
 import { SemanticHealerSettingTab } from './views/SettingsTab';
+import { ResetKeychainModal } from './views/components/ResetKeychainModal';
 import { CacheService } from './core/CacheService';
 import { SemanticTagPropagator } from './core/SemanticTagPropagator';
 import { GraphRagService } from './core/services/GraphRagService';
@@ -85,6 +86,9 @@ export default class SemanticGraphHealer extends Plugin {
             app: this.app,
             settings: this.settings,
             saveSettings: () => this.saveSettings(),
+            onCorruptionDetected: () => {
+                new ResetKeychainModal(this.app as ExtendedApp, this.keychainService).open();
+            },
         });
         this.graphWorkerService = new GraphWorkerService(this.logger, this);
         await this.graphWorkerService.initialize();
@@ -366,8 +370,23 @@ export default class SemanticGraphHealer extends Plugin {
     }
 
     private async initializeSecurity() {
-        // Cloud Safety Net (Used only if detection is never run)
-        // Cloud Safety Net (SOTA 2026 standard models)
+        // 1. Trigger Keychain Migration (Phase 19: Dynamic Master Key)
+        try {
+            const migrated = await this.keychainService.migrateLegacyKeys();
+            if (migrated) {
+                new Notice('Keychain migrated to dynamic master key.');
+                this.logger.info('Keychain migration to dynamic master key complete.');
+            }
+        } catch (e) {
+            this.logger.error('Keychain migration failed', e);
+        }
+
+        // 2. Recovery Check
+        if (this.settings.keychainCorrupted) {
+            new ResetKeychainModal(this.app as ExtendedApp, this.keychainService).open();
+        }
+
+        // 3. Legacy Migration & Safety Net
         const cloudFallbacks = this.settings.cloudModelFallbacks;
 
         let settingsChanged = false;
@@ -383,18 +402,26 @@ export default class SemanticGraphHealer extends Plugin {
 
         const app = this.app as ExtendedApp;
         if (app.secretStorage || app.keychain) {
-            this.logger.debug('Obsidian secure storage detected. Verifying and migrating API keys...');
-
-            // 1. Migrate Primary Key
+            // Migration for users who still have plaintext keys in data.json (pre-Phase 18)
             if (this.settings.llmApiKey && this.settings.llmApiKey !== 'sk-local') {
                 await this.keychainService.setApiKey('openai', this.settings.llmApiKey);
                 this.settings.llmApiKey = '';
                 settingsChanged = true;
             }
-            // Fallback for previous manual naming 'semantic-healer-primary'
+            if (this.settings.secondaryLlmApiKey) {
+                await this.keychainService.setApiKey('anthropic', this.settings.secondaryLlmApiKey);
+                this.settings.secondaryLlmApiKey = '';
+                settingsChanged = true;
+            }
+            if (this.settings.infraNodusApiKey) {
+                await this.keychainService.setApiKey('infranodus', this.settings.infraNodusApiKey);
+                this.settings.infraNodusApiKey = '';
+                settingsChanged = true;
+            }
+
+            // Cleanup for 'semantic-healer-primary' (Phase 18 legacy)
             const keychain = app.keychain;
             const secretStorage = app.secretStorage;
-
             let legacyKey: string | null = null;
 
             if (secretStorage) {
@@ -415,20 +442,6 @@ export default class SemanticGraphHealer extends Plugin {
                     const res = keychain.set('semantic-healer-primary', '');
                     if (isThenable(res)) await res;
                 }
-            }
-
-            // 2. Migrate Secondary Key
-            if (this.settings.secondaryLlmApiKey) {
-                await this.keychainService.setApiKey('anthropic', this.settings.secondaryLlmApiKey);
-                this.settings.secondaryLlmApiKey = '';
-                settingsChanged = true;
-            }
-
-            // 3. Migrate InfraNodus Key
-            if (this.settings.infraNodusApiKey) {
-                await this.keychainService.setApiKey('infranodus', this.settings.infraNodusApiKey);
-                this.settings.infraNodusApiKey = '';
-                settingsChanged = true;
             }
         }
         if (settingsChanged) await this.saveSettings();

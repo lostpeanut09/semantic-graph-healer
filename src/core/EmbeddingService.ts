@@ -4,7 +4,7 @@ import { HealerLogger, cosineSimilarity } from './HealerUtils';
 
 export type ModelStatus = 'STABLE' | 'MISALIGNED' | 'OFFLINE';
 
-export interface EmbeddingResponse {
+interface EmbeddingResponse {
     embedding?: number[];
     embeddings?: number[][];
     data?: Array<{ embedding: number[] }>;
@@ -18,14 +18,25 @@ export interface EmbeddingResponse {
 export class EmbeddingService {
     private _modelStatus: ModelStatus = 'OFFLINE';
 
+    /**
+     * Initializes the EmbeddingService.
+     * @param settings - The plugin settings.
+     */
     constructor(private settings: SemanticGraphHealerSettings) {}
 
+    /**
+     * Gets the current status of the embedding model.
+     * @returns The model status ('STABLE', 'MISALIGNED', or 'OFFLINE').
+     */
     public get modelStatus(): ModelStatus {
         return this._modelStatus;
     }
 
     /**
      * Generates an embedding vector for the given text.
+     * @param text - The input text to embed.
+     * @returns A promise resolving to the embedding vector.
+     * @throws Error if the provider fails or endpoint/model is not configured.
      */
     public async getEmbedding(text: string): Promise<number[]> {
         const provider = this.settings.embeddingProvider;
@@ -41,6 +52,12 @@ export class EmbeddingService {
 
     /**
      * Queries the embedding model with retry logic.
+     * @param text - The text to embed.
+     * @param endpoint - The API endpoint URL.
+     * @param model - The model name.
+     * @param provider - The provider type.
+     * @param retryCount - Internal retry counter.
+     * @returns A promise resolving to the embedding vector.
      */
     private async queryModel(
         text: string,
@@ -135,6 +152,7 @@ export class EmbeddingService {
     /**
      * Semantic Anchor Check: Verifies model alignment using concept pairs.
      * (HARDEN-08)
+     * @returns A promise resolving to true if the model is aligned, false otherwise.
      */
     public async checkModelAlignment(): Promise<boolean> {
         HealerLogger.info('EmbeddingService: Running Semantic Anchor check...');
