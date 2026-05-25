@@ -538,7 +538,7 @@ export class GraphEngine {
                 if (!(fileA instanceof TFile) || !(fileB instanceof TFile)) continue;
 
                 suggestions.push({
-                    id: `cocitation:${[a, b].sort().join('::')}`,
+                    id: `cocitation:${a < b ? `${a}::${b}` : `${b}::${a}`}`,
                     type: 'deterministic',
                     link: `[[${fileB.basename}]]`,
                     source: `Co-Citation (score: ${score}): [[${fileA.basename}]] and [[${fileB.basename}]] are cited together in ${score} note(s).`,
@@ -665,7 +665,7 @@ export class GraphEngine {
                 const fileB = this.app.vault.getAbstractFileByPath(b);
                 if (fileA instanceof TFile && fileB instanceof TFile) {
                     suggestions.push({
-                        id: `cocitation:${[a, b].sort().join('::')}`,
+                        id: `cocitation:${a < b ? `${a}::${b}` : `${b}::${a}`}`,
                         type: 'deterministic',
                         link: `[[${fileB.basename}]]`,
                         source: `Co-Citation (Sync): Shared neighbors detected.`,
