@@ -81,10 +81,13 @@
     </div>
   </div>
 
-  <div class="healer-tabs" style="display: flex; gap: 8px; margin-bottom: 1em; border-bottom: 1px solid var(--background-modifier-border); padding-bottom: 8px; overflow-x: auto;">
+  <div class="healer-tabs" role="tablist" style="display: flex; gap: 8px; margin-bottom: 1em; border-bottom: 1px solid var(--background-modifier-border); padding-bottom: 8px; overflow-x: auto;">
     {#each tabs as tab}
       <button 
         class="healer-tab-btn" 
+        role="tab"
+        aria-selected={activeTab === tab.id}
+        aria-controls="panel-{tab.id}"
         style="background: {activeTab === tab.id ? 'var(--interactive-accent)' : 'transparent'}; color: {activeTab === tab.id ? 'var(--text-on-accent)' : 'var(--text-normal)'}; border: none; padding: 4px 12px; cursor: pointer; border-radius: 4px;"
         onclick={() => activeTab = tab.id}
       >
@@ -93,7 +96,7 @@
     {/each}
   </div>
 
-  <div class="healer-dashboard-list-area">
+  <div class="healer-dashboard-list-area" role="tabpanel" id="panel-{activeTab}">
     {#if activeTab === 'graphrag'}
       <GraphRagView {plugin} />
     {:else if currentItems.length > 0}

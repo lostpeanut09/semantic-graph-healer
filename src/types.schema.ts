@@ -124,6 +124,11 @@ export const SettingsSchema = z
         embeddingEndpoint: z.string().default('http://localhost:11434'),
         embeddingDimensions: z.number().default(768),
 
+        // Keychain Migration
+        keychainMigrationComplete: z.boolean().default(false),
+        keychainCorrupted: z.boolean().default(false),
+        sghealerMasterKeyJWK: z.string().optional(),
+
         // --- Encrypted Keys (P0 Audit Fix) ---
         openaiLlmApiKeyEncrypted: z.string().optional(),
         anthropicLlmApiKeyEncrypted: z.string().optional(),

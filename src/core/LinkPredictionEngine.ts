@@ -4,8 +4,13 @@ import { HealerLogger } from './HealerUtils';
 import type { GraphContext } from './services/PluginContext';
 import { SmartConnectionsAdapter } from './adapters/SmartConnectionsAdapter';
 
+/**
+ * Options for link prediction analysis.
+ */
 export interface PredictionOptions {
+    /** Maximum number of suggestions to return. */
     limit?: number;
+    /** Minimum confidence score threshold (1-100). */
     minScore?: number;
 }
 
@@ -14,10 +19,18 @@ export interface PredictionOptions {
  * Uses Jaccard, Adamic-Adar, and Resource Allocation indices.
  */
 export class LinkPredictionEngine {
+    /**
+     * Initializes the LinkPredictionEngine.
+     * @param context - The graph context providing app, settings, and services.
+     */
     constructor(private context: GraphContext) {}
 
     /**
      * Dispatches similarity analysis to the Web Worker and synthesizes suggestions.
+     * @param nodes - Array of nodes with keys and attributes.
+     * @param edges - Array of edges with source, target, and attributes.
+     * @param options - Configuration options for the prediction.
+     * @returns A promise that resolves to an array of link suggestions.
      */
     public async predictLinks(
         nodes: Array<{ key: string; attributes: Record<string, unknown> }>,
@@ -96,6 +109,10 @@ export class LinkPredictionEngine {
         }
     }
 
+    /**
+     * Collects modification timestamps for all markdown files.
+     * @returns A record of file paths and their modification times.
+     */
     private getFileStats(): Record<string, { mtime: number }> {
         const stats: Record<string, { mtime: number }> = {};
         this.context.app.vault.getMarkdownFiles().forEach((f) => {
@@ -104,6 +121,11 @@ export class LinkPredictionEngine {
         return stats;
     }
 
+    /**
+     * Converts a file path to a Wikilink string.
+     * @param path - The file path to convert.
+     * @returns A formatted Wikilink string.
+     */
     private pathToLink(path: string): string {
         const file = this.context.app.vault.getAbstractFileByPath(path);
         if (file instanceof TFile) {

@@ -2,12 +2,6 @@ import { App, TFile, type EventRef } from 'obsidian';
 import type { MultiGraph } from 'graphology';
 export const DASHBOARD_VIEW_TYPE = 'semantic-healer-dashboard';
 
-// --- Internal Obsidian API interfaces ---
-export interface ObsidianKeychain {
-    get(key: string): Promise<string | null>;
-    set(key: string, value: string): Promise<void>;
-}
-
 export interface ObsidianSecretStorage {
     getSecret(key: string): Promise<string | null> | (string | null);
     setSecret(key: string, value: string): Promise<void> | void;
@@ -15,14 +9,19 @@ export interface ObsidianSecretStorage {
     listSecrets?(): Promise<string[]> | string[];
 }
 
+export interface LegacyKeychain {
+    get(key: string): Promise<string | null> | (string | null);
+    set(key: string, value: string): Promise<void> | void;
+}
+
 export interface ObsidianInternalApp {
     appId?: string;
     settings: SemanticGraphHealerSettings;
     secretStorage?: ObsidianSecretStorage;
-    keychain?: ObsidianKeychain;
+    keychain?: LegacyKeychain;
     plugins: {
         enabledPlugins: Set<string>;
-        getPlugin(name: string): ObsidianPlugin | null;
+        getPlugin(name: string): unknown;
         getPlugin(name: 'datacore'): { api: DatacoreApi } | null;
         getPlugin(name: 'dataview'): { api: DataviewApi } | null;
         getPlugin(name: 'breadcrumbs'): { api: BreadcrumbsApi } | null;
@@ -35,12 +34,6 @@ export interface ExtendedManifest {
     [key: string]: unknown;
 }
 
-export interface ObsidianPlugin {
-    api?: unknown;
-    manifest: ExtendedManifest;
-    [key: string]: unknown;
-}
-
 export type ExtendedApp = App & ObsidianInternalApp;
 
 declare module 'obsidian' {
@@ -50,17 +43,9 @@ declare module 'obsidian' {
 }
 
 // --- Dataview / Datacore API interfaces ---
-export interface DataArray<T> {
-    array(): T[];
-    forEach(cb: (v: T) => void): void;
-    filter(cb: (v: T) => boolean): DataArray<T>;
-    where(cb: (v: T) => boolean): DataArray<T>;
-    length: number;
-    [index: number]: T;
-}
 
 export interface DataviewApi {
-    pages(query?: string): DataArray<DataviewPage>;
+    pages(query?: string): unknown;
     page(path: string): DataviewPage | null;
     fileToLinktext(file: TFile, origin: string, omit?: boolean): string;
 }
@@ -151,14 +136,14 @@ export interface DatacoreApi {
     resolvePath(path: string, sourcePath?: string): string;
 }
 
-export interface InlineField {
+interface InlineField {
     key: string;
     value: unknown;
     raw: string;
     position: { line: number; col: number; offset: number };
 }
 
-export interface FrontmatterEntry {
+interface FrontmatterEntry {
     key: string;
     raw: string;
     value: unknown;
@@ -233,7 +218,7 @@ export interface TopologicalMetrics {
     graphVersion: string;
 }
 
-export interface SuggestionMeta {
+interface SuggestionMeta {
     property?: string; // Logical type: 'up', 'down', 'next', 'prev', 'same'
     propertyKey?: string; // Actual YAML key: 'parent', 'right', 'procedural-next', etc.
     sourcePath?: string; // Canonical TFile.path for logic
@@ -408,6 +393,11 @@ export interface SemanticGraphHealerSettings {
     embeddingEndpoint: string;
     embeddingDimensions: number;
 
+    // Keychain Migration
+    keychainMigrationComplete: boolean;
+    keychainCorrupted: boolean;
+    sghealerMasterKeyJWK?: string;
+
     // Encrypted Keys
     openaiLlmApiKeyEncrypted?: string;
     anthropicLlmApiKeyEncrypted?: string;
@@ -422,35 +412,6 @@ export interface RelatedNote {
     path: string;
     score: number;
     link: string;
-}
-
-/**
- * Worker Communication Types
- */
-export type WorkerActionType =
-    | 'PAGERANK'
-    | 'COMMUNITY'
-    | 'BETWEENNESS'
-    | 'FULL_ANALYSIS'
-    | 'SIMILARITY'
-    | 'COCITATION'
-    | 'TOPOLOGY_DIAGNOSTICS';
-
-export interface WorkerNode {
-    key: string;
-    attributes: Record<string, unknown>;
-}
-
-export interface WorkerEdge {
-    source: string;
-    target: string;
-    attributes: Record<string, unknown>;
-}
-
-export interface WorkerPayload {
-    nodes: WorkerNode[];
-    edges: WorkerEdge[];
-    requestId: string;
 }
 
 export type GraphAnalysisResult =
@@ -470,29 +431,7 @@ export type GraphAnalysisResult =
           cycles: Array<{ path: string[]; type: string }>;
       };
 
-export interface WorkerOptions {
-    limit?: number;
-    minScore?: number;
-    weights?: {
-        jaccard: number;
-        adamicAdar: number;
-        resourceAllocation: number;
-    };
-    fileStats?: Record<string, { mtime: number }>;
-    edgePolicy?: 'strict' | 'tolerant';
-    maxEdges?: number;
-    maxNodes?: number;
-    blackHoleThreshold?: number;
-    [key: string]: unknown;
-}
-
-export interface WorkerMessage {
-    type: WorkerActionType;
-    payload: WorkerPayload;
-    options?: WorkerOptions;
-}
-
-export interface WorkerResponseResult {
+interface WorkerResponseResult {
     type: 'RESULT';
     payload: {
         requestId: string;
@@ -500,7 +439,7 @@ export interface WorkerResponseResult {
     };
 }
 
-export interface WorkerResponseError {
+interface WorkerResponseError {
     type: 'ERROR';
     payload: {
         requestId: string;
@@ -508,7 +447,7 @@ export interface WorkerResponseError {
     };
 }
 
-export interface WorkerResponseProgress {
+interface WorkerResponseProgress {
     type: 'PROGRESS';
     payload: {
         requestId: string;
@@ -650,4 +589,6 @@ export const DEFAULT_SETTINGS: SemanticGraphHealerSettings = {
     embeddingModel: 'nomic-embed-text',
     embeddingEndpoint: 'http://localhost:11434',
     embeddingDimensions: 768,
+    keychainMigrationComplete: false,
+    keychainCorrupted: false,
 };

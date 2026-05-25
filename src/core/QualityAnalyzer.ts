@@ -16,6 +16,12 @@ export class QualityAnalyzer {
     private aliasCache: Map<string, TFile> | null = null;
     private aliasCacheTimestamp: number = 0;
 
+    /**
+     * Initializes the QualityAnalyzer.
+     * @param app - The Obsidian ExtendedApp instance.
+     * @param settings - The plugin's semantic settings.
+     * @param engine - The data adapter engine used for querying.
+     */
     constructor(
         private app: ExtendedApp,
         private settings: SemanticGraphHealerSettings,
@@ -29,6 +35,10 @@ export class QualityAnalyzer {
         });
     }
 
+    /**
+     * Resets the internal alias cache.
+     * Triggered when the vault structure changes to ensure link resolution accuracy.
+     */
     public invalidateAliasCache(): void {
         this.aliasCache = null;
         this.aliasCacheTimestamp = 0;
@@ -36,7 +46,10 @@ export class QualityAnalyzer {
     }
 
     /**
-     * ✅ NEW: onProgress callback for UI feedback
+     * Executes a comprehensive quality audit of the graph.
+     * Checks for orphans, MOC saturation, and dangling links across the vault.
+     * @param onProgress - Optional callback to report progress to the UI.
+     * @returns A promise resolving to an array of quality suggestions.
      */
     public async runQualityAnalysis(onProgress?: (current: number, total: number) => void): Promise<Suggestion[]> {
         await Promise.resolve();
@@ -191,6 +204,12 @@ export class QualityAnalyzer {
         return suggestions;
     }
 
+    /**
+     * Queries the Smart Connections plugin for semantic similarity suggestions.
+     * @param sourcePath - The path of the file to query for similarities.
+     * @param limit - The maximum number of suggestions to return.
+     * @returns A promise resolving to an array of similarity suggestions.
+     */
     public async querySmartConnections(sourcePath: string, limit: number): Promise<Suggestion[]> {
         HealerLogger.info(`Querying Smart Connections for ${sourcePath}...`);
         return this.scAdapter.query(sourcePath, limit);

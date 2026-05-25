@@ -8,19 +8,35 @@ export type ApiKeyType = 'openai' | 'anthropic' | 'deepseek' | 'infranodus' | 'c
  * Redesigned for Phase 1 as a bridge to the instance-based logger.
  */
 interface HealerLoggerInstance {
+    /** Logs informational messages. */
     info(message: string, ...args: unknown[]): void;
+    /** Logs warning messages. */
     warn(message: string, ...args: unknown[]): void;
+    /** Logs error messages. */
     error(message: string, ...args: unknown[]): void;
+    /** Logs debug messages. */
     debug(message: string, ...args: unknown[]): void;
 }
 
+/**
+ * HealerLogger: Centralized logging bridge for the plugin.
+ */
 export class HealerLogger {
     private static instance: HealerLoggerInstance | null = null;
 
+    /**
+     * Sets the global logger instance.
+     * @param instance - The logger instance to use.
+     */
     public static setInstance(instance: HealerLoggerInstance) {
         HealerLogger.instance = instance;
     }
 
+    /**
+     * Logs an info message.
+     * @param message - The message to log.
+     * @param args - Additional arguments.
+     */
     public static info(message: string, ...args: unknown[]) {
         if (HealerLogger.instance) {
             HealerLogger.instance.info(message, ...args);
@@ -29,6 +45,11 @@ export class HealerLogger {
         }
     }
 
+    /**
+     * Logs a warning message.
+     * @param message - The message to log.
+     * @param args - Additional arguments.
+     */
     public static warn(message: string, ...args: unknown[]) {
         if (HealerLogger.instance) {
             HealerLogger.instance.warn(message, ...args);
@@ -37,6 +58,11 @@ export class HealerLogger {
         }
     }
 
+    /**
+     * Logs an error message.
+     * @param message - The message to log.
+     * @param args - Additional arguments.
+     */
     public static error(message: string, ...args: unknown[]) {
         if (HealerLogger.instance) {
             HealerLogger.instance.error(message, ...args);
@@ -45,6 +71,11 @@ export class HealerLogger {
         }
     }
 
+    /**
+     * Logs a debug message.
+     * @param message - The message to log.
+     * @param args - Additional arguments.
+     */
     public static debug(message: string, ...args: unknown[]) {
         if (HealerLogger.instance) {
             HealerLogger.instance.debug(message, ...args);
@@ -56,6 +87,8 @@ export class HealerLogger {
 
 /**
  * Detects LLM provider from endpoint URL.
+ * @param endpoint - The API endpoint URL.
+ * @returns The detected provider type.
  */
 export function getProviderFromEndpoint(endpoint: string): ApiKeyType {
     const ep = (endpoint || '').toLowerCase();
@@ -67,6 +100,8 @@ export function getProviderFromEndpoint(endpoint: string): ApiKeyType {
 
 /**
  * Type Guard for internal Obsidian App extensions.
+ * @param app - The Obsidian App instance.
+ * @returns True if the app has internal plugin management extensions.
  */
 export function isObsidianInternalApp(app: App): app is App & ObsidianInternalApp {
     const internal = app as unknown as ObsidianInternalApp;
@@ -79,6 +114,7 @@ export function isObsidianInternalApp(app: App): app is App & ObsidianInternalAp
 
 /**
  * UUID Fallback for non-secure contexts (MDN Compliance).
+ * @returns A randomly generated v4 UUID string.
  */
 function uuidFallbackV4(): string {
     const c = globalThis.crypto;
@@ -102,6 +138,8 @@ function uuidFallbackV4(): string {
 
 /**
  * SOTA ID Generator (RFC 4122 UUID) with fallback.
+ * @param prefix - A string prefix to prepend to the generated ID.
+ * @returns A unique identifier string.
  */
 export function generateId(prefix: string): string {
     const cryptoObj = globalThis.crypto as unknown as {
@@ -114,6 +152,10 @@ export function generateId(prefix: string): string {
 /**
  * Normalizes a vault path string to its absolute, resolved form.
  * Follows Obsidian best practice (parseLinktext + vault + metadataCache).
+ * @param app - The Obsidian App instance.
+ * @param path - The raw path or linktext.
+ * @param sourcePath - The path of the file containing the link (for relative resolution).
+ * @returns The normalized absolute vault path.
  */
 export function normalizeVaultPath(app: App, path: string, sourcePath = ''): string {
     const { path: linkpath } = parseLinktext(path);
@@ -134,6 +176,11 @@ type DVLinkLike = {
     embed?: boolean;
 };
 
+/**
+ * Type guard for Dataview-style link objects.
+ * @param v - The value to check.
+ * @returns True if the value is a DVLinkLike object.
+ */
 function isDvLinkLike(v: unknown): v is DVLinkLike {
     const candidate = v as DVLinkLike;
     return !!candidate && typeof candidate === 'object' && typeof candidate.path === 'string';
@@ -141,6 +188,8 @@ function isDvLinkLike(v: unknown): v is DVLinkLike {
 
 /**
  * Normalize any "target-ish" string into an Obsidian linkpath.
+ * @param raw - The raw string to normalize.
+ * @returns The cleaned linkpath.
  */
 export function normalizeToLinkpath(raw: string): string {
     const s0 = raw.trim().replace(/^["']|["']$/g, '');
@@ -157,6 +206,8 @@ export function normalizeToLinkpath(raw: string): string {
 
 /**
  * Extract linkpaths from a single value.
+ * @param v - The value to extract links from.
+ * @returns An array of normalized linkpaths.
  */
 function extractLinkpathsFromValue(v: unknown): string[] {
     if (v == null) return [];
@@ -213,6 +264,9 @@ function extractLinkpathsFromValue(v: unknown): string[] {
 
 /**
  * Universal Linkpath Extractor for Dataview/Datacore.
+ * @param page - The page metadata record.
+ * @param keys - The keys to extract links from.
+ * @returns An array of unique normalized linkpaths.
  */
 export function extractLinkpaths(page: Record<string, unknown>, keys: string[]): string[] {
     const seen = new Set<string>();
@@ -237,6 +291,11 @@ export function extractLinkpaths(page: Record<string, unknown>, keys: string[]):
 
 /**
  * Resolve linkpaths to canonical TFile.path values.
+ * @param app - The Obsidian App instance.
+ * @param linkpaths - Array of linkpaths to resolve.
+ * @param sourcePath - The file path where the links originate.
+ * @param cache - Optional cache for resolution results.
+ * @returns Array of unique resolved TFile paths.
  */
 export function resolveLinkpathsToPaths(
     app: App,
@@ -260,6 +319,15 @@ export function resolveLinkpathsToPaths(
     return [...seen];
 }
 
+/**
+ * Extracts and resolves linkpaths from a page object.
+ * @param app - The Obsidian App instance.
+ * @param page - The page metadata record.
+ * @param keys - The keys to extract links from.
+ * @param sourcePath - The file path where the links originate.
+ * @param cache - Optional cache for resolution results.
+ * @returns Array of unique resolved TFile paths.
+ */
 export function extractResolvedPaths(
     app: App,
     page: Record<string, unknown>,
@@ -271,6 +339,13 @@ export function extractResolvedPaths(
     return resolveLinkpathsToPaths(app, linkpaths, sourcePath, cache);
 }
 
+/**
+ * Converts a TFile path to a Wikilink string.
+ * @param app - The Obsidian App instance.
+ * @param targetPath - The destination file path.
+ * @param sourcePath - The originating file path.
+ * @returns A formatted Wikilink string.
+ */
 export function pathToWikilink(app: App, targetPath: string, sourcePath: string): string {
     const af = app.vault.getAbstractFileByPath(targetPath);
     if (af instanceof TFile) {
@@ -282,6 +357,9 @@ export function pathToWikilink(app: App, targetPath: string, sourcePath: string)
 
 /**
  * RESOLVE SUGGESTION -> TFILE
+ * @param app - The Obsidian App instance.
+ * @param suggestion - The suggestion object containing link and optional meta.
+ * @returns The resolved TFile or null if not found.
  */
 export function resolveTargetFile(
     app: App,
@@ -300,6 +378,11 @@ export function resolveTargetFile(
 
 /**
  * Prompt Template: Graph RAG Semantic Proximity.
+ * @param basename - The file basename.
+ * @param tags - Comma-separated tags.
+ * @param propertiesCount - Number of properties in the file.
+ * @param contentSnippet - Snippet of the file content.
+ * @returns The formatted prompt string.
  */
 export function formatRagPrompt(
     basename: string,
@@ -313,6 +396,13 @@ export function formatRagPrompt(
 
 /**
  * Prompt Template: Incongruence Resolution.
+ * @param noteName - The name of the note.
+ * @param property - The property name.
+ * @param values - Array of competing values.
+ * @param contentSnippet - Snippet of the file content.
+ * @param candidateData - Optional metadata for candidate values.
+ * @param isInfraNodus - True if the conflict was identified by InfraNodus.
+ * @returns The formatted prompt string.
  */
 export function formatIncongruencePrompt(
     noteName: string,
@@ -357,6 +447,9 @@ RUNNERUP: [[Note Name]] | SCORE: % | WHY: reason
 
 /**
  * Calculates cosine similarity between two vectors.
+ * @param v1 - The first vector.
+ * @param v2 - The second vector.
+ * @returns The similarity score (0-1).
  */
 export function cosineSimilarity(v1: number[], v2: number[]): number {
     if (!v1 || !v2 || v1.length === 0 || v1.length !== v2.length) return 0;
@@ -374,6 +467,9 @@ export function cosineSimilarity(v1: number[], v2: number[]): number {
 
 /**
  * Calculates Harmonized Topological Ranking (HTR-2026).
+ * @param vectorSim - The vector similarity score.
+ * @param folderDepth - The folder depth difference.
+ * @returns The HTR score (0-100).
  */
 export function calculateHtrScore(vectorSim: number, folderDepth: number): number {
     const vs = vectorSim <= 1 ? vectorSim * 100 : vectorSim;
@@ -384,6 +480,8 @@ export function calculateHtrScore(vectorSim: number, folderDepth: number): numbe
 
 /**
  * Sleep helper for UI thread yielding.
+ * @param ms - Milliseconds to sleep.
+ * @returns A promise that resolves after the timeout.
  */
 export function sleep(ms: number): Promise<void> {
     return new Promise((r) => setTimeout(r, ms));
@@ -396,6 +494,8 @@ export function sleep(ms: number): Promise<void> {
 /**
  * ✅ NEW: SOTA 2026 Redaction Utility.
  * Masks sensitive patterns (Bearer, JWT) in strings before sending to external APIs.
+ * @param s - The string to sanitize.
+ * @returns The sanitized string.
  */
 function sanitizeForLlm(s: string): string {
     if (!s) return '';
@@ -410,6 +510,9 @@ function sanitizeForLlm(s: string): string {
 
 /**
  * ✅ NEW: Safe regex compilation with error handling.
+ * @param pattern - The regex pattern string.
+ * @param flags - Optional regex flags.
+ * @returns A RegExp object or null if compilation fails.
  */
 export function safeCompileRegex(pattern: string, flags?: string): RegExp | null {
     try {
@@ -423,6 +526,8 @@ export function safeCompileRegex(pattern: string, flags?: string): RegExp | null
 
 /**
  * ✅ NEW: Type guard for Promises / Thenables.
+ * @param val - The value to check.
+ * @returns True if the value is thenable.
  */
 export function isThenable<T>(val: unknown): val is Promise<T> {
     return (
@@ -434,6 +539,8 @@ export function isThenable<T>(val: unknown): val is Promise<T> {
 
 /**
  * ✅ NEW: Safe stringification for template literals.
+ * @param val - The value to stringify.
+ * @returns A string representation of the value.
  */
 export function safeString(val: unknown): string {
     if (val === null || val === undefined) return 'none';

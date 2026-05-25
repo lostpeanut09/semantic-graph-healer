@@ -11,6 +11,13 @@ import { SmartConnectionsAdapter } from './DataAdapter';
 export class ReasoningService {
     private scAdapter: SmartConnectionsAdapter;
 
+    /**
+     * Initializes the ReasoningService.
+     * @param app - The Obsidian App instance.
+     * @param settings - The plugin's semantic settings.
+     * @param llm - The LLM interface for calling and parsing reasoning results.
+     * @param dv - The Dataview API instance, if available.
+     */
     constructor(
         private app: App,
         private settings: SemanticGraphHealerSettings,
@@ -24,8 +31,10 @@ export class ReasoningService {
     }
 
     /**
-     * Analyze an incongruence suggestion via AI reasoning.
-     * Returns the ReasoningResult if successful, null otherwise.
+     * Analyzes an incongruence suggestion using AI reasoning.
+     * Offloads the heavy lifting to the configured LlmService and incorporates structural metadata.
+     * @param suggestion - The incongruence suggestion to analyze.
+     * @returns A promise resolving to a ReasoningResult, or null if analysis fails or criteria are not met.
      */
     async analyze(suggestion: Suggestion): Promise<ReasoningResult | null> {
         // RESILIENT METADATA EXTRACTION (SOTA 2026)
@@ -113,7 +122,12 @@ export class ReasoningService {
     }
 
     /**
-     * Gather structural + semantic metadata for each competing value.
+     * Gathers structural and semantic metadata for a list of competing candidate values.
+     * Incorporates folder depth, tags, and Smart Connections scores.
+     * @param _suggestion - The original suggestion triggering the reasoning.
+     * @param targets - The list of candidate note names or links.
+     * @param notePath - The path of the source note being analyzed.
+     * @returns A promise resolving to a map of candidate data for each target.
      */
     private async gatherCandidateData(
         _suggestion: Suggestion,
