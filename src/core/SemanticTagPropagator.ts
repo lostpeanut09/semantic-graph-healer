@@ -5,6 +5,13 @@ import type { VaultQueryEngine } from './DataAdapter';
 import { LlmService } from './LlmService';
 
 export class SemanticTagPropagator {
+    /**
+     * Initializes the SemanticTagPropagator.
+     * @param app - The Obsidian App instance.
+     * @param settings - The plugin's semantic settings.
+     * @param engine - The data adapter engine used for querying the vault.
+     * @param llm - The LLM service (reserved for future AI taxonomy refinement).
+     */
     constructor(
         private app: App,
         private settings: SemanticGraphHealerSettings,
@@ -12,6 +19,12 @@ export class SemanticTagPropagator {
         private llm: LlmService,
     ) {}
 
+    /**
+     * Analyzes the graph topology to suggest tag propagation.
+     * If a parent node has a tag and a majority of its children share it,
+     * this method suggests propagating the tag to the remaining outlier children.
+     * @returns An array of semantic tag suggestions.
+     */
     public runTagPropagationAnalysis(): Suggestion[] {
         HealerLogger.info('Starting Phase 3 AI Semantic Tag Propagation Analysis...');
         const suggestions: Suggestion[] = [];

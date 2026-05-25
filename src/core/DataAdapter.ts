@@ -15,30 +15,70 @@ interface SmartConnectionsPlugin {
     api?: unknown;
 }
 
+/**
+ * VaultQueryEngine: Interface for querying the note vault, typically implemented
+ * by Dataview or Datacore.
+ */
 export interface VaultQueryEngine {
+    /**
+     * Retrieves a page's metadata by its vault path.
+     * @param path - The vault-relative path to the note.
+     * @returns The page metadata or null if not found.
+     */
     getPage(path: string): DataviewPage | null;
+
+    /**
+     * Retrieves a list of pages matching a specific query.
+     * @param query - The query string (e.g., folder path).
+     * @returns Array of matching pages.
+     */
     getPages(query: string): DataviewPage[];
+
+    /**
+     * Retrieves all backlinks for a specific note.
+     * @param path - The vault-relative path to the note.
+     * @returns Array of paths of notes linking to the target note.
+     */
     getBacklinks(path: string): string[];
 }
 
 /**
- * ADAPTER: Provides semantic integration with the Smart Connections plugin.
+ * SmartConnectionsAdapter: Provides semantic integration with the Smart Connections plugin.
+ * Handles different versions of Smart Connections API (v3/v4) and provides AJSON fallbacks.
  */
 export class SmartConnectionsAdapter {
+    /**
+     * Initializes the SmartConnectionsAdapter.
+     * @param app - The Obsidian App instance.
+     */
     constructor(private app: App) {}
 
+    /**
+     * Retrieves the Smart Connections plugin instance from the internal registry.
+     * @returns The plugin instance or null if not found/available.
+     */
     private getPluginInstance(): SmartConnectionsPlugin | null {
         if (!isObsidianInternalApp(this.app)) return null;
         const plugins = (this.app as unknown as { plugins: ObsidianPluginRegistry }).plugins;
         return plugins.getPlugin('smart-connections') as SmartConnectionsPlugin;
     }
 
+    /**
+     * Checks if Smart Connections is available and has a functional API or environment.
+     * @returns True if available, false otherwise.
+     */
     public isAvailable(): boolean {
         const p = this.getPluginInstance();
         if (!p) return false;
         return !!(p.main?.smart_sources || p.smart_sources || p.env?.smart_sources || p.api);
     }
 
+    /**
+     * Queries Smart Connections for semantically similar notes.
+     * @param sourcePath - The path of the note to find similarities for.
+     * @param limit - Maximum number of suggestions to return.
+     * @returns A promise resolving to an array of suggestions.
+     */
     public async query(sourcePath: string, limit: number = 10): Promise<Suggestion[]> {
         const sc = this.getPluginInstance();
         if (!sc) return [];
@@ -105,6 +145,12 @@ export class SmartConnectionsAdapter {
         return this.querySmartEnvFallback(sourcePath, limit);
     }
 
+    /**
+     * Fallback to searching Smart Environment configuration and AJSON files.
+     * @param sourcePath - The path of the source note.
+     * @param limit - Maximum number of suggestions.
+     * @returns A promise resolving to an array of suggestions.
+     */
     private async querySmartEnvFallback(sourcePath: string, limit: number): Promise<Suggestion[]> {
         const adapter = this.app.vault.adapter;
         const envCfgPath = '.smart-env/smart_env.json';
@@ -132,6 +178,12 @@ export class SmartConnectionsAdapter {
         }
     }
 
+    /**
+     * Fallback to scanning .ajson files in .smart-env/multi.
+     * @param sourcePath - The path of the source note.
+     * @param limit - Maximum number of suggestions.
+     * @returns A promise resolving to an array of suggestions.
+     */
     private async queryAjsonFallback(sourcePath: string, limit: number): Promise<Suggestion[]> {
         const envPath = '.smart-env/multi';
         const adapter = this.app.vault.adapter;

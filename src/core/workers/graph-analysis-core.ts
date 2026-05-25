@@ -4,7 +4,7 @@ import louvain from 'graphology-communities-louvain';
 import betweennessCentrality from 'graphology-metrics/centrality/betweenness';
 import { z } from 'zod';
 import type { WorkerResponse, GraphAnalysisResult } from '../../types';
-export type { WorkerResponse, GraphAnalysisResult };
+export type { WorkerResponse };
 
 // --- Phase 2: OSS Hardening (Zod Validation) ---
 
@@ -19,47 +19,60 @@ const EdgeSchema = z.object({
     attributes: z.record(z.string(), z.unknown()).default({}),
 });
 
-const WorkerMessageSchema = z.looseObject({
-    type: z.enum([
-        'PAGERANK',
-        'COMMUNITY',
-        'BETWEENNESS',
-        'FULL_ANALYSIS',
-        'SIMILARITY',
-        'COCITATION',
-        'TOPOLOGY_DIAGNOSTICS',
-    ]),
-    payload: z.object({
-        nodes: z.array(NodeSchema),
-        edges: z.array(EdgeSchema),
-        requestId: z.string(),
-    }),
-    options: z
-        .looseObject({
-            limit: z.number().optional(),
-            minScore: z.number().optional(),
-            weights: z
-                .object({
-                    jaccard: z.number(),
-                    adamicAdar: z.number(),
-                    resourceAllocation: z.number(),
-                })
-                .optional(),
-            fileStats: z.record(z.string(), z.object({ mtime: z.number() })).optional(),
-            edgePolicy: z.enum(['strict', 'tolerant']).optional(),
-            maxEdges: z.number().optional(),
-            maxNodes: z.number().optional(),
-            blackHoleThreshold: z.number().optional(),
-            htrStructuralWeight: z.number().optional(),
-            embeddings: z.record(z.string(), z.array(z.number())).optional(),
-        })
-        .optional(),
-});
+const WorkerMessageSchema = z
+    .object({
+        type: z.enum([
+            'PAGERANK',
+            'COMMUNITY',
+            'BETWEENNESS',
+            'FULL_ANALYSIS',
+            'SIMILARITY',
+            'COCITATION',
+            'TOPOLOGY_DIAGNOSTICS',
+        ]),
+        payload: z.object({
+            nodes: z.array(NodeSchema),
+            edges: z.array(EdgeSchema),
+            requestId: z.string(),
+        }),
+        options: z
+            .object({
+                limit: z.number().optional(),
+                minScore: z.number().optional(),
+                weights: z
+                    .object({
+                        jaccard: z.number(),
+                        adamicAdar: z.number(),
+                        resourceAllocation: z.number(),
+                    })
+                    .optional(),
+                fileStats: z.record(z.string(), z.object({ mtime: z.number() })).optional(),
+                edgePolicy: z.enum(['strict', 'tolerant']).optional(),
+                maxEdges: z.number().optional(),
+                maxNodes: z.number().optional(),
+                blackHoleThreshold: z.number().optional(),
+                htrStructuralWeight: z.number().optional(),
+                embeddings: z.record(z.string(), z.array(z.number())).optional(),
+            })
+            .loose()
+            .optional(),
+    })
+    .loose();
 
+/**
+ * WorkerMessage
+ *
+ * Zod-validated schema for messages sent to the Graph Analysis worker.
+ * Defines supported analysis types (PAGERANK, COMMUNITY, etc.) and payload structure.
+ */
 export type WorkerMessage = z.infer<typeof WorkerMessageSchema>;
 
 /**
  * Calculates cosine similarity between two vectors.
+ *
+ * @param v1 - The first vector.
+ * @param v2 - The second vector.
+ * @returns The cosine similarity score (0 to 1).
  */
 function cosineSimilarity(v1: number[], v2: number[]): number {
     if (!v1 || !v2 || v1.length === 0 || v1.length !== v2.length) return 0;
@@ -76,18 +89,20 @@ function cosineSimilarity(v1: number[], v2: number[]): number {
 }
 
 /**
- * Type guard for WorkerMessage validation.
+ * ProgressReporter
+ *
+ * Interface for reporting progress from long-running worker tasks back
+ * to the main thread.
  */
-export function isWorkerMessage(data: unknown): data is WorkerMessage {
-    return WorkerMessageSchema.safeParse(data).success;
-}
-
 export interface ProgressReporter {
     postProgress: (requestId: string, pct: number, message: string) => void;
 }
 
 /**
  * Creates a ProgressReporter that sends messages to the postMessage function.
+ *
+ * @param postMessageFn - The function to call for posting worker responses.
+ * @returns A ProgressReporter instance.
  */
 export const createProgressReporter = (postMessageFn: (msg: WorkerResponse) => void): ProgressReporter => ({
     postProgress: (requestId: string, pct: number, message: string) => {
@@ -116,6 +131,17 @@ const numOpt = (opts: unknown, key: string, fallback: number): number => {
     return Math.max(1, Math.floor(v));
 };
 
+/**
+ * handleGraphWorkerMessage
+ *
+ * The main entry point for processing messages in the graph analysis worker.
+ * Orchestrates various graph algorithms (Pagerank, Louvain, Betweenness, etc.)
+ * with structural validation and size limit enforcement.
+ *
+ * @param message - The raw WorkerMessage from the main thread.
+ * @param reporter - Optional ProgressReporter for updates.
+ * @returns A WorkerResponse containing the analysis result or an error message.
+ */
 export function handleGraphWorkerMessage(message: WorkerMessage, reporter?: ProgressReporter): WorkerResponse {
     let requestId = 'unknown';
 
@@ -261,6 +287,18 @@ interface SimilarityOptions {
     fileStats?: Record<string, { mtime: number }>;
 }
 
+/**
+ * runSimilarityAnalysis
+ *
+ * Performs semantic similarity analysis between nodes in the graph using
+ * Jaccard, Adamic-Adar, Resource Allocation, and temporal heuristics.
+ *
+ * @param graph - The DirectedGraph instance.
+ * @param options - Similarity options (weights, limits, file stats).
+ * @param requestId - Unique ID for the request.
+ * @param reporter - Optional reporter for progress updates.
+ * @returns Array of node pairs with their similarity scores.
+ */
 function runSimilarityAnalysis(graph: DirectedGraph, options: unknown, requestId: string, reporter?: ProgressReporter) {
     const opts = options as SimilarityOptions | undefined;
     const weights = opts?.weights || {
@@ -310,10 +348,17 @@ function runSimilarityAnalysis(graph: DirectedGraph, options: unknown, requestId
 
         candidates.forEach((target) => {
             const targetNeighbors = neighborsMap.get(target)!;
-            const shared = new Set([...sourceNeighbors].filter((x) => targetNeighbors.has(x)));
+            const shared = new Set<string>();
+            const [smaller, larger] =
+                sourceNeighbors.size < targetNeighbors.size
+                    ? [sourceNeighbors, targetNeighbors]
+                    : [targetNeighbors, sourceNeighbors];
+            smaller.forEach((x) => {
+                if (larger.has(x)) shared.add(x);
+            });
             if (shared.size < 2) return;
 
-            const unionSize = new Set([...sourceNeighbors, ...targetNeighbors]).size;
+            const unionSize = sourceNeighbors.size + targetNeighbors.size - shared.size;
             const jaccard = shared.size / unionSize;
 
             let adamicAdar = 0;
@@ -362,6 +407,17 @@ interface CoCitationOptions {
     minScore?: number;
 }
 
+/**
+ * runCoCitationAnalysis
+ *
+ * Identifies nodes that are frequently cited together by other nodes.
+ *
+ * @param graph - The DirectedGraph instance.
+ * @param options - Co-citation options (minScore).
+ * @param requestId - Unique ID for the request.
+ * @param reporter - Optional reporter for progress updates.
+ * @returns Array of node pairs with their co-citation count.
+ */
 function runCoCitationAnalysis(graph: DirectedGraph, options: unknown, requestId: string, reporter?: ProgressReporter) {
     const opts = options as CoCitationOptions | undefined;
     const minScore = opts?.minScore || 2;
@@ -393,12 +449,17 @@ function runCoCitationAnalysis(graph: DirectedGraph, options: unknown, requestId
         });
 
         candidates.forEach((target) => {
-            const pairId = [source, target].sort().join('|||');
+            const pairId = source < target ? `${source}|||${target}` : `${target}|||${source}`;
             if (processedPairs.has(pairId)) return;
             processedPairs.add(pairId);
 
             const targetParents = inNeighbors.get(target)!;
-            const sharedCount = [...parents].filter((p) => targetParents.has(p)).length;
+            let sharedCount = 0;
+            const [smaller, larger] =
+                parents.size < targetParents.size ? [parents, targetParents] : [targetParents, parents];
+            smaller.forEach((p) => {
+                if (larger.has(p)) sharedCount++;
+            });
 
             if (sharedCount >= minScore) {
                 results.push({ a: source, b: target, score: sharedCount });
@@ -413,6 +474,17 @@ interface TopologyDiagnosticsOptions {
     blackHoleThreshold?: number;
 }
 
+/**
+ * runTopologicalDiagnostics
+ *
+ * Analyzes the graph structure to identify bridges, black holes, and cycles.
+ *
+ * @param graph - The DirectedGraph instance.
+ * @param options - Diagnostic options (blackHoleThreshold).
+ * @param requestId - Unique ID for the request.
+ * @param reporter - Optional reporter for progress updates.
+ * @returns Object containing detected bridges, black holes, and cycles.
+ */
 function runTopologicalDiagnostics(
     graph: DirectedGraph,
     options: unknown,

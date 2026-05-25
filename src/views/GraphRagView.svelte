@@ -44,6 +44,7 @@
       bind:value={query} 
       placeholder="Ask a global question about your vault..." 
       aria-label="Search query"
+      disabled={loading}
       style="flex-grow: 1;"
       onkeydown={(e) => e.key === 'Enter' && handleSearch()}
     />

@@ -10,7 +10,7 @@ Topological restoration engine that utilizes Dataview, Breadcrumbs, and ExcaliBr
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![CI](https://github.com/lostpeanut09/semantic-graph-healer/actions/workflows/quality.yml/badge.svg)](https://github.com/lostpeanut09/semantic-graph-healer/actions/workflows/quality.yml)
 
-**Semantic Graph Healer** is a topological restoration and deep graph analysis engine for Obsidian. It leverages [Datacore](https://github.com/blacksmithgu/datacore), [Breadcrumbs](https://github.com/Sirenko/obsidian-breadcrumbs), [ExcaliBrain](https://github.com/zsviczian/excalibrain), and [Graphology](https://graphology.github.io/) to identify and resolve structural inconsistencies in the knowledge graph. It's designed for researchers and curators managing large-scale digital gardens where manual link auditing is no longer feasible.
+**Semantic Graph Healer** is a topological restoration and deep graph analysis engine for Obsidian. It leverages [Datacore](https://github.com/blacksmithgu/datacore), [LadybugDB](https://github.com/ladybugdb/ladybugdb), [Breadcrumbs](https://github.com/Sirenko/obsidian-breadcrumbs), [ExcaliBrain](https://github.com/zsviczian/excalibrain), and [Graphology](https://graphology.github.io/) to identify and resolve structural inconsistencies in the knowledge graph. It's designed for researchers and curators managing large-scale digital gardens where manual link auditing is no longer feasible.
 
 ## Installation
 
@@ -43,8 +43,8 @@ npm run build
 ## Usage Examples
 
 1. **Repairing Structural Gaps**: The engine detects a chain `A -> C` where a note `B` logically fits between them (`A -> B -> C`). Use the **Triple Relink Executor** in the dashboard to repair the entire chain in one action, automatically updating the frontmatter for all three notes.
-2. **Finding Information Sinks (Black Holes)**: Switch the dashboard filter to **Black Holes** to find notes with high in-degree but zero out-degree. These are notes that attract links but lead nowhere.
-3. **AI Consensus Validation**: Use the **AI Tribunal** to verify missing links. If a structural gap is detected, click **Check results / Re-reason** to have a dual-LLM setup (e.g., local Ollama + Cloud GPT) verify the conceptual validity of the link before applying it.
+2. **Finding Information Sinks (Black Holes)**: Switch the dashboard filter to **Black Holes** to find notes with high in-degree but zero out-degree. Powered by **LadybugDB**, this analysis runs instantly even on vaults with 10k+ nodes.
+3. **AI Reasoning and Tribunal**: Use the **ReasoningService** to verify complex incongruences. If multiple conflicting values exist for a property, click **Check results / Re-reason** to invoke a dual-LLM setup (**AI Tribunal**) that analyzes note content and semantic vectors to identify the most logically sound connection.
 
 ## Technical Features
 
@@ -57,34 +57,46 @@ The plugin implements a production-grade **Query Engine** powered by Datacore:
 
 A robust adapter layer transparently utilizes Datacore to ensure high semantic parity and speed.
 
+### High-Performance Graph Database (LadybugDB)
+
+The plugin features a built-in **LadybugDB** instance — a high-performance graph database powered by WASM:
+
+- **Cypher Query Language** — Enables complex topological pattern matching (e.g., bridge detection, cycle analysis) using industry-standard graph query syntax.
+- **WASM Acceleration** — Offloads heavy graph traversals and pattern matching to a compiled WebAssembly core.
+- **Web Worker Offloading** — On desktop, all database operations and graph algorithms run in a dedicated background thread, ensuring zero impact on UI responsiveness.
+- **Automatic Sync** — Synchronizes vault nodes and links from the `UnifiedMetadataAdapter` into the graph database in real-time.
+
 ### Multi-Adapter Architecture
 
 The plugin implements a modular adapter pattern (`IMetadataAdapter`) for seamless integration with the broader Obsidian ecosystem:
 
 - **`DatacoreAdapter`** — High-performance reactive queries via the Datacore API.
-- **`BreadcrumbsAdapter`** — Seamlessly navigates hierarchical relationships (up/down/next/prev) utilizing the new Breadcrumbs V4 rewrite-from-scratch architecture.
-- **`SmartConnectionsAdapter`** — Orchestrates the modern Smart Environment API to fetch AI vector-similarity scores, while retaining strict backward compatibility with `.ajson` sources.
+- **`LadybugAdapter`** — Bridge to the LadybugDB engine for advanced topological queries.
+- **`BreadcrumbsAdapter`** — Seamlessly navigates hierarchical relationships (up/down/next/prev).
+- **`SmartConnectionsAdapter`** — Orchestrates the modern Smart Environment API to fetch AI vector-similarity scores.
 - **`UnifiedMetadataAdapter`** — Orchestrates all adapters into a single, cohesive, and failure-resilient API surface.
 
-All adapters use type-safe access patterns (`ExtendedApp` interface) and are fully compliant with strict ESLint rules (zero warnings).
+### Deep Graph Analysis
 
-### Deep Graph Analysis (Graphology)
+When enabled, the engine runs academic-grade algorithms powered by **Graphology** and **LadybugDB**:
 
-When enabled, the engine builds a full in-memory graph using [Graphology](https://graphology.github.io/) and runs academic-grade algorithms:
-
-- **PageRank** — Identifies authority notes (top 5% by score). Includes automatic fallback to **Degree Centrality** if PageRank fails to converge on disconnected graphs.
+- **PageRank** — Identifies authority notes (top 5% by score).
 - **Louvain Community Detection** — Discovers thematic clusters of tightly connected notes and suggests MOC creation for clusters with 5+ members.
-- **Betweenness Centrality** — Finds critical bridge notes connecting disparate topics. Includes a safety guard that skips analysis for vaults exceeding 2,500 nodes to prevent UI freezes.
+- **Betweenness Centrality** — Finds critical bridge notes connecting disparate topics.
+- **Cycle Detection (Ouroboros)** — DFS-based and Cypher-powered detection of infinite loops in the hierarchy graph.
 
-The `GraphEngine` is lazy-loaded via dynamic `import()` to minimize initial plugin load time.
+### AI-Driven Deep Reasoning (ReasoningService)
 
-#### Web Worker Offloading
+The `ReasoningService` provides the intelligence layer for resolving topological conflicts:
 
-On desktop, all heavy graph computations (PageRank, Louvain, Betweenness) are offloaded to a dedicated **Web Worker** thread via `GraphWorkerService`. This prevents UI freezes during analysis of large vaults. On mobile (iOS/Android), the worker is automatically disabled to avoid Capacitor crashes, and analysis falls back to the main thread with adaptive batch sizes.
+- **Content-Aware Analysis** — Reads note content to determine the conceptual validity of a proposed link.
+- **Semantic Vector Integration** — Incorporates similarity scores from **Smart Connections** to weight candidates.
+- **AI Tribunal** — Implements a dual-LLM verification system. Every suggestion is processed by a Primary and a Secondary model to ensure consensus and prevent hallucinations.
+- **HTR (Healer Topology Rank) Scoring** — A proprietary formula that blends semantic similarity, folder depth, and graph centrality to rank resolution candidates.
 
 ### Deterministic Link Prediction Engine
 
-The `LinkPredictionEngine` implements a scientifically-grounded three-way blend of link prediction indices to discover **"Missing Rings"** — note pairs with high shared-neighbor overlap that are not yet directly connected:
+The `LinkPredictionEngine` implements a scientifically-grounded three-way blend of link prediction indices to discover **"Missing Rings"**:
 
 | Algorithm               | Weight | Reference                      |
 | :---------------------- | :----- | :----------------------------- |
@@ -92,107 +104,35 @@ The `LinkPredictionEngine` implements a scientifically-grounded three-way blend 
 | **Adamic-Adar Index**   | 0.35   | Adamic & Adar, 2003            |
 | **Resource Allocation** | 0.30   | Lü & Zhou, 2010                |
 
-All weights are user-configurable and auto-normalized to sum to 1. A **Temporal Decay** multiplier (λ=0.005, half-life ≈139 days) prioritizes notes created or modified around the same time, reflecting human memory and context coherence.
-
-**Co-Citation Analysis**: The engine also detects notes that are frequently cited together in the same source ("2nd-order backlinks"), surfacing latent semantic relationships invisible to direct link analysis.
-
 ### StructuralCache — Performance Layer
 
-A generic LRU (Least Recently Used) caching layer sits between the query engine and the analysis modules. It features:
+A generic LRU (Least Recently Used) caching layer sits between the query engine and the analysis modules:
 
-- **Event-based invalidation** — Enforces strict `EventRef` lifecycle management. Cache entries are automatically and safely purged when files are modified, renamed, or deleted without risking memory leaks.
-- **Configurable TTL** — Default 5-minute expiry prevents stale data without excessive recomputation.
+- **Event-based invalidation** — Automatically purges cache entries when files are modified or deleted.
 - **Memory budget** — Hard cap of 10,000 entries with LRU eviction to prevent memory bloat on mobile devices.
-- **Explicit lifecycle management** — `destroy()` unregisters all event listeners comprehensively across the architecture.
-
-### AI Tribunal and Epistemic Stability
-
-The plugin implements a dual-LLM verification system known as the **AI Tribunal**. Every suggestion is processed by a Primary and a Secondary model to ensure consensus and prevent hallucinations. If models disagree, the suggestion is quarantined for manual review. This system supports independent and diverse model providers (e.g., local Ollama vs. Cloud GPT) to ensure unbiased structural reasoning.
-
-Consensus states are classified as:
-
-- **STABLE** — Both models agree on the winner.
-- **CONFLICT** — Models disagree; manual intervention required.
-- **UNCERTAIN** — One or both models failed to produce a clear verdict.
-
-### Semantic Vector Discovery
-
-Direct integration with the [Smart Connections](https://github.com/brianpetro/obsidian-smart-connections) environment unlocks vector-similarity scores for every link suggestion. The engine analyzes AI embeddings to propose candidates with the highest semantic proximity, ensuring that your graph architecture mirrors the conceptual depth of your notes.
-
-**Smart Connections v4+ Compatibility**: The `SmartConnectionsAdapter` tries, in order:
-
-1. global `window.smart_env.smart_sources`
-2. plugin-internal `smart_sources`
-3. legacy `plugin.api.search` and `find`
-4. `.smart-env/*.ajson` or `.smart-connections/*.ajson` fallback
-
-### Structural Gap Detection (Bridge Scrutiny)
-
-The engine identifies **structural gaps** in sequential chains: if note A links directly to note C, but a note B exists that logically fits between them (B links to both A and C), the plugin suggests inserting B into the chain. Detection uses an **O(N·K²) reverse-index algorithm** for performance on large vaults.
-
-A dedicated **Triple Relink Executor** can repair the entire chain in one action, updating the frontmatter of A, B, and C simultaneously (A → B → C with correct `next`/`prev` properties).
-
-### Hierarchical Cycle Detection (Ouroboros)
-
-A DFS-based cycle detector finds infinite loops in the hierarchy graph (e.g., A → B → C → A). Cycles are flagged as critical errors with the full loop path displayed for immediate resolution.
-
-### Information Sink Detection (Black Holes)
-
-Notes with **high in-degree but zero out-degree** are identified as information sinks — they attract links but lead nowhere. The analysis uses a pre-computed degree map for O(N) performance and supports **Canvas** and **Excalidraw** files when the `includeNonMarkdownHubs` setting is enabled.
-
-### Real-Time Reactive Healing
-
-The plugin monitors vault events in real-time with intelligent triggers:
-
-- **File Creation** — New notes are automatically scanned for bridge gap opportunities after a brief stabilization delay.
-- **Metadata Changes** — Background files are analyzed with a 1-second debounce. The currently active (editing) file is skipped to avoid conflicts.
-- **Focus Change** — When the user switches away from a note, deferred analysis runs on the file they just left.
-
-### Note Exhaustion and State Tracking
-
-To optimize compute resources, the engine tracks the epistemic state of each file. Notes where all AI-suggested links have been blacklisted are marked as "exhausted" and skipped in subsequent scans. This persistent tracking ensures the curation process remains focused on new, high-value semantic discoveries.
-
-### Structural Gap Analysis (InfraNodus)
-
-Integration with the [InfraNodus](https://infranodus.com) API enables the detection of structural holes within the graph topology. The plugin identifies isolated clusters and suggests bridging links to enhance the semantic density of the vault, transforming fragmented notes into a unified knowledge network.
-
-### Deterministic Topology Alignment
-
-The engine performs deterministic alignment of Map of Content (MOC) structures by analyzing Dataview-powered tag hierarchies. It automatically recognizes fields from Breadcrumbs and ExcaliBrain to maintain cross-plugin consistency, proposing hierarchical links that mirror your existing taxonomy without requiring AI inference.
+- **Explicit lifecycle management** — Comprehensive `destroy()` pattern to prevent memory leaks.
 
 ### Secure Credential Management
 
 API credentials for all providers are managed via the **KeychainService** with defense-in-depth encryption:
 
 1. **Obsidian SecretStorage** (v1.11.4+) — Primary backend using the OS-native credential store.
-2. **Legacy Keychain** — Backward-compatible fallback for older Obsidian versions.
-3. **AES-256-GCM Software Encryption** — When no native secure storage is available, secrets are encrypted at rest using a derived master key via `CryptoUtils`. Initialization vectors are unique per credential.
-
-Secrets are **never stored in plain text** within `data.json` or any plugin configuration file.
-
-### Sync-Safe Settings (Hot Reload)
-
-The plugin implements `onExternalSettingsChange()` to detect when `data.json` is modified externally (e.g., via Obsidian Sync, iCloud, or Git). All analytical services are hot-reloaded without requiring a plugin restart, ensuring multi-device workflows remain consistent.
-
-### CLI-Ready Silent Analysis
-
-A dedicated `Run silent graph analysis (CLI)` command enables headless execution without UI notices, designed for integration with the **Obsidian CLI** and automated workflows.
+2. **AES-256-GCM Software Encryption** — Fallback encryption at rest using a derived master key.
+3. **Keychain Safety** — Secrets are **never stored in plain text** within `data.json`.
 
 ---
 
 ## Experimental AI
 
-A new suite of features currently in development leveraging local LLMs (Ollama, LM Studio) to provide profound semantic validation:
-
-- **Semantic Tag Propagation:** Let the AI analyze parent clusters (MOCs) and suggest pushing relevant tags down to child notes based on content synergy.
-- **AI Branch Validation:** When a sequence splits into parallel paths (multiple `next` or `prev` links), the AI determines if these branches are mutually exclusive (topological error) or valid non-linear continuations.
-- **Related Reciprocity Override:** Force strict bidirectional validation even for weak "related" links using intelligent semantic analysis.
+- **Semantic Tag Propagation:** AI-driven analysis to push relevant tags from MOCs down to child notes.
+- **AI Branch Validation:** Resolves topological errors in parallel paths (multiple `next`/`prev` links).
+- **Cross-Thematic Inference:** Suggests links between disparate clusters identified by Louvain communities.
 
 ---
 
 ## Dashboard
 
-The dashboard features a **partial re-rendering architecture**: the static frame (banner, header, filters) is rendered once, while only the dynamic suggestion list updates on interactions. This eliminates flicker and preserves scroll position.
+The dashboard features a **partial re-rendering architecture** for a flicker-free experience.
 
 ### Filters
 
@@ -206,20 +146,6 @@ The dashboard features a **partial re-rendering architecture**: the static frame
 | Logic Loops (Ouroboros) | Hierarchical cycle errors          |
 | Black Holes (Sinks)     | High in-degree, zero out-degree    |
 | AI Suggestions          | LLM-generated proximity links      |
-| Network Gaps            | InfraNodus structural holes        |
-
-### Pagination
-
-Suggestions are rendered in pages of 30 items with a **"Show more"** button displaying the remaining count, preventing DOM overload on large vaults.
-
-### Actions
-
-Each suggestion card supports:
-
-- **Execute** — Apply the fix (or trigger Triple Relink for bridge gaps).
-- **Check results / Re-reason** — Invoke AI reasoning for incongruences.
-- **Dismiss** — Remove from the current queue.
-- **Ignore** — Permanently blacklist a suggestion.
 
 ---
 
@@ -227,10 +153,8 @@ Each suggestion card supports:
 
 - Obsidian v1.5.0 or higher.
 - [Datacore](https://github.com/blacksmithgu/datacore) plugin (required for query engine).
-- [Breadcrumbs](https://github.com/Sirenko/obsidian-breadcrumbs) plugin (recommended, for hierarchical analysis).
+- [LadybugDB WASM](https://github.com/ladybugdb/wasm-core) (bundled, requires Desktop for full performance).
 - [Ollama](https://ollama.com) or a valid Cloud LLM API key (for AI features).
-- [Smart Connections](https://github.com/brianpetro/obsidian-smart-connections) (optional, for vector discovery).
-- [Graphology](https://graphology.github.io/) is bundled — no external install required.
 
 ## Contributing
 

@@ -4,31 +4,51 @@
 
 Thank you for your interest in contributing to Semantic Graph Healer! We welcome all contributions that help improve the topological integrity of knowledge graphs in Obsidian.
 
+## Code of Conduct
+
+We are committed to providing a welcoming and inclusive environment. Please be respectful and constructive in all interactions within this project. While we do not have a separate `CODE_OF_CONDUCT.md` file yet, we expect all contributors to adhere to the standards of professional and respectful conduct.
+
 ## Development Setup
 
-See **[GETTING-STARTED.md](docs/GETTING-STARTED.md)** for prerequisites and first-run instructions, and **[DEVELOPMENT.md](docs/DEVELOPMENT.md)** for detailed local development setup.
+Before you start contributing, please ensure your local environment is set up correctly:
+
+- See **[GETTING-STARTED.md](docs/GETTING-STARTED.md)** for initial prerequisites and first-run instructions.
+- See **[DEVELOPMENT.md](docs/DEVELOPMENT.md)** for a detailed local development guide, including build commands and project structure.
 
 ## Coding Standards
 
-- We use **ESLint** for static analysis and **Prettier** for code formatting.
-- All new code must be written in **TypeScript** and pass existing linting rules.
-- Run `npm run lint` and `npm run format` before committing.
-- Documentation should be updated in the `docs/` directory for any significant architectural changes.
+To maintain codebase consistency and quality, we enforce the following standards:
+
+- **TypeScript & Svelte 5**: All new functionality must be written in TypeScript. We use Svelte 5 and its **Runes** system (`$state`, `$derived`, `$effect`) for UI reactivity.
+- **Linting & Formatting**:
+    - **ESLint**: Used for static analysis of TypeScript and JavaScript. Run `npm run lint`.
+    - **Prettier**: Used for consistent code formatting. Run `npm run format`.
+    - **Stylelint**: Used for CSS linting. Run `npm run lint:css`.
+- **Architecture**: We follow a **Port/Adapter (Hexagonal)** architecture. Core logic should be decoupled from external dependencies via interfaces in `src/core/ports/`.
+- **Logging**: Always use `HealerLogger` instead of `console.log` to ensure proper redaction of sensitive data and consistent formatting.
+- **Documentation**: For more detailed coding patterns and naming conventions, refer to **[docs/CONVENTIONS.md](docs/CONVENTIONS.md)**.
 
 ## PR Guidelines
 
-- **Branches**: Prefix your branch name with `feat/`, `fix/`, or `docs/`.
-- **Commit Messages**: Follow [Conventional Commits](https://www.conventionalcommits.org/) format.
-- **Tests**: Every pull request must include tests for new functionality or bug fixes.
-- **Review**: At least one maintainer must review and approve your PR before it is merged.
-- **CI**: All GitHub Action checks (Build, Lint, Test) must pass.
+When submitting a Pull Request, please follow these guidelines:
+
+- **Branch Naming**: Prefix your branch name based on the type of change: `feat/feature-name`, `fix/bug-name`, or `docs/doc-update`.
+- **Commit Messages**: Follow [Conventional Commits](https://www.conventionalcommits.org/) (e.g., `feat: add new graph analyzer`, `fix: resolve memory leak in worker`).
+- **Tests**: Every pull request should include tests for new functionality or bug fixes. Use `npm run test` to verify your changes.
+- **Quality Pipeline**: All PRs must pass the GitHub Actions quality pipeline, which includes:
+    - Prettier check
+    - ESLint (TS/JS)
+    - Stylelint (CSS)
+    - Knip (dependency audit)
+    - Full test suite
+    - Build check
+- **Review**: All contributions require a review and approval from a project maintainer before merging.
 
 ## Issue Reporting
 
-- Use the **[Bug Report](https://github.com/lostpeanut09/semantic-graph-healer/issues/new?template=bug_report.md)** template for reporting errors.
-- Use the **[Feature Request](https://github.com/lostpeanut09/semantic-graph-healer/issues/new?template=feature_request.md)** template for suggesting new capabilities.
-- Always include steps to reproduce, expected behavior, and your Obsidian environment details.
+If you encounter a bug or have a feature request, please open an issue on GitHub:
 
-## Code of Conduct
+- **Bug Reports**: Include a clear description of the issue, steps to reproduce, expected behavior, and actual behavior. Please also include your Obsidian version and environment details.
+- **Feature Requests**: Describe the proposed feature, the problem it solves, and any potential alternatives you've considered.
 
-Please be respectful and constructive in all interactions within this project. We aim to foster a welcoming and inclusive community.
+We value your time and contributions! If you have any questions, feel free to reach out via GitHub Issues.

@@ -3,9 +3,13 @@ import { HealerLogger } from './HealerUtils';
 
 /**
  * StructuralCache
- * Implements LRU (Least Recently Used) eviction to prevent memory bloat on mobile.
+ *
+ * Manages an in-memory cache of structural data with LRU (Least Recently Used) eviction
+ * and TTL (Time-To-Live) support. Automatically synchronizes with Obsidian's vault
+ * events to invalidate entries when files change, are renamed, or deleted.
+ *
+ * @template T - The type of data stored in the cache.
  */
-
 export class StructuralCache<T> {
     private cache: Map<string, { value: T; timestamp: number }> = new Map();
     private maxNodes: number;
@@ -18,6 +22,14 @@ export class StructuralCache<T> {
     private renameRef: EventRef;
     private deleteRef: EventRef;
 
+    /**
+     * Creates a new instance of StructuralCache.
+     *
+     * @param app - The Obsidian App instance.
+     * @param options - Cache configuration.
+     * @param options.maxNodes - Maximum number of entries before LRU eviction (default: 10000).
+     * @param options.ttlMs - Time-to-live in milliseconds (default: 5 minutes).
+     */
     constructor(
         private app: App,
         options: { maxNodes?: number; ttlMs?: number } = {},
@@ -37,7 +49,8 @@ export class StructuralCache<T> {
     }
 
     /**
-     * ✅ NEW: Explicit cleanup to prevent memory leaks from global event listeners.
+     * Unregisters all event listeners and clears the cache.
+     * Must be called when the cache is no longer needed to prevent memory leaks.
      */
     public destroy(): void {
         this.app.metadataCache.offref(this.changedRef);
@@ -47,6 +60,13 @@ export class StructuralCache<T> {
         HealerLogger.debug('StructuralCache listeners unregistered.');
     }
 
+    /**
+     * Retrieves an entry from the cache.
+     * Refreshes the entry's position for LRU and checks for expiration.
+     *
+     * @param path - The file path key.
+     * @returns The cached value or undefined if not found or expired.
+     */
     public get(path: string): T | undefined {
         const entry = this.cache.get(path);
         if (!entry) return undefined;
@@ -64,6 +84,13 @@ export class StructuralCache<T> {
         return entry.value;
     }
 
+    /**
+     * Adds or updates an entry in the cache.
+     * Triggers LRU eviction if the cache exceeds maxNodes.
+     *
+     * @param path - The file path key.
+     * @param value - The value to cache.
+     */
     public set(path: string, value: T): void {
         if (this.cache.size >= this.maxNodes) {
             // Evict oldest entry (the first key in Map)
@@ -80,6 +107,11 @@ export class StructuralCache<T> {
         });
     }
 
+    /**
+     * Invalidates a specific cache entry or clears the entire cache.
+     *
+     * @param path - Optional. The file path to invalidate. If omitted, clears all entries.
+     */
     public invalidate(path?: string): void {
         if (path) {
             this.cache.delete(path);
@@ -88,6 +120,11 @@ export class StructuralCache<T> {
         }
     }
 
+    /**
+     * Returns statistics about the current cache state.
+     *
+     * @returns Object containing current size and max limit.
+     */
     public getStats() {
         return {
             size: this.cache.size,

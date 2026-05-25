@@ -15,6 +15,10 @@ export class GraphEngine {
     private predictionEngine: LinkPredictionEngine;
     private readonly linkContextPath = '';
 
+    /**
+     * Initializes the GraphEngine.
+     * @param context - The graph context providing app, settings, and services.
+     */
     constructor(private context: GraphContext) {
         this.graph = new DirectedGraph();
         this.predictionEngine = new LinkPredictionEngine(context);
@@ -29,12 +33,17 @@ export class GraphEngine {
     }
 
     /**
-     * ✅ NEW: Expose the internal graph for visualization (Phase 9).
+     * Exposes the internal graphology graph instance.
+     * @returns The DirectedGraph instance.
      */
     public getGraph(): DirectedGraph {
         return this.graph;
     }
 
+    /**
+     * Retrieves the latest calculated topological metrics from cache.
+     * @returns The topological metrics.
+     */
     public getTopologicalMetrics(): TopologicalMetrics {
         return this.cache;
     }
@@ -49,7 +58,7 @@ export class GraphEngine {
     }
 
     /**
-     * ✅ NEW: Explicit memory management for large graphs.
+     * Explicit memory management: clears the graph and releases resources.
      */
     public dispose() {
         this.graph.clear();
@@ -57,7 +66,7 @@ export class GraphEngine {
     }
 
     /**
-     * Force clearing of the topological cache.
+     * Force clearing of the topological cache and resets metrics.
      */
     public clearTopologicalCache() {
         this.cache = {
@@ -71,7 +80,8 @@ export class GraphEngine {
     }
 
     /**
-     * ✅ NEW: Cache status reporting for UI synchronization.
+     * Reports the current status of the graph and cache.
+     * @returns Object containing cache validity, graph version, node count, and edge count.
      */
     public getCacheStatus() {
         return {
@@ -82,6 +92,11 @@ export class GraphEngine {
         };
     }
 
+    /**
+     * Checks if the current topological cache is still valid.
+     * Validates against graph fingerprint and expiration time (1 hour).
+     * @returns True if the cache is valid, false otherwise.
+     */
     private isCacheValid(): boolean {
         const c = this.cache;
         if (!c.graphVersion || c.graphVersion !== this.getGraphFingerprint()) return false;
@@ -90,13 +105,18 @@ export class GraphEngine {
         return true;
     }
 
+    /**
+     * Generates a unique fingerprint for the current graph state.
+     * @returns A string representing the graph's order, size, and version number.
+     */
     private getGraphFingerprint(): string {
         return `${this.graph.order}:${this.graph.size}:${this.graphVersionNum}`;
     }
 
     /**
-     * Builds the graph in memory using Obsidian's cache.
-     * Uses Weighted DirectedGraph for SOTA accuracy with memory guardrails (2026).
+     * Builds the graph in memory using Obsidian's metadata cache.
+     * Respects performance guardrails and safety modes.
+     * Populates nodes from markdown files and edges from resolved links.
      */
     public buildGraph() {
         this.graph.clear();
@@ -204,7 +224,9 @@ export class GraphEngine {
     }
 
     /**
-     * PageRank analysis with weight support (Async via Web Worker).
+     * Executes PageRank analysis to identify high-influence nodes.
+     * Offloads calculation to a background Web Worker.
+     * @returns A promise resolving to an array of quality suggestions.
      */
     public async runPageRankAnalysis(): Promise<Suggestion[]> {
         HealerLogger.info('Running Weighted PageRank (Log-Transformed) in background worker...');
@@ -251,6 +273,11 @@ export class GraphEngine {
         }
     }
 
+    /**
+     * Fallback method calculating total degree centrality for fragmented graphs.
+     * Used when PageRank is unstable due to high isolation ratio.
+     * @returns An array of quality suggestions based on degree centrality.
+     */
     private runDegreeCentralityFallback(): Suggestion[] {
         const scores: Record<string, number> = {};
         this.graph.forEachNode((node) => {
@@ -263,6 +290,13 @@ export class GraphEngine {
         return this.processScores(scores, 'degree_centrality', 'Weighted Node Degree (In+Out)');
     }
 
+    /**
+     * Normalizes and sorts analysis scores into quality suggestions.
+     * @param scores - The raw scores from graph analysis.
+     * @param idPrefix - Prefix for the suggestion ID.
+     * @param method - Name of the method used for logging.
+     * @returns An array of quality suggestions.
+     */
     private processScores(scores: Record<string, number>, idPrefix: string, method: string): Suggestion[] {
         const suggestions: Suggestion[] = [];
         const sorted = Object.entries(scores)
@@ -297,8 +331,9 @@ export class GraphEngine {
     }
 
     /**
-     * Louvain Community Detection with weight support (Worker-Delegate).
-     * SOTA 2026: Async processing to prevent UI lockup in large graphs.
+     * Executes Louvain Community Detection to find conceptual clusters.
+     * Offloads calculation to a background Web Worker.
+     * @returns A promise resolving to an array of quality suggestions.
      */
     public async runCommunityDetection(): Promise<Suggestion[]> {
         HealerLogger.info('Running Weighted Louvain Clustering (Worker)...');
@@ -338,6 +373,11 @@ export class GraphEngine {
         }
     }
 
+    /**
+     * Groups notes into clusters and suggests MOCs for large conceptual groups.
+     * @param communities - The raw community mapping from Louvain analysis.
+     * @returns An array of quality and MOC suggestions.
+     */
     private processCommunities(communities: Record<string, number>): Suggestion[] {
         const suggestions: Suggestion[] = [];
         const isCacheValid = this.isCacheValid() && Object.keys(this.cache.pageRank).length > 0;
@@ -426,8 +466,9 @@ export class GraphEngine {
     }
 
     /**
-     * Weighted Betweenness Centrality (Bridges) - Worker-Delegate.
-     * SOTA 2026: No longer requires sync guardrails as it runs in background.
+     * Executes Betweenness Centrality analysis to identify "bridge" nodes.
+     * Offloads calculation to a background Web Worker.
+     * @returns A promise resolving to an array of quality suggestions.
      */
     public async runBetweennessAnalysis(): Promise<Suggestion[]> {
         HealerLogger.info('Running Weighted Betweenness Centrality (Worker Bridges)...');
@@ -467,6 +508,11 @@ export class GraphEngine {
         }
     }
 
+    /**
+     * Identifies "bridge" nodes from betweenness centrality scores.
+     * @param scores - The raw betweenness scores from graph analysis.
+     * @returns An array of quality suggestions identifying bridges.
+     */
     private processBetweenness(scores: Record<string, number>): Suggestion[] {
         const suggestions: Suggestion[] = [];
         const sorted = Object.entries(scores)
@@ -498,8 +544,11 @@ export class GraphEngine {
     }
 
     /**
-     * ✅ NEW: Co-citation Analysis — 2nd-order backlinks.
-     * Async via Worker to handle O(N^2) complexity in large vaults.
+     * Executes Co-citation analysis to find implicit links based on shared neighbors.
+     * Offloads calculation to a background Web Worker for large graphs.
+     * @param minScore - Minimum shared neighbors to consider.
+     * @param limit - Maximum number of suggestions.
+     * @returns A promise resolving to an array of quality suggestions.
      */
     public async runCoCitationAnalysis(minScore = 2, limit = 15): Promise<Suggestion[]> {
         HealerLogger.info('Running Co-Citation Analysis (Worker offloaded)...');
@@ -538,7 +587,7 @@ export class GraphEngine {
                 if (!(fileA instanceof TFile) || !(fileB instanceof TFile)) continue;
 
                 suggestions.push({
-                    id: `cocitation:${[a, b].sort().join('::')}`,
+                    id: `cocitation:${a < b ? `${a}::${b}` : `${b}::${a}`}`,
                     type: 'deterministic',
                     link: `[[${fileB.basename}]]`,
                     source: `Co-Citation (score: ${score}): [[${fileA.basename}]] and [[${fileB.basename}]] are cited together in ${score} note(s).`,
@@ -565,8 +614,10 @@ export class GraphEngine {
     }
 
     /**
-     * ✅ NEW: Similarity Analysis (Jaccard, AA, RA).
-     * Async via Worker with Candidate Generation (O(E) instead of O(V^2)).
+     * Executes Deep Topology Similarity Analysis (e.g., Jaccard, Adamic-Adar).
+     * Delegated to the LinkPredictionEngine.
+     * @param options - Optional parameters for the prediction.
+     * @returns A promise resolving to an array of link prediction suggestions.
      */
     public async runSimilarityAnalysis(options?: { limit?: number }): Promise<Suggestion[]> {
         HealerLogger.info('Running Deep Topology Similarity Analysis (Engine-delegated)...');
@@ -588,6 +639,10 @@ export class GraphEngine {
         }
     }
 
+    /**
+     * Retrieves modification times for all markdown files in the vault.
+     * @returns A record mapping file paths to their last modification timestamp.
+     */
     private getFileStats(): Record<string, { mtime: number }> {
         const stats: Record<string, { mtime: number }> = {};
         this.app.vault.getMarkdownFiles().forEach((f) => {
@@ -596,6 +651,10 @@ export class GraphEngine {
         return stats;
     }
 
+    /**
+     * Serializes the internal graphology nodes for background worker transport.
+     * @returns An array of node objects with keys and attributes.
+     */
     private getSerializedNodes() {
         const nodes: Array<{ key: string; attributes: Record<string, unknown> }> = [];
         this.graph.forEachNode((node, attrs) => {
@@ -604,6 +663,10 @@ export class GraphEngine {
         return nodes;
     }
 
+    /**
+     * Serializes the internal graphology edges for background worker transport.
+     * @returns An array of edge objects with source, target, and attributes.
+     */
     private getSerializedEdges() {
         const edges: Array<{
             source: string;
@@ -620,6 +683,11 @@ export class GraphEngine {
         return edges;
     }
 
+    /**
+     * Collects all available vector embeddings from the cache for graph nodes.
+     * Used to enrich graph analysis with semantic context.
+     * @returns A record mapping node paths to their embedding vectors.
+     */
     private collectEmbeddings(): Record<string, number[]> {
         const embeddings: Record<string, number[]> = {};
         const cache = this.context.cache;
@@ -635,6 +703,12 @@ export class GraphEngine {
         return embeddings;
     }
 
+    /**
+     * Synchronous fallback for co-citation analysis on small graphs.
+     * @param minScore - Minimum shared neighbors to consider.
+     * @param limit - Maximum number of suggestions.
+     * @returns An array of quality suggestions.
+     */
     private runCoCitationAnalysisSync(minScore: number, limit: number): Suggestion[] {
         // ... (Existing sync logic, simplified) ...
         const suggestions: Suggestion[] = [];
@@ -665,7 +739,7 @@ export class GraphEngine {
                 const fileB = this.app.vault.getAbstractFileByPath(b);
                 if (fileA instanceof TFile && fileB instanceof TFile) {
                     suggestions.push({
-                        id: `cocitation:${[a, b].sort().join('::')}`,
+                        id: `cocitation:${a < b ? `${a}::${b}` : `${b}::${a}`}`,
                         type: 'deterministic',
                         link: `[[${fileB.basename}]]`,
                         source: `Co-Citation (Sync): Shared neighbors detected.`,
@@ -684,8 +758,10 @@ export class GraphEngine {
     }
 
     /**
-     * ✅ NEW: Topological Diagnostics (Worker-Delegate).
-     * Offloads Bridge, Cycle, and Black Hole detection to the background worker.
+     * Executes broad topological diagnostics (Bridges, Cycles, Black Holes).
+     * Offloads calculation to a background Web Worker.
+     * @param options - Optional analysis parameters.
+     * @returns A promise resolving to an object containing found anomalies.
      */
     public async runTopologicalAnalysis(options?: Record<string, unknown>): Promise<{
         bridges: Array<{ source: string; target: string; via: string; type: string }>;
@@ -712,7 +788,9 @@ export class GraphEngine {
     }
 
     /**
-     * Path-to-link helper using centralized context
+     * Helper to convert a file path into an Obsidian link.
+     * @param path - The file path to convert.
+     * @returns A string in the format `[[LinkText]]`.
      */
     private pathToLink(path: string): string {
         const file = this.app.vault.getAbstractFileByPath(path);

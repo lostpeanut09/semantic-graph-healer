@@ -1,5 +1,11 @@
 import type { App, EventRef, TAbstractFile } from 'obsidian';
 
+/**
+ * ListenerManager
+ *
+ * Manages Obsidian event listeners for metadata and vault changes.
+ * Consolidates multiple event sources into a single debounced invalidation signal.
+ */
 export class ListenerManager {
     private resolveListenerRef: EventRef | null = null;
     private deletedListenerRef: EventRef | null = null;
@@ -9,6 +15,13 @@ export class ListenerManager {
     private deleteVaultListenerRef: EventRef | null = null;
     private invalidationTimer: number | null = null;
 
+    /**
+     * Creates a new ListenerManager and registers listeners.
+     *
+     * @param app - The Obsidian App instance.
+     * @param onInvalidate - Callback triggered when an invalidation event occurs.
+     * @param debounceMs - Milliseconds to wait before firing the callback (default: 250).
+     */
     constructor(
         private app: App,
         private onInvalidate: () => void,
@@ -50,6 +63,10 @@ export class ListenerManager {
         }, this.debounceMs);
     }
 
+    /**
+     * Unregisters all listeners and clears any pending timers.
+     * Must be called during cleanup to prevent memory leaks.
+     */
     public destroy(): void {
         if (this.invalidationTimer !== null) {
             window.clearTimeout(this.invalidationTimer);
