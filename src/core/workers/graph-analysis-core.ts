@@ -407,9 +407,7 @@ function runCoCitationAnalysis(graph: DirectedGraph, options: unknown, requestId
             const targetParents = inNeighbors.get(target)!;
             let sharedCount = 0;
             const [smaller, larger] =
-                parents.size < targetParents.size
-                    ? [parents, targetParents]
-                    : [targetParents, parents];
+                parents.size < targetParents.size ? [parents, targetParents] : [targetParents, parents];
             smaller.forEach((p) => {
                 if (larger.has(p)) sharedCount++;
             });

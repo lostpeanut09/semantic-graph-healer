@@ -1,3 +1,4 @@
 ## 2025-02-14 - Optimize Graph Set intersections and Unions
+
 **Learning:** In the core graph analysis worker's hot loops for co-citation and link prediction analysis, relying on JavaScript Array spreading (`[...set]`) to compute set intersections and unions incurs high garbage collection (GC) and memory pressure overhead when graph nodes degree goes up.
 **Action:** Replace spreading and filtering for Sets with manual loops over the smaller set for intersections, and use the inclusion-exclusion principle (`|A| + |B| - |A ∩ B|`) for Set union sizes. Replace array sorting for consistent pair IDs with simple ternary string concatenations.
