@@ -1,0 +1,4 @@
+## 2024-05-24 - Custom Svelte Tabs and Search Inputs Accessibility
+
+**Learning:** When building custom tab implementations in Svelte (or other frameworks), simply hiding/showing content based on an active state is insufficient for screen readers. It's crucial to explicitly map the relationships using `role="tablist"`, `role="tab"`, `aria-selected`, and `aria-controls` for tabs, and `role="tabpanel"` for the content container. Furthermore, for search inputs with loading states, disabling the input and adding `aria-busy` to the submit button provides essential context to assistive technologies that a background process is occurring and further interaction is paused.
+**Action:** Always verify that custom UI components (like tabs and search forms) implement the appropriate WAI-ARIA roles and states, especially when handling async operations or dynamic content visibility, rather than relying solely on visual or behavioral state changes.
