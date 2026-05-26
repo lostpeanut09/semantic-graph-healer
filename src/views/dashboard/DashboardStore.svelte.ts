@@ -275,6 +275,16 @@ export class DashboardStore {
                 );
                 verificationResult = isValid ? 'Valid' : 'Contradiction';
             } else if (suggestion.id.startsWith('tag_')) {
+                // Respect user setting for AI tag validation
+                if (!this.#plugin.settings.requireAITagValidation) {
+                    verificationResult = 'Skipped';
+                    this.#suggestions[index] = {
+                        ...this.#suggestions[index],
+                        isVerifying: false,
+                        verificationResult,
+                    };
+                    return;
+                }
                 const childName = suggestion.meta.sourceNote || 'Unknown';
                 const tag = suggestion.meta.property || 'Unknown';
                 const parentName = suggestion.meta.targetNote || 'Unknown';

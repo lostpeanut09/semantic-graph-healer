@@ -357,6 +357,7 @@ export interface SemanticGraphHealerSettings {
     requireAITagValidation: boolean;
     tagPropagationThreshold?: number;
     tagPropagationExclusions?: string[];
+    tagPropagationDirection?: 'up' | 'down' | 'bidirectional';
     enableSemanticAudit: boolean;
     graphRagIndexDir: string;
     // Logging & Performance
@@ -561,6 +562,7 @@ export const DEFAULT_SETTINGS: SemanticGraphHealerSettings = {
     requireAITagValidation: true,
     tagPropagationThreshold: 0.5,
     tagPropagationExclusions: ['MOC', 'Index', 'Dashboard'],
+    tagPropagationDirection: 'bidirectional',
     enableSemanticAudit: false,
     graphRagIndexDir: '.planning/index',
     logLevel: 'info',

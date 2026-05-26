@@ -42,7 +42,13 @@ export class SemanticTagPropagator {
 
         // Map: parentPath -> array of child TFile objects
         const childrenByParent = new Map<string, TFile[]>();
-        const hierarchyKeys = this.settings.hierarchies[0]?.up || [];
+        // Collect all hierarchy direction keys for comprehensive parent detection
+        const hierarchyKeys = this.settings.hierarchies.flatMap((h) => [
+            ...(h.up || []),
+            ...(h.down || []),
+            ...(h.same || []),
+            ...(h.related || []),
+        ]);
         const resolverCache = new Map<string, string | null>();
 
         // 2. Build parent-child topology
