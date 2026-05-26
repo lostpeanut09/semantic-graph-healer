@@ -21,6 +21,7 @@
 - [x] **Phase 17: Obsidian CLI Integration & Automation** - Enable deep automation and "headless" interaction via Obsidian CLI (v1.12+). âœ… 2026-05-22
 - [x] **Phase 18: BRAT Support & Root Cleanup** - Pristine root directory and automated distribution for beta users. âœ… 2026-05-22
 - [x] **Phase 19: Quality Update & Technical Debt Reduction** - Resolve unused code, optimize benchmarks, and harden documentation. âœ… 2026-05-24
+- [x] **Phase 20: tsconfig.json Fix** - Fix tsconfig.json moduleResolution incompatibility with verbatimModuleSyntax
 
 ## Phase Details
 

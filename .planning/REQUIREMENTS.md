@@ -78,11 +78,11 @@
 
 ## Quality Update Requirements (QUAL)
 
-- [ ] **QUAL-01**: **Knip Cleanup** — Resolve unused exports and types identified by Knip analysis.
-- [ ] **QUAL-02**: **Performance Audit Tooling** — Enhance `PerformanceBenchmark` to support custom vault sizes via CLI arguments.
-- [ ] **QUAL-03**: **Docstring Hardening** — Ensure all core services and utilities have TSDoc-compliant documentation for better developer ergonomics.
-- [ ] **QUAL-04**: **Test Resilience** — Fix Vitest warnings regarding `localstorage-file` path.
-- [ ] **QUAL-05**: **CI Pipeline Optimization** — Add Knip to pre-push hooks and enhance Windows/WSL path check robustness.
+- [x] **QUAL-01**: **Knip Cleanup** — Resolve unused exports and types identified by Knip analysis.
+- [x] **QUAL-02**: **Performance Audit Tooling** — Enhance `PerformanceBenchmark` to support custom vault sizes via CLI arguments.
+- [x] **QUAL-03**: **Docstring Hardening** — Ensure all core services and utilities have TSDoc-compliant documentation for better developer ergonomics.
+- [x] **QUAL-04**: **Test Resilience** — Fix Vitest warnings regarding `localstorage-file` path.
+- [x] **QUAL-05**: **CI Pipeline Optimization** — Add Knip to pre-push hooks and enhance Windows/WSL path check robustness.
 
 ## v2 Requirements (Deferred)
 
@@ -141,11 +141,11 @@
 | REQ-18.1  | Phase 18 | âœ“ Validated |
 | REQ-18.2  | Phase 18 | âœ“ Validated |
 | REQ-18.3  | Phase 18 | âœ“ Validated |
-| QUAL-01   | Phase 19 | Pending       |
-| QUAL-02   | Phase 19 | Pending       |
-| QUAL-03   | Phase 19 | Pending       |
-| QUAL-04   | Phase 19 | Pending       |
-| QUAL-05   | Phase 19 | Pending       |
+| QUAL-01   | Phase 19 | âœ“ Validated   |
+| QUAL-02   | Phase 19 | âœ“ Validated   |
+| QUAL-03   | Phase 19 | âœ“ Validated   |
+| QUAL-04   | Phase 19 | âœ“ Validated   |
+| QUAL-05   | Phase 19 | âœ“ Validated   |
 
 ---
 

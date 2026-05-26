@@ -32,16 +32,111 @@ def load_frontmatter(content):
         return {}
 
 def parse_uat_items(content):
-    rese.append([])  # No items found in this UAT file
-    for m in re.finditer(
-        r'###\s+(\d+)\.\s*([^\n]+)\nexpected:\s*([^\n]+)\nresult:\s*(\w+)(?:\n(?:reported|reason|blocked_by):\s*[^\n]*)?',
-        content
-    ):
+    items = []
+    # Pattern to capture standard UAT items:
+    # ### 1. Item Name
+    # expected: ...
+    # result: PENDING/PASSED/FAILED/etc.
+    pattern = r'###\s+(\d+)\.\s*([^\n]+)\nexpected:\s*([^\n]+)\nresult:\s*(\w+)(?:\n(?:reported|reason|blocked_by):\s*[^\n]*)?'
+    for m in re.finditer(pattern, content):
         num, name, expected, result = m.group(1), m.group(2), m.group(3), m.group(4)
-        res
+        items.append({
+            "number": num,
+            "name": name.strip(),
+            "expected": expected.strip(),
+            "result": result.strip()
+        })
+    return items
 
-The UAT pattern only captures items that match the full structure with a result field, so I'm filtering for pending, skipped, blocked, or passed states and building the result objects with the number, name, expected outcome, and result category.
+def main():
+    args = parse_args()
+    planning_dir = Path('.planning')
+    if not planning_dir.exists():
+        print(json.dumps({"error": ".planning directory not found"}, indent=2))
+        sys.exit(1)
 
-Now I'm mapping the result statuses to category labels, then I have a CLI entry point that reads all the phase directories from the planning folder. For each phase, I'm scanning for UAT and verification markdown files, parsing their items based on their status, and collecting them with phase and file metadata into the results list.
+    results = []
+    
+    # Define search paths for phases/milestones/quick tasks
+    search_paths = [
+        planning_dir / 'phases',
+        planning_dir / 'milestones',
+        planning_dir / 'quick'
+    ]
+    
+    # Also check direct subdirectories of .planning that look like phases
+    potential_phases = [d for d in planning_dir.iterdir() if d.is_dir() and d.name not in ['phases', 'milestones', 'quick', 'research', 'logs']]
+    
+    all_containers = [p for p in search_paths if p.exists()] + potential_phases
+    
+    for container in all_containers:
+        # If it's a container like 'phases/', iterate its children
+        if container.name in ['phases', 'milestones', 'quick']:
+            subdirs = [d for d in container.iterdir() if d.is_dir()]
+        else:
+            subdirs = [container]
+            
+        for subdir in subdirs:
+            for file in subdir.glob('**/*.md'):
+                # Scan for UAT or VERIFICATION files
+                if any(x in file.name.upper() for x in ['UAT', 'VERIFICATION', 'PLAN', 'SUMMARY']):
+                    try:
+                        content = file.read_text(encoding='utf-8')
+                        items = parse_uat_items(content)
+                        if items:
+                            results.append({
+                                "phase": subdir.name,
+                                "file": str(file.relative_to(planning_dir)),
+                                "items": items
+                            })
+                    except Exception as e:
+                        # Skip files that can't be read
+                        continue
 
-Once all files are processed, I'm building a summary object that tracks the total counts and breaks down findings by both category and phase, then outputting everything as JSON to stdout for the completion handler to consume.
+    # Map result statuses to categories
+    category_map = {
+        "PENDING": "pending",
+        "TODO": "pending",
+        "SKIP": "skipped",
+        "SKIPPED": "skipped",
+        "BLOCKED": "blocked",
+        "PASS": "passed",
+        "PASSED": "passed",
+        "FAIL": "failed",
+        "FAILED": "failed"
+    }
+
+    summary = {
+        "total_items": 0,
+        "categories": {
+            "pending": 0,
+            "skipped": 0,
+            "blocked": 0,
+            "passed": 0,
+            "failed": 0,
+            "other": 0
+        },
+        "phases": {},
+        "findings": results
+    }
+
+    for res in results:
+        phase_name = res["phase"]
+        if phase_name not in summary["phases"]:
+            summary["phases"][phase_name] = {"total": 0, "pending": 0, "passed": 0}
+            
+        for item in res["items"]:
+            summary["total_items"] += 1
+            summary["phases"][phase_name]["total"] += 1
+            
+            cat = category_map.get(item["result"].upper(), "other")
+            summary["categories"][cat] += 1
+            if cat == "pending":
+                summary["phases"][phase_name]["pending"] += 1
+            elif cat == "passed":
+                summary["phases"][phase_name]["passed"] += 1
+
+    print(json.dumps(summary, indent=2))
+
+if __name__ == "__main__":
+    main()
