@@ -1,7 +1,5 @@
 <!-- generated-by: gsd-doc-writer -->
 
-# SECURITY.md
-
 ## Overview
 
 Semantic Graph Healer is built with a **Local-First, Privacy-Focused** philosophy. The core topological analysis engine runs entirely within your Obsidian environment using high-performance Web Workers. For features requiring semantic intelligence, the plugin implements rigorous security layers to protect your data, credentials, and privacy.
