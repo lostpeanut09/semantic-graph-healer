@@ -9,7 +9,8 @@ describe('RedactUtils', () => {
         });
 
         it('should mask JWT tokens', () => {
-            const jwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoyNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
+            const jwt =
+                'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoyNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
             expect(maskSecrets(`Token: ${jwt}`)).toContain('***JWT***');
         });
 
@@ -47,8 +48,8 @@ describe('RedactUtils', () => {
                 api_key: 'sk-123',
                 nested: {
                     token: 'abc-456',
-                    safe: 'ok'
-                }
+                    safe: 'ok',
+                },
             };
             const redacted = redactObject(data) as any;
             expect(redacted.username).toBe('alice');
@@ -61,7 +62,7 @@ describe('RedactUtils', () => {
         it('should mask secrets within strings in objects', () => {
             const data = {
                 description: 'Using Bearer my-token',
-                safe_key: 'sk-1234567890abcdefghijklmnopqrstuvwxyz'
+                safe_key: 'sk-1234567890abcdefghijklmnopqrstuvwxyz',
             };
             const redacted = redactObject(data) as any;
             expect(redacted.description).toBe('Using Bearer ***');
@@ -83,11 +84,11 @@ describe('RedactUtils', () => {
                         c: {
                             password: 'secret',
                             d: {
-                                token: 'sk-1234567890abcdefghijklmnopqrstuvwxyz'
-                            }
-                        }
-                    }
-                }
+                                token: 'sk-1234567890abcdefghijklmnopqrstuvwxyz',
+                            },
+                        },
+                    },
+                },
             };
             const redacted = redactObject(data) as any;
             expect(redacted.a.b.c.password).toBe('***');
@@ -97,7 +98,7 @@ describe('RedactUtils', () => {
         it('should handle arrays of objects', () => {
             const data = [
                 { id: 1, my_key: 'sk-1234567890abcdefghijklmnopqrstuvwxyz' },
-                { id: 2, password: '123' }
+                { id: 2, password: '123' },
             ];
             const redacted = redactObject(data) as any;
             expect(redacted[0].my_key).toBe('sk-***'); // 'my_key' not in SECRET_KEYS, but value is masked

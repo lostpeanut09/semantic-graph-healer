@@ -1,8 +1,10 @@
+import { HealerLogger } from '../../core/HealerUtils';
 import type { Suggestion, HistoryItem, SemanticGraphHealerSettings, ReasoningResult } from '../../types';
 import { Notice } from 'obsidian';
 import type { App, EventRef } from 'obsidian';
 import { REASONING_VIEW_TYPE, ReasoningView } from '../DashboardView';
 import { ConfirmationModal } from '../components/ConfirmationModal';
+import { maskSecrets } from '../../core/utils/RedactUtils';
 
 interface ValidationContext {
     sourceContent: string;
@@ -98,7 +100,7 @@ export class DashboardStore {
                         this.refresh();
                     }
                 } catch (error: unknown) {
-                    console.error(`Failed to execute complex relink for ${suggestion.id}`, error);
+                    HealerLogger.error(`Failed to execute complex relink for ${suggestion.id}`, error);
                 }
             })();
         });
@@ -113,7 +115,7 @@ export class DashboardStore {
                 this.refresh();
             }
         } catch (error: unknown) {
-            console.error('Failed to undo action', error);
+            HealerLogger.error('Failed to undo action', error);
         }
     }
 
@@ -132,7 +134,7 @@ export class DashboardStore {
                     this.#fixedItems.add(s.id);
                 }
             } catch (error: unknown) {
-                console.error(`Failed to fix ${s.id}`, error);
+                HealerLogger.error(`Failed to fix ${s.id}`, error);
             }
 
             count++;
@@ -240,7 +242,7 @@ export class DashboardStore {
             }
         } catch (e: unknown) {
             notice.hide();
-            console.error(e);
+            HealerLogger.error('AI Analysis failed', e);
         }
     }
 
@@ -266,11 +268,9 @@ export class DashboardStore {
                 const targetPaths = suggestion.meta.targetPaths || [];
                 const context = await this.#plugin.topology.getContextForAIValidation(sourcePath, targetPaths);
 
-                // Sanitize context for T-10-04 Information Disclosure
-                const sanitizedSource = context.sourceContent.replace(/password|secret|key/gi, '***');
-                const sanitizedTargets = context.targetContents.map((c: string) =>
-                    c.replace(/password|secret|key/gi, '***'),
-                );
+                // Sanitize context for T-10-04 Information Disclosure using centralized utility
+                const sanitizedSource = maskSecrets(context.sourceContent);
+                const sanitizedTargets = context.targetContents.map((c: string) => maskSecrets(c));
 
                 isValid = await this.#plugin.llm.validateBranching(
                     suggestion.meta.sourceNote || 'Unknown',
@@ -299,8 +299,8 @@ export class DashboardStore {
                     suggestion.meta.sourcePath || '',
                     [suggestion.meta.targetPath || ''],
                 );
-                const sanitizedChild = context.sourceContent.replace(/password|secret|key/gi, '***');
-                const sanitizedParent = context.targetContents[0]?.replace(/password|secret|key/gi, '***');
+                const sanitizedChild = maskSecrets(context.sourceContent);
+                const sanitizedParent = maskSecrets(context.targetContents[0] || '');
 
                 isValid = await this.#plugin.llm.validateTagInheritance(
                     childName,
@@ -318,7 +318,7 @@ export class DashboardStore {
                 verificationResult,
             };
         } catch (error: unknown) {
-            console.error('AI Verification failed', error);
+            HealerLogger.error('AI Verification failed', error);
             this.#suggestions[index] = {
                 ...this.#suggestions[index],
                 isVerifying: false,
@@ -335,7 +335,7 @@ export class DashboardStore {
                 this.refresh();
             }
         } catch (error: unknown) {
-            console.error(`Failed to resolve choice for ${suggestion.id}`, error);
+            HealerLogger.error(`Failed to resolve choice for ${suggestion.id}`, error);
         }
     }
 }

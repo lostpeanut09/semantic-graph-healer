@@ -8,7 +8,7 @@ describe('HealerUtils Prompt Sanitization', () => {
         const result = formatRagPrompt('Note1', 'tag1', 5, secretSnippet);
         expect(result).toContain('sk-***');
         expect(result).not.toContain('sk-1234567890abcdefghijklmnopqrstuvwxyz');
-        // Note: 'password' is not masked by maskSecrets string regex unless it matches a pattern, 
+        // Note: 'password' is not masked by maskSecrets string regex unless it matches a pattern,
         // but it might be handled if it was an object key in redactObject.
         // maskSecrets only handles Bearer, JWT, Hex keys, and sk- keys.
     });
