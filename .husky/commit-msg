@@ -1,0 +1,7 @@
+# Detect WSL and normalize PATH if needed
+if grep -q Microsoft /proc/version 2>/dev/null; then
+  export PATH="$PATH:/mnt/c/Program Files/nodejs"
+fi
+
+echo "🔍 Running Privacy Checks..."
+node scripts/check-commit-msg.mjs "$1" || exit 1
