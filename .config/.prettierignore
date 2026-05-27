@@ -2,7 +2,10 @@ node_modules
 node_modules_bak
 package-lock.json
 main.js
+styles.css
+main.css
 worker.js
+ladybug-worker.js
 .husky
 dist
 .kilo
