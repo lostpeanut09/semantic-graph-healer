@@ -1,5 +1,6 @@
 import { Plugin, TFile, TFolder, normalizePath } from 'obsidian';
 import type { SemanticGraphHealerSettings } from '../../types';
+import { sanitizeForLog, redactObject } from './RedactUtils';
 
 /**
  * High-Fidelity API Augmentation (SOTA 2026)
@@ -18,57 +19,7 @@ const LOG_LEVELS: Record<LogLevel, number> = {
     error: 3,
 };
 
-// 1) SOTA 2026: Blacklist of sensitive keys to redact from logs (prevent accidental leaks)
-const SECRET_KEYS = new Set([
-    'apikey',
-    'api_key',
-    'token',
-    'access_token',
-    'refresh_token',
-    'authorization',
-    'bearer',
-    'password',
-    'pass',
-    'secret',
-    'client_secret',
-    'privatekey',
-    'private_key',
-]);
-
 const MAX_LOG_BYTES = 2 * 1024 * 1024; // 2MB Rotation Cap
-
-/**
- * Ultra-Hardening: Masks sensitive patterns (Bearer, JWT) in raw strings.
- */
-function maskSensitiveStrings(s: string): string {
-    // Mask Bearer tokens: Bearer <token>
-    let masked = s.replace(/\bBearer\s+[A-Za-z0-9._~-]{10,}(?:\.[A-Za-z0-9._~-]+){0,2}\b/gi, 'Bearer ***');
-
-    // Mask JWT-like structures (starts with eyJ... contains dots, minimum length)
-    masked = masked.replace(/\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g, '***JWT***');
-
-    return masked;
-}
-
-/**
- * Ultra-Hardening: Neutralizes ALL control characters (ASCII 0x00-0x1F + 0x7F) to prevent log injection.
- */
-function sanitizeForLog(s: string): string {
-    // Mask sensitive sequences before escaping control chars
-    const masked = maskSensitiveStrings(s);
-
-    // Escape Line Breaks first for readability
-    let sanitized = masked.replace(/\r/g, '\\r').replace(/\n/g, '\\n');
-
-    // Neutralize other control chars (including Tab, Null, etc.)
-    // eslint-disable-next-line no-control-regex
-    sanitized = sanitized.replace(/[\u0000-\u001F\u007F]/g, (ch) => {
-        if (ch === '\t') return '\\t';
-        return `\\u${ch.charCodeAt(0).toString(16).padStart(4, '0')}`;
-    });
-
-    return sanitized;
-}
 
 function truncate(s: string, max = 10000): string {
     if (s.length <= max) return s;
@@ -280,31 +231,8 @@ export class HealerLogger {
 
     private safeStringify(data: unknown): string {
         try {
-            const seen = new WeakSet<object>();
-            const json = JSON.stringify(data, (key, value: unknown) => {
-                if (key && SECRET_KEYS.has(key.toLowerCase())) {
-                    return '***';
-                }
-
-                if (typeof value === 'string') {
-                    // Apply both sanitization and inline masking for strings in data
-                    return sanitizeForLog(value);
-                }
-
-                if (typeof value === 'bigint') {
-                    return value.toString() + 'n';
-                }
-
-                if (value !== null && typeof value === 'object') {
-                    if (seen.has(value)) {
-                        return '[Circular]';
-                    }
-                    seen.add(value);
-                }
-
-                return value;
-            });
-
+            const redacted = redactObject(data);
+            const json = JSON.stringify(redacted);
             return truncate(json);
         } catch (e) {
             return `[Serialization Error: ${e instanceof Error ? e.message : String(e)}]`;

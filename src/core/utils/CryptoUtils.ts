@@ -1,3 +1,5 @@
+import { HealerLogger } from '../HealerUtils';
+
 /**
  * CryptoUtils
  *
@@ -103,7 +105,7 @@ export class CryptoUtils {
             // Robust Base64 for SOTA 2026 (prevents call stack size exceeded on large buffers)
             return this.uint8ToBase64(combined);
         } catch (e) {
-            console.error('Encryption failed', e);
+            HealerLogger.error('Encryption failed', e);
             throw new Error('FAILED_ENCRYPTION');
         }
     }
@@ -137,7 +139,7 @@ export class CryptoUtils {
 
             return new TextDecoder().decode(decrypted);
         } catch (e) {
-            console.error('Decryption failed', e);
+            HealerLogger.error('Decryption failed', e);
             return null;
         }
     }

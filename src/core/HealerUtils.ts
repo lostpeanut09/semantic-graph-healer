@@ -1,4 +1,5 @@
 import { App, TFile, parseLinktext } from 'obsidian';
+import { maskSecrets } from './utils/RedactUtils';
 import type { ObsidianInternalApp } from '../types';
 
 export type ApiKeyType = 'openai' | 'anthropic' | 'deepseek' | 'infranodus' | 'custom';
@@ -41,7 +42,7 @@ export class HealerLogger {
         if (HealerLogger.instance) {
             HealerLogger.instance.info(message, ...args);
         } else {
-            console.debug(`[SemanticHealer][INFO] ${message}`, ...args);
+            console.info(`[SemanticHealer][INFO] ${message}`, ...args);
         }
     }
 
@@ -390,7 +391,7 @@ export function formatRagPrompt(
     propertiesCount: number,
     contentSnippet: string,
 ): string {
-    const safeSnippet = sanitizeForLlm(contentSnippet);
+    const safeSnippet = maskSecrets(contentSnippet);
     return `[GRAPH RAG: SEMANTIC PROXIMITY]\nFocus Node: [[${basename}]]\nTags: ${tags}\nProperties Count: ${propertiesCount}\n\nSnippet:\n${safeSnippet}...\n\nTASK: Identify 3 distinct concepts or non-existing MOCs that should be linked to this node to enhance the semantic graph topology. Output as a bulleted list of Obsidian links [[Link]].`;
 }
 
@@ -422,7 +423,7 @@ export function formatIncongruencePrompt(
         candidateContext += `- ${val}: Folder=${d.folder || 'unknown'}, HTR_Score=${d.score || 0}%\n`;
     }
 
-    const safeSnippet = sanitizeForLlm(contentSnippet);
+    const safeSnippet = maskSecrets(contentSnippet);
 
     return `
 You are the Supreme Tribunal of the Knowledge Graph.
@@ -492,24 +493,8 @@ export function sleep(ms: number): Promise<void> {
 // ============================================================================
 
 /**
- * ✅ NEW: SOTA 2026 Redaction Utility.
- * Masks sensitive patterns (Bearer, JWT) in strings before sending to external APIs.
- * @param s - The string to sanitize.
- * @returns The sanitized string.
- */
-function sanitizeForLlm(s: string): string {
-    if (!s) return '';
-    // Mask Bearer tokens: Bearer <token>
-    let masked = s.replace(/\bBearer\s+[A-Za-z0-9._~-]{10,}(?:\.[A-Za-z0-9._~-]+){0,2}\b/gi, 'Bearer ***');
-
-    // Mask JWT-like structures (starts with eyJ... contains dots, minimum length)
-    masked = masked.replace(/\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g, '***JWT***');
-
-    return masked;
-}
-
-/**
  * ✅ NEW: Safe regex compilation with error handling.
+
  * @param pattern - The regex pattern string.
  * @param flags - Optional regex flags.
  * @returns A RegExp object or null if compilation fails.

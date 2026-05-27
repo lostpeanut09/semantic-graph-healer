@@ -52,7 +52,9 @@ describe('AutomationApi', () => {
 
         // Verify it logs to console instead of throwing/using UI
         silentNotifier.show('Test message', 'info');
-        expect(consoleInfoSpy).toHaveBeenCalledWith(expect.stringContaining('[SilentNotifier][info] Test message'));
+        expect(consoleInfoSpy).toHaveBeenCalledWith(
+            expect.stringContaining('[SemanticHealer][INFO] [SilentNotifier] Test message'),
+        );
 
         // Should restore the original notifier
         expect(mockContext.executor.setNotifier.mock.calls[1][0]).toBe(mockNotifier);
