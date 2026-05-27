@@ -11,7 +11,8 @@ export interface ObsidianSecretStorage {
 
 export interface LegacyKeychain {
     get(key: string): Promise<string | null> | (string | null);
-    set(key: string, value: string): Promise<void> | void;
+    set(key: string, value: string): void | Promise<void>;
+    delete(key: string): void | Promise<void>;
 }
 
 export interface ObsidianInternalApp {

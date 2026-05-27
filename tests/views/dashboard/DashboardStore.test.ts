@@ -286,6 +286,10 @@ describe('DashboardStore', () => {
             };
             mockPlugin.saveSettings = vi.fn().mockResolvedValue(true);
             mockPlugin.cache.save = vi.fn();
+            mockPlugin.settings = {
+                requireAITagValidation: true,
+                proximityIgnoreList: [],
+            };
 
             mockPlugin.cache.suggestions = [
                 {
