@@ -30,7 +30,7 @@
       }
     } catch (e) {
       new Notice('GraphRAG query failed. Check logs.');
-      console.error(e);
+      plugin.logger.error('GraphRAG query failed', e);
     } finally {
       loading = false;
     }

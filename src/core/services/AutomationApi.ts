@@ -1,3 +1,4 @@
+import { HealerLogger } from '../HealerUtils';
 import type { HealerAutomationApi, HealerNotifier, Suggestion, TopologicalMetrics, HistoryItem } from '../../types';
 import { generateId } from '../HealerUtils';
 
@@ -7,12 +8,15 @@ import { generateId } from '../HealerUtils';
  */
 class SilentNotifier implements HealerNotifier {
     /**
-     * Logs the notification to the console.
+     * Logs the notification securely to the console via HealerLogger.
      * @param message - The message content to display.
      * @param type - The severity level of the notification.
      */
     show(message: string, type?: 'info' | 'error' | 'warning'): void {
-        console.info(`[SilentNotifier][${type || 'info'}] ${message}`);
+        const logMsg = `[SilentNotifier] ${message}`;
+        if (type === 'error') HealerLogger.error(logMsg);
+        else if (type === 'warning') HealerLogger.warn(logMsg);
+        else HealerLogger.info(logMsg);
     }
 }
 

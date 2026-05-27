@@ -19,35 +19,35 @@ describe('DashboardStore Sanitization E2E Simulation', () => {
                 },
                 metadataCache: {
                     getFirstLinkpathDest: vi.fn(),
-                }
+                },
             },
             settings: {
                 proximityIgnoreList: [],
-                requireAITagValidation: true
+                requireAITagValidation: true,
             },
             cache: {
                 suggestions: [],
                 history: [],
-                save: vi.fn()
+                save: vi.fn(),
             },
             executor: {
                 execute: vi.fn(),
                 executeRelink: vi.fn(),
                 undo: vi.fn(),
-                resolveChoice: vi.fn()
+                resolveChoice: vi.fn(),
             },
             reasoner: {
-                analyze: vi.fn()
+                analyze: vi.fn(),
             },
             topology: {
-                getContextForAIValidation: vi.fn()
+                getContextForAIValidation: vi.fn(),
             },
             llm: {
                 validateBranching: vi.fn(),
-                validateTagInheritance: vi.fn()
+                validateTagInheritance: vi.fn(),
             },
             saveSettings: vi.fn().mockResolvedValue(undefined),
-            registerEvent: vi.fn()
+            registerEvent: vi.fn(),
         };
 
         store = new DashboardStore(mockPlugin);
@@ -62,8 +62,8 @@ describe('DashboardStore Sanitization E2E Simulation', () => {
                 sourcePath: 'source.md',
                 targetPaths: ['target.md'],
                 sourceNote: 'Source',
-                targetNotes: ['Target']
-            }
+                targetNotes: ['Target'],
+            },
         };
 
         // Add suggestion to store (manually since it's private but we can set it via cache and refresh)
@@ -73,7 +73,7 @@ describe('DashboardStore Sanitization E2E Simulation', () => {
         mockPlugin.topology.getContextForAIValidation.mockResolvedValue({
             sourceContent: 'Secret source: sk-1234567890abcdefghijklmnopqrstuvwxyz',
             targetContents: ['Secret target: Bearer my-token-123'],
-            existingRelations: {}
+            existingRelations: {},
         });
 
         await store.verifyAI(suggestion as any);
@@ -83,7 +83,7 @@ describe('DashboardStore Sanitization E2E Simulation', () => {
             ['Target'],
             'Secret source: sk-***',
             ['Secret target: Bearer ***'],
-            {}
+            {},
         );
     });
 
@@ -97,8 +97,8 @@ describe('DashboardStore Sanitization E2E Simulation', () => {
                 targetPath: 'parent.md',
                 sourceNote: 'Child',
                 targetNote: 'Parent',
-                property: 'myTag'
-            }
+                property: 'myTag',
+            },
         };
 
         mockPlugin.cache.suggestions = [suggestion];
@@ -106,8 +106,10 @@ describe('DashboardStore Sanitization E2E Simulation', () => {
 
         mockPlugin.topology.getContextForAIValidation.mockResolvedValue({
             sourceContent: 'Child secret: sk-1234567890abcdefghijklmnopqrstuvwxyz',
-            targetContents: ['Parent secret: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signature'],
-            existingRelations: {}
+            targetContents: [
+                'Parent secret: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signature',
+            ],
+            existingRelations: {},
         });
 
         await store.verifyAI(suggestion as any);
@@ -117,7 +119,7 @@ describe('DashboardStore Sanitization E2E Simulation', () => {
             'myTag',
             'Parent',
             'Child secret: sk-***',
-            'Parent secret: ***JWT***'
+            'Parent secret: ***JWT***',
         );
     });
 });
