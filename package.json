@@ -64,7 +64,8 @@
         "typescript": "^5.0.0",
         "typescript-eslint": "^8.57.2",
         "vite": "^8.0.11",
-        "vitest": "^4.1.6"
+        "vitest": "^4.1.6",
+        "yamllint-js": "^0.2.4"
     },
     "dependencies": {
         "@ladybugdb/wasm-core": "^0.16.1",
