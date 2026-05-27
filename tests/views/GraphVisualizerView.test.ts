@@ -12,7 +12,9 @@ describe('GraphVisualizerView Interaction & Cleanup', () => {
         mockPlugin = {
             settings: { proximityIgnoreList: [] },
             logger: { info: vi.fn(), error: vi.fn() },
-            performanceService: { isSafetyModeActive: vi.fn().mockReturnValue(false) },
+            performanceService: {
+                isSafetyModeActive: vi.fn().mockReturnValue(false),
+            },
             cache: { suggestions: [] },
             executor: { execute: vi.fn() },
         };

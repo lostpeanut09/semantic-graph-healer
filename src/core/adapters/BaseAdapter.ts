@@ -208,7 +208,10 @@ export abstract class BaseAdapter {
                 enabled = enabledPlugins.has(pluginId);
             } else if (typeof (enabledPlugins as unknown) === 'object' && enabledPlugins !== null) {
                 // Defensive fallback for non-Set shapes if any
-                const ep = enabledPlugins as { has?: (id: string) => boolean; includes?: (id: string) => boolean };
+                const ep = enabledPlugins as {
+                    has?: (id: string) => boolean;
+                    includes?: (id: string) => boolean;
+                };
                 if (typeof ep.has === 'function') {
                     enabled = ep.has(pluginId);
                 } else if (Array.isArray(ep)) {

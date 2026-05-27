@@ -41,7 +41,14 @@ describe('GraphRagView', () => {
     it('executes query and displays answer', async () => {
         const mockResult = {
             answer: 'This is a test answer.',
-            communities: [{ communityId: 1, summary: 'Cluster 1', score: 0.9, notes: ['note1.md'] }],
+            communities: [
+                {
+                    communityId: 1,
+                    summary: 'Cluster 1',
+                    score: 0.9,
+                    notes: ['note1.md'],
+                },
+            ],
         };
         pluginMock.graphRag.query.mockResolvedValue(mockResult);
 

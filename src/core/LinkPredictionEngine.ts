@@ -34,7 +34,11 @@ export class LinkPredictionEngine {
      */
     public async predictLinks(
         nodes: Array<{ key: string; attributes: Record<string, unknown> }>,
-        edges: Array<{ source: string; target: string; attributes: Record<string, unknown> }>,
+        edges: Array<{
+            source: string;
+            target: string;
+            attributes: Record<string, unknown>;
+        }>,
         options: PredictionOptions = {},
     ): Promise<Suggestion[]> {
         HealerLogger.info('LinkPredictionEngine: Running similarity analysis (Worker offloaded)...');

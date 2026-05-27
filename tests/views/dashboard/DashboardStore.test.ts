@@ -53,8 +53,22 @@ describe('DashboardStore', () => {
 
     it('initializes with suggestions and history from cache', () => {
         const mockSuggestions: Suggestion[] = [
-            { id: 'bridge_gap_1', type: 'topology_gap', category: 'suggestion', link: '', source: '', timestamp: 0 },
-            { id: 'cycle_1', type: 'deterministic', category: 'error', link: '', source: '', timestamp: 0 },
+            {
+                id: 'bridge_gap_1',
+                type: 'topology_gap',
+                category: 'suggestion',
+                link: '',
+                source: '',
+                timestamp: 0,
+            },
+            {
+                id: 'cycle_1',
+                type: 'deterministic',
+                category: 'error',
+                link: '',
+                source: '',
+                timestamp: 0,
+            },
         ];
         mockPlugin.cache.suggestions = mockSuggestions;
 
@@ -67,10 +81,38 @@ describe('DashboardStore', () => {
 
     it('filters correctly using derived getters', () => {
         const mockSuggestions: Suggestion[] = [
-            { id: 'bridge_gap_1', type: 'topology_gap', category: 'suggestion', link: '', source: '', timestamp: 0 },
-            { id: 'cycle_1', type: 'deterministic', category: 'error', link: '', source: '', timestamp: 0 },
-            { id: 'sink_1', type: 'quality', category: 'info', link: '', source: '', timestamp: 0 },
-            { id: 'other_1', type: 'ai', category: 'suggestion', link: '', source: '', timestamp: 0 },
+            {
+                id: 'bridge_gap_1',
+                type: 'topology_gap',
+                category: 'suggestion',
+                link: '',
+                source: '',
+                timestamp: 0,
+            },
+            {
+                id: 'cycle_1',
+                type: 'deterministic',
+                category: 'error',
+                link: '',
+                source: '',
+                timestamp: 0,
+            },
+            {
+                id: 'sink_1',
+                type: 'quality',
+                category: 'info',
+                link: '',
+                source: '',
+                timestamp: 0,
+            },
+            {
+                id: 'other_1',
+                type: 'ai',
+                category: 'suggestion',
+                link: '',
+                source: '',
+                timestamp: 0,
+            },
         ];
         mockPlugin.cache.suggestions = mockSuggestions;
 
@@ -87,7 +129,14 @@ describe('DashboardStore', () => {
         expect(store.suggestions.length).toBe(0);
 
         mockPlugin.cache.suggestions = [
-            { id: 'bridge_gap_1', type: 'topology_gap', category: 'suggestion', link: '', source: '', timestamp: 0 },
+            {
+                id: 'bridge_gap_1',
+                type: 'topology_gap',
+                category: 'suggestion',
+                link: '',
+                source: '',
+                timestamp: 0,
+            },
         ];
 
         store.refresh();
@@ -101,7 +150,14 @@ describe('DashboardStore', () => {
         expect(store.suggestions.length).toBe(0);
 
         mockPlugin.cache.suggestions = [
-            { id: 'sink_1', type: 'quality', category: 'info', link: '', source: '', timestamp: 0 },
+            {
+                id: 'sink_1',
+                type: 'quality',
+                category: 'info',
+                link: '',
+                source: '',
+                timestamp: 0,
+            },
         ];
 
         // Trigger the registered event
@@ -140,8 +196,22 @@ describe('DashboardStore', () => {
                 execute: vi.fn().mockResolvedValue(true),
             };
             mockPlugin.cache.suggestions = [
-                { id: '1', type: 'ai', category: 'suggestion', link: '1', source: '', timestamp: 0 },
-                { id: '2', type: 'ai', category: 'suggestion', link: '2', source: '', timestamp: 0 },
+                {
+                    id: '1',
+                    type: 'ai',
+                    category: 'suggestion',
+                    link: '1',
+                    source: '',
+                    timestamp: 0,
+                },
+                {
+                    id: '2',
+                    type: 'ai',
+                    category: 'suggestion',
+                    link: '2',
+                    source: '',
+                    timestamp: 0,
+                },
             ];
             mockPlugin.settings = { proximityIgnoreList: [] };
 
@@ -216,6 +286,10 @@ describe('DashboardStore', () => {
             };
             mockPlugin.saveSettings = vi.fn().mockResolvedValue(true);
             mockPlugin.cache.save = vi.fn();
+            mockPlugin.settings = {
+                requireAITagValidation: true,
+                proximityIgnoreList: [],
+            };
 
             mockPlugin.cache.suggestions = [
                 {
@@ -281,7 +355,11 @@ describe('DashboardStore', () => {
 
         it('verifyAI calls validateTagInheritance for tag suggestions', async () => {
             const suggestion = mockPlugin.cache.suggestions[1];
-            const mockContext = { sourceContent: 'content D', targetContents: ['content E'], existingRelations: '' };
+            const mockContext = {
+                sourceContent: 'content D',
+                targetContents: ['content E'],
+                existingRelations: '',
+            };
 
             mockPlugin.topology.getContextForAIValidation.mockResolvedValue(mockContext);
             mockPlugin.llm.validateTagInheritance.mockResolvedValue(false);

@@ -94,7 +94,11 @@ describe('PerformanceService', () => {
     });
 
     test('should return correct batch size and delay for each mode', () => {
-        const settings = { ...DEFAULT_SETTINGS, enableSafetyMode: true, safetyModeThresholdDesktop: 100 };
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            enableSafetyMode: true,
+            safetyModeThresholdDesktop: 100,
+        };
         const app = createMockApp(150);
         vi.spyOn(Platform, 'isMobile', 'get').mockReturnValue(false);
 

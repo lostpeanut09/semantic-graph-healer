@@ -40,9 +40,14 @@ describe('LadybugAdapter', () => {
                 { file: { path: 'node2.md', name: 'Node 2', size: 200 } },
             ]);
 
-        metadataAdapter.getLinksSafe = vi
-            .fn()
-            .mockResolvedValue([{ sourcePath: 'node1.md', targetPath: 'node2.md', type: 'related', confidence: 0.8 }]);
+        metadataAdapter.getLinksSafe = vi.fn().mockResolvedValue([
+            {
+                sourcePath: 'node1.md',
+                targetPath: 'node2.md',
+                type: 'related',
+                confidence: 0.8,
+            },
+        ]);
 
         await ladybugAdapter.initialize();
 
@@ -101,7 +106,12 @@ describe('LadybugAdapter', () => {
         });
 
         it('findBridges correctly constructs Cypher query', async () => {
-            const mockBridge = { source: 'A.md', target: 'C.md', via: 'B.md', type: 'up' };
+            const mockBridge = {
+                source: 'A.md',
+                target: 'C.md',
+                via: 'B.md',
+                type: 'up',
+            };
             vi.mocked(service.query).mockResolvedValue([mockBridge]);
             const results = await ladybugAdapter.findBridges();
 
@@ -122,7 +132,10 @@ describe('LadybugAdapter', () => {
             const results = await ladybugAdapter.findCycles(3);
 
             expect(service.query).toHaveBeenCalledWith(expect.stringContaining('MATCH p = (n:Node)-[*1..3]->(n)'), {});
-            expect(results[0]).toEqual({ path: ['A.md', 'B.md', 'A.md'], type: 'related' });
+            expect(results[0]).toEqual({
+                path: ['A.md', 'B.md', 'A.md'],
+                type: 'related',
+            });
         });
     });
 

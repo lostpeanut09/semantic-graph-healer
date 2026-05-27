@@ -37,10 +37,16 @@ describe('CommandPalette', () => {
 
     describe('apply-batch-repairs-high-confidence', () => {
         it('should call api.executeBatch with 0.8 confidence', async () => {
-            mockPlugin.api.executeBatch.mockResolvedValue({ appliedCount: 1, failedCount: 0, batchId: 'b1' });
+            mockPlugin.api.executeBatch.mockResolvedValue({
+                appliedCount: 1,
+                failedCount: 0,
+                batchId: 'b1',
+            });
             const cmd = commands.get('apply-batch-repairs-high-confidence')!;
             await cmd.callback();
-            expect(mockPlugin.api.executeBatch).toHaveBeenCalledWith({ confidence: 0.8 });
+            expect(mockPlugin.api.executeBatch).toHaveBeenCalledWith({
+                confidence: 0.8,
+            });
         });
     });
 
@@ -51,7 +57,10 @@ describe('CommandPalette', () => {
                 { id: '2' }, // non-batch item
                 { id: '3', batchId: 'batch-latest' },
             ];
-            mockPlugin.api.undoBatch.mockResolvedValue({ revertedCount: 1, failedCount: 0 });
+            mockPlugin.api.undoBatch.mockResolvedValue({
+                revertedCount: 1,
+                failedCount: 0,
+            });
 
             const cmd = commands.get('undo-last-batch-repair')!;
             await cmd.callback();

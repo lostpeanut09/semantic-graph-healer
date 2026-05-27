@@ -115,7 +115,11 @@ export class GraphVisualizerView extends ItemView {
                 );
 
                 // Sort by severity (error > suggestion > info)
-                const severityMap: Record<string, number> = { error: 0, suggestion: 1, info: 2 };
+                const severityMap: Record<string, number> = {
+                    error: 0,
+                    suggestion: 1,
+                    info: 2,
+                };
                 suggestions.sort((a, b) => (severityMap[a.category] ?? 3) - (severityMap[b.category] ?? 3));
 
                 const rect = container.getBoundingClientRect();
@@ -247,7 +251,9 @@ export class GraphVisualizerView extends ItemView {
 
         if (this.graph) {
             this.plugin.logger.info('Destroying graph visualization and cleaning up WebGL context...');
-            const graphWithDestructor = this.graph as unknown as { _destructor?: () => void };
+            const graphWithDestructor = this.graph as unknown as {
+                _destructor?: () => void;
+            };
             if (typeof graphWithDestructor._destructor === 'function') {
                 graphWithDestructor._destructor();
             }

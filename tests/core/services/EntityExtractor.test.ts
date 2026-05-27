@@ -46,12 +46,21 @@ describe('EntityExtractor', () => {
 
         expect(mockStorage.appendLine).toHaveBeenCalledWith(
             '.planning/index/entities.ajson',
-            expect.objectContaining({ name: 'John', type: 'Person', notePath: 'test.md' }),
+            expect.objectContaining({
+                name: 'John',
+                type: 'Person',
+                notePath: 'test.md',
+            }),
         );
 
         expect(mockStorage.appendLine).toHaveBeenCalledWith(
             '.planning/index/relationships.ajson',
-            expect.objectContaining({ source: 'John', target: 'Project X', type: 'works on', notePath: 'test.md' }),
+            expect.objectContaining({
+                source: 'John',
+                target: 'Project X',
+                type: 'works on',
+                notePath: 'test.md',
+            }),
         );
     });
 

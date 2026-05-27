@@ -63,7 +63,9 @@ describe('CliTerminalSimulation', () => {
             const handler = cliHandlers.get('healer:scan')!;
             await handler.callback({ silent: false });
 
-            expect(mockPlugin.api.runAnalysis).toHaveBeenCalledWith({ silent: false });
+            expect(mockPlugin.api.runAnalysis).toHaveBeenCalledWith({
+                silent: false,
+            });
         });
 
         it('should catch exceptions and output a stringified JSON error structure', async () => {
@@ -109,13 +111,24 @@ describe('CliTerminalSimulation', () => {
 
     describe('healer:apply-batch', () => {
         it('should trigger batch execution with supplied threshold parameters and category', async () => {
-            const expectedOutput = { success: true, batchId: 'batch-123', appliedCount: 5, failedCount: 0 };
+            const expectedOutput = {
+                success: true,
+                batchId: 'batch-123',
+                appliedCount: 5,
+                failedCount: 0,
+            };
             mockPlugin.api.executeBatch.mockResolvedValue(expectedOutput);
 
             const handler = cliHandlers.get('healer:apply-batch')!;
-            const result = await handler.callback({ confidence: 0.9, category: 'deterministic' });
+            const result = await handler.callback({
+                confidence: 0.9,
+                category: 'deterministic',
+            });
 
-            expect(mockPlugin.api.executeBatch).toHaveBeenCalledWith({ confidence: 0.9, category: 'deterministic' });
+            expect(mockPlugin.api.executeBatch).toHaveBeenCalledWith({
+                confidence: 0.9,
+                category: 'deterministic',
+            });
             expect(JSON.parse(result as string)).toEqual(expectedOutput);
         });
 
@@ -130,7 +143,10 @@ describe('CliTerminalSimulation', () => {
             const handler = cliHandlers.get('healer:apply-batch')!;
             await handler.callback(null);
 
-            expect(mockPlugin.api.executeBatch).toHaveBeenCalledWith({ confidence: 0.8, category: undefined });
+            expect(mockPlugin.api.executeBatch).toHaveBeenCalledWith({
+                confidence: 0.8,
+                category: undefined,
+            });
         });
 
         it('should return stringified JSON error structure if execution fails', async () => {
@@ -147,7 +163,11 @@ describe('CliTerminalSimulation', () => {
 
     describe('healer:undo-batch', () => {
         it('should trigger batch rollback for the specified batchId', async () => {
-            const expectedOutput = { success: true, revertedCount: 3, failedCount: 0 };
+            const expectedOutput = {
+                success: true,
+                revertedCount: 3,
+                failedCount: 0,
+            };
             mockPlugin.api.undoBatch.mockResolvedValue(expectedOutput);
 
             const handler = cliHandlers.get('healer:undo-batch')!;

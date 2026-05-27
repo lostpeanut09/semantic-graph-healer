@@ -215,7 +215,11 @@ export class SuggestionExecutor {
     }
 
     private async innerExecuteRelink(suggestion: Suggestion): Promise<boolean> {
-        const mementoData: Array<{ path: string; property: string; originalValue: unknown }> = [];
+        const mementoData: Array<{
+            path: string;
+            property: string;
+            originalValue: unknown;
+        }> = [];
         try {
             const pathA = suggestion.meta?.sourcePath;
             const pathB = suggestion.meta?.targetPath;
@@ -243,10 +247,26 @@ export class SuggestionExecutor {
             // 1. Capture Memento for Atomicity & Undo
             const getFM = (f: TFile) =>
                 (this.app.metadataCache.getFileCache(f)?.frontmatter as Record<string, unknown>) || {};
-            mementoData.push({ path: fileA.path, property: prop, originalValue: getFM(fileA)[prop] });
-            mementoData.push({ path: fileB.path, property: prop, originalValue: getFM(fileB)[prop] });
-            mementoData.push({ path: fileB.path, property: invProp, originalValue: getFM(fileB)[invProp] });
-            mementoData.push({ path: fileC.path, property: invProp, originalValue: getFM(fileC)[invProp] });
+            mementoData.push({
+                path: fileA.path,
+                property: prop,
+                originalValue: getFM(fileA)[prop],
+            });
+            mementoData.push({
+                path: fileB.path,
+                property: prop,
+                originalValue: getFM(fileB)[prop],
+            });
+            mementoData.push({
+                path: fileB.path,
+                property: invProp,
+                originalValue: getFM(fileB)[invProp],
+            });
+            mementoData.push({
+                path: fileC.path,
+                property: invProp,
+                originalValue: getFM(fileC)[invProp],
+            });
 
             const nameA = this.app.metadataCache.fileToLinktext(fileA, fileB.path, true);
             const nameB_forA = this.app.metadataCache.fileToLinktext(fileB, fileA.path, true);
@@ -305,7 +325,11 @@ export class SuggestionExecutor {
         suggestion: Suggestion,
         targetPath: string,
         customAction?: string,
-        mementoData?: Array<{ path: string; property: string; originalValue: unknown }>,
+        mementoData?: Array<{
+            path: string;
+            property: string;
+            originalValue: unknown;
+        }>,
     ) {
         this.context.cache.suggestions = this.context.cache.suggestions.filter((s) => s.id !== suggestion.id);
 
