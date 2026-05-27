@@ -45,7 +45,7 @@
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <span><strong>AI Verdict:</strong> {suggestion.reasoning.verdict || (suggestion.reasoning.winner ? 'STABLE' : 'UNCERTAIN')}</span>
         {#if onShowReasoning}
-          <button class="healer-btn-link" style="background: none; border: none; color: var(--text-accent); cursor: pointer; padding: 0; font-size: 0.9em; text-decoration: underline;" onclick={() => onShowReasoning(suggestion)}>View Log</button>
+          <button class="healer-btn-link" aria-label="View log for {suggestion.link}" style="background: none; border: none; color: var(--text-accent); cursor: pointer; padding: 0; font-size: 0.9em; text-decoration: underline;" onclick={() => onShowReasoning(suggestion)}>View Log</button>
         {/if}
       </div>
       {#if suggestion.reasoning.winner}
@@ -54,6 +54,7 @@
           {#if onResolveChoice && suggestion.meta?.competingValues}
             <button 
               class="healer-btn-apply" 
+              aria-label="Apply recommended fix for {suggestion.link}"
               style="padding: 2px 8px; font-size: 0.85em; cursor: pointer; background-color: var(--interactive-accent); color: var(--text-on-accent); border: none; border-radius: 4px;"
               onclick={() => onResolveChoice!(
                 suggestion, 
@@ -76,16 +77,16 @@
   {/if}
 
   <div class="healer-btn-container" style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
-    <button class="healer-btn-execute" disabled={isFixed} onclick={() => onExecute(suggestion)}>Execute</button>
-    <button class="healer-btn-reason" disabled={isFixed || suggestion.isVerifying} onclick={() => onReasoning(suggestion)}>
+    <button class="healer-btn-execute" aria-label="Execute fix for {suggestion.link}" disabled={isFixed} onclick={() => onExecute(suggestion)}>Execute</button>
+    <button class="healer-btn-reason" aria-label="{suggestion.reasoning ? 'Re-reason' : 'Reasoning'} for {suggestion.link}" disabled={isFixed || suggestion.isVerifying} onclick={() => onReasoning(suggestion)}>
       {suggestion.reasoning ? 'Re-reason' : 'Reasoning'}
     </button>
     {#if onVerifyAI && (suggestion.type === 'ai' || suggestion.id.startsWith('branch_') || suggestion.id.startsWith('tag_'))}
-      <button class="healer-btn-verify" disabled={isFixed || suggestion.isVerifying} onclick={() => onVerifyAI(suggestion)}>
+      <button class="healer-btn-verify" aria-label="{suggestion.isVerifying ? 'Verifying...' : 'AI Verify'} fix for {suggestion.link}" disabled={isFixed || suggestion.isVerifying} onclick={() => onVerifyAI(suggestion)}>
         {suggestion.isVerifying ? 'Verifying...' : 'AI Verify'}
       </button>
     {/if}
-    <button class="healer-btn-ignore" disabled={isFixed} onclick={() => onIgnore(suggestion)}>Ignore</button>
+    <button class="healer-btn-ignore" aria-label="Ignore suggestion for {suggestion.link}" disabled={isFixed} onclick={() => onIgnore(suggestion)}>Ignore</button>
   </div>
 </div>
 
