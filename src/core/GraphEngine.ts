@@ -729,7 +729,14 @@ export class GraphEngine {
             for (let j = i + 1; j < allPaths.length; j++) {
                 const pathB = allPaths[j];
                 const backlinksB = backlinkIndex.get(pathB)!;
-                const score = [...backlinksA].filter((x) => backlinksB.has(x)).length;
+                // ⚡ Bolt Optimization: Avoid O(N) array allocation/spreading inside O(V^2) loop
+                // Compute intersection manually over the smaller set for O(min(A,B)) time and O(1) space
+                let score = 0;
+                const [smaller, larger] =
+                    backlinksA.size < backlinksB.size ? [backlinksA, backlinksB] : [backlinksB, backlinksA];
+                for (const x of smaller) {
+                    if (larger.has(x)) score++;
+                }
                 if (score >= minScore) results.push({ a: pathA, b: pathB, score });
             }
         }
