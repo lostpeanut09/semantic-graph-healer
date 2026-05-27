@@ -126,7 +126,9 @@ export class CacheService {
                     this._cache = {
                         pendingSuggestions: Array.isArray(parsed.pendingSuggestions) ? parsed.pendingSuggestions : [],
                         history: Array.isArray(parsed.history) ? parsed.history : [],
-                        topologicalScores: parsed.topologicalScores || { ...DEFAULT_CACHE.topologicalScores },
+                        topologicalScores: parsed.topologicalScores || {
+                            ...DEFAULT_CACHE.topologicalScores,
+                        },
                         vectorEmbeddings:
                             parsed.vectorEmbeddings && typeof parsed.vectorEmbeddings === 'object'
                                 ? parsed.vectorEmbeddings

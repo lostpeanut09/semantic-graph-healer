@@ -15,7 +15,8 @@
         "d3-force-3d",
         "three",
         "@types/benchmark",
-        "benchmark"
+        "benchmark",
+        "@ladybugdb/wasm-core"
     ],
     "rules": {
         "files": "error",

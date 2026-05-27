@@ -30,7 +30,9 @@ export class GraphPopup {
 
             this.contentEl.createEl('p', { text: reasoning });
 
-            const btnContainer = this.contentEl.createDiv({ cls: 'healer-graph-popup-btns' });
+            const btnContainer = this.contentEl.createDiv({
+                cls: 'healer-graph-popup-btns',
+            });
 
             if (suggestion.category === 'error' || suggestion.category === 'suggestion') {
                 new ButtonComponent(btnContainer)
@@ -44,9 +46,13 @@ export class GraphPopup {
 
             new ButtonComponent(btnContainer).setButtonText('Dismiss').onClick(() => this.hide());
         } else {
-            this.contentEl.createEl('p', { text: 'No specific issues detected for this node.' });
+            this.contentEl.createEl('p', {
+                text: 'No specific issues detected for this node.',
+            });
 
-            const btnContainer = this.contentEl.createDiv({ cls: 'healer-graph-popup-btns' });
+            const btnContainer = this.contentEl.createDiv({
+                cls: 'healer-graph-popup-btns',
+            });
             new ButtonComponent(btnContainer).setButtonText('Dismiss').onClick(() => this.hide());
         }
 

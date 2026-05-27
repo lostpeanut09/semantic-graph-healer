@@ -29,7 +29,9 @@ export class NativeVaultAdapter extends BaseAdapter {
         this.ensureInitialized();
         const edges: SemanticLinkEdge[] = [];
         const resolvedLinks = this.app.metadataCache.resolvedLinks;
-        const appWithSettings = this.app as App & { settings?: { includeNonMarkdownHubs?: boolean } };
+        const appWithSettings = this.app as App & {
+            settings?: { includeNonMarkdownHubs?: boolean };
+        };
         const includeNonMarkdown = appWithSettings.settings?.includeNonMarkdownHubs ?? false;
 
         this.logDebug(`getLinks: resolvedLinks count: ${Object.keys(resolvedLinks).length}`);

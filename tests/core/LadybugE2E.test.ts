@@ -77,11 +77,14 @@ describe('Ladybug E2E Flow', () => {
 
         service = new LadybugService(mockApp, mockManifest);
         metadataAdapter = {
-            getLinksSafe: vi
-                .fn()
-                .mockResolvedValue([
-                    { sourcePath: 'node1.md', targetPath: 'node2.md', type: 'related', confidence: 1.0 },
-                ]),
+            getLinksSafe: vi.fn().mockResolvedValue([
+                {
+                    sourcePath: 'node1.md',
+                    targetPath: 'node2.md',
+                    type: 'related',
+                    confidence: 1.0,
+                },
+            ]),
             queryPages: vi
                 .fn()
                 .mockResolvedValue([

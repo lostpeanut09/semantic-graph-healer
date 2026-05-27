@@ -108,7 +108,9 @@ export class LadybugAdapter {
               AND SIZE([ ()-[]->(n) | n ]) > $threshold
             RETURN n.path AS path, SIZE([ ()-[]->(n) | n ]) AS inDegree
             `;
-        return this.query<{ path: string; inDegree: number }>(cypher, { threshold });
+        return this.query<{ path: string; inDegree: number }>(cypher, {
+            threshold,
+        });
     }
 
     /**
@@ -122,7 +124,12 @@ export class LadybugAdapter {
               AND a <> c
             RETURN a.path AS source, c.path AS target, b.path AS via, r1.type AS type
             `;
-        return this.query<{ source: string; target: string; via: string; type: string }>(cypher);
+        return this.query<{
+            source: string;
+            target: string;
+            via: string;
+            type: string;
+        }>(cypher);
     }
 
     /**

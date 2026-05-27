@@ -23,7 +23,9 @@ export class ConfirmationModal extends Modal {
         const meta = this.suggestion.meta;
         if (meta) {
             if (meta.sourcePath) {
-                list.createEl('li', { text: `Update: ${meta.sourcePath} (setting ${meta.property || 'next'})` });
+                list.createEl('li', {
+                    text: `Update: ${meta.sourcePath} (setting ${meta.property || 'next'})`,
+                });
             }
             if (meta.targetPath) {
                 const invProp = meta.property === 'next' ? 'prev' : 'next';
@@ -33,13 +35,17 @@ export class ConfirmationModal extends Modal {
             }
             if (meta.winner) {
                 const invProp = meta.property === 'next' ? 'prev' : 'next';
-                list.createEl('li', { text: `Update: ${meta.winner} (setting ${invProp})` });
+                list.createEl('li', {
+                    text: `Update: ${meta.winner} (setting ${invProp})`,
+                });
             }
         }
 
         const btnRow = contentEl.createDiv({
             cls: 'healer-modal-buttons',
-            attr: { style: 'display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;' },
+            attr: {
+                style: 'display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;',
+            },
         });
 
         new ButtonComponent(btnRow).setButtonText('Cancel').onClick(() => this.close());

@@ -1,6 +1,6 @@
 import { HealerLogger, getProviderFromEndpoint } from '../HealerUtils';
 import { isThenable } from '../HealerUtils';
-import type { ExtendedApp, ObsidianSecretStorage } from '../../types';
+import type { ExtendedApp, LegacyKeychain, ObsidianSecretStorage } from '../../types';
 import type { KeychainContext } from './PluginContext';
 import { CryptoUtils } from '../utils/CryptoUtils';
 
@@ -20,18 +20,6 @@ interface SecureStorage {
     set(key: string, value: string): Promise<void>;
     /** Deletes a secret from storage. */
     delete(key: string): Promise<void>;
-}
-
-/**
- * Interface for the legacy Obsidian keychain implementation.
- */
-interface LegacyKeychain {
-    /** Retrieves a value by its key. */
-    get(key: string): string | null | Promise<string | null>;
-    /** Sets a value for a unique key. */
-    set(key: string, value: string): void | Promise<void>;
-    /** Deletes a value by its key. */
-    delete(key: string): void | Promise<void>;
 }
 
 /**

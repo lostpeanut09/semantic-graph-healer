@@ -30,7 +30,11 @@ describe('LinkPredictionEngine', () => {
                 },
             },
             settings: {
-                linkPredictionWeights: { jaccard: 0.5, adamicAdar: 0.5, resourceAllocation: 0 },
+                linkPredictionWeights: {
+                    jaccard: 0.5,
+                    adamicAdar: 0.5,
+                    resourceAllocation: 0,
+                },
                 enableSmartConnections: true,
                 htrStructuralWeight: 0.6,
             },

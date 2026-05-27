@@ -11,7 +11,8 @@ export interface ObsidianSecretStorage {
 
 export interface LegacyKeychain {
     get(key: string): Promise<string | null> | (string | null);
-    set(key: string, value: string): Promise<void> | void;
+    set(key: string, value: string): void | Promise<void>;
+    delete(key: string): void | Promise<void>;
 }
 
 export interface ObsidianInternalApp {
@@ -357,6 +358,7 @@ export interface SemanticGraphHealerSettings {
     requireAITagValidation: boolean;
     tagPropagationThreshold?: number;
     tagPropagationExclusions?: string[];
+    tagPropagationDirection?: 'up' | 'down' | 'bidirectional';
     enableSemanticAudit: boolean;
     graphRagIndexDir: string;
     // Logging & Performance
@@ -426,7 +428,12 @@ export type GraphAnalysisResult =
           edgeCount: number;
       }
     | {
-          bridges: Array<{ source: string; target: string; via: string; type: string }>;
+          bridges: Array<{
+              source: string;
+              target: string;
+              via: string;
+              type: string;
+          }>;
           blackHoles: Array<{ path: string; inDegree: number }>;
           cycles: Array<{ path: string[]; type: string }>;
       };
@@ -561,6 +568,7 @@ export const DEFAULT_SETTINGS: SemanticGraphHealerSettings = {
     requireAITagValidation: true,
     tagPropagationThreshold: 0.5,
     tagPropagationExclusions: ['MOC', 'Index', 'Dashboard'],
+    tagPropagationDirection: 'bidirectional',
     enableSemanticAudit: false,
     graphRagIndexDir: '.planning/index',
     logLevel: 'info',

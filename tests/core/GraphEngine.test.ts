@@ -74,7 +74,9 @@ describe('GraphEngine', () => {
     it('should run worker PageRank if cache is invalid', async () => {
         mockContext.cache.topologicalScores.graphVersion = 'INVALID';
 
-        mockContext.graphWorkerService.runAnalysis.mockResolvedValue({ 'Note.md': 0.5 });
+        mockContext.graphWorkerService.runAnalysis.mockResolvedValue({
+            'Note.md': 0.5,
+        });
 
         mockContext.app.vault.getAbstractFileByPath.mockImplementation((path: string) => {
             const f = new TFile();
@@ -86,6 +88,8 @@ describe('GraphEngine', () => {
         await engine.runPageRankAnalysis();
 
         expect(mockContext.graphWorkerService.runAnalysis).toHaveBeenCalled();
-        expect(mockContext.cache.topologicalScores.pageRank).toEqual({ 'Note.md': 0.5 });
+        expect(mockContext.cache.topologicalScores.pageRank).toEqual({
+            'Note.md': 0.5,
+        });
     });
 });

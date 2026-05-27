@@ -50,7 +50,11 @@ function create10kMockContext() {
     app.vault = {
         getMarkdownFiles: () => files,
         getAbstractFileByPath: (path: string) => pathToFileMap.get(path),
-        adapter: { exists: () => true, read: () => Promise.resolve(''), write: () => Promise.resolve() },
+        adapter: {
+            exists: () => true,
+            read: () => Promise.resolve(''),
+            write: () => Promise.resolve(),
+        },
     };
     app.metadataCache = {
         resolvedLinks,

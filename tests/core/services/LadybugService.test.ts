@@ -83,7 +83,10 @@ describe('LadybugService', () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
 
         const worker = (service as any).worker as MockWorker;
-        expect(worker.postMessage).toHaveBeenCalledWith({ type: 'init', useSharedArrayBuffer: false });
+        expect(worker.postMessage).toHaveBeenCalledWith({
+            type: 'init',
+            useSharedArrayBuffer: false,
+        });
 
         worker.dispatchEvent({ type: 'ready', mode: 'st-wasm' });
         await initPromise;
@@ -126,7 +129,11 @@ describe('LadybugService', () => {
 
         const result = await queryPromise;
         expect(result).toEqual([{ id: 1 }]);
-        expect(worker.postMessage).toHaveBeenCalledWith({ type: 'query', query: 'MATCH (n) RETURN n', params: {} });
+        expect(worker.postMessage).toHaveBeenCalledWith({
+            type: 'query',
+            query: 'MATCH (n) RETURN n',
+            params: {},
+        });
     });
 
     it('successfully executes a sync', async () => {
@@ -137,7 +144,10 @@ describe('LadybugService', () => {
         worker.dispatchEvent({ type: 'sync-complete' });
 
         await syncPromise;
-        expect(worker.postMessage).toHaveBeenCalledWith({ type: 'sync', batch: [{ type: 'node', data: [] }] });
+        expect(worker.postMessage).toHaveBeenCalledWith({
+            type: 'sync',
+            batch: [{ type: 'node', data: [] }],
+        });
     });
 
     it('successfully runs an algorithm', async () => {
@@ -149,7 +159,10 @@ describe('LadybugService', () => {
 
         const result = await algoPromise;
         expect(result).toEqual({ 'node1.md': 0.5 });
-        expect(worker.postMessage).toHaveBeenCalledWith({ type: 'algo', algoName: 'pagerank' });
+        expect(worker.postMessage).toHaveBeenCalledWith({
+            type: 'algo',
+            algoName: 'pagerank',
+        });
     });
 
     it('throws error if methods called before initialization', async () => {

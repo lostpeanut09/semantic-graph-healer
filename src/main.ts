@@ -510,7 +510,10 @@ export default class SemanticGraphHealer extends Plugin {
                     const suggestions = await this.api.runAnalysis({ silent });
                     return JSON.stringify(suggestions);
                 } catch (e) {
-                    return JSON.stringify({ status: 'error', message: e instanceof Error ? e.message : String(e) });
+                    return JSON.stringify({
+                        status: 'error',
+                        message: e instanceof Error ? e.message : String(e),
+                    });
                 }
             },
         );
@@ -524,7 +527,10 @@ export default class SemanticGraphHealer extends Plugin {
                     const suggestions = this.api.getSuggestions();
                     return JSON.stringify(suggestions);
                 } catch (e) {
-                    return JSON.stringify({ status: 'error', message: e instanceof Error ? e.message : String(e) });
+                    return JSON.stringify({
+                        status: 'error',
+                        message: e instanceof Error ? e.message : String(e),
+                    });
                 }
             },
         );
@@ -558,7 +564,10 @@ export default class SemanticGraphHealer extends Plugin {
                     const result = await this.api.executeBatch({ confidence, category });
                     return JSON.stringify(result);
                 } catch (e) {
-                    return JSON.stringify({ status: 'error', message: e instanceof Error ? e.message : String(e) });
+                    return JSON.stringify({
+                        status: 'error',
+                        message: e instanceof Error ? e.message : String(e),
+                    });
                 }
             },
         );
@@ -578,12 +587,18 @@ export default class SemanticGraphHealer extends Plugin {
                     const p = params as any;
                     const batchId = p?.batchId ? String(p.batchId) : undefined;
                     if (!batchId) {
-                        return JSON.stringify({ status: 'error', message: 'Missing required flag: batchId' });
+                        return JSON.stringify({
+                            status: 'error',
+                            message: 'Missing required flag: batchId',
+                        });
                     }
                     const result = await this.api.undoBatch(batchId);
                     return JSON.stringify(result);
                 } catch (e) {
-                    return JSON.stringify({ status: 'error', message: e instanceof Error ? e.message : String(e) });
+                    return JSON.stringify({
+                        status: 'error',
+                        message: e instanceof Error ? e.message : String(e),
+                    });
                 }
             },
         );

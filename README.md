@@ -12,6 +12,8 @@ Topological restoration engine that utilizes Dataview, Breadcrumbs, and ExcaliBr
 
 **Semantic Graph Healer** is a topological restoration and deep graph analysis engine for Obsidian. It leverages [Datacore](https://github.com/blacksmithgu/datacore), [LadybugDB](https://github.com/ladybugdb/ladybugdb), [Breadcrumbs](https://github.com/Sirenko/obsidian-breadcrumbs), [ExcaliBrain](https://github.com/zsviczian/excalibrain), and [Graphology](https://graphology.github.io/) to identify and resolve structural inconsistencies in the knowledge graph. It's designed for researchers and curators managing large-scale digital gardens where manual link auditing is no longer feasible.
 
+> This plugin is still being developed and its not avaibale for the official obsidian plugins marketplace yet. Its still fully experiment, however released thats start with the name endpoint are prolly experimental and mostly unstable, used only for testing.
+
 ## Installation
 
 > This plugin is still being developed and its not avaibale for the official obsidian plugins marketplace yet. Its still fully experiment, however released thats start with the name endpoint are prolly experimental and mostly unstable, used only for testing.

@@ -13,8 +13,10 @@ export default defineConfig({
     },
     test: {
         environment: 'jsdom',
-        deps: {
-            inline: ['obsidian'],
+        server: {
+            deps: {
+                inline: ['obsidian'],
+            },
         },
         setupFiles: ['@vitest/web-worker', './vitest.setup.ts'],
         exclude: ['**/node_modules/**', '**/node_modules_bak/**', '**/.kilo/**', '**/.agent/**'],
