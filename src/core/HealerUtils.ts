@@ -42,7 +42,7 @@ export class HealerLogger {
         if (HealerLogger.instance) {
             HealerLogger.instance.info(message, ...args);
         } else {
-            console.debug(`[SemanticHealer][INFO] ${message}`, ...args);
+            console.info(`[SemanticHealer][INFO] ${message}`, ...args);
         }
     }
 
