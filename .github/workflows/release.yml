@@ -39,6 +39,7 @@ jobs:
                   gh release upload ${{ github.ref_name }} \
                     main.js \
                     worker.js \
+                    ladybug-worker.js \
                     manifest.json \
                     styles.css \
                     --clobber
