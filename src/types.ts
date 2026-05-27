@@ -427,7 +427,12 @@ export type GraphAnalysisResult =
           edgeCount: number;
       }
     | {
-          bridges: Array<{ source: string; target: string; via: string; type: string }>;
+          bridges: Array<{
+              source: string;
+              target: string;
+              via: string;
+              type: string;
+          }>;
           blackHoles: Array<{ path: string; inDegree: number }>;
           cycles: Array<{ path: string[]; type: string }>;
       };

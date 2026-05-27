@@ -133,7 +133,12 @@ describe('GraphWorkerService Integration (Real Worker)', () => {
 
         expect(result).toBeDefined();
         expect(result.bridges).toHaveLength(1);
-        expect(result.bridges[0]).toMatchObject({ source: 'A', target: 'C', via: 'B', type: 'up' });
+        expect(result.bridges[0]).toMatchObject({
+            source: 'A',
+            target: 'C',
+            via: 'B',
+            type: 'up',
+        });
 
         service.terminate();
     });

@@ -494,7 +494,12 @@ function runTopologicalDiagnostics(
     const opts = options as TopologyDiagnosticsOptions | undefined;
     const blackHoleThreshold = opts?.blackHoleThreshold || 7;
 
-    const bridges: Array<{ source: string; target: string; via: string; type: string }> = [];
+    const bridges: Array<{
+        source: string;
+        target: string;
+        via: string;
+        type: string;
+    }> = [];
     const blackHoles: Array<{ path: string; inDegree: number }> = [];
     const cycles: Array<{ path: string[]; type: string }> = [];
 

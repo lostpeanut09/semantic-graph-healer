@@ -6,15 +6,15 @@ Rebuild the main dashboard using Svelte 5 (Runes) for ultra-responsive interacti
 
 ## Nyquist Validation Audit
 
-| Signal (Requirement) | Frequency (Sampling Method) | Status | Evidence |
-| -------------------- | --------------------------- | ------ | -------- |
+| Signal (Requirement) | Frequency (Sampling Method) | Status | Evidence                                         |
+| -------------------- | --------------------------- | ------ | ------------------------------------------------ |
 | Svelte 5 Rendering   | Component Unit Test         | PASSED | DashboardComponent.test.ts (renders banner/tabs) |
-| Tab Navigation       | Component State Test        | PASSED | DashboardComponent.test.ts (filters on click) |
-| Reactive Updates     | Store Event Test            | PASSED | DashboardStore.test.ts (auto-refreshes) |
-| Batch Execution      | Async Logic Test            | PASSED | DashboardStore.test.ts (fixAll yields) |
-| Ignore/Undo Logic    | Store Logic Test            | PASSED | DashboardStore.test.ts (ignore logic) |
-| AI Reasoning         | Integration Logic Test      | PASSED | DashboardStore.test.ts (analyze calls reasoner) |
-| View Lifecycle       | Lifecycle Unit Test         | PASSED | DashboardLifecycle.test.ts (unmount on close) |
+| Tab Navigation       | Component State Test        | PASSED | DashboardComponent.test.ts (filters on click)    |
+| Reactive Updates     | Store Event Test            | PASSED | DashboardStore.test.ts (auto-refreshes)          |
+| Batch Execution      | Async Logic Test            | PASSED | DashboardStore.test.ts (fixAll yields)           |
+| Ignore/Undo Logic    | Store Logic Test            | PASSED | DashboardStore.test.ts (ignore logic)            |
+| AI Reasoning         | Integration Logic Test      | PASSED | DashboardStore.test.ts (analyze calls reasoner)  |
+| View Lifecycle       | Lifecycle Unit Test         | PASSED | DashboardLifecycle.test.ts (unmount on close)    |
 
 ## Acceptance Criteria
 
@@ -28,13 +28,13 @@ Rebuild the main dashboard using Svelte 5 (Runes) for ultra-responsive interacti
 
 ## Automated Verification
 
-| Req ID | Command                                                               | Target                        |
-| ------ | --------------------------------------------------------------------- | ----------------------------- |
-| UX-01  | `npm run build`                                                     | Svelte compilation check      |
-| UI-03  | `npx vitest tests/views/dashboard/DashboardStore.test.ts`           | Reactive state & filtering    |
-| COMP   | `npx vitest tests/views/dashboard/DashboardComponent.test.ts`       | UI Rendering & Tab Logic      |
-| LIFE   | `npx vitest tests/views/dashboard/DashboardLifecycle.test.ts`       | Mount/Unmount Memory Safety   |
-| HARDEN | `npx vitest tests/core/workers/Integration.test.ts`                 | Backend/UI sync stability     |
+| Req ID | Command                                                       | Target                      |
+| ------ | ------------------------------------------------------------- | --------------------------- |
+| UX-01  | `npm run build`                                               | Svelte compilation check    |
+| UI-03  | `npx vitest tests/views/dashboard/DashboardStore.test.ts`     | Reactive state & filtering  |
+| COMP   | `npx vitest tests/views/dashboard/DashboardComponent.test.ts` | UI Rendering & Tab Logic    |
+| LIFE   | `npx vitest tests/views/dashboard/DashboardLifecycle.test.ts` | Mount/Unmount Memory Safety |
+| HARDEN | `npx vitest tests/core/workers/Integration.test.ts`           | Backend/UI sync stability   |
 
 ## Manual Verification (UAT)
 

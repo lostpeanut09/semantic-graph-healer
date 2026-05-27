@@ -206,7 +206,12 @@ describe('GraphAnalysisWorkerCore', () => {
                 const data = response.payload.data as any;
                 expect(data.bridges).toBeDefined();
                 expect(data.bridges).toHaveLength(1);
-                expect(data.bridges[0]).toMatchObject({ source: 'A', target: 'C', via: 'B', type: 'up' });
+                expect(data.bridges[0]).toMatchObject({
+                    source: 'A',
+                    target: 'C',
+                    via: 'B',
+                    type: 'up',
+                });
             }
         });
 

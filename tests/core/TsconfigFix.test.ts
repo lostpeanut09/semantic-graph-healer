@@ -67,7 +67,7 @@ describe('Phase 20: Build Integration Requirements', () => {
 
         it('must successfully build main.js, worker.js, and ladybug-worker.js', () => {
             // Clean up existing build artifacts
-            ['main.js', 'worker.js', 'ladybug-worker.js', 'styles.css'].forEach(f => {
+            ['main.js', 'worker.js', 'ladybug-worker.js', 'styles.css'].forEach((f) => {
                 rmSync(f, { force: true });
             });
 
@@ -105,14 +105,14 @@ describe('Phase 20: Build Integration Requirements', () => {
                 ...tsconfig,
                 include: ['src/**/*.ts', 'tests/**/*.ts', 'scripts/**/*.ts'],
             };
-            
+
             const tempConfigPath = './tsconfig.temp.d05.json';
             writeFileSync(tempConfigPath, JSON.stringify(tempTsconfig, null, 4));
-            
+
             try {
                 execSync(`npx tsc --noEmit --skipLibCheck -p ${tempConfigPath}`, {
                     encoding: 'utf-8',
-                    stdio: ['pipe', 'pipe', 'pipe']
+                    stdio: ['pipe', 'pipe', 'pipe'],
                 });
                 // If we get here without exception, type checking passed
             } finally {

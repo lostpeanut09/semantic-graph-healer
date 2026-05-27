@@ -209,7 +209,10 @@ export class GraphEngine {
                         this.graph.setEdgeAttribute(sourcePath, targetPath, 'type', edgeType);
                     }
                 } else {
-                    this.graph.addEdge(sourcePath, targetPath, { weight, type: edgeType });
+                    this.graph.addEdge(sourcePath, targetPath, {
+                        weight,
+                        type: edgeType,
+                    });
                     edgeCount++;
                 }
             }
@@ -764,7 +767,12 @@ export class GraphEngine {
      * @returns A promise resolving to an object containing found anomalies.
      */
     public async runTopologicalAnalysis(options?: Record<string, unknown>): Promise<{
-        bridges: Array<{ source: string; target: string; via: string; type: string }>;
+        bridges: Array<{
+            source: string;
+            target: string;
+            via: string;
+            type: string;
+        }>;
         cycles: Array<{ path: string[]; type: string }>;
         blackHoles: Array<{ path: string; inDegree: number }>;
     }> {
@@ -775,7 +783,12 @@ export class GraphEngine {
             const worker = this.context.graphWorkerService;
 
             const results = await worker.runAnalysis<{
-                bridges: Array<{ source: string; target: string; via: string; type: string }>;
+                bridges: Array<{
+                    source: string;
+                    target: string;
+                    via: string;
+                    type: string;
+                }>;
                 cycles: Array<{ path: string[]; type: string }>;
                 blackHoles: Array<{ path: string; inDegree: number }>;
             }>('TOPOLOGY_DIAGNOSTICS', nodes, edges, options);

@@ -41,12 +41,12 @@
 
 **Goal:** Verify URI protocols and Command Palette integrations.
 
-| Test Case  | Description                                | Result | Evidence                                                                                                         |
-| ---------- | ------------------------------------------ | ------ | ---------------------------------------------------------------------------------------------------------------- |
-| VAL-17.4.1 | URI `healer-action?action=scan` triggers   | PASSED | Verified in `ProtocolHandler.test.ts` via protocol simulation.                                                   |
-| VAL-17.4.2 | URI `apply-batch` respects params          | PASSED | Verified in `ProtocolHandler.test.ts`, passing confidence and category filters.                                  |
-| VAL-17.4.3 | Command Palette: Apply batch repairs       | PASSED | Registered and verified in `CommandPalette.test.ts`, invoking `api.executeBatch`.                                |
-| VAL-17.4.4 | Command Palette: Undo last batch           | PASSED | Registered and verified in `CommandPalette.test.ts`, identifying correct `batchId` from history.                 |
+| Test Case  | Description                              | Result | Evidence                                                                                         |
+| ---------- | ---------------------------------------- | ------ | ------------------------------------------------------------------------------------------------ |
+| VAL-17.4.1 | URI `healer-action?action=scan` triggers | PASSED | Verified in `ProtocolHandler.test.ts` via protocol simulation.                                   |
+| VAL-17.4.2 | URI `apply-batch` respects params        | PASSED | Verified in `ProtocolHandler.test.ts`, passing confidence and category filters.                  |
+| VAL-17.4.3 | Command Palette: Apply batch repairs     | PASSED | Registered and verified in `CommandPalette.test.ts`, invoking `api.executeBatch`.                |
+| VAL-17.4.4 | Command Palette: Undo last batch         | PASSED | Registered and verified in `CommandPalette.test.ts`, identifying correct `batchId` from history. |
 
 ## 5. Quality Gates
 
@@ -72,6 +72,7 @@
 | Escalated  | 0     |
 
 **Audit Findings:**
+
 - Added `VAL-17.1.4` (getMetrics) which was missing from initial report but implemented.
 - Added Section 4 (UI & Integration) covering URI protocols and Command Palette commands which were implemented but lacked explicit validation tests.
 - Created `ProtocolHandler.test.ts` and `CommandPalette.test.ts` to fill coverage gaps.

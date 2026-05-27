@@ -16,7 +16,11 @@ describe('GraphMapper', () => {
 
         expect(result.nodes).toContainEqual(expect.objectContaining({ id: 'A', label: 'Node A' }));
         expect(result.nodes).toContainEqual(expect.objectContaining({ id: 'B', label: 'Node B' }));
-        expect(result.links[0]).toMatchObject({ source: 'A', target: 'B', type: 'related' });
+        expect(result.links[0]).toMatchObject({
+            source: 'A',
+            target: 'B',
+            type: 'related',
+        });
     });
 
     it('should detect Ouroboros (cycle) attributes', () => {

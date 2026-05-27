@@ -35,7 +35,11 @@ describe('LadybugBenchmark', () => {
         // Generate synthetic data
         const nodeCount = 50000;
         const mockNodes = Array.from({ length: nodeCount }, (_, i) => ({
-            file: { path: `node${i}.md`, name: `Node ${i}`, size: Math.random() * 1000 },
+            file: {
+                path: `node${i}.md`,
+                name: `Node ${i}`,
+                size: Math.random() * 1000,
+            },
         }));
 
         metadataAdapter.queryPages.mockResolvedValue(mockNodes);
@@ -60,7 +64,13 @@ describe('LadybugBenchmark', () => {
         const mockWorker = {
             postMessage: vi.fn((msg) => {
                 if (msg.type === 'init') {
-                    setTimeout(() => mockWorker.onmessage({ data: { type: 'ready', mode: 'st-wasm' } }), 100);
+                    setTimeout(
+                        () =>
+                            mockWorker.onmessage({
+                                data: { type: 'ready', mode: 'st-wasm' },
+                            }),
+                        100,
+                    );
                 } else if (msg.type === 'sync') {
                     setTimeout(() => mockWorker.onmessage({ data: { type: 'sync-complete' } }), 500);
                 }
@@ -87,7 +97,10 @@ describe('LadybugBenchmark', () => {
         mockWorker.postMessage = vi.fn((msg) => {
             if (msg.type === 'query') {
                 setTimeout(
-                    () => mockWorker.onmessage({ data: { type: 'query-result', rows: [{ count: nodeCount }] } }),
+                    () =>
+                        mockWorker.onmessage({
+                            data: { type: 'query-result', rows: [{ count: nodeCount }] },
+                        }),
                     50,
                 );
             }

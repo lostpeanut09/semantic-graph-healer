@@ -50,14 +50,14 @@ This phase focuses on cross-cutting hardening of the metadata adapter layer. Val
 
 ## Test Matrix
 
-| Req ID     | Test File                         | Test Case                                  |
-| ---------- | --------------------------------- | ------------------------------------------ |
-| HARDEN-03a | `UnifiedMetadataAdapter.test.ts`  | `should unregister listener on destroy`    |
-| HARDEN-03b | `NativeVaultAdapter.test.ts`      | `should normalize all emitted edge paths`  |
-| HARDEN-03c | `UnifiedMetadataAdapter.test.ts`  | `should deduplicate and merge metadata`    |
-| HARDEN-03d | `BaseAdapter.test.ts`             | `should throw if not initialized`          |
-| HARDEN-03f | `UnifiedMetadataAdapter.test.ts`  | `should fetch links in parallel`           |
-| HARDEN-03g | `SmartConnectionsAdapter.test.ts` | `should respect 1MB size cap for fallback` |
+| Req ID     | Test File                                | Test Case                                               |
+| ---------- | ---------------------------------------- | ------------------------------------------------------- |
+| HARDEN-03a | `UnifiedMetadataAdapter.test.ts`         | `should unregister listener on destroy`                 |
+| HARDEN-03b | `NativeVaultAdapter.test.ts`             | `should normalize all emitted edge paths`               |
+| HARDEN-03c | `UnifiedMetadataAdapter.test.ts`         | `should deduplicate and merge metadata`                 |
+| HARDEN-03d | `BaseAdapter.test.ts`                    | `should throw if not initialized`                       |
+| HARDEN-03f | `UnifiedMetadataAdapter.test.ts`         | `should fetch links in parallel`                        |
+| HARDEN-03g | `SmartConnectionsAdapter.test.ts`        | `should respect 1MB size cap for fallback`              |
 | HARDEN-03g | `SmartConnectionsAdapter.harden.test.ts` | `enforces 5000 max entries limit in queryAjsonFallback` |
 
 ## Final Pipeline
@@ -65,7 +65,6 @@ This phase focuses on cross-cutting hardening of the metadata adapter layer. Val
 1. `npm run lint` (Zero warnings)
 2. `npm run test` (All tests pass)
 3. `npm run build` (Successful build)
-
 
 ## Nyquist Audit Confirmation
 

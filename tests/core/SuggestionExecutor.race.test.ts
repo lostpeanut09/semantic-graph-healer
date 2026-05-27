@@ -45,7 +45,12 @@ describe('SuggestionExecutor Race Condition Test', () => {
             source: 'Bridge',
             type: 'bridge',
             link: 'B.md',
-            meta: { sourcePath: 'A.md', targetPath: 'B.md', winner: 'C.md', property: 'next' },
+            meta: {
+                sourcePath: 'A.md',
+                targetPath: 'B.md',
+                winner: 'C.md',
+                property: 'next',
+            },
         };
 
         const fileA = new TFile();

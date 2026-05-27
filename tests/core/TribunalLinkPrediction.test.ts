@@ -54,7 +54,15 @@ describe('AI Tribunal & HTR Edge Cases Validation', () => {
             // Primary succeeds with low confidence
             vi.mocked(requestUrl).mockResolvedValueOnce({
                 status: 200,
-                json: { choices: [{ message: { content: 'WINNER: A | SCORE: 70 | WHY: Low confidence' } }] },
+                json: {
+                    choices: [
+                        {
+                            message: {
+                                content: 'WINNER: A | SCORE: 70 | WHY: Low confidence',
+                            },
+                        },
+                    ],
+                },
             } as any);
 
             // Secondary fails
@@ -93,7 +101,13 @@ describe('AI Tribunal & HTR Edge Cases Validation', () => {
 
             vi.mocked(requestUrl).mockResolvedValueOnce({
                 status: 200,
-                json: { choices: [{ message: { content: 'WINNER: A | SCORE: 70 | WHY: Primary only' } }] },
+                json: {
+                    choices: [
+                        {
+                            message: { content: 'WINNER: A | SCORE: 70 | WHY: Primary only' },
+                        },
+                    ],
+                },
             } as any);
 
             const result = await service.callLlm('test prompt', true);
@@ -117,7 +131,11 @@ describe('AI Tribunal & HTR Edge Cases Validation', () => {
                     },
                 },
                 settings: {
-                    linkPredictionWeights: { jaccard: 0.5, adamicAdar: 0.5, resourceAllocation: 0 },
+                    linkPredictionWeights: {
+                        jaccard: 0.5,
+                        adamicAdar: 0.5,
+                        resourceAllocation: 0,
+                    },
                     enableSmartConnections: true,
                     htrStructuralWeight: 0.8, // 80% structural priority
                 },

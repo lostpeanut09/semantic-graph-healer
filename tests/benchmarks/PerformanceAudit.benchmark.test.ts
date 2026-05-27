@@ -24,7 +24,12 @@ describe('Performance & Resource Audit Benchmarks', () => {
             const lines = [];
             for (let i = 0; i < 5000; i++) {
                 lines.push(
-                    JSON.stringify({ id: `entity_${i}`, name: `Entity Name ${i}`, type: 'Person', community: i % 10 }),
+                    JSON.stringify({
+                        id: `entity_${i}`,
+                        name: `Entity Name ${i}`,
+                        type: 'Person',
+                        community: i % 10,
+                    }),
                 );
             }
             const content = lines.join('\n') + '\n';
@@ -56,7 +61,9 @@ describe('Performance & Resource Audit Benchmarks', () => {
 
             vi.mocked(requestUrl).mockResolvedValue({
                 status: 200,
-                json: { choices: [{ message: { content: 'WINNER: A | SCORE: 90 | WHY: Match' } }] },
+                json: {
+                    choices: [{ message: { content: 'WINNER: A | SCORE: 90 | WHY: Match' } }],
+                },
             } as any);
 
             let bypassCount = 0;
@@ -115,7 +122,10 @@ describe('Performance & Resource Audit Benchmarks', () => {
 
             // 1. Pure Structural
             const start1 = performance.now();
-            handleGraphWorkerMessage({ ...messageBase, options: { ...messageBase.options, htrStructuralWeight: 1.0 } });
+            handleGraphWorkerMessage({
+                ...messageBase,
+                options: { ...messageBase.options, htrStructuralWeight: 1.0 },
+            });
             const end1 = performance.now();
             const timeStructural = end1 - start1;
 
@@ -123,7 +133,11 @@ describe('Performance & Resource Audit Benchmarks', () => {
             const start2 = performance.now();
             handleGraphWorkerMessage({
                 ...messageBase,
-                options: { ...messageBase.options, htrStructuralWeight: 0.5, embeddings },
+                options: {
+                    ...messageBase.options,
+                    htrStructuralWeight: 0.5,
+                    embeddings,
+                },
             });
             const end2 = performance.now();
             const timeHtrV2 = end2 - start2;

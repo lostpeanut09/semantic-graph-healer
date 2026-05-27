@@ -35,15 +35,15 @@ The validation of this phase focuses on the correctness and performance of the t
 
 ## Test Matrix
 
-| Req ID   | Test File                         | Test Case                                                   |
-| -------- | --------------------------------- | ----------------------------------------------------------- |
-| TOPOL-01 | `GraphAnalysisWorkerCore.test.ts` | `should detect bridge gaps (Depth 2)`          |
-| TOPOL-01 | `Phase5Nyquist.test.ts`         | `should transform worker bridges into topology_gap suggestions` |
-| TOPOL-04 | `GraphAnalysisWorkerCore.test.ts` | `should detect cycles (Ouroboros)`              |
-| TOPOL-04 | `Phase5Nyquist.test.ts`         | `should correctly identify and filter boundary-crossing cycles` |
-| TOPOL-05 | `Phase5Nyquist.test.ts`         | `should flag a node with 7 incoming edges when threshold is 7` |
-| ALL      | `Integration.test.ts`             | `should coordinate end-to-end topological diagnostics`      |
-| ALL      | `Integration.test.ts`             | `should successfully run a TOPOLOGY_DIAGNOSTICS analysis` |
+| Req ID   | Test File                         | Test Case                                                       |
+| -------- | --------------------------------- | --------------------------------------------------------------- |
+| TOPOL-01 | `GraphAnalysisWorkerCore.test.ts` | `should detect bridge gaps (Depth 2)`                           |
+| TOPOL-01 | `Phase5Nyquist.test.ts`           | `should transform worker bridges into topology_gap suggestions` |
+| TOPOL-04 | `GraphAnalysisWorkerCore.test.ts` | `should detect cycles (Ouroboros)`                              |
+| TOPOL-04 | `Phase5Nyquist.test.ts`           | `should correctly identify and filter boundary-crossing cycles` |
+| TOPOL-05 | `Phase5Nyquist.test.ts`           | `should flag a node with 7 incoming edges when threshold is 7`  |
+| ALL      | `Integration.test.ts`             | `should coordinate end-to-end topological diagnostics`          |
+| ALL      | `Integration.test.ts`             | `should successfully run a TOPOLOGY_DIAGNOSTICS analysis`       |
 
 ## Final Pipeline
 
@@ -53,4 +53,3 @@ The validation of this phase focuses on the correctness and performance of the t
 4. `npm test tests/core/workers/Integration.test.ts`
 5. `npm test tests/core/TopologyAnalyzer.test.ts`
 6. `npm run build`
-

@@ -101,7 +101,9 @@ export class ReasoningView extends ItemView {
             cls: 'healer-confidence-badge',
         });
 
-        const primaryArea = contentEl.createDiv({ cls: 'healer-reasoning-section' });
+        const primaryArea = contentEl.createDiv({
+            cls: 'healer-reasoning-section',
+        });
         primaryArea.createEl('h3', { text: 'Primary model reasoning' });
         primaryArea.createEl('p', {
             text: reasoning.primaryReasoning ?? reasoning.winnerWhy ?? '',
@@ -112,7 +114,9 @@ export class ReasoningView extends ItemView {
             const secondaryDetails = contentEl.createEl('details', {
                 cls: 'healer-secondary-reasoning-details',
             });
-            secondaryDetails.createEl('summary', { text: 'View secondary model audit' });
+            secondaryDetails.createEl('summary', {
+                text: 'View secondary model audit',
+            });
             secondaryDetails.createEl('p', {
                 text: reasoning.secondaryReasoning,
                 cls: 'healer-reasoning-text',

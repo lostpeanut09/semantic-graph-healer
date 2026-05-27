@@ -154,7 +154,10 @@ export class DashboardStore {
 
         const frag = new DocumentFragment();
         frag.appendText(`Ignored: ${suggestion.link} `);
-        const undoBtn = frag.createEl('button', { text: 'Undo', cls: 'healer-btn-undo' });
+        const undoBtn = frag.createEl('button', {
+            text: 'Undo',
+            cls: 'healer-btn-undo',
+        });
 
         let undone = false;
         const notice = new Notice(frag, 5000);
@@ -249,7 +252,10 @@ export class DashboardStore {
         const index = this.#suggestions.findIndex((s) => s.id === suggestion.id);
         if (index === -1) return;
 
-        this.#suggestions[index] = { ...this.#suggestions[index], isVerifying: true };
+        this.#suggestions[index] = {
+            ...this.#suggestions[index],
+            isVerifying: true,
+        };
 
         try {
             let isValid = false;
