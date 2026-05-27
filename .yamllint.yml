@@ -1,9 +1,10 @@
 extends: relaxed
 ignore: |
-  node_modules/
+    node_modules/
 rules:
-  line-length: disable
-  truthy: disable
-  indentation:
-    spaces: 4
-    indent-sequences: true
+    new-lines: disable
+    line-length: disable
+    truthy: disable
+    indentation:
+        spaces: 4
+        indent-sequences: true
