@@ -1,6 +1,3 @@
-#!/bin/sh
-. "$(dirname "$0")/_/husky.sh"
-
 # Detect WSL and normalize PATH if needed
 if grep -q Microsoft /proc/version 2>/dev/null; then
   export PATH="$PATH:/mnt/c/Program Files/nodejs"

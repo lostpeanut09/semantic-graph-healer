@@ -1,10 +1,10 @@
-#!/bin/sh
-. "$(dirname "$0")/_/husky.sh"
-
 # Detect WSL and normalize PATH if needed
 if grep -q Microsoft /proc/version 2>/dev/null; then
   export PATH="$PATH:/mnt/c/Program Files/nodejs"
 fi
+
+echo "🔍 Running Privacy Checks..."
+node scripts/check-staged-files.mjs || exit 1
 
 echo "🔍 Running Linting and Formatting..."
 npm run lint:fix || { echo "❌ Linting/Fix failed"; exit 1; }
