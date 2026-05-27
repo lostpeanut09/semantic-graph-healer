@@ -19,6 +19,16 @@ describe('RedactUtils', () => {
             expect(maskSecrets(input)).toBe('key: sk-***');
         });
 
+        it('should mask Anthropic-like sk-ant- keys', () => {
+            const input = 'key: sk-ant-abcdefghijklmnopqrstuvwxyz0123456789';
+            expect(maskSecrets(input)).toBe('key: sk-***');
+        });
+
+        it('should mask Hex-like keys (Azure OpenAI, etc.)', () => {
+            const input = 'key: 1234567890abcdef1234567890abcdef';
+            expect(maskSecrets(input)).toBe('key: ***HEX_KEY***');
+        });
+
         it('should handle multiple secrets in one string', () => {
             const input = 'Bearer token-abc-123 and sk-1234567890abcdefghijklmnopqrstuvwxyz';
             const masked = maskSecrets(input);
