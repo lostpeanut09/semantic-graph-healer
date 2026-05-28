@@ -32,17 +32,14 @@ describe('Version Consistency Check', () => {
     });
 
     function runCheck(): { status: number; output: string } {
-        try {
-            const output = execSync(`npx tsx "${scriptPath}"`, {
-                cwd: tempDir,
-                env: { ...process.env, CHECK_VERSION_ROOT: tempDir },
-                encoding: 'utf-8',
-                stdio: 'pipe',
-            });
-            return { status: 0, output };
-        } catch (error: any) {
-            return { status: error.status, output: error.stderr || error.stdout || error.message };
-        }
+        const { spawnSync } = require('node:child_process');
+        const result = spawnSync('npx', ['tsx', scriptPath], {
+            cwd: tempDir,
+            env: { ...process.env, CHECK_VERSION_ROOT: tempDir },
+            encoding: 'utf-8',
+            shell: true, // Use safe shell execution where args are automatically escaped by Node
+        });
+        return { status: result.status || 0, output: result.stderr || result.stdout || (result.error ? result.error.message : '') };
     }
 
     it('should pass when all versions match', () => {
