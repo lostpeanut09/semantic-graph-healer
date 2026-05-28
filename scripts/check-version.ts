@@ -56,8 +56,10 @@ function checkVersions() {
             logError(`package-lock.json version (${lockVersion}) != package.json version (${pkgVersion})`);
             hasError = true;
         }
-        if (lock.packages && lock.packages[""] && lock.packages[""].version !== pkgVersion) {
-            logError(`package-lock.json packages[""].version (${lock.packages[""].version}) != package.json version (${pkgVersion})`);
+        if (lock.packages && lock.packages[''] && lock.packages[''].version !== pkgVersion) {
+            logError(
+                `package-lock.json packages[""].version (${lock.packages[''].version}) != package.json version (${pkgVersion})`,
+            );
             hasError = true;
         }
 
