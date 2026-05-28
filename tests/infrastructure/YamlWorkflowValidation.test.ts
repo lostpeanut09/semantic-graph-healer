@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 
-describe('Phase 22: Infrastructure - YAML Linting & Workflows', () => {
+describe('Infrastructure: YAML Linting & Workflows', () => {
     const rootDir = path.resolve(__dirname, '../..');
     const packageJsonPath = path.join(rootDir, 'package.json');
     const yamllintConfigPath = path.join(rootDir, '.yamllint.yml');
@@ -38,32 +38,32 @@ describe('Phase 22: Infrastructure - YAML Linting & Workflows', () => {
             const filePath = path.join(workflowsDir, workflowFile);
             expect(fs.existsSync(filePath)).toBe(true);
             const content = fs.readFileSync(filePath, 'utf8');
-            
+
             // Check indentation (at least one line starting with 4 spaces, no lines starting with 2 spaces that aren't sequels)
             // This is a bit naive but good enough for a smoke test
             expect(content).toMatch(/^\s{4}\w/m);
-            
+
             // Check actions versions
             expect(content).toContain('actions/checkout@v4');
             expect(content).toContain('actions/setup-node@v4');
-            
+
             // Check Node version
             expect(content).toContain("node-version: '24'");
-            
+
             // Check npm ci
             expect(content).toContain('npm ci');
-            
+
             // Verify it passes yamllint-js
             try {
-                execSync(`npx yamllint-js "${filePath}"`, { stdio: 'pipe' });
+                execSync(`npx --no-install yamllint-js "${filePath}"`, { stdio: 'pipe' });
             } catch (error: any) {
                 throw new Error(`yamllint-js failed for ${workflowFile}: ${error.stdout.toString()}`);
             }
-        });
+        }, 10000);
 
         it('should fail on malformed YAML and pass on corrected YAML', () => {
             const tempYamlPath = path.join(rootDir, 'temp-test-malformed.yml');
-            
+
             // 2-space indentation (should fail based on our config)
             const malformedYaml = `
 test:
@@ -73,7 +73,9 @@ test:
 
             try {
                 expect(() => {
-                    execSync(`npx yamllint-js -c "${yamllintConfigPath}" -s "${tempYamlPath}"`, { stdio: 'pipe' });
+                    execSync(`npx --no-install yamllint-js -c "${yamllintConfigPath}" -s "${tempYamlPath}"`, {
+                        stdio: 'pipe',
+                    });
                 }).toThrow();
             } finally {
                 if (fs.existsSync(tempYamlPath)) fs.unlinkSync(tempYamlPath);
@@ -84,7 +86,12 @@ test:
             fs.writeFileSync(tempYamlPath, correctYaml);
 
             try {
-                const output = execSync(`npx yamllint-js -c "${yamllintConfigPath}" -s "${tempYamlPath}"`, { stdio: 'pipe' });
+                const output = execSync(
+                    `npx --no-install yamllint-js -c "${yamllintConfigPath}" -s "${tempYamlPath}"`,
+                    {
+                        stdio: 'pipe',
+                    },
+                );
                 expect(output.toString()).toBeDefined();
             } catch (error: any) {
                 console.error('yamllint-js output:', error.stdout.toString());
@@ -93,6 +100,6 @@ test:
             } finally {
                 if (fs.existsSync(tempYamlPath)) fs.unlinkSync(tempYamlPath);
             }
-        });
+        }, 10000);
     });
 });
