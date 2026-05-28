@@ -1,0 +1,25 @@
+name: Jules PR Reviewer
+
+on:
+    pull_request:
+        types: [opened, synchronize, reopened]
+
+permissions:
+    contents: read
+    pull-requests: write
+
+jobs:
+    review:
+        runs-on: ubuntu-latest
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        steps:
+            - name: Checkout Repository
+              uses: actions/checkout@v4
+
+            - name: Jules PR Review
+              uses: google-jules/reviewer@v1
+              with:
+                  api_key: ${{ secrets.JULES_API_KEY }}
+                  github_token: ${{ secrets.GITHUB_TOKEN }}
+                  rules_file: .jules/rules.md
+                  fail_on_critical: true

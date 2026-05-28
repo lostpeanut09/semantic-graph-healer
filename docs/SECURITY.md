@@ -36,6 +36,14 @@ The `HealerLogger` is designed to prevent accidental leaks of Personally Identif
 - **Log Injection Prevention**: All log entries are sanitized to neutralize control characters (ASCII 0x00-0x1F + 0x7F), preventing terminal manipulation or log injection attacks.
 - **Resource Protection**: File logging includes size-based rotation (capped at 2MB) and uses optimized I/O operations (`Vault.append`) to prevent disk exhaustion.
 
+## Automated Code Audits (Google Jules)
+
+To ensure the long-term integrity of the codebase, the project utilizes **Google Jules** for automated Pull Request reviews:
+
+- **Security & Performance Gating**: Every PR is audited against project-specific rules (`.jules/rules.md`) to catch security vulnerabilities (e.g., insecure randomness) and performance regressions.
+- **Secure Secret Management**: The `JULES_API_KEY` required for these audits is stored exclusively as an **encrypted GitHub Actions secret**. It is never committed to the repository or logged in CI/CD outputs.
+- **Aggressive Filtering**: Jules utilizes advanced false-positive filtering to maintain high-signal security feedback.
+
 ## Threat Model
 
 ### 1. Local Access & Malicious Plugins
