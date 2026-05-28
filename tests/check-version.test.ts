@@ -33,13 +33,16 @@ describe('Version Consistency Check', () => {
 
     function runCheck(): { status: number; output: string } {
         const { spawnSync } = require('node:child_process');
-        const result = spawnSync('npx', ['tsx', scriptPath], {
+        const result = spawnSync('npx', ['tsx', `"${scriptPath}"`], {
             cwd: tempDir,
             env: { ...process.env, CHECK_VERSION_ROOT: tempDir },
             encoding: 'utf-8',
             shell: true, // Use safe shell execution where args are automatically escaped by Node
         });
-        return { status: result.status || 0, output: result.stderr || result.stdout || (result.error ? result.error.message : '') };
+        return {
+            status: result.status || 0,
+            output: result.stderr || result.stdout || (result.error ? result.error.message : ''),
+        };
     }
 
     it('should pass when all versions match', () => {
@@ -98,4 +101,19 @@ describe('Version Consistency Check', () => {
             'versions.json entry for 1.0.0 (0.15.0) != manifest.json minAppVersion (0.16.0)',
         );
     }, 15000);
+});
+
+describe('CI/CD Integration', () => {
+    const rootDir = path.resolve(__dirname, '..');
+    const workflowsDir = path.join(rootDir, '.github/workflows');
+
+    it('should run check-version in release.yml', () => {
+        const content = fs.readFileSync(path.join(workflowsDir, 'release.yml'), 'utf-8');
+        expect(content).toContain('npm run check-version');
+    });
+
+    it('should run check-version in release-brat.yml', () => {
+        const content = fs.readFileSync(path.join(workflowsDir, 'release-brat.yml'), 'utf-8');
+        expect(content).toContain('npm run check-version');
+    });
 });
