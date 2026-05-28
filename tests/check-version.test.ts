@@ -109,7 +109,9 @@ describe('Version Consistency Check', () => {
 
         const result = runCheck();
         expect(result.status).toBe(1);
-        expect(result.output).toContain('package-lock.json packages[""].version (0.9.0) != package.json version (1.0.0)');
+        expect(result.output).toContain(
+            'package-lock.json packages[""].version (0.9.0) != package.json version (1.0.0)',
+        );
     }, 15000);
 
     it('should fail if manifest.json is missing', () => {
