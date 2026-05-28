@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AutomationApi } from '../../../src/core/services/AutomationApi';
+import { HealerLogger } from '../../../src/core/HealerUtils';
 import type { HealerNotifier, Suggestion } from '../../../src/types';
 
 describe('AutomationApi', () => {
     let mockNotifier: HealerNotifier;
     let mockContext: any;
-    let consoleInfoSpy: any;
+    let loggerInfoSpy: any;
 
     beforeEach(() => {
         mockNotifier = {
@@ -31,7 +32,7 @@ describe('AutomationApi', () => {
             analyzeGraph: vi.fn().mockResolvedValue(undefined),
         };
 
-        consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+        loggerInfoSpy = vi.spyOn(HealerLogger, 'info').mockImplementation(() => {});
     });
 
     afterEach(() => {
@@ -50,9 +51,9 @@ describe('AutomationApi', () => {
         const silentNotifier = mockContext.executor.setNotifier.mock.calls[0][0];
         expect(silentNotifier).toBeDefined();
 
-        // Verify it logs to console instead of throwing/using UI
+        // Verify it logs via HealerLogger instead of throwing/using UI
         silentNotifier.show('Test message', 'info');
-        expect(consoleInfoSpy).toHaveBeenCalledWith(expect.stringContaining('[SilentNotifier][info] Test message'));
+        expect(loggerInfoSpy).toHaveBeenCalledWith(expect.stringContaining('[SilentNotifier] Test message'));
 
         // Should restore the original notifier
         expect(mockContext.executor.setNotifier.mock.calls[1][0]).toBe(mockNotifier);
