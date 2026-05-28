@@ -47,17 +47,13 @@ function checkVersions() {
 
         // 1. Verify manifest.json version === package.json version
         if (manifestVersion !== pkgVersion) {
-            logError(
-                `manifest.json version (${manifestVersion}) != package.json version (${pkgVersion})`
-            );
+            logError(`manifest.json version (${manifestVersion}) != package.json version (${pkgVersion})`);
             hasError = true;
         }
 
         // 2. Verify package-lock.json version === package.json version
         if (lockVersion !== pkgVersion) {
-            logError(
-                `package-lock.json version (${lockVersion}) != package.json version (${pkgVersion})`
-            );
+            logError(`package-lock.json version (${lockVersion}) != package.json version (${pkgVersion})`);
             hasError = true;
         }
 
@@ -70,7 +66,7 @@ function checkVersions() {
             const versionsMinAppVersion = versions[pkgVersion];
             if (versionsMinAppVersion !== manifestMinAppVersion) {
                 logError(
-                    `versions.json entry for ${pkgVersion} (${versionsMinAppVersion}) != manifest.json minAppVersion (${manifestMinAppVersion})`
+                    `versions.json entry for ${pkgVersion} (${versionsMinAppVersion}) != manifest.json minAppVersion (${manifestMinAppVersion})`,
                 );
                 hasError = true;
             }
