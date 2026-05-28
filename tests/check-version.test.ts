@@ -97,6 +97,8 @@ describe('Version Consistency Check', () => {
 
         const result = runCheck();
         expect(result.status).toBe(1);
-        expect(result.output).toContain('versions.json entry for 1.0.0 (0.15.0) != manifest.json minAppVersion (0.16.0)');
+        expect(result.output).toContain(
+            'versions.json entry for 1.0.0 (0.15.0) != manifest.json minAppVersion (0.16.0)',
+        );
     }, 15000);
 });
