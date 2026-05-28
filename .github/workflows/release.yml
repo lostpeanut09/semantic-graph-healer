@@ -40,10 +40,8 @@ jobs:
                     --generate-notes \
                     || echo "Release already exists"
 
-                  gh release upload "$REF_NAME" \
-                    main.js \
-                    worker.js \
-                    ladybug-worker.js \
-                    manifest.json \
-                    styles.css \
-                    --clobber
+                  for file in main.js worker.js ladybug-worker.js manifest.json styles.css; do
+                    if [ -f "$file" ]; then
+                      gh release upload "$REF_NAME" "$file" --clobber
+                    fi
+                  done
