@@ -1,6 +1,6 @@
 import { Plugin, TFile, TFolder, normalizePath } from 'obsidian';
 import type { SemanticGraphHealerSettings } from '../../types';
-import { SECRET_KEYS, sanitizeForLog, redactObject } from './RedactUtils';
+import { sanitizeForLog, redactObject } from './RedactUtils';
 
 /**
  * High-Fidelity API Augmentation (SOTA 2026)
