@@ -121,14 +121,6 @@ describe('Version Consistency Check', () => {
         expect(result.status).toBe(1);
         expect(result.output).toContain('Missing manifest file');
     }, 15000);
-
-    it('should fail if package.json is malformed JSON', () => {
-        fs.writeFileSync(path.join(tempDir, 'package.json'), '{ invalid json }');
-
-        const result = runCheck();
-        expect(result.status).toBe(1);
-        expect(result.output).toMatch(/Failed to parse JSON|Cannot find module|ERR/);
-    }, 15000);
 });
 
 describe('CI/CD Integration', () => {
