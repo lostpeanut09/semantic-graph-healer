@@ -4,3 +4,6 @@ styles.css linguist-vendored
 
 # Ensure TypeScript is recognized as the primary language
 *.ts linguist-language=TypeScript
+
+# Ensure YAML files use LF line endings
+*.yml text eol=lf
