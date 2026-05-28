@@ -1,6 +1,25 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+interface PackageJson {
+    version: string;
+}
+
+interface Lockfile {
+    version: string;
+    packages?: {
+        '': { version?: string };
+        [key: string]: { version?: string } | undefined;
+    };
+}
+
+interface Manifest {
+    version: string;
+    minAppVersion: string;
+}
+
+type VersionsJson = Record<string, string>;
+
 /**
  * Robust version consistency check for Obsidian plugins.
  * Verifies synchronization between:
@@ -33,10 +52,10 @@ function checkVersions() {
     }
 
     try {
-        const pkg = JSON.parse(fs.readFileSync(paths.package, 'utf-8'));
-        const lock = JSON.parse(fs.readFileSync(paths.lock, 'utf-8'));
-        const manifest = JSON.parse(fs.readFileSync(paths.manifest, 'utf-8'));
-        const versions = JSON.parse(fs.readFileSync(paths.versions, 'utf-8'));
+        const pkg = JSON.parse(fs.readFileSync(paths.package, 'utf-8')) as unknown as PackageJson;
+        const lock = JSON.parse(fs.readFileSync(paths.lock, 'utf-8')) as unknown as Lockfile;
+        const manifest = JSON.parse(fs.readFileSync(paths.manifest, 'utf-8')) as unknown as Manifest;
+        const versions = JSON.parse(fs.readFileSync(paths.versions, 'utf-8')) as unknown as VersionsJson;
 
         let hasError = false;
 
