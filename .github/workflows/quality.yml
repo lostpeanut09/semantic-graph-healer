@@ -3,9 +3,9 @@ name: Quality Pipeline
 
 on:
     push:
-        branches: [main, master]
+        branches: [main]
     pull_request:
-        branches: [main, master]
+        branches: [main]
 
 permissions:
     contents: read
@@ -15,19 +15,19 @@ jobs:
         name: Lint, Test & Audit
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v4
 
             - name: Setup Node.js
-              uses: actions/setup-node@v6
+              uses: actions/setup-node@v4
               with:
                   node-version: '24'
                   cache: 'npm'
 
             - name: Install Dependencies
-              run: npm install --legacy-peer-deps
+              run: npm ci
 
-            - name: Format Check
-              run: npx prettier --config .config/.prettierrc --ignore-path .config/.prettierignore --check .
+            - name: Lint (YAML)
+              run: npm run lint:yaml
 
             - name: Lint (TS/JS)
               run: npm run lint
@@ -39,7 +39,7 @@ jobs:
               run: npm run knip
 
             - name: Run Tests
-              run: npm run test
+              run: npm test
 
             - name: Build Check
               run: npm run build
@@ -48,7 +48,7 @@ jobs:
         name: Platform Agnostic Audit
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v4
             - name: Scan for Windows-specific separators
               run: |
                   # Detect hardcoded Windows absolute paths (e.g., C:\Users\foo or C:\\Users\\foo)

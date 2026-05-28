@@ -12,6 +12,7 @@
         "dev": "node .config/esbuild.config.mjs",
         "build": "tsc --noEmit --skipLibCheck && node .config/esbuild.config.mjs production",
         "lint": "eslint -c .config/eslint.config.js .",
+        "lint:yaml": "yamllint-js .",
         "lint:css": "stylelint \"**/*.css\" --config .config/.stylelintrc.json",
         "format": "prettier --config .config/.prettierrc --ignore-path .config/.prettierignore --write .",
         "knip": "knip -c .config/knip.json",
@@ -64,7 +65,8 @@
         "typescript": "^5.0.0",
         "typescript-eslint": "^8.57.2",
         "vite": "^8.0.11",
-        "vitest": "^4.1.6"
+        "vitest": "^4.1.6",
+        "yamllint-js": "^0.2.4"
     },
     "dependencies": {
         "@ladybugdb/wasm-core": "^0.16.1",
@@ -89,6 +91,9 @@
         ],
         "*.{json,md}": [
             "prettier --config .config/.prettierrc --ignore-path .config/.prettierignore --write"
+        ],
+        "**/*.yml": [
+            "yamllint-js"
         ]
     }
 }
