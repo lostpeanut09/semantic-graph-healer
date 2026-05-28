@@ -4,7 +4,7 @@
     "type": "module",
     "description": "Topological restoration engine that utilizes Dataview, Breadcrumbs, and ExcaliBrain metadata to identify and resolve structural inconsistencies in the knowledge graph.",
     "engines": {
-        "node": ">=22.0.0",
+        "node": ">=24.0.0",
         "npm": ">=11.0.0"
     },
     "main": "main.js",
