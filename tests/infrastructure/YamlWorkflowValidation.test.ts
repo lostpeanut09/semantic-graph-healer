@@ -34,32 +34,36 @@ describe('Infrastructure: YAML Linting & Workflows', () => {
     describe('E2E Tests: Workflow Validation & Linting Behavior', () => {
         const workflows = ['quality.yml', 'release.yml', 'release-brat.yml'];
 
-        it.each(workflows)('should validate %s with 4-space indentation and @v4 actions', (workflowFile) => {
-            const filePath = path.join(workflowsDir, workflowFile);
-            expect(fs.existsSync(filePath)).toBe(true);
-            const content = fs.readFileSync(filePath, 'utf8');
+        it.each(workflows)(
+            'should validate %s with 4-space indentation and @v4 actions',
+            (workflowFile) => {
+                const filePath = path.join(workflowsDir, workflowFile);
+                expect(fs.existsSync(filePath)).toBe(true);
+                const content = fs.readFileSync(filePath, 'utf8');
 
-            // Check indentation (at least one line starting with 4 spaces, no lines starting with 2 spaces that aren't sequels)
-            // This is a bit naive but good enough for a smoke test
-            expect(content).toMatch(/^\s{4}\w/m);
+                // Check indentation (at least one line starting with 4 spaces, no lines starting with 2 spaces that aren't sequels)
+                // This is a bit naive but good enough for a smoke test
+                expect(content).toMatch(/^\s{4}\w/m);
 
-            // Check actions versions
-            expect(content).toContain('actions/checkout@v4');
-            expect(content).toContain('actions/setup-node@v4');
+                // Check actions versions
+                expect(content).toContain('actions/checkout@v4');
+                expect(content).toContain('actions/setup-node@v4');
 
-            // Check Node version
-            expect(content).toContain("node-version: '24'");
+                // Check Node version
+                expect(content).toContain("node-version: '24'");
 
-            // Check npm ci
-            expect(content).toContain('npm ci');
+                // Check npm ci
+                expect(content).toContain('npm ci');
 
-            // Verify it passes yamllint-js
-            try {
-                execSync(`npx --no-install yamllint-js "${filePath}"`, { stdio: 'pipe' });
-            } catch (error: any) {
-                throw new Error(`yamllint-js failed for ${workflowFile}: ${error.stdout.toString()}`);
-            }
-        }, 10000);
+                // Verify it passes yamllint-js
+                try {
+                    execSync(`npx --no-install yamllint-js "${filePath}"`, { stdio: 'pipe' });
+                } catch (error: any) {
+                    throw new Error(`yamllint-js failed for ${workflowFile}: ${error.stdout.toString()}`);
+                }
+            },
+            10000,
+        );
 
         it('should fail on malformed YAML and pass on corrected YAML', () => {
             const tempYamlPath = path.join(rootDir, 'temp-test-malformed.yml');
