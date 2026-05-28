@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { execSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 
 describe('Version Consistency Check', () => {
     let tempDir: string;
@@ -32,12 +32,12 @@ describe('Version Consistency Check', () => {
     });
 
     function runCheck(): { status: number; output: string } {
-        const { spawnSync } = require('node:child_process');
+        const rootDir = path.resolve(__dirname, '..');
         const result = spawnSync('npx', ['tsx', `"${scriptPath}"`], {
-            cwd: tempDir,
+            cwd: rootDir,
             env: { ...process.env, CHECK_VERSION_ROOT: tempDir },
             encoding: 'utf-8',
-            shell: true, // Use safe shell execution where args are automatically escaped by Node
+            shell: true,
         });
         return {
             status: result.status || 0,
@@ -100,6 +100,32 @@ describe('Version Consistency Check', () => {
         expect(result.output).toContain(
             'versions.json entry for 1.0.0 (0.15.0) != manifest.json minAppVersion (0.16.0)',
         );
+    }, 15000);
+
+    it('should fail if package-lock.json packages[""].version is modified', () => {
+        const lock = JSON.parse(fs.readFileSync(path.join(tempDir, 'package-lock.json'), 'utf-8'));
+        lock.packages = { '': { version: '0.9.0' } };
+        fs.writeFileSync(path.join(tempDir, 'package-lock.json'), JSON.stringify(lock, null, 2));
+
+        const result = runCheck();
+        expect(result.status).toBe(1);
+        expect(result.output).toContain('package-lock.json packages[""].version (0.9.0) != package.json version (1.0.0)');
+    }, 15000);
+
+    it('should fail if manifest.json is missing', () => {
+        fs.unlinkSync(path.join(tempDir, 'manifest.json'));
+
+        const result = runCheck();
+        expect(result.status).toBe(1);
+        expect(result.output).toContain('Missing manifest file');
+    }, 15000);
+
+    it('should fail if package.json is malformed JSON', () => {
+        fs.writeFileSync(path.join(tempDir, 'package.json'), '{ invalid json }');
+
+        const result = runCheck();
+        expect(result.status).toBe(1);
+        expect(result.output).toMatch(/Failed to parse JSON|Cannot find module|ERR/);
     }, 15000);
 });
 
