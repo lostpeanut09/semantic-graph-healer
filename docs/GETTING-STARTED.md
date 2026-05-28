@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Obsidian (v1.0+)
-- Node.js (v18+)
+- Node.js (v24+)
 
 ## Installation
 
