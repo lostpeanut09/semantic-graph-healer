@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { DashboardStore } from '../../../src/views/dashboard/DashboardStore.svelte.ts';
+import { DashboardStore } from '../../../src/views/dashboard/DashboardStore.svelte';
 
 describe('DashboardStore Sanitization E2E Simulation', () => {
     let mockPlugin: any;
