@@ -1,6 +1,7 @@
+---
 name: BRAT Release (Beta)
 
-on:
+'on':
     push:
         branches:
             - main

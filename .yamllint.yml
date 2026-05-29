@@ -6,6 +6,7 @@ rules:
         spaces: 4
     truthy:
         allowed-values: ['true', 'false', 'on']
+    new-lines: disable
 
 ignore: |
     node_modules/
