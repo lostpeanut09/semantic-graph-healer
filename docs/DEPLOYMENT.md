@@ -28,7 +28,7 @@ Runs on every push to `main` and on all Pull Requests.
 
 Triggered when a new tag matching the `v*` pattern (e.g., `v3.0.0`) is pushed.
 
-- **Environment**: Node.js 22 (Note: Discrepancy with `package.json` requirement of Node >= 24)
+- **Environment**: Node.js 24
 - **Build Command**: `npm run build` (uses `npm install --legacy-peer-deps`)
 - **Artifacts**: Creates a GitHub release and uploads `main.js`, `worker.js`, `manifest.json`, and `styles.css`.
 - <!-- VERIFY: ladybug-worker.js is missing from the upload step in release.yml but is required by LadybugService.ts -->
