@@ -96,7 +96,11 @@ describe('GraphWorkerService Integration (Real Worker)', () => {
             },
         };
 
-        service = new GraphWorkerService(mockLogger, mockPlugin);
+        const mockNotifier = {
+            show: vi.fn(),
+        };
+
+        service = new GraphWorkerService(mockLogger, mockPlugin, mockNotifier as any);
     });
 
     it('should successfully run a PageRank analysis in a real background thread', async () => {

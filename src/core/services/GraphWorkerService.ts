@@ -211,38 +211,36 @@ export class GraphWorkerService {
             throw new Error('Worker not initialized. Call initialize() first.');
         }
 
-        return this.queue.add(
-            () => {
-                if (this.worker) {
-                    return new Promise<T>((resolve, reject) => {
-                        const requestId = `req_${Date.now()}_${this.requestId++}`;
+        return this.queue.add(() => {
+            if (this.worker) {
+                return new Promise<T>((resolve, reject) => {
+                    const requestId = `req_${Date.now()}_${this.requestId++}`;
 
-                        // Optimized timeout (User-defined or 2-minute fallback)
-                        const timeoutMs = (this.plugin.settings?.workerTimeout || 120) * 1000;
+                    // Optimized timeout (User-defined or 2-minute fallback)
+                    const timeoutMs = (this.plugin.settings?.workerTimeout || 120) * 1000;
 
-                        const timeoutId = setTimeout(() => {
-                            const callback = this.pendingCallbacks.get(requestId);
-                            if (callback) {
-                                this.pendingCallbacks.delete(requestId);
-                                callback.reject(
-                                    new Error(`Analysis timeout for ${type} after ${timeoutMs / 1000} seconds`),
-                                );
-                            }
-                        }, timeoutMs);
+                    const timeoutId = setTimeout(() => {
+                        const callback = this.pendingCallbacks.get(requestId);
+                        if (callback) {
+                            this.pendingCallbacks.delete(requestId);
+                            callback.reject(
+                                new Error(`Analysis timeout for ${type} after ${timeoutMs / 1000} seconds`),
+                            );
+                        }
+                    }, timeoutMs);
 
-                        this.pendingCallbacks.set(requestId, { resolve, reject, timeoutId });
+                    this.pendingCallbacks.set(requestId, { resolve, reject, timeoutId });
 
-                        this.worker!.postMessage({
-                            type,
-                            payload: { nodes, edges, requestId },
-                            options,
-                        });
+                    this.worker!.postMessage({
+                        type,
+                        payload: { nodes, edges, requestId },
+                        options,
                     });
-                } else {
-                    return this.runMobileFallback<T>(type, nodes, edges, options);
-                }
+                });
+            } else {
+                return this.runMobileFallback<T>(type, nodes, edges, options);
             }
-        );
+        });
     }
 
     /**
@@ -266,9 +264,7 @@ export class GraphWorkerService {
         const nodeKeys = new Set(truncatedNodes.map((n) => n.key));
 
         // Filter edges to only include those where both source and target exist in truncated set
-        const filteredEdges = edges.filter(
-            (e) => nodeKeys.has(e.source) && nodeKeys.has(e.target)
-        );
+        const filteredEdges = edges.filter((e) => nodeKeys.has(e.source) && nodeKeys.has(e.target));
 
         const requestId = `req_${Date.now()}_${this.requestId++}`;
         const message = {
