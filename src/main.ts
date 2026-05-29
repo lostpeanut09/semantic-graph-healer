@@ -90,7 +90,7 @@ export default class SemanticGraphHealer extends Plugin {
                 new ResetKeychainModal(this.app as ExtendedApp, this.keychainService).open();
             },
         });
-        this.graphWorkerService = new GraphWorkerService(this.logger, this);
+        this.graphWorkerService = new GraphWorkerService(this.logger, this, new ObsidianNotifier());
         await this.graphWorkerService.initialize();
 
         this.performanceService = new PerformanceService(this.app, this.settings, this.logger);
@@ -232,7 +232,7 @@ export default class SemanticGraphHealer extends Plugin {
             if (this.graphWorkerService) {
                 this.graphWorkerService.destroy();
             }
-            this.graphWorkerService = new GraphWorkerService(this.logger, this);
+            this.graphWorkerService = new GraphWorkerService(this.logger, this, new ObsidianNotifier());
             await this.graphWorkerService.initialize();
 
             this.performanceService = new PerformanceService(this.app, this.settings, this.logger);
