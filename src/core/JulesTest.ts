@@ -1,5 +1,5 @@
 /**
- * This file contains intentional violations of project rules 
+ * This file contains intentional violations of project rules
  * to test the Jules AI Code Reviewer.
  */
 
@@ -17,7 +17,7 @@ export class JulesTest {
      * Using JavaScript Array spreading for Set intersection in a potential hot loop.
      */
     public getIntersectionSize(setA: Set<string>, setB: Set<string>): number {
-        const intersection = [...setA].filter(x => setB.has(x));
+        const intersection = [...setA].filter((x) => setB.has(x));
         return intersection.length;
     }
 

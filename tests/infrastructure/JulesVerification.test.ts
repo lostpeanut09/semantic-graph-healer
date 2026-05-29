@@ -21,7 +21,7 @@ describe('Jules AI Reviewer Infrastructure Verification', () => {
 
     it('should include all core project review rules in the prompt', () => {
         const content = fs.readFileSync(workflowPath, 'utf8');
-        
+
         // Security (Sentinel)
         expect(content).toContain('Security (Sentinel)');
         expect(content).toContain('crypto.randomUUID()');
