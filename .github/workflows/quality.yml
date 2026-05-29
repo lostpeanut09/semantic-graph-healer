@@ -29,6 +29,9 @@ jobs:
             - name: Format Check
               run: npx prettier --config .config/.prettierrc --ignore-path .config/.prettierignore --check .
 
+            - name: YAML Lint
+              run: npm run lint:yaml
+
             - name: Lint (TS/JS)
               run: npm run lint
 
