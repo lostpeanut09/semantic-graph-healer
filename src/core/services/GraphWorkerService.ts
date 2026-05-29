@@ -276,7 +276,7 @@ export class GraphWorkerService {
         return new Promise<T>((resolve, reject) => {
             const deferFn = (cb: () => void) => {
                 if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-                    (window as any).requestIdleCallback(cb);
+                    (window as Window & { requestIdleCallback: (cb: () => void) => void }).requestIdleCallback(cb);
                 } else {
                     setTimeout(cb, 100);
                 }
