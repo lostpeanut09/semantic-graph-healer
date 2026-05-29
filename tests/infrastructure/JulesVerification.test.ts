@@ -20,36 +20,28 @@ describe('Jules AI Reviewer Infrastructure Verification', () => {
         expect(content).toContain('jules_api_key: ${{ secrets.JULES_API_KEY }}');
     });
 
-    it('should include all core project review rules in the prompt', () => {
+    it('should include core project review goals in the prompt', () => {
         const content = fs.readFileSync(workflowPath, 'utf8');
 
-        // Security (Sentinel)
-        expect(content).toContain('Security (Sentinel)');
-        expect(content).toContain('crypto.randomUUID()');
-        expect(content).toContain('Reject any use of `Math.random()`');
-
-        // Performance (Bolt)
-        expect(content).toContain('Performance (Bolt)');
-        expect(content).toContain('avoid JavaScript Array spreading');
-        expect(content).toContain('inclusion-exclusion principle');
-
-        // Accessibility (Palette)
-        expect(content).toContain('Accessibility (Palette)');
-        expect(content).toContain('aria-label');
-        expect(content).toContain('aria-busy');
-    });
-
-    it('should require BLOCKING/WARN/NIT tagging in the response format', () => {
-        const content = fs.readFileSync(workflowPath, 'utf8');
         expect(content).toContain('[BLOCKING]');
         expect(content).toContain('[WARN]');
         expect(content).toContain('[NIT]');
+        expect(content).toContain('Adhere to the project standards defined in AGENTS.md');
     });
 
-    it('should trigger on pull requests for src and tests directories', () => {
+    it('should have a root AGENTS.md file with project standards', () => {
+        const agentsPath = path.resolve(process.cwd(), 'AGENTS.md');
+        expect(fs.existsSync(agentsPath)).toBe(true);
+
+        const content = fs.readFileSync(agentsPath, 'utf8');
+        expect(content).toContain('Security (Sentinel)');
+        expect(content).toContain('Performance (Bolt)');
+        expect(content).toContain('Accessibility (Palette)');
+    });
+
+    it('should trigger on pull requests with concurrency control', () => {
         const content = fs.readFileSync(workflowPath, 'utf8');
         expect(content).toContain('pull_request:');
-        expect(content).toContain("- 'src/**'");
-        expect(content).toContain("- 'tests/**'");
+        expect(content).toContain('concurrency:');
     });
 });

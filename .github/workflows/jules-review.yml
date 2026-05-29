@@ -3,10 +3,12 @@ name: Jules AI Code Review
 
 'on':
     pull_request:
-        types: [opened, synchronize, reopened]
-        paths:
-            - 'src/**'
-            - 'tests/**'
+        types: [opened, synchronize, reopened, ready_for_review]
+
+# Prevent multiple concurrent reviews on the same PR
+concurrency:
+    group: jules-review-${{ github.event.pull_request.number }}
+    cancel-in-progress: true
 
 permissions:
     contents: read
@@ -15,7 +17,7 @@ permissions:
 jobs:
     review:
         runs-on: ubuntu-latest
-        if: github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.draft == false
         steps:
             - name: Checkout Repository
               uses: actions/checkout@v4
@@ -27,20 +29,17 @@ jobs:
               with:
                   jules_api_key: ${{ secrets.JULES_API_KEY }}
                   prompt: |
-                      You are a senior software engineer and security auditor performing a code review.
-                      Analyze the changes in this Pull Request for security, performance, accessibility, and clean code.
-
-                      ### Core Review Guidelines:
-                      1. **Security (Sentinel):** Ensure all ID generation (UUIDs, Batch IDs) uses `crypto.randomUUID()` via the `generateId` utility in `src/core/HealerUtils.ts`. Reject any use of `Math.random()`.
-                      2. **Performance (Bolt):** In graph analysis loops, avoid JavaScript Array spreading (`[...set]`) for intersections/unions. Use manual loops over the smaller set for intersections and the inclusion-exclusion principle for union sizes.
-                      3. **Accessibility (Palette):** Ensure all new search inputs have an `aria-label`. Ensure dynamic buttons tracking async loading states utilize the `aria-busy` attribute.
-                      4. **General:** Check for logic errors, edge cases, and adherence to TypeScript best practices.
-
-                      ### Response Format:
-                      Provide a summary of your findings as a PR comment using these tags:
-                      - [BLOCKING] for critical flaws (security, breaking performance, major accessibility gaps).
-                      - [WARN] for potential risks or meaningful concerns.
-                      - [NIT] for style or minor improvements.
-                  include_diff: true
-                  include_history: true
+                      You are a senior software engineer and security auditor. Review the changes in this Pull Request.
+                      
+                      Your goal is to identify:
+                      1. [BLOCKING] Critical security flaws (like insecure ID generation) or logic bugs.
+                      2. [WARN] Performance issues (like inefficient Set operations) or missing error handling.
+                      3. [NIT] Style improvements or accessibility gaps (like missing aria-labels).
+                      
+                      Rules:
+                      - Be concise and professional.
+                      - Adhere to the project standards defined in AGENTS.md.
+                      - If the code looks great, provide a brief positive summary.
+                      - Post your review as a single comprehensive PR comment.
+                  include_last_commit: true
                   include_commit_log: true
