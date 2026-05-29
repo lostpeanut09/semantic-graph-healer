@@ -41,5 +41,6 @@ jobs:
                       - [BLOCKING] for critical flaws (security, breaking performance, major accessibility gaps).
                       - [WARN] for potential risks or meaningful concerns.
                       - [NIT] for style or minor improvements.
-                  include_last_commit: true
+                  include_diff: true
+                  include_history: true
                   include_commit_log: true

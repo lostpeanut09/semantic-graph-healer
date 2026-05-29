@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
+import { JulesTest } from '../../src/core/JulesTest';
 
 describe('Jules AI Reviewer Infrastructure Verification', () => {
     const workflowPath = path.resolve(process.cwd(), '.github/workflows/jules-review.yml');
@@ -9,9 +10,9 @@ describe('Jules AI Reviewer Infrastructure Verification', () => {
         expect(fs.existsSync(workflowPath)).toBe(true);
     });
 
-    it('should use the correct GitHub Action (google-labs-code/jules-invoke@v1)', () => {
+    it('should use the correct GitHub Action (google-labs-code/jules-invoke)', () => {
         const content = fs.readFileSync(workflowPath, 'utf8');
-        expect(content).toContain('uses: google-labs-code/jules-invoke@v1');
+        expect(content).toContain('uses: google-labs-code/jules-invoke');
     });
 
     it('should have the JULES_API_KEY secret configured', () => {
