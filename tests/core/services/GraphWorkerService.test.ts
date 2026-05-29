@@ -41,8 +41,20 @@ if (!global.URL) {
 global.URL.createObjectURL = vi.fn(() => 'blob:mock-worker-url');
 global.URL.revokeObjectURL = vi.fn();
 
+vi.mock('../../../src/core/workers/graph-analysis-core', () => ({
+    handleGraphWorkerMessage: vi.fn((message: any) => ({
+        type: 'RESULT',
+        payload: { data: { success: true }, requestId: message.payload?.requestId },
+    })),
+}));
+
 import { GraphWorkerService } from '../../../src/core/services/GraphWorkerService';
 import { HealerLogger } from '../../../src/core/utils/HealerLogger';
+import { handleGraphWorkerMessage } from '../../../src/core/workers/graph-analysis-core';
+
+const mockNotifier = {
+    show: vi.fn(),
+};
 
 function makePlugin() {
     return {
@@ -73,7 +85,7 @@ describe('GraphWorkerService', () => {
                 error: vi.fn(),
                 warn: vi.fn(),
             } as unknown as HealerLogger;
-            const service = new GraphWorkerService(loggerMock, plugin);
+            const service = new GraphWorkerService(loggerMock, plugin, mockNotifier as any);
 
             await service.initialize();
 
@@ -101,7 +113,7 @@ describe('GraphWorkerService', () => {
                 error: vi.fn(),
                 warn: vi.fn(),
             } as unknown as HealerLogger;
-            const service = new GraphWorkerService(loggerMock, plugin);
+            const service = new GraphWorkerService(loggerMock, plugin, mockNotifier as any);
 
             // Spy on worker creation
             const workerSpy = vi.spyOn(global, 'Worker');
@@ -130,7 +142,7 @@ describe('GraphWorkerService', () => {
                 error: vi.fn(),
                 warn: vi.fn(),
             } as unknown as HealerLogger;
-            const service = new GraphWorkerService(loggerMock, plugin);
+            const service = new GraphWorkerService(loggerMock, plugin, mockNotifier as any);
 
             const originalWorker = global.Worker;
             global.Worker = class {
@@ -159,7 +171,7 @@ describe('GraphWorkerService', () => {
                 error: vi.fn(),
                 warn: vi.fn(),
             } as unknown as HealerLogger;
-            const service = new GraphWorkerService(loggerMock, plugin);
+            const service = new GraphWorkerService(loggerMock, plugin, mockNotifier as any);
 
             await service.initialize();
 
@@ -179,6 +191,60 @@ describe('GraphWorkerService', () => {
 
             // Ensure the promise is rejected immediately due to fail-fast
             await expect(promise).rejects.toThrow(/Worker error: Fatal exception/);
+        });
+    });
+
+    describe('mobile fallback', () => {
+        it('runs analysis on main thread with node truncation and edge filtering', async () => {
+            const plugin = makePlugin();
+            const loggerMock = {
+                info: vi.fn(),
+                debug: vi.fn(),
+                error: vi.fn(),
+                warn: vi.fn(),
+            } as unknown as HealerLogger;
+            const service = new GraphWorkerService(loggerMock, plugin, mockNotifier as any);
+
+            mockPlatform.isMobile = true;
+            await service.initialize();
+
+            // Setup global.requestIdleCallback for jsdom if needed
+            if (!global.requestIdleCallback) {
+                global.requestIdleCallback = (cb: any) => setTimeout(cb, 0) as any;
+            }
+
+            // Create 250 nodes
+            const nodes = Array.from({ length: 250 }, (_, i) => ({ key: `n${i}`, attributes: {} }));
+            // Edges:
+            // 1. Valid (within first 200)
+            // 2. Cross-boundary (source in 200, target out) -> should be filtered
+            // 3. Invalid (both out) -> should be filtered
+            const edges = [
+                { source: 'n0', target: 'n1', attributes: {} },
+                { source: 'n10', target: 'n210', attributes: {} },
+                { source: 'n210', target: 'n220', attributes: {} },
+            ];
+
+            const promise = service.runAnalysis('SIMILARITY', nodes, edges, {});
+            const result = await promise;
+
+            expect(mockNotifier.show).toHaveBeenCalledWith(
+                expect.stringContaining('Running graph analysis on main thread (limited to 200 nodes)'),
+            );
+
+            // Verify truncation and filtering via handleGraphWorkerMessage call
+            expect(handleGraphWorkerMessage).toHaveBeenCalled();
+            const lastCall = (handleGraphWorkerMessage as any).mock.calls.at(-1)[0];
+
+            // Should be exactly 200 nodes
+            expect(lastCall.payload.nodes.length).toBe(200);
+            expect(lastCall.payload.nodes[199].key).toBe('n199');
+
+            // Should be only 1 edge (n0 -> n1)
+            expect(lastCall.payload.edges.length).toBe(1);
+            expect(lastCall.payload.edges[0]).toEqual({ source: 'n0', target: 'n1', attributes: {} });
+
+            expect(result).toBeDefined();
         });
     });
 });

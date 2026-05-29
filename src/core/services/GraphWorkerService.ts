@@ -1,19 +1,14 @@
 import { HealerLogger } from '../utils/HealerLogger';
 import { Platform, App } from 'obsidian';
-import type { SemanticGraphHealerSettings } from '../../types';
+import type { SemanticGraphHealerSettings, HealerNotifier } from '../../types';
 import PQueue from 'p-queue';
+import { handleGraphWorkerMessage, type WorkerMessage, type AnalysisType } from '../workers/graph-analysis-core';
 
 /**
- * Supported graph analysis algorithms and operations executed in the worker.
+ * Hard limit for graph size when running analysis on the main thread (mobile fallback).
+ * Prevents UI freezing while still providing useful topological insights.
  */
-type AnalysisType =
-    | 'PAGERANK'
-    | 'COMMUNITY'
-    | 'BETWEENNESS'
-    | 'FULL_ANALYSIS'
-    | 'COCITATION'
-    | 'SIMILARITY'
-    | 'TOPOLOGY_DIAGNOSTICS';
+const MOBILE_NODE_LIMIT = 200;
 
 /**
  * Partial plugin context required by the worker service.
@@ -41,6 +36,8 @@ export class GraphWorkerService {
     private logger: HealerLogger;
     /** The plugin instance providing access to the app, manifest, and settings. */
     private plugin: PluginWithSettings;
+    /** Notifier service for user alerts. */
+    private notifier: HealerNotifier;
     /** Priority queue for sequential analysis task execution. */
     private queue: PQueue;
 
@@ -63,10 +60,12 @@ export class GraphWorkerService {
      *
      * @param logger - The logger instance.
      * @param plugin - The plugin instance providing access to the app, manifest, and settings.
+     * @param notifier - The notifier service instance.
      */
-    constructor(logger: HealerLogger, plugin: PluginWithSettings) {
+    constructor(logger: HealerLogger, plugin: PluginWithSettings, notifier: HealerNotifier) {
         this.plugin = plugin;
         this.logger = logger;
+        this.notifier = notifier;
         this.queue = new PQueue({ concurrency: 1 });
     }
 
@@ -90,7 +89,8 @@ export class GraphWorkerService {
             this.logger.warn(
                 'Web Workers are explicitly disabled on mobile devices (iOS/Android) to prevent Capacitor crashes.',
             );
-            return Promise.resolve();
+            this.initPromise = Promise.resolve();
+            return this.initPromise;
         }
 
         this.initPromise = (async () => {
@@ -207,13 +207,13 @@ export class GraphWorkerService {
         }>,
         options?: Record<string, unknown>,
     ): Promise<T> {
-        if (!this.worker) {
+        if (!this.worker && !Platform.isMobile) {
             throw new Error('Worker not initialized. Call initialize() first.');
         }
 
-        return this.queue.add(
-            () =>
-                new Promise<T>((resolve, reject) => {
+        return this.queue.add(() => {
+            if (this.worker) {
+                return new Promise<T>((resolve, reject) => {
                     const requestId = `req_${Date.now()}_${this.requestId++}`;
 
                     // Optimized timeout (User-defined or 2-minute fallback)
@@ -236,8 +236,67 @@ export class GraphWorkerService {
                         payload: { nodes, edges, requestId },
                         options,
                     });
-                }),
-        );
+                });
+            } else {
+                return this.runMobileFallback<T>(type, nodes, edges, options);
+            }
+        });
+    }
+
+    /**
+     * Executes graph analysis on the main thread for mobile platforms,
+     * applying strict limits to prevent UI freezing.
+     */
+    private async runMobileFallback<T>(
+        type: AnalysisType,
+        nodes: Array<{ key: string; attributes: Record<string, unknown> }>,
+        edges: Array<{
+            source: string;
+            target: string;
+            attributes: Record<string, unknown>;
+        }>,
+        options?: Record<string, unknown>,
+    ): Promise<T> {
+        this.notifier.show(`Mobile: Running graph analysis on main thread (limited to ${MOBILE_NODE_LIMIT} nodes)...`);
+
+        // Truncate nodes to limit
+        const truncatedNodes = nodes.slice(0, MOBILE_NODE_LIMIT);
+        const nodeKeys = new Set(truncatedNodes.map((n) => n.key));
+
+        // Filter edges to only include those where both source and target exist in truncated set
+        const filteredEdges = edges.filter((e) => nodeKeys.has(e.source) && nodeKeys.has(e.target));
+
+        const requestId = `req_${Date.now()}_${this.requestId++}`;
+        const message = {
+            type,
+            payload: { nodes: truncatedNodes, edges: filteredEdges, requestId },
+            options,
+        } as WorkerMessage;
+
+        return new Promise<T>((resolve, reject) => {
+            const deferFn = (cb: () => void) => {
+                if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+                    (window as Window & { requestIdleCallback: (cb: () => void) => void }).requestIdleCallback(cb);
+                } else {
+                    setTimeout(cb, 100);
+                }
+            };
+
+            deferFn(() => {
+                try {
+                    const response = handleGraphWorkerMessage(message);
+                    if (response.type === 'ERROR') {
+                        reject(new Error(response.payload?.message || 'Unknown error'));
+                    } else if (response.type === 'RESULT') {
+                        resolve(response.payload?.data as T);
+                    } else {
+                        reject(new Error(`Unexpected response type from fallback: ${response.type}`));
+                    }
+                } catch (err) {
+                    reject(err instanceof Error ? err : new Error(String(err)));
+                }
+            });
+        });
     }
 
     /**

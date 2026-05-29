@@ -66,6 +66,7 @@ const WorkerMessageSchema = z
  * Defines supported analysis types (PAGERANK, COMMUNITY, etc.) and payload structure.
  */
 export type WorkerMessage = z.infer<typeof WorkerMessageSchema>;
+export type AnalysisType = WorkerMessage['type'];
 
 /**
  * Calculates cosine similarity between two vectors.
