@@ -1,7 +1,8 @@
+---
 name: Quality Pipeline
 # Trigger: v2.3.1 production gate audit
 
-on:
+'on':
     push:
         branches: [main, master]
     pull_request:
@@ -15,10 +16,10 @@ jobs:
         name: Lint, Test & Audit
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v4
 
             - name: Setup Node.js
-              uses: actions/setup-node@v6
+              uses: actions/setup-node@v4
               with:
                   node-version: '24'
                   cache: 'npm'
@@ -28,6 +29,9 @@ jobs:
 
             - name: Format Check
               run: npx prettier --config .config/.prettierrc --ignore-path .config/.prettierignore --check .
+
+            - name: YAML Lint
+              run: npm run lint:yaml
 
             - name: Lint (TS/JS)
               run: npm run lint
@@ -48,7 +52,7 @@ jobs:
         name: Platform Agnostic Audit
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v4
             - name: Scan for Windows-specific separators
               run: |
                   # Detect hardcoded Windows absolute paths (e.g., C:\Users\foo or C:\\Users\\foo)

@@ -1,6 +1,7 @@
+---
 name: Jules PR Reviewer
 
-on:
+'on':
     pull_request:
         types: [opened, synchronize, reopened]
 

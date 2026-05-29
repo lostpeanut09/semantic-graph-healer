@@ -3,7 +3,11 @@ node_modules_bak
 package-lock.json
 main.js
 worker.js
+ladybug-worker.js
+main.css
+styles.css
 .husky
 dist
 .kilo
 .agent
+.planning
