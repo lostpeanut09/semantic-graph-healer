@@ -30,12 +30,12 @@ jobs:
                   jules_api_key: ${{ secrets.JULES_API_KEY }}
                   prompt: |
                       You are a senior software engineer and security auditor. Review the changes in this Pull Request.
-                      
+
                       Your goal is to identify:
                       1. [BLOCKING] Critical security flaws (like insecure ID generation) or logic bugs.
                       2. [WARN] Performance issues (like inefficient Set operations) or missing error handling.
                       3. [NIT] Style improvements or accessibility gaps (like missing aria-labels).
-                      
+
                       Rules:
                       - Be concise and professional.
                       - Adhere to the project standards defined in AGENTS.md.
