@@ -1,0 +1,14 @@
+extends: relaxed
+
+rules:
+    line-length: disable
+    indentation:
+        spaces: 4
+    truthy:
+        allowed-values: ['true', 'false', 'on']
+
+ignore: |
+    node_modules/
+    node_modules_bak/
+    dist/
+    .git/
