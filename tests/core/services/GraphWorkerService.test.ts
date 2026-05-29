@@ -44,8 +44,8 @@ global.URL.revokeObjectURL = vi.fn();
 vi.mock('../../../src/core/workers/graph-analysis-core', () => ({
     handleGraphWorkerMessage: vi.fn((message: any) => ({
         type: 'RESULT',
-        payload: { data: { success: true }, requestId: message.payload?.requestId }
-    }))
+        payload: { data: { success: true }, requestId: message.payload?.requestId },
+    })),
 }));
 
 import { GraphWorkerService } from '../../../src/core/services/GraphWorkerService';
@@ -222,14 +222,14 @@ describe('GraphWorkerService', () => {
             const edges = [
                 { source: 'n0', target: 'n1', attributes: {} },
                 { source: 'n10', target: 'n210', attributes: {} },
-                { source: 'n210', target: 'n220', attributes: {} }
+                { source: 'n210', target: 'n220', attributes: {} },
             ];
 
             const promise = service.runAnalysis('SIMILARITY', nodes, edges, {});
             const result = await promise;
 
             expect(mockNotifier.show).toHaveBeenCalledWith(
-                expect.stringContaining('Running graph analysis on main thread (limited to 200 nodes)')
+                expect.stringContaining('Running graph analysis on main thread (limited to 200 nodes)'),
             );
 
             // Verify truncation and filtering via handleGraphWorkerMessage call
