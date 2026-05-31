@@ -52,3 +52,18 @@ Now that you have the plugin installed and configured, you can learn more by che
 - [DEVELOPMENT.md](DEVELOPMENT.md) — Learn about building, linting, formatting, and branch conventions.
 - [TESTING.md](TESTING.md) — Information on how to run our unit tests, integration tests, and benchmarks.
 - [CONFIGURATION.md](CONFIGURATION.md) — Detailed guide on all options available in Obsidian settings.
+
+## Installation steps
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/lostpeanut09/semantic-graph-healer.git
+   ```
+2. Navigate into the project directory:
+   ```bash
+   cd semantic-graph-healer
+   ```
+3. Install dependencies:
+   ```bash
+   npm install
+   ```

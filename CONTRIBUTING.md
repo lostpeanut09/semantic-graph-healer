@@ -1,12 +1,5 @@
 <!-- generated-by: gsd-doc-writer -->
-
-# Contributing to Semantic Graph Healer
-
 Thank you for your interest in contributing to Semantic Graph Healer! We welcome all contributions that help improve the topological integrity of knowledge graphs in Obsidian.
-
-## Code of Conduct
-
-We are committed to providing a welcoming and inclusive environment. Please be respectful and constructive in all interactions within this project. While we do not have a separate `CODE_OF_CONDUCT.md` file yet, we expect all contributors to adhere to the standards of professional and respectful conduct.
 
 ## Development Setup
 
@@ -20,7 +13,7 @@ Before you start contributing, please ensure your local environment is set up co
 To maintain codebase consistency and quality, we enforce the following standards:
 
 - **TypeScript & Svelte 5**: All new functionality must be written in TypeScript. We use Svelte 5 and its **Runes** system (`$state`, `$derived`, `$effect`) for UI reactivity.
-- **Linting & Formatting**:
+- **Linting & Formatting**: CI enforces the following checks:
     - **ESLint**: Used for static analysis of TypeScript and JavaScript. Run `npm run lint`.
     - **Prettier**: Used for consistent code formatting. Run `npm run format`.
     - **Stylelint**: Used for CSS linting. Run `npm run lint:css`.
@@ -33,7 +26,7 @@ To maintain codebase consistency and quality, we enforce the following standards
 When submitting a Pull Request, please follow these guidelines:
 
 - **Branch Naming**: Prefix your branch name based on the type of change: `feat/feature-name`, `fix/bug-name`, or `docs/doc-update`.
-- **Commit Messages**: Follow [Conventional Commits](https://www.conventionalcommits.org/) (e.g., `feat: add new graph analyzer`, `fix: resolve memory leak in worker`).
+- **Commit Messages**: Follow [Conventional Commits](https://www.conventionalcommits.org/) (e.g., `feat: add new graph analyzer`, `fix: resolve memory leak in worker`). **Important:** Commit messages MUST NOT reference internal planning artifacts, phases, or specific files within the `.planning/` directory (e.g., "phase-19", "PLAN.md"). Ensure commits focus solely on the technical or functional change and remove any workflow-specific tags.
 - **Tests**: Every pull request should include tests for new functionality or bug fixes. Use `npm run test` to verify your changes.
 - **Quality Pipeline**: All PRs must pass the GitHub Actions quality pipeline, which includes:
     - Prettier check
