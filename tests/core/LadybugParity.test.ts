@@ -122,4 +122,26 @@ describe('Ladybug Parity (Cypher vs Graphology)', () => {
         expect(results[0].path).toEqual(['A.md', 'B.md', 'A.md']);
         expect(results[0].type).toBe('related');
     });
+
+    it('getPageRank should return results consistent with Graphology', async () => {
+        const mockPageRank = { 'A.md': 0.5, 'B.md': 0.5 };
+        mockService.runAlgo.mockImplementation((algo: string) => {
+            if (algo === 'pagerank') return mockPageRank;
+            return {};
+        });
+
+        const results = await ladybugAdapter.getPageRank();
+        expect(results).toEqual(mockPageRank);
+    });
+
+    it('getLouvainCommunities should return results consistent with Graphology', async () => {
+        const mockCommunities = { 'A.md': 0, 'B.md': 1 };
+        mockService.runAlgo.mockImplementation((algo: string) => {
+            if (algo === 'louvain') return mockCommunities;
+            return {};
+        });
+
+        const results = await ladybugAdapter.getLouvainCommunities();
+        expect(results).toEqual(mockCommunities);
+    });
 });

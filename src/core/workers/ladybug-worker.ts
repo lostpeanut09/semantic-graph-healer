@@ -11,6 +11,7 @@ import lbugMT from '@ladybugdb/wasm-core/multithreaded';
 import { DirectedGraph } from 'graphology';
 import pagerank from 'graphology-metrics/centrality/pagerank';
 import louvain from 'graphology-communities-louvain';
+import { redactObject } from '../utils/RedactUtils';
 
 let db: lbugST.Database | null = null;
 let connection: lbugST.Connection | null = null;
@@ -110,7 +111,7 @@ self.onmessage = async (e: MessageEvent<IncomingMessage>) => {
             self.postMessage({ type: 'ready', mode });
         } catch (error: unknown) {
             const message = error instanceof Error ? error.message : String(error);
-            console.error('LadybugWorker Init Error:', error);
+            console.error('LadybugWorker Init Error:', redactObject(error));
             self.postMessage({ type: 'error', message });
         }
     } else if (type === 'query') {
@@ -134,35 +135,21 @@ self.onmessage = async (e: MessageEvent<IncomingMessage>) => {
             return;
         }
         try {
-            const nodeStmt = await connection.prepare(
-                'MERGE (n:Node {path: $path}) SET n.label = $label, n.size = $size',
-            );
-            const linkStmt = await connection.prepare(
-                'MATCH (a:Node {path: $from}), (b:Node {path: $to}) MERGE (a)-[r:SemanticLink {type: $type}]->(b) SET r.weight = $weight',
-            );
-
             for (const item of batch ?? []) {
                 if (item.type === 'node') {
-                    for (const node of item.data) {
-                        await connection.execute(nodeStmt, {
-                            path: node.path,
-                            label: node.label,
-                            size: node.size,
-                        });
-                    }
+                    const nodeStmt = await connection.prepare(
+                        'UNWIND $nodes AS row MERGE (n:Node {path: row.path}) SET n.label = row.label, n.size = row.size',
+                    );
+                    await connection.execute(nodeStmt, { nodes: item.data });
+                    await nodeStmt.close();
                 } else if (item.type === 'link') {
-                    for (const link of item.data) {
-                        await connection.execute(linkStmt, {
-                            from: link.from,
-                            to: link.to,
-                            type: link.type,
-                            weight: link.weight,
-                        });
-                    }
+                    const linkStmt = await connection.prepare(
+                        'UNWIND $links AS row MATCH (a:Node {path: row.from}), (b:Node {path: row.to}) MERGE (a)-[r:SemanticLink {type: row.type}]->(b) SET r.weight = row.weight',
+                    );
+                    await connection.execute(linkStmt, { links: item.data });
+                    await linkStmt.close();
                 }
             }
-            await nodeStmt.close();
-            await linkStmt.close();
             self.postMessage({ type: 'sync-complete' });
         } catch (error: unknown) {
             const message = error instanceof Error ? error.message : String(error);
