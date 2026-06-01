@@ -53,6 +53,7 @@ const WorkerMessageSchema = z
                 blackHoleThreshold: z.number().optional(),
                 htrStructuralWeight: z.number().optional(),
                 embeddings: z.record(z.string(), z.array(z.number())).optional(),
+                safetyMode: z.boolean().optional(),
             })
             .passthrough()
             .optional(),
@@ -153,6 +154,7 @@ export function handleGraphWorkerMessage(message: WorkerMessage, reporter?: Prog
         const validated = WorkerMessageSchema.parse(message);
         const { type, payload, options } = validated;
         requestId = payload.requestId;
+        const safetyMode = options?.safetyMode === true;
 
         const graph = new DirectedGraph();
 
@@ -212,7 +214,15 @@ export function handleGraphWorkerMessage(message: WorkerMessage, reporter?: Prog
         switch (type) {
             case 'PAGERANK':
                 validateGraphSize('PAGERANK', options, DEFAULT_LIMITS.PAGERANK);
-                result = pagerank(graph, options as Parameters<typeof pagerank>[1]);
+                let pagerankOptions = (options as any) || {};
+                if (safetyMode) {
+                    pagerankOptions = {
+                        ...pagerankOptions,
+                        maxIterations: pagerankOptions.maxIterations ?? 50,
+                        tolerance: pagerankOptions.tolerance ?? 0.001,
+                    };
+                }
+                result = pagerank(graph, pagerankOptions);
                 break;
 
             case 'COMMUNITY':
@@ -221,7 +231,8 @@ export function handleGraphWorkerMessage(message: WorkerMessage, reporter?: Prog
                 break;
 
             case 'BETWEENNESS':
-                validateGraphSize('BETWEENNESS', options, DEFAULT_LIMITS.BETWEENNESS);
+                const betweennessLimit = safetyMode ? 1000 : DEFAULT_LIMITS.BETWEENNESS;
+                validateGraphSize('BETWEENNESS', options, betweennessLimit);
                 result = betweennessCentrality(graph, options as Parameters<typeof betweennessCentrality>[1]);
                 break;
 
