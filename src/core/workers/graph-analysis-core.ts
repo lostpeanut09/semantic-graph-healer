@@ -54,10 +54,10 @@ const WorkerMessageSchema = z
                 htrStructuralWeight: z.number().optional(),
                 embeddings: z.record(z.string(), z.array(z.number())).optional(),
             })
-            .loose()
+            .passthrough()
             .optional(),
     })
-    .loose();
+    .passthrough();
 
 /**
  * WorkerMessage
