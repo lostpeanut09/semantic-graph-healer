@@ -13,16 +13,37 @@
   } = $props<{
     suggestion: Suggestion;
     isFixed?: boolean;
-    onExecute: (s: Suggestion) => void;
-    onIgnore: (s: Suggestion) => void;
-    onReasoning: (s: Suggestion) => void;
-    onVerifyAI?: (s: Suggestion) => void;
-    onShowReasoning?: (s: Suggestion) => void;
-    onResolveChoice?: (s: Suggestion, winner: string, losers: string[]) => void;
+    onExecute: (s: Suggestion) => void | Promise<void>;
+    onIgnore: (s: Suggestion) => void | Promise<void>;
+    onReasoning: (s: Suggestion) => void | Promise<void>;
+    onVerifyAI?: (s: Suggestion) => void | Promise<void>;
+    onShowReasoning?: (s: Suggestion) => void | Promise<void>;
+    onResolveChoice?: (s: Suggestion, winner: string, losers: string[]) => void | Promise<void>;
   }>();
 
   let category = $derived(suggestion.category || 'suggestion');
   let confidence = $derived(suggestion.meta?.confidence);
+
+  let isExecuting = $state(false);
+  let isReasoningLocal = $state(false);
+
+  async function handleExecute() {
+    isExecuting = true;
+    try {
+      await onExecute(suggestion);
+    } finally {
+      isExecuting = false;
+    }
+  }
+
+  async function handleReasoning() {
+    isReasoningLocal = true;
+    try {
+      await onReasoning(suggestion);
+    } finally {
+      isReasoningLocal = false;
+    }
+  }
 </script>
 
 <div class="healer-suggestion-card healer-{category}-card" style="background-color: var(--background-secondary); border: 1px solid var(--background-modifier-border); padding: 1em; margin-bottom: 0.5em; border-radius: 4px; {isFixed ? 'opacity: 0.6;' : ''}">
@@ -77,12 +98,32 @@
   {/if}
 
   <div class="healer-btn-container" style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
-    <button class="healer-btn-execute" aria-label="Execute fix for {suggestion.link}" disabled={isFixed} onclick={() => onExecute(suggestion)}>Execute</button>
-    <button class="healer-btn-reason" aria-label="{suggestion.reasoning ? 'Re-reason' : 'Reasoning'} for {suggestion.link}" disabled={isFixed || suggestion.isVerifying} onclick={() => onReasoning(suggestion)}>
-      {suggestion.reasoning ? 'Re-reason' : 'Reasoning'}
+    <button
+      class="healer-btn-execute"
+      aria-label="{isExecuting ? 'Executing' : 'Execute'} fix for {suggestion.link}"
+      aria-busy={isExecuting}
+      disabled={isFixed || isExecuting}
+      onclick={handleExecute}
+    >
+      {isExecuting ? 'Executing...' : 'Execute'}
+    </button>
+    <button
+      class="healer-btn-reason"
+      aria-label="{isReasoningLocal ? 'Analyzing' : (suggestion.reasoning ? 'Re-reason' : 'Reasoning')} for {suggestion.link}"
+      aria-busy={isReasoningLocal}
+      disabled={isFixed || suggestion.isVerifying || isReasoningLocal}
+      onclick={handleReasoning}
+    >
+      {isReasoningLocal ? 'Analyzing...' : (suggestion.reasoning ? 'Re-reason' : 'Reasoning')}
     </button>
     {#if onVerifyAI && (suggestion.type === 'ai' || suggestion.id.startsWith('branch_') || suggestion.id.startsWith('tag_'))}
-      <button class="healer-btn-verify" aria-label="{suggestion.isVerifying ? 'Verifying...' : 'AI Verify'} fix for {suggestion.link}" disabled={isFixed || suggestion.isVerifying} onclick={() => onVerifyAI(suggestion)}>
+      <button
+        class="healer-btn-verify"
+        aria-label="{suggestion.isVerifying ? 'Verifying...' : 'AI Verify'} fix for {suggestion.link}"
+        aria-busy={suggestion.isVerifying}
+        disabled={isFixed || suggestion.isVerifying}
+        onclick={() => onVerifyAI(suggestion)}
+      >
         {suggestion.isVerifying ? 'Verifying...' : 'AI Verify'}
       </button>
     {/if}

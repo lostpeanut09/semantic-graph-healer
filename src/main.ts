@@ -45,7 +45,7 @@ import { GraphEngine } from './core/GraphEngine';
 import { AutomationApi } from './core/services/AutomationApi';
 
 export default class SemanticGraphHealer extends Plugin {
-    settings: SemanticGraphHealerSettings;
+    declare settings: SemanticGraphHealerSettings;
 
     public topology: TopologyAnalyzer;
     public api: AutomationApi;

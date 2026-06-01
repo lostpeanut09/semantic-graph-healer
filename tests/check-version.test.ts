@@ -35,13 +35,19 @@ describe('Version Consistency Check', () => {
         const rootDir = path.resolve(__dirname, '..');
         const result = spawnSync('npx', ['tsx', `"${scriptPath}"`], {
             cwd: rootDir,
-            env: { ...process.env, CHECK_VERSION_ROOT: tempDir },
+            env: { ...process.env, CHECK_VERSION_ROOT: tempDir, npm_config_update_notifier: 'false' },
             encoding: 'utf-8',
             shell: true,
         });
+
+        let output = result.stderr || result.stdout || (result.error ? result.error.message : '');
+        // Clean up npm warnings if they still appear
+        output = output.replace(/npm warn Unknown env config.*?\n/g, '').replace(/npm notice.*?\n/g, '');
+        // In Vitest stdout might be completely captured away, so we fallback to reading the original output
+
         return {
             status: result.status || 0,
-            output: result.stderr || result.stdout || (result.error ? result.error.message : ''),
+            output: result.stdout || output,
         };
     }
 

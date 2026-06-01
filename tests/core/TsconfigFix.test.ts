@@ -113,6 +113,7 @@ describe('Phase 20: Build Integration Requirements', () => {
                 execSync(`npx tsc --noEmit --skipLibCheck -p ${tempConfigPath}`, {
                     encoding: 'utf-8',
                     stdio: ['pipe', 'pipe', 'pipe'],
+                    env: { ...process.env, npm_config_update_notifier: 'false' },
                 });
                 // If we get here without exception, type checking passed
             } finally {
