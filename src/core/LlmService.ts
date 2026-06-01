@@ -114,7 +114,9 @@ export class LlmService {
             const similarity = cosineSimilarity(embeddings.source, embeddings.target);
             const threshold = this.settings.tribunalPreFilterThreshold ?? 0.4;
             if (similarity < threshold) {
-                HealerLogger.info(`LlmService: Tribunal Bypassed (Stage 0). Similarity ${similarity.toFixed(4)} < ${threshold}`);
+                HealerLogger.info(
+                    `LlmService: Tribunal Bypassed (Stage 0). Similarity ${similarity.toFixed(4)} < ${threshold}`,
+                );
                 return `REJECTED\n\n<tribunal_audit>\nStatus: REJECTED\nConfidenceScore: 0\nPrimaryReasoning: SEMANTIC_UNRELATED\n</tribunal_audit>`;
             }
         }

@@ -43,7 +43,7 @@ describe('LinkPredictionEngine Performance and Normalization', () => {
                 },
                 metadataCache: {
                     getFirstLinkpathDest: vi.fn(),
-                }
+                },
             },
             settings: {
                 linkPredictionWeights: { jaccard: 1 },
@@ -86,19 +86,17 @@ describe('LinkPredictionEngine Performance and Normalization', () => {
             { source: 'SourceA', target: 'Target1', score: 1.0001 }, // Slightly above 1
         ]);
 
-        mockGetRelatedNotes.mockResolvedValue([
-            { path: 'Target1', score: 0.8 },
-        ]);
+        mockGetRelatedNotes.mockResolvedValue([{ path: 'Target1', score: 0.8 }]);
 
         const suggestions = await engine.predictLinks(mockNodes, []);
-        
+
         // Current logic: 1.0001 > 1 ? 1.0001 / 100 : 1.0001 => 0.010001
         // finalScore = 0.010001 * 0.5 + 0.8 * 0.5 = 0.005 + 0.4 = 0.405
         // scaledScore = 0.405 * 100 = 40.5 => 41
-        
+
         // Expected: 1.0001 should be treated as 1.0 or at least not divided by 100 if it's meant to be 0-1.
         // If it's 0-100 scale, 1.0001 is very low.
-        
+
         // Let's see what it currently returns.
         expect(suggestions[0].meta?.confidence).toBeGreaterThan(50);
     });
