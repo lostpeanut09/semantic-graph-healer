@@ -66,7 +66,9 @@ export class LinkPredictionEngine {
             const semanticCache = new Map<string, RelatedNote[]>();
 
             for (const res of results) {
-                let finalScore = res.score;
+                // Structural scores from worker are ideally 0-1, but some legacy/mock paths might return 1-100
+                const normalizedStruct = res.score > 1.1 ? res.score / 100 : res.score;
+                let finalScore = normalizedStruct;
                 let htrWeight = this.context.settings.htrStructuralWeight ?? 0.6;
                 let semanticScore = 0;
 
@@ -79,12 +81,10 @@ export class LinkPredictionEngine {
 
                     const targetRel = related.find((r) => r.path === res.target);
                     if (targetRel) {
-                        // All adapters now return standardized 0-1 scores
-                        semanticScore = targetRel.score;
+                        // All adapters now return standardized 0-1 scores, but we harden against 1-100
+                        semanticScore = targetRel.score > 1.1 ? targetRel.score / 100 : targetRel.score;
                     }
 
-                    // Structural scores from worker are strictly 0-1 (Jaccard, etc.)
-                    const normalizedStruct = res.score;
                     finalScore = normalizedStruct * htrWeight + semanticScore * (1 - htrWeight);
                 }
 
