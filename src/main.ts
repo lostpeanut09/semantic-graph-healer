@@ -45,6 +45,7 @@ import { GraphEngine } from './core/GraphEngine';
 import { AutomationApi } from './core/services/AutomationApi';
 
 export default class SemanticGraphHealer extends Plugin {
+    // @ts-expect-error Obsidian base class override
     settings: SemanticGraphHealerSettings;
 
     public topology: TopologyAnalyzer;
