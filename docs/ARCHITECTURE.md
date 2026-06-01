@@ -27,7 +27,7 @@ graph TD
 
 1.  **Ingestion & Normalization**: The `UnifiedMetadataAdapter` orchestrates specialized adapters to fetch metadata from the Obsidian vault and active plugins. It normalizes disparate link types (Breadcrumbs hierarchies, Datacore properties) into a unified internal format.
 2.  **Graph Construction & Prediction**: The `GraphEngine` translates normalized metadata into an in-memory `Graphology` instance. The `LinkPredictionEngine` utilizes Jaccard and Adamic-Adar indices (offloaded to Web Workers) to identify missing but topologically likely connections.
-3.  **Background Analysis**: The `TopologyAnalyzer` inspects the graph to detect structural anomalies (e.g., black holes, missing bridges). Heavy computations (PageRank, Louvain communities) are handled by the `GraphWorkerService` or synced to a WASM `LadybugDB` instance via `LadybugService`.   
+3.  **Background Analysis**: The `TopologyAnalyzer` inspects the graph to detect structural anomalies (e.g., black holes, missing bridges). Heavy computations (PageRank, Louvain communities) are handled by the `GraphWorkerService` or synced to a WASM `LadybugDB` instance via `LadybugService`.
 4.  **Semantic Enrichment & Propagation**:
     - The `SemanticTagPropagator` identifies tag inheritance gaps within clusters.
     - The `LlmService` and `GraphRagService` process semantic proximity and derive community summaries stored in AJSON format.
@@ -37,9 +37,9 @@ graph TD
 
 ## Key Abstractions
 
-- `IMetadataAdapter` (`src/core/adapters/IMetadataAdapter.ts`): Interface defining how to extract links and metadata from various vault sources.    
-- `GraphEngine` (`src/core/GraphEngine.ts`): Central authority for maintaining the in-memory graph structure and caching topological metrics.       
-- `ReasoningService` (`src/core/ReasoningService.ts`): AI-powered agent that analyzes competing structural values to identify optimal repairs.      
+- `IMetadataAdapter` (`src/core/adapters/IMetadataAdapter.ts`): Interface defining how to extract links and metadata from various vault sources.
+- `GraphEngine` (`src/core/GraphEngine.ts`): Central authority for maintaining the in-memory graph structure and caching topological metrics.
+- `ReasoningService` (`src/core/ReasoningService.ts`): AI-powered agent that analyzes competing structural values to identify optimal repairs.
 - `LlmService` (`src/core/LlmService.ts`): Unified interface for interacting with various LLM providers (OpenAI, Anthropic, Local) with built-in retry logic and structured output parsing.
 - `TopologyAnalyzer` (`src/core/TopologyAnalyzer.ts`): The primary orchestrator for structural audits, managing multiple specialized analysis routines (deterministic, cycle, sink, semantic).
 - `GraphRagService` (`src/core/services/GraphRagService.ts`): Builds community-centric summaries and processes semantic context queries using vector similarity.

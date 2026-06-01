@@ -1,5 +1,5 @@
 import { TFile } from 'obsidian';
-import type { Suggestion } from '../types';
+import type { Suggestion, RelatedNote } from '../types';
 import { HealerLogger } from './HealerUtils';
 import type { GraphContext } from './services/PluginContext';
 import { SmartConnectionsAdapter } from './adapters/SmartConnectionsAdapter';
@@ -63,24 +63,37 @@ export class LinkPredictionEngine {
                 : null;
 
             const suggestions: Suggestion[] = [];
+            const semanticCache = new Map<string, RelatedNote[]>();
+
             for (const res of results) {
                 let finalScore = res.score;
                 let htrWeight = this.context.settings.htrStructuralWeight ?? 0.6;
                 let semanticScore = 0;
 
                 if (scAdapter && scAdapter.isAvailable()) {
-                    const related = await scAdapter.getRelatedNotes(res.source, 100);
-                    const targetRel = related.find((r) => r.path === res.target);
-                    if (targetRel) {
-                        semanticScore = targetRel.score > 1 ? targetRel.score / 100 : targetRel.score;
+                    let related = semanticCache.get(res.source);
+                    if (!related) {
+                        related = await scAdapter.getRelatedNotes(res.source, 100);
+                        semanticCache.set(res.source, related);
                     }
 
-                    const normalizedStruct = res.score > 1 ? res.score / 100 : res.score;
+                    const targetRel = related.find((r) => r.path === res.target);
+                    if (targetRel) {
+                        // Improved Normalization: Detect if score is already 0-1 or 0-100
+                        // Jaccard/AA/RA are typically 0-1, but Smart Connections can be 0-100.
+                        // We use 1.1 as threshold to allow for floating point noise around 1.0
+                        semanticScore = targetRel.score > 1.1 ? targetRel.score / 100 : targetRel.score;
+                    }
+
+                    // Structural scores from worker are strictly 0-1 (Jaccard, etc.)
+                    // but we apply safe clamping just in case of future variations
+                    const normalizedStruct = res.score > 1.1 ? res.score / 100 : res.score;
                     finalScore = normalizedStruct * htrWeight + semanticScore * (1 - htrWeight);
                 }
 
                 // If finalScore is normalized (0-1), scale to 1-100 for minScore check and UI
-                const scaledScore = finalScore > 1 ? finalScore : finalScore * 100;
+                // We use a small epsilon for floating point safety
+                const scaledScore = finalScore > 1.1 ? finalScore : finalScore * 100;
 
                 if (options.minScore && scaledScore < options.minScore) continue;
 

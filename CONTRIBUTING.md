@@ -1,4 +1,5 @@
 <!-- generated-by: gsd-doc-writer -->
+
 Thank you for your interest in contributing to Semantic Graph Healer! We welcome all contributions that help improve the topological integrity of knowledge graphs in Obsidian.
 
 ## Development Setup

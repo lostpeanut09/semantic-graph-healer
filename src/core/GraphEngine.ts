@@ -232,12 +232,33 @@ export class GraphEngine {
      * @returns A promise resolving to an array of quality suggestions.
      */
     public async runPageRankAnalysis(): Promise<Suggestion[]> {
-        HealerLogger.info('Running Weighted PageRank (Log-Transformed) in background worker...');
+        HealerLogger.info('Running Weighted PageRank analysis...');
 
         if (this.isCacheValid() && Object.keys(this.cache.pageRank).length > 0) {
             HealerLogger.info('Using cached PageRank scores.');
             return this.processScores(this.cache.pageRank, 'pagerank_auth', 'PageRank authority (cached)');
         }
+
+        // SOTA 2026: LadybugDB WASM Optimization
+        if (this.context.ladybugAdapter && !this.context.performanceService.isSafetyModeActive()) {
+            try {
+                HealerLogger.info('Using LadybugDB (WASM) for PageRank...');
+                await this.context.ladybugAdapter.initialize();
+                const scores = await this.context.ladybugAdapter.getPageRank();
+
+                this.cache = {
+                    ...this.cache,
+                    pageRank: scores,
+                    lastAnalysisTimestamp: Date.now(),
+                    graphVersion: this.getGraphFingerprint(),
+                };
+                return this.processScores(scores, 'pagerank_auth', 'PageRank authority (LadybugDB WASM)');
+            } catch (e) {
+                HealerLogger.warn('LadybugDB PageRank failed, falling back to Web Worker.', e);
+            }
+        }
+
+        HealerLogger.info('Running Weighted PageRank (Log-Transformed) in background worker...');
 
         // SOTA 2026: Proactive Fallback for fragmented graphs
         const isolatedNodes = this.graph.nodes().filter((n) => this.graph.degree(n) === 0).length;
@@ -339,12 +360,35 @@ export class GraphEngine {
      * @returns A promise resolving to an array of quality suggestions.
      */
     public async runCommunityDetection(): Promise<Suggestion[]> {
-        HealerLogger.info('Running Weighted Louvain Clustering (Worker)...');
+        HealerLogger.info('Running Weighted Louvain Clustering...');
 
         if (this.isCacheValid() && Object.keys(this.cache.communities).length > 0) {
             HealerLogger.info('Using cached community data.');
             return this.processCommunities(this.cache.communities);
         }
+
+        // SOTA 2026: LadybugDB WASM Optimization
+        if (this.context.ladybugAdapter && !this.context.performanceService.isSafetyModeActive()) {
+            try {
+                HealerLogger.info('Using LadybugDB (WASM) for Community Detection...');
+                await this.context.ladybugAdapter.initialize();
+                const communities = await this.context.ladybugAdapter.getLouvainCommunities();
+
+                if (communities) {
+                    this.cache = {
+                        ...this.cache,
+                        communities,
+                        lastAnalysisTimestamp: Date.now(),
+                        graphVersion: this.getGraphFingerprint(),
+                    };
+                    return this.processCommunities(communities);
+                }
+            } catch (e) {
+                HealerLogger.warn('LadybugDB Community Detection failed, falling back to Web Worker.', e);
+            }
+        }
+
+        HealerLogger.info('Running Weighted Louvain Clustering (Worker)...');
 
         // ✅ WAVE 3: Suspend in Safety Mode
         if (this.context.performanceService.isSafetyModeActive()) {
@@ -783,6 +827,26 @@ export class GraphEngine {
         cycles: Array<{ path: string[]; type: string }>;
         blackHoles: Array<{ path: string; inDegree: number }>;
     }> {
+        HealerLogger.info('Running Topological Diagnostics...');
+
+        // SOTA 2026: LadybugDB Cypher Optimization
+        if (this.context.ladybugAdapter && !this.context.performanceService.isSafetyModeActive()) {
+            try {
+                HealerLogger.info('Using LadybugDB (Cypher) for Topological Diagnostics...');
+                await this.context.ladybugAdapter.initialize();
+
+                const [bridges, cycles, blackHoles] = await Promise.all([
+                    this.context.ladybugAdapter.findBridges(),
+                    this.context.ladybugAdapter.findCycles((options?.maxDepth as number) || 5),
+                    this.context.ladybugAdapter.findBlackHoles((options?.threshold as number) || 5),
+                ]);
+
+                return { bridges, cycles, blackHoles };
+            } catch (e) {
+                HealerLogger.warn('LadybugDB Topological Diagnostics failed, falling back to Web Worker.', e);
+            }
+        }
+
         HealerLogger.info('Running Topological Diagnostics (Worker offloaded)...');
         try {
             const nodes = this.getSerializedNodes();

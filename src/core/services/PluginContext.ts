@@ -7,6 +7,7 @@ import type { SemanticGraphHealerSettings, HealerNotifier } from '../../types';
 import type { CacheService } from '../CacheService';
 import type { GraphWorkerService } from './GraphWorkerService';
 import type { PerformanceService } from './PerformanceService';
+import type { LadybugAdapter } from '../adapters/LadybugAdapter';
 
 /**
  * Context injected into TopologyAnalyzer to avoid importing main plugin class.
@@ -61,6 +62,8 @@ export interface GraphContext {
     graphWorkerService: GraphWorkerService;
     /** Service for monitoring and managing performance */
     performanceService: PerformanceService;
+    /** High-performance WASM graph engine adapter */
+    ladybugAdapter?: LadybugAdapter;
 }
 
 /**

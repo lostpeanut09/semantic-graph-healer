@@ -54,23 +54,23 @@ To keep the project root clean, all tool-specific configuration files are stored
 
 ## Build Commands
 
-| Command | Description |
-| :--- | :--- |
-| `npm run dev` | Starts `esbuild` in watch mode. Rebuilds `main.js`, `styles.css`, and worker files on changes. |
-| `npm run build` | Production build. Minifies output and omits source maps. Runs `tsc` first for type checking. |
-| `npm run lint` | Checks TypeScript and JavaScript files for errors and style violations via ESLint. |
-| `npm run lint:css` | Validates CSS files against Stylelint rules. |
-| `npm run lint:yaml` | Validates YAML files using `yamllint-js`. |
-| `npm run lint:fix` | Automatically fixes most linting and styling issues. |
-| `npm run format` | Enforces consistent code formatting across the entire project via Prettier. |
-| `npm run knip` | Analyzes the project for unused dependencies, files, and exports. |
-| `npm run check-version` | Checks if version numbers are consistent across configuration files. |
-| `npm run test` | Executes the full Vitest suite. |
-| `npm run test:adapter` | Runs tests specifically for the Datacore adapter. |
-| `npm run test:breadcrumbs` | Runs tests specifically for the Breadcrumbs adapter. |
-| `npm run test:worker` | Runs tests specifically for the web worker code. |
-| `npm run bench:generate` | Generates a mock vault for performance testing. |
-| `npm run bench:run` | Runs performance benchmarks to ensure no regressions in graph processing speed. |
+| Command                    | Description                                                                                    |
+| :------------------------- | :--------------------------------------------------------------------------------------------- |
+| `npm run dev`              | Starts `esbuild` in watch mode. Rebuilds `main.js`, `styles.css`, and worker files on changes. |
+| `npm run build`            | Production build. Minifies output and omits source maps. Runs `tsc` first for type checking.   |
+| `npm run lint`             | Checks TypeScript and JavaScript files for errors and style violations via ESLint.             |
+| `npm run lint:css`         | Validates CSS files against Stylelint rules.                                                   |
+| `npm run lint:yaml`        | Validates YAML files using `yamllint-js`.                                                      |
+| `npm run lint:fix`         | Automatically fixes most linting and styling issues.                                           |
+| `npm run format`           | Enforces consistent code formatting across the entire project via Prettier.                    |
+| `npm run knip`             | Analyzes the project for unused dependencies, files, and exports.                              |
+| `npm run check-version`    | Checks if version numbers are consistent across configuration files.                           |
+| `npm run test`             | Executes the full Vitest suite.                                                                |
+| `npm run test:adapter`     | Runs tests specifically for the Datacore adapter.                                              |
+| `npm run test:breadcrumbs` | Runs tests specifically for the Breadcrumbs adapter.                                           |
+| `npm run test:worker`      | Runs tests specifically for the web worker code.                                               |
+| `npm run bench:generate`   | Generates a mock vault for performance testing.                                                |
+| `npm run bench:run`        | Runs performance benchmarks to ensure no regressions in graph processing speed.                |
 
 ## Code Style
 

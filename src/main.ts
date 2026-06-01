@@ -8,6 +8,7 @@ import type {
     SuggestionType,
     InfraGap,
     ExtendedApp,
+    ExtendedManifest,
 } from './types';
 import {
     formatRagPrompt,
@@ -42,6 +43,8 @@ import { GraphRagService } from './core/services/GraphRagService';
 import { AjsonStorage } from './core/utils/AjsonStorage';
 import { EmbeddingService } from './core/EmbeddingService';
 import { GraphEngine } from './core/GraphEngine';
+import { LadybugService } from './core/services/LadybugService';
+import { LadybugAdapter } from './core/adapters/LadybugAdapter';
 import { AutomationApi } from './core/services/AutomationApi';
 
 export default class SemanticGraphHealer extends Plugin {
@@ -63,6 +66,8 @@ export default class SemanticGraphHealer extends Plugin {
     public logger: InstanceLogger;
     public keychainService: KeychainService;
     public graphWorkerService: GraphWorkerService;
+    public ladybugService: LadybugService;
+    public ladybugAdapter: LadybugAdapter;
     public performanceService: PerformanceService;
     public cache: CacheService;
 
@@ -92,6 +97,9 @@ export default class SemanticGraphHealer extends Plugin {
         });
         this.graphWorkerService = new GraphWorkerService(this.logger, this, new ObsidianNotifier());
         await this.graphWorkerService.initialize();
+
+        this.ladybugService = new LadybugService(this.app, this.manifest as unknown as ExtendedManifest);
+        // Deferred initialization of LadybugAdapter until first use to save memory
 
         this.performanceService = new PerformanceService(this.app, this.settings, this.logger);
         this.performanceService.reEvaluate();
@@ -136,17 +144,25 @@ export default class SemanticGraphHealer extends Plugin {
         };
         this.topology = new TopologyAnalyzer(analysisContext, this.llm, this.engine);
         this.quality = new QualityAnalyzer(this.app as ExtendedApp, this.settings, this.engine);
-        this.reasoner = new ReasoningService(this.app, this.settings, this.llm, this.engine.getDataviewApi());
+        this.embedding = new EmbeddingService(this.settings);
+        this.reasoner = new ReasoningService(
+            this.app,
+            this.settings,
+            this.llm,
+            this.engine.getDataviewApi(),
+            this.embedding,
+        );
         this.tagPropagator = new SemanticTagPropagator(this.app, this.settings, this.engine, this.llm);
 
         // Phase 15: GraphRAG & Embeddings
-        this.embedding = new EmbeddingService(this.settings);
+        this.ladybugAdapter = new LadybugAdapter(this.ladybugService, this.engine);
         this.graphEngine = new GraphEngine({
             app: this.app,
             settings: this.settings,
             cache: this.cache,
             graphWorkerService: this.graphWorkerService,
             performanceService: this.performanceService,
+            ladybugAdapter: this.ladybugAdapter,
         });
         this.graphRag = new GraphRagService(
             this.graphEngine,
@@ -216,7 +232,14 @@ export default class SemanticGraphHealer extends Plugin {
 
             this.llm = new LlmService(this.settings, (type) => this.getApiKey(type));
             this.quality = new QualityAnalyzer(this.app as ExtendedApp, this.settings, this.engine);
-            this.reasoner = new ReasoningService(this.app, this.settings, this.llm, this.engine.getDataviewApi());
+            this.embedding = new EmbeddingService(this.settings);
+            this.reasoner = new ReasoningService(
+                this.app,
+                this.settings,
+                this.llm,
+                this.engine.getDataviewApi(),
+                this.embedding,
+            );
             // Build analysis context for TopologyAnalyzer (break circular dep)
             const analysisContext: AnalysisContext = {
                 app: this.app,
@@ -1031,10 +1054,10 @@ export default class SemanticGraphHealer extends Plugin {
         return [...persistentSuggestions, ...newIssues];
     }
 
-    public async analyzeGraph(silent = false) {
+    public async analyzeGraph(silent = false): Promise<boolean> {
         if (this.isAnalyzing) {
             if (!silent) new Notice('Analysis already in progress...');
-            return Promise.resolve();
+            return false;
         }
 
         // ABORT PREVIOUS SCAN
@@ -1063,7 +1086,7 @@ export default class SemanticGraphHealer extends Plugin {
             await sleep(10);
 
             // ABORT CHECK
-            if (this.currentAnalysisController?.signal.aborted) return;
+            if (this.currentAnalysisController?.signal.aborted) return false;
 
             // NEW: Semantic Audit (Hardened 2026 Batching)
             let semanticIssues: Suggestion[] = [];
@@ -1119,9 +1142,11 @@ export default class SemanticGraphHealer extends Plugin {
                 type: 'scan',
             });
             await this.saveSettings();
+            return true;
         } catch (e) {
             this.logger.error('Analysis failed', e);
             new Notice('Analysis failed. Check console for details.');
+            return false;
         } finally {
             this.isAnalyzing = false;
         }
@@ -1130,14 +1155,7 @@ export default class SemanticGraphHealer extends Plugin {
     async analyzeDeepGraph(): Promise<Suggestion[]> {
         this.logger.info('Loading Advanced Graph Engine...');
         try {
-            const { GraphEngine } = await import('./core/GraphEngine');
-            const engine = new GraphEngine({
-                app: this.app,
-                settings: this.settings,
-                cache: this.cache,
-                graphWorkerService: this.graphWorkerService,
-                performanceService: this.performanceService,
-            });
+            const engine = this.graphEngine;
 
             engine.buildGraph();
             await sleep(10);
@@ -1285,14 +1303,14 @@ export default class SemanticGraphHealer extends Plugin {
                 this.settings = result.data as unknown as SemanticGraphHealerSettings;
             } else {
                 const errorMessage = JSON.stringify(result.error.issues, null, 2);
-                this.logger.warn(
+                LegacyLogger.warn(
                     'Settings validation failed. Some keys may be corrupted. Using safe fallbacks.',
                     errorMessage,
                 );
                 this.settings = baseSettings;
             }
         } catch (e) {
-            this.logger.error('Failed to load Zod schema for validation', e);
+            LegacyLogger.error('Failed to load Zod schema for validation', e);
             this.settings = baseSettings;
         }
 
@@ -1455,6 +1473,10 @@ export default class SemanticGraphHealer extends Plugin {
 
         if (this.graphWorkerService) {
             void this.graphWorkerService.destroy();
+        }
+
+        if (this.ladybugService) {
+            this.ladybugService.terminate();
         }
 
         // 1.5. Destroy Metadata Engine (Caches & Events)

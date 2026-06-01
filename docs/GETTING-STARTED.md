@@ -56,14 +56,14 @@ Now that you have the plugin installed and configured, you can learn more by che
 ## Installation steps
 
 1. Clone the repository:
-   ```bash
-   git clone https://github.com/lostpeanut09/semantic-graph-healer.git
-   ```
+    ```bash
+    git clone https://github.com/lostpeanut09/semantic-graph-healer.git
+    ```
 2. Navigate into the project directory:
-   ```bash
-   cd semantic-graph-healer
-   ```
+    ```bash
+    cd semantic-graph-healer
+    ```
 3. Install dependencies:
-   ```bash
-   npm install
-   ```
+    ```bash
+    npm install
+    ```
