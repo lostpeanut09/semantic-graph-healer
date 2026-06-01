@@ -6,6 +6,15 @@ import { z } from 'zod';
 import type { WorkerResponse, GraphAnalysisResult } from '../../types';
 export type { WorkerResponse };
 
+interface PagerankOptions {
+    maxIterations?: number;
+    tolerance?: number;
+    attributes?: {
+        weight?: string;
+    };
+    damping?: number;
+}
+
 // --- Phase 2: OSS Hardening (Zod Validation) ---
 
 const NodeSchema = z.object({
@@ -55,10 +64,10 @@ const WorkerMessageSchema = z
                 embeddings: z.record(z.string(), z.array(z.number())).optional(),
                 safetyMode: z.boolean().optional(),
             })
-            .passthrough()
+            .loose()
             .optional(),
     })
-    .passthrough();
+    .loose();
 
 /**
  * WorkerMessage
@@ -212,9 +221,9 @@ export function handleGraphWorkerMessage(message: WorkerMessage, reporter?: Prog
         let result: unknown;
 
         switch (type) {
-            case 'PAGERANK':
+            case 'PAGERANK': {
                 validateGraphSize('PAGERANK', options, DEFAULT_LIMITS.PAGERANK);
-                let pagerankOptions = (options as any) || {};
+                let pagerankOptions: PagerankOptions = (options as unknown as PagerankOptions) || {};
                 if (safetyMode) {
                     pagerankOptions = {
                         ...pagerankOptions,
@@ -222,19 +231,21 @@ export function handleGraphWorkerMessage(message: WorkerMessage, reporter?: Prog
                         tolerance: pagerankOptions.tolerance ?? 0.001,
                     };
                 }
-                result = pagerank(graph, pagerankOptions);
+                result = pagerank(graph, pagerankOptions as Parameters<typeof pagerank>[1]);
                 break;
+            }
 
             case 'COMMUNITY':
                 validateGraphSize('COMMUNITY', options, DEFAULT_LIMITS.COMMUNITY);
                 result = louvain(graph, options as Parameters<typeof louvain>[1]);
                 break;
 
-            case 'BETWEENNESS':
+            case 'BETWEENNESS': {
                 const betweennessLimit = safetyMode ? 1000 : DEFAULT_LIMITS.BETWEENNESS;
                 validateGraphSize('BETWEENNESS', options, betweennessLimit);
                 result = betweennessCentrality(graph, options as Parameters<typeof betweennessCentrality>[1]);
                 break;
+            }
 
             case 'SIMILARITY':
                 validateGraphSize('SIMILARITY', options, DEFAULT_LIMITS.SIMILARITY);
