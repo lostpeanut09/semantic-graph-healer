@@ -115,6 +115,8 @@ export const createProgressReporter = (postMessageFn: (msg: WorkerResponse) => v
 });
 
 const DEFAULT_LIMITS = {
+    PAGERANK: 10000,
+    COMMUNITY: 10000,
     BETWEENNESS: 2500,
     SIMILARITY: 5000,
     FULL_ANALYSIS: 8000,
@@ -209,10 +211,12 @@ export function handleGraphWorkerMessage(message: WorkerMessage, reporter?: Prog
 
         switch (type) {
             case 'PAGERANK':
+                validateGraphSize('PAGERANK', options, DEFAULT_LIMITS.PAGERANK);
                 result = pagerank(graph, options as Parameters<typeof pagerank>[1]);
                 break;
 
             case 'COMMUNITY':
+                validateGraphSize('COMMUNITY', options, DEFAULT_LIMITS.COMMUNITY);
                 result = louvain(graph, options as Parameters<typeof louvain>[1]);
                 break;
 
