@@ -207,8 +207,13 @@ export class GraphWorkerService {
         }>,
         options?: Record<string, unknown>,
     ): Promise<T> {
+        // WR-03: Attempt to re-initialize if worker was terminated (e.g. by handleWorkerError)
         if (!this.worker && !Platform.isMobile) {
-            throw new Error('Worker not initialized. Call initialize() first.');
+            this.logger.info('Worker not initialized or previously terminated. Attempting recovery...');
+            await this.initialize();
+            if (!this.worker) {
+                throw new Error('Worker not available. Automatic recovery failed.');
+            }
         }
 
         return this.queue.add(() => {
