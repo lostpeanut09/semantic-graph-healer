@@ -59,7 +59,7 @@ export interface AutomationPluginContext {
         lastScanTimestamp: number;
     };
     /** Triggers a full graph analysis workflow. */
-    analyzeGraph(silent?: boolean): Promise<void>;
+    analyzeGraph(silent?: boolean): Promise<boolean>;
 }
 
 /**
@@ -90,7 +90,10 @@ export class AutomationApi implements HealerAutomationApi {
         }
 
         try {
-            await this.plugin.analyzeGraph(options.silent);
+            const success = await this.plugin.analyzeGraph(options.silent);
+            if (!success) {
+                throw new Error('Graph analysis failed or was aborted.');
+            }
             return this.getSuggestions();
         } finally {
             if (options.silent) {
@@ -156,7 +159,9 @@ export class AutomationApi implements HealerAutomationApi {
         const suggestionsToApply = this.plugin.cache.suggestions.filter((s) => {
             const conf = s.meta?.confidence ?? 0;
             const matchesConfidence = conf >= targetConfidence;
-            const matchesCategory = options.category ? s.category === options.category : true;
+            const matchesCategory = options.category
+                ? s.category === options.category || s.type === options.category
+                : true;
             return matchesConfidence && matchesCategory;
         });
 

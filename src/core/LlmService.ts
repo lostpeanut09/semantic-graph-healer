@@ -112,8 +112,11 @@ export class LlmService {
         // STAGE 0 PRE-FILTER (HARDEN-08)
         if (useTribunal && this.settings.enableAiTribunal && embeddings) {
             const similarity = cosineSimilarity(embeddings.source, embeddings.target);
-            if (similarity < 0.4) {
-                HealerLogger.info(`LlmService: Tribunal Bypassed (Stage 0). Similarity ${similarity.toFixed(4)} < 0.4`);
+            const threshold = this.settings.tribunalPreFilterThreshold ?? 0.4;
+            if (similarity < threshold) {
+                HealerLogger.info(
+                    `LlmService: Tribunal Bypassed (Stage 0). Similarity ${similarity.toFixed(4)} < ${threshold}`,
+                );
                 return `REJECTED\n\n<tribunal_audit>\nStatus: REJECTED\nConfidenceScore: 0\nPrimaryReasoning: SEMANTIC_UNRELATED\n</tribunal_audit>`;
             }
         }

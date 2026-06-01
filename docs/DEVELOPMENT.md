@@ -8,8 +8,8 @@ This guide is for developers who want to contribute to the Semantic Graph Healer
 
 ### Prerequisites
 
-- **Node.js**: `^24.0.0` (as specified in `.node-version`)
-- **npm**: `^11.0.0`
+- **Node.js**: `>=24.0.0` (as specified in `.node-version`)
+- **npm**: `>=11.0.0`
 - **Obsidian**: A development vault with the **Dataview**, **Breadcrumbs**, and/or **Smart Connections** plugins installed for integration testing.
 
 ### Installation
@@ -20,7 +20,7 @@ This guide is for developers who want to contribute to the Semantic Graph Healer
     git clone https://github.com/lostpeanut09/semantic-graph-healer.git
     cd semantic-graph-healer
     ```
-2. Install dependencies:
+2. Install dependencies (this also installs husky hooks via `postinstall`):
     ```bash
     npm install
     ```
@@ -54,24 +54,30 @@ To keep the project root clean, all tool-specific configuration files are stored
 
 ## Build Commands
 
-| Command                | Description                                                                                    |
-| :--------------------- | :--------------------------------------------------------------------------------------------- |
-| `npm run dev`          | Starts `esbuild` in watch mode. Rebuilds `main.js`, `styles.css`, and worker files on changes. |
-| `npm run build`        | Production build. Minifies output and omits source maps. Runs `tsc` first for type checking.   |
-| `npm run lint`         | Checks TypeScript and JavaScript files for errors and style violations.                        |
-| `npm run lint:css`     | Validates CSS files against Stylelint rules.                                                   |
-| `npm run lint:fix`     | Automatically fixes most linting and styling issues.                                           |
-| `npm run format`       | Enforces consistent code formatting across the entire project via Prettier.                    |
-| `npm run knip`         | Analyzes the project for unused dependencies, files, and exports.                              |
-| `npm run test`         | Executes the full Vitest suite.                                                                |
-| `npm run test:adapter` | Runs tests specifically for the Datacore adapter.                                              |
-| `npm run bench:run`    | Runs performance benchmarks to ensure no regressions in graph processing speed.                |
+| Command                    | Description                                                                                    |
+| :------------------------- | :--------------------------------------------------------------------------------------------- |
+| `npm run dev`              | Starts `esbuild` in watch mode. Rebuilds `main.js`, `styles.css`, and worker files on changes. |
+| `npm run build`            | Production build. Minifies output and omits source maps. Runs `tsc` first for type checking.   |
+| `npm run lint`             | Checks TypeScript and JavaScript files for errors and style violations via ESLint.             |
+| `npm run lint:css`         | Validates CSS files against Stylelint rules.                                                   |
+| `npm run lint:yaml`        | Validates YAML files using `yamllint-js`.                                                      |
+| `npm run lint:fix`         | Automatically fixes most linting and styling issues.                                           |
+| `npm run format`           | Enforces consistent code formatting across the entire project via Prettier.                    |
+| `npm run knip`             | Analyzes the project for unused dependencies, files, and exports.                              |
+| `npm run check-version`    | Checks if version numbers are consistent across configuration files.                           |
+| `npm run test`             | Executes the full Vitest suite.                                                                |
+| `npm run test:adapter`     | Runs tests specifically for the Datacore adapter.                                              |
+| `npm run test:breadcrumbs` | Runs tests specifically for the Breadcrumbs adapter.                                           |
+| `npm run test:worker`      | Runs tests specifically for the web worker code.                                               |
+| `npm run bench:generate`   | Generates a mock vault for performance testing.                                                |
+| `npm run bench:run`        | Runs performance benchmarks to ensure no regressions in graph processing speed.                |
 
 ## Code Style
 
 - **TypeScript**: All core logic must be typed. Use interfaces for adapter ports to maintain decoupling.
 - **Svelte**: UI components use Svelte 5 "Runes" for state management.
-- **Linter**: Configuration in `.config/eslint.config.js`.
+- **Linter**: Configuration in `.config/eslint.config.js` (ESLint), `.config/.stylelintrc.json` (Stylelint), and `yamllint-js`. Run via `npm run lint`.
+- **Formatter**: Configuration in `.config/.prettierrc` (Prettier). Run via `npm run format`.
 - **CSS**: Scoped styles preferred within Svelte components or defined in `src/styles.css`.
 
 ## Testing Strategy
@@ -90,18 +96,18 @@ npx vitest tests/core/GraphEngine.test.ts
 
 ## Branch Conventions
 
-- `feat/`: New features (e.g., `feat/new-adapter-xyz`).
-- `fix/`: Bug fixes.
-- `docs/`: Documentation updates.
+- `feat/feature-name`: New features.
+- `fix/bug-name`: Bug fixes.
+- `docs/doc-update`: Documentation updates.
 - `chore/`: Maintenance (dependencies, refactoring).
 
 The primary development branch is `main`.
 
 ## PR Process
 
-1. **Create Branch**: Work on a branch prefixed with the appropriate type.
-2. **Commit**: Use Conventional Commits.
-3. **Quality Gate**: Ensure `npm run lint`, `npm run build`, and `npm test` pass locally.
+1. **Create Branch**: Work on a branch prefixed with the appropriate type (`feat/`, `fix/`, `docs/`, `chore/`).
+2. **Commit**: Use [Conventional Commits](https://www.conventionalcommits.org/) (e.g., `feat: add new graph analyzer`).
+3. **Quality Gate**: Ensure `npm run lint`, `npm run build`, and `npm run test` pass locally. Husky hooks (`nano-staged`) will also run automatically on commit.
 4. **Submit**: Open a PR to `main`.
-5. **CI Pipeline**: The **Quality Pipeline** workflow will run on every push and PR to ensure no regressions.
-6. **Review**: All PRs require at least one approval from a maintainer.
+5. **CI Pipeline**: The **Quality Pipeline** workflow will run on every push and PR to ensure no regressions (Prettier, ESLint, Stylelint, Knip, Tests, Build).
+6. **Review**: All PRs require at least one approval from a maintainer before merging.
