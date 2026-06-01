@@ -234,6 +234,11 @@ export class GraphEngine {
     public async runPageRankAnalysis(): Promise<Suggestion[]> {
         HealerLogger.info('Running Weighted PageRank analysis...');
 
+        if (this.context.performanceService.isSafetyModeActive()) {
+            HealerLogger.warn('Safety Mode Active: Falling back to Degree Centrality for PageRank.');
+            return this.runDegreeCentralityFallback();
+        }
+
         if (this.isCacheValid() && Object.keys(this.cache.pageRank).length > 0) {
             HealerLogger.info('Using cached PageRank scores.');
             return this.processScores(this.cache.pageRank, 'pagerank_auth', 'PageRank authority (cached)');
