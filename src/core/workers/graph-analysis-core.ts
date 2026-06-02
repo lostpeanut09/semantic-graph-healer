@@ -64,10 +64,10 @@ const WorkerMessageSchema = z
                 embeddings: z.record(z.string(), z.array(z.number())).optional(),
                 safetyMode: z.boolean().optional(),
             })
-            .passthrough()
+            .loose()
             .optional(),
     })
-    .passthrough();
+    .loose();
 
 /**
  * WorkerMessage
