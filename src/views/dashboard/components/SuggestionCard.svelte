@@ -116,7 +116,7 @@
     >
       {isReasoningLocal ? 'Analyzing...' : (suggestion.reasoning ? 'Re-reason' : 'Reasoning')}
     </button>
-    {#if onVerifyAI && (suggestion.type === 'ai' || suggestion.id.startsWith('branch_') || suggestion.id.startsWith('tag_'))}
+{#if onVerifyAI && (suggestion.type === 'ai' || suggestion.id.startsWith('branch_') || suggestion.id.startsWith('tag_'))}
       <button
         class="healer-btn-verify"
         aria-label="{suggestion.isVerifying ? 'Verifying...' : 'AI Verify'} fix for {suggestion.link}"

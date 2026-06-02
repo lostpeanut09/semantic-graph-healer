@@ -159,6 +159,7 @@ export class DashboardStore {
         const undoBtn = frag.createEl('button', {
             text: 'Undo',
             cls: 'healer-btn-undo',
+            attr: { 'aria-label': `Undo ignoring ${suggestion.link}` },
         });
 
         let undone = false;
