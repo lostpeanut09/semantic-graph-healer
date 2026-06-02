@@ -120,7 +120,7 @@
       <button
         class="healer-btn-verify"
         aria-label="{suggestion.isVerifying ? 'Verifying...' : 'AI Verify'} fix for {suggestion.link}"
-        aria-busy={suggestion.isVerifying}
+        aria-busy={suggestion.isVerifying || false}
         disabled={isFixed || suggestion.isVerifying}
         onclick={() => onVerifyAI(suggestion)}
       >

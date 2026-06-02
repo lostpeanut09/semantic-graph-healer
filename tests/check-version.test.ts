@@ -47,7 +47,11 @@ describe('Version Consistency Check', () => {
 
         return {
             status: result.status || 0,
-            output: result.stdout || output,
+            // Capture both stderr and stdout to check for the success message even if npm pollutes stderr with warnings.
+            output:
+                (result.stdout?.toString() || '') +
+                (result.stderr?.toString() || '') +
+                (result.error ? result.error.message : ''),
         };
     }
 
