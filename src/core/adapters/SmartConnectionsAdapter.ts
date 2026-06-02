@@ -281,11 +281,9 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
                         if (!(this.app.vault.getAbstractFileByPath(targetPath) instanceof TFile)) return null;
 
                         seen.add(targetPath);
-                        const rawScore = res.score ?? 0;
-                        const normalizedScore = rawScore > 1.1 ? rawScore / 100 : rawScore;
                         return {
                             path: targetPath,
-                            score: normalizedScore,
+                            score: res.score ?? 0,
                             link: pathToWikilink(this.app, targetPath, normalizedSource),
                         } satisfies RelatedNote;
                     })
@@ -310,11 +308,9 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
                 if (!(this.app.vault.getAbstractFileByPath(targetPath) instanceof TFile)) return null;
 
                 seen.add(targetPath);
-                const rawScore = res.score ?? 0;
-                const normalizedScore = rawScore > 1.1 ? rawScore / 100 : rawScore;
                 return {
                     path: targetPath,
-                    score: normalizedScore,
+                    score: res.score ?? 0,
                     link: pathToWikilink(this.app, targetPath, normalizedSource),
                 } satisfies RelatedNote;
             })

@@ -6,15 +6,6 @@ import { z } from 'zod';
 import type { WorkerResponse, GraphAnalysisResult } from '../../types';
 export type { WorkerResponse };
 
-interface PagerankOptions {
-    maxIterations?: number;
-    tolerance?: number;
-    attributes?: {
-        weight?: string;
-    };
-    damping?: number;
-}
-
 // --- Phase 2: OSS Hardening (Zod Validation) ---
 
 const NodeSchema = z.object({
@@ -62,12 +53,11 @@ const WorkerMessageSchema = z
                 blackHoleThreshold: z.number().optional(),
                 htrStructuralWeight: z.number().optional(),
                 embeddings: z.record(z.string(), z.array(z.number())).optional(),
-                safetyMode: z.boolean().optional(),
             })
-            .passthrough()
+            .loose()
             .optional(),
     })
-    .passthrough();
+    .loose();
 
 /**
  * WorkerMessage
@@ -125,8 +115,6 @@ export const createProgressReporter = (postMessageFn: (msg: WorkerResponse) => v
 });
 
 const DEFAULT_LIMITS = {
-    PAGERANK: 10000,
-    COMMUNITY: 10000,
     BETWEENNESS: 2500,
     SIMILARITY: 5000,
     FULL_ANALYSIS: 8000,
@@ -163,7 +151,6 @@ export function handleGraphWorkerMessage(message: WorkerMessage, reporter?: Prog
         const validated = WorkerMessageSchema.parse(message);
         const { type, payload, options } = validated;
         requestId = payload.requestId;
-        const safetyMode = options?.safetyMode === true;
 
         const graph = new DirectedGraph();
 
@@ -221,31 +208,18 @@ export function handleGraphWorkerMessage(message: WorkerMessage, reporter?: Prog
         let result: unknown;
 
         switch (type) {
-            case 'PAGERANK': {
-                validateGraphSize('PAGERANK', options, DEFAULT_LIMITS.PAGERANK);
-                let pagerankOptions: PagerankOptions = (options as unknown as PagerankOptions) || {};
-                if (safetyMode) {
-                    pagerankOptions = {
-                        ...pagerankOptions,
-                        maxIterations: pagerankOptions.maxIterations ?? 50,
-                        tolerance: pagerankOptions.tolerance ?? 0.001,
-                    };
-                }
-                result = pagerank(graph, pagerankOptions as Parameters<typeof pagerank>[1]);
+            case 'PAGERANK':
+                result = pagerank(graph, options as Parameters<typeof pagerank>[1]);
                 break;
-            }
 
             case 'COMMUNITY':
-                validateGraphSize('COMMUNITY', options, DEFAULT_LIMITS.COMMUNITY);
                 result = louvain(graph, options as Parameters<typeof louvain>[1]);
                 break;
 
-            case 'BETWEENNESS': {
-                const betweennessLimit = safetyMode ? 1000 : DEFAULT_LIMITS.BETWEENNESS;
-                validateGraphSize('BETWEENNESS', options, betweennessLimit);
+            case 'BETWEENNESS':
+                validateGraphSize('BETWEENNESS', options, DEFAULT_LIMITS.BETWEENNESS);
                 result = betweennessCentrality(graph, options as Parameters<typeof betweennessCentrality>[1]);
                 break;
-            }
 
             case 'SIMILARITY':
                 validateGraphSize('SIMILARITY', options, DEFAULT_LIMITS.SIMILARITY);

@@ -4,23 +4,63 @@
 
 ## System Overview
 
-Semantic Graph Healer is an Obsidian plugin designed for topological restoration and multi-layered semantic optimization of the knowledge graph. It automatically identifies structural inconsistencies (orphans, dangling links, black holes) and provides context-aware "healing" suggestions to improve vault connectivity. The architecture follows a layered, event-driven style with a dual-engine strategy: a primary in-memory `Graphology` graph for real-time analysis and a WASM-based `@ladybugdb` engine offloaded to Web Workers for heavy computations. Primary inputs are vault metadata aggregated via a `UnifiedMetadataAdapter` interfacing with plugins like **Datacore**, **Breadcrumbs**, and **Smart Connections**, while outputs are actionable `Suggestion` objects executed against the vault files and visualized via interactive dashboards.
+Semantic Graph Healer is an Obsidian plugin designed for topological restoration and multi-layered semantic optimization of the knowledge graph. It automatically identifies structural inconsistencies (orphans, dangling links, black holes) and provides context-aware "healing" suggestions to improve vault connectivity. The system aggregates metadata via a `UnifiedMetadataAdapter` interfacing with plugins like **Datacore**, **Breadcrumbs**, and **Smart Connections**, while synchronizing hierarchy definitions from **ExcaliBrain**.
+
+The architecture is built on a dual-engine strategy: a primary in-memory `Graphology` graph for real-time analysis and a WASM-based `@ladybugdb` engine offloaded to Web Workers for heavy computations. Beyond traditional graph theory (PageRank, Louvain communities), the system incorporates an AI-driven `GraphRAG` layer, an autonomous `ReasoningService` for explaining structural gaps, and a `SemanticTagPropagator` for hierarchical taxonomy inference.
 
 ## Component Diagram
 
 ```mermaid
 graph TD
-    Obsidian[Obsidian Vault] --> Plugin[Main Plugin]
-    Plugin --> Adapters[Metadata Adapters]
-    Adapters --> Graph[Graph Engine]
-    Graph --> Workers[Web Workers]
-    Graph --> Analyzers[Topology Analyzers]
-    Analyzers --> AI[AI & Reasoning]
-    AI --> Executor[Suggestion Executor]
-    Analyzers --> Executor
-    Executor --> Obsidian
-    Plugin --> UI[Presentation Layer]
-    Executor -.-> UI
+    Obsidian[Obsidian App] --> Plugin[Semantic Graph Healer Plugin]
+
+    subgraph Core [Core Domain Logic]
+        Plugin --> UnifiedAdapter[Unified Metadata Adapter]
+        UnifiedAdapter --> BC[Breadcrumbs Adapter]
+        UnifiedAdapter --> DC[Datacore Adapter]
+        UnifiedAdapter --> NV[Native Vault Adapter]
+        UnifiedAdapter --> SC[Smart Connections Adapter]
+
+        Plugin --> GE[Graph Engine]
+        GE --> Graphology[Graphology]
+        GE --> LPE[Link Prediction Engine]
+
+        Plugin --> TA[Topology Analyzer]
+        Plugin --> SE[Suggestion Executor]
+        Plugin --> QA[Quality Analyzer]
+        Plugin --> STP[Semantic Tag Propagator]
+        Plugin --> RS[Reasoning Service]
+        Plugin --> API[Automation API]
+    end
+
+    subgraph Infrastructure [Support Services]
+        GE --> GWS[Graph Worker Service]
+        LPE --> GWS
+        TA --> GWS
+        GWS -.-> Worker[Web Worker: graph-analysis-core]
+
+        Plugin --> LS[Ladybug Service]
+        LS -.-> LadybugWorker[Web Worker: ladybug-worker]
+
+        Plugin --> LLM[LLM Service]
+        Plugin --> Rag[GraphRAG Service]
+        Rag --> Embed[Embedding Service]
+        Plugin --> Keychain[Keychain Service]
+
+        RS --> LLM
+        STP --> LLM
+        TA --> LLM
+    end
+
+    subgraph UI [Presentation Layer]
+        Plugin --> Dashboard[Dashboard View]
+        Plugin --> Visualizer[3D Force Visualizer]
+        Dashboard --> Svelte[Svelte Components]
+        Dashboard --> RV[Reasoning View]
+    end
+
+    SE --> Obsidian
+    API -.-> Obsidian
 ```
 
 ## Data Flow

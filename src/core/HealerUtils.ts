@@ -1,5 +1,5 @@
 import { App, TFile, parseLinktext } from 'obsidian';
-import { maskSecrets, sanitizeForLog, redactObject } from './utils/RedactUtils';
+import { maskSecrets } from './utils/RedactUtils';
 import type { ObsidianInternalApp } from '../types';
 
 export type ApiKeyType = 'openai' | 'anthropic' | 'deepseek' | 'infranodus' | 'custom';
@@ -33,15 +33,6 @@ export class HealerLogger {
         HealerLogger.instance = instance;
     }
 
-    private static fallbackLog(level: string, message: string, ...args: unknown[]) {
-        const sanitizedMsg = sanitizeForLog(message);
-        const redactedArgs = args.map((arg) => redactObject(arg));
-        const prefix = `[SemanticHealer][${level}]`;
-        if (level === 'ERROR') console.error(prefix, sanitizedMsg, ...redactedArgs);
-        else if (level === 'WARN') console.warn(prefix, sanitizedMsg, ...redactedArgs);
-        else console.debug(prefix, sanitizedMsg, ...redactedArgs);
-    }
-
     /**
      * Logs an info message.
      * @param message - The message to log.
@@ -51,7 +42,7 @@ export class HealerLogger {
         if (HealerLogger.instance) {
             HealerLogger.instance.info(message, ...args);
         } else {
-            this.fallbackLog('INFO', message, ...args);
+            console.debug(`[SemanticHealer][INFO] ${message}`, ...args);
         }
     }
 
@@ -64,7 +55,7 @@ export class HealerLogger {
         if (HealerLogger.instance) {
             HealerLogger.instance.warn(message, ...args);
         } else {
-            this.fallbackLog('WARN', message, ...args);
+            console.warn(`[SemanticHealer][WARN] ${message}`, ...args);
         }
     }
 
@@ -77,7 +68,7 @@ export class HealerLogger {
         if (HealerLogger.instance) {
             HealerLogger.instance.error(message, ...args);
         } else {
-            this.fallbackLog('ERROR', message, ...args);
+            console.error(`[SemanticHealer][ERROR] ${message}`, ...args);
         }
     }
 
@@ -90,7 +81,7 @@ export class HealerLogger {
         if (HealerLogger.instance) {
             HealerLogger.instance.debug(message, ...args);
         } else {
-            this.fallbackLog('DEBUG', message, ...args);
+            console.debug(`[SemanticHealer][DEBUG] ${message}`, ...args);
         }
     }
 }

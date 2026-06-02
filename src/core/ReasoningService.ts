@@ -3,7 +3,6 @@ import { basename } from 'pathe';
 import type { Suggestion, DataviewApi, ReasoningResult, SemanticGraphHealerSettings } from '../types';
 import { HealerLogger, resolveTargetFile, formatIncongruencePrompt, calculateHtrScore } from './HealerUtils';
 import { SmartConnectionsAdapter } from './DataAdapter';
-import type { EmbeddingService } from './EmbeddingService';
 
 /**
  * ReasoningService: AI-powered analysis for incongruence resolution.
@@ -18,22 +17,15 @@ export class ReasoningService {
      * @param settings - The plugin's semantic settings.
      * @param llm - The LLM interface for calling and parsing reasoning results.
      * @param dv - The Dataview API instance, if available.
-     * @param embeddingService - Optional embedding service for semantic pre-filtering.
      */
     constructor(
         private app: App,
         private settings: SemanticGraphHealerSettings,
         private llm: {
-            callLlm: (
-                prompt: string,
-                tribunal: boolean,
-                signal?: AbortSignal,
-                embeddings?: { source: number[]; target: number[] },
-            ) => Promise<string>;
+            callLlm: (prompt: string, tribunal: boolean) => Promise<string>;
             parseReasoningResult: (raw: string) => Omit<ReasoningResult, 'rawResponse'>;
         },
         private dv: DataviewApi | null,
-        private embeddingService?: EmbeddingService,
     ) {
         this.scAdapter = new SmartConnectionsAdapter(app);
     }
@@ -83,28 +75,9 @@ export class ReasoningService {
             const content = await this.app.vault.read(targetFile);
             HealerLogger.debug('ReasoningService: Target file read successfully.');
 
-            // 1. Gather candidate data
+            // 1. Gather candidate metadata
             const candidateData = await this.gatherCandidateData(suggestion, values, targetFile.path);
             HealerLogger.debug('ReasoningService: Candidate data gathered.', candidateData);
-
-            // 1.5 SOTA 2026: Semantic Pre-filtering (HARDEN-08)
-            let embeddings: { source: number[]; target: number[] } | undefined;
-            if (this.embeddingService && this.settings.enableAiTribunal) {
-                try {
-                    // Collect embeddings for the source and the primary winner (first value)
-                    const winnerNote = values[0].replace(/^\[\[/, '').replace(/\]\]$/, '');
-                    const winnerFile = this.app.metadataCache.getFirstLinkpathDest(winnerNote, targetFile.path);
-                    if (winnerFile instanceof TFile) {
-                        const [sourceVec, targetVec] = await Promise.all([
-                            this.embeddingService.getEmbedding(content.substring(0, 1000)),
-                            this.embeddingService.getEmbedding(winnerNote),
-                        ]);
-                        embeddings = { source: sourceVec, target: targetVec };
-                    }
-                } catch (e) {
-                    HealerLogger.debug('ReasoningService: Failed to gather embeddings for pre-filter.', e);
-                }
-            }
 
             // 2. Build prompt
             const isInfraNodus = suggestion.source.toLowerCase().includes('infranodus');
@@ -120,7 +93,7 @@ export class ReasoningService {
 
             // 3. Call LLM
             HealerLogger.info('ReasoningService: Dispatching call to LlmService...');
-            const response = await this.llm.callLlm(prompt, this.settings.enableAiTribunal, undefined, embeddings);
+            const response = await this.llm.callLlm(prompt, this.settings.enableAiTribunal);
 
             if (!response || response.startsWith('Error:')) {
                 HealerLogger.error(`ReasoningService: LLM call returned error or empty response: ${response}`);
