@@ -207,13 +207,8 @@ export class GraphWorkerService {
         }>,
         options?: Record<string, unknown>,
     ): Promise<T> {
-        // WR-03: Attempt to re-initialize if worker was terminated (e.g. by handleWorkerError)
         if (!this.worker && !Platform.isMobile) {
-            this.logger.info('Worker not initialized or previously terminated. Attempting recovery...');
-            await this.initialize();
-            if (!this.worker) {
-                throw new Error('Worker not available. Automatic recovery failed.');
-            }
+            throw new Error('Worker not initialized. Call initialize() first.');
         }
 
         return this.queue.add(() => {
@@ -264,18 +259,8 @@ export class GraphWorkerService {
     ): Promise<T> {
         this.notifier.show(`Mobile: Running graph analysis on main thread (limited to ${MOBILE_NODE_LIMIT} nodes)...`);
 
-        // WR-01: Improve truncation by sorting by mtime (most recent first) if available
-        let truncatedNodes = nodes.slice(0, MOBILE_NODE_LIMIT);
-        if (nodes.length > MOBILE_NODE_LIMIT) {
-            const fileStats = options?.fileStats as Record<string, { mtime: number }> | undefined;
-            if (fileStats) {
-                truncatedNodes = [...nodes].sort((a, b) => {
-                    const mtimeA = fileStats[a.key]?.mtime || 0;
-                    const mtimeB = fileStats[b.key]?.mtime || 0;
-                    return mtimeB - mtimeA;
-                }).slice(0, MOBILE_NODE_LIMIT);
-            }
-        }
+        // Truncate nodes to limit
+        const truncatedNodes = nodes.slice(0, MOBILE_NODE_LIMIT);
         const nodeKeys = new Set(truncatedNodes.map((n) => n.key));
 
         // Filter edges to only include those where both source and target exist in truncated set

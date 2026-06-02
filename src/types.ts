@@ -361,7 +361,6 @@ export interface SemanticGraphHealerSettings {
     tagPropagationDirection?: 'up' | 'down' | 'bidirectional';
     enableSemanticAudit: boolean;
     graphRagIndexDir: string;
-    tribunalPreFilterThreshold: number;
     // Logging & Performance
     logLevel: 'debug' | 'info' | 'warn' | 'error';
     enableFileLogging: boolean;
@@ -572,7 +571,6 @@ export const DEFAULT_SETTINGS: SemanticGraphHealerSettings = {
     tagPropagationDirection: 'bidirectional',
     enableSemanticAudit: false,
     graphRagIndexDir: '.planning/index',
-    tribunalPreFilterThreshold: 0.4,
     logLevel: 'info',
     enableFileLogging: false,
     logFilePath: 'SemanticGraphHealer/logs',

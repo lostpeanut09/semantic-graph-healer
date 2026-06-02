@@ -25,19 +25,7 @@ export const SECRET_KEYS = new Set([
     'infranodus_token',
     'session_id',
     'cookie',
-    'llmapikey',
-    'secondaryllmapikey',
-    'infranodusapikey',
-    'sghealermasterkeyjwk',
 ]);
-
-/**
- * Checks if a key name represents a sensitive field.
- */
-function isSensitiveKey(key: string): boolean {
-    const lower = key.toLowerCase();
-    return SECRET_KEYS.has(lower) || lower.endsWith('encrypted') || lower.includes('password');
-}
 
 /**
  * Masks sensitive patterns (Bearer, JWT, API keys) in raw strings.
@@ -130,7 +118,7 @@ export function redactObject(data: unknown, seen = new WeakSet<object>()): unkno
         const redactedMap: Record<string, unknown> = {};
         for (const [key, value] of data.entries()) {
             const strKey = String(key);
-            if (isSensitiveKey(strKey)) {
+            if (SECRET_KEYS.has(strKey.toLowerCase())) {
                 redactedMap[strKey] = '***';
             } else {
                 redactedMap[strKey] = redactObject(value, seen);
@@ -141,7 +129,7 @@ export function redactObject(data: unknown, seen = new WeakSet<object>()): unkno
 
     const redacted: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
-        if (isSensitiveKey(key)) {
+        if (SECRET_KEYS.has(key.toLowerCase())) {
             redacted[key] = '***';
         } else {
             redacted[key] = redactObject(value, seen);

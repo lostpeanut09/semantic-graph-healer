@@ -58,27 +58,20 @@ export class KeychainService {
     }
 
     /**
-     * Retrieves a stable salt for encryption, using a synced setting or a generated value.
-     * Prioritizes synced settings to ensure cross-device compatibility.
+     * Retrieves a stable salt for encryption, using the App ID or a generated value.
      *
-     * @returns A promise resolving to a stable string used as a salt for cryptographic operations.
+     * @returns A stable string used as a salt for cryptographic operations.
      */
     private getStableSalt(): string {
-        // 1. Try to use synced salt from settings (Primary for Sync)
+        const appId = this.context.app.appId;
+        if (typeof appId === 'string' && appId) return appId;
+
+        // Settings object accepts dynamic keys for encrypted fields
         const settings = this.context.settings as unknown as Record<string, string | undefined>;
         const k = 'cryptoSalt';
         const existing = settings[k];
         if (typeof existing === 'string' && existing) return existing;
 
-        // 2. Fallback to App ID if present (Local/Legacy)
-        const appId = this.app.appId;
-        if (typeof appId === 'string' && appId) {
-            settings[k] = appId;
-            void this.context.saveSettings();
-            return appId;
-        }
-
-        // 3. Generate new stable salt
         const salt = `salt_${crypto.getRandomValues(new Uint32Array(1))[0].toString(16)}`;
         settings[k] = salt;
         void this.context.saveSettings();
@@ -133,16 +126,16 @@ export class KeychainService {
 
     /**
      * Initializes the dynamic master key from secure storage or settings fallback.
-     * Generates a new key if none exists. Ensures cross-device sync compatibility.
+     * Generates a new key if none exists.
      *
      * @returns A promise that resolves when initialization is complete.
      */
     async initializeMasterKey(): Promise<void> {
         const keyName = 'sghealer-masterkey';
         let jwk: string | null = null;
-        const salt = this.getStableSalt();
+        let foundInSettings = false;
 
-        // 1. Try to load from SecretStorage (Primary: Local-First security)
+        // 1. Try to load from SecretStorage (Primary)
         if (this.isSecureStorageAvailable && this.storage) {
             try {
                 jwk = await this.storage.get(keyName);
@@ -152,20 +145,12 @@ export class KeychainService {
             }
         }
 
-        // 2. Try to load from data.json fallback (Secondary: Sync-Resilience)
+        // 2. Try to load from data.json fallback (Secondary/Legacy)
         if (!jwk) {
-            const storedValue = this.context.settings.sghealerMasterKeyJWK || null;
-            if (storedValue) {
-                // SOTA 2026: The master key in data.json is encrypted with the legacy key + salt (Sync Layer)
-                jwk = await CryptoUtils.decrypt(storedValue, this.LEGACY_MASTER_KEY, salt);
-
-                // Compatibility fallback: handle legacy plaintext JWK in settings
-                if (!jwk && storedValue.includes('"kty":"oct"')) {
-                    jwk = storedValue;
-                    HealerLogger.info('Master key found in data.json (Legacy Plaintext).');
-                } else if (jwk) {
-                    HealerLogger.info('Master key recovered from data.json (Encrypted Sync Layer).');
-                }
+            jwk = this.context.settings.sghealerMasterKeyJWK || null;
+            if (jwk) {
+                HealerLogger.info('Master key found in data.json fallback.');
+                foundInSettings = true;
             }
         }
 
@@ -173,6 +158,18 @@ export class KeychainService {
             try {
                 this.dynamicMasterKey = await CryptoUtils.importKey(jwk);
                 HealerLogger.info('Dynamic master key loaded successfully.');
+
+                // Migration: If found in settings but SecureStorage is available, move it and clear settings
+                if (foundInSettings && this.isSecureStorageAvailable && this.storage) {
+                    try {
+                        await this.storage.set(keyName, jwk);
+                        this.context.settings.sghealerMasterKeyJWK = undefined;
+                        await this.context.saveSettings();
+                        HealerLogger.info('Master key migrated from data.json to SecretStorage.');
+                    } catch (e) {
+                        HealerLogger.error('Failed to migrate master key to SecretStorage.', e);
+                    }
+                }
             } catch (e) {
                 HealerLogger.error('Failed to import master key JWK. Key might be corrupted.', e);
                 this.context.settings.keychainCorrupted = true;
@@ -184,30 +181,20 @@ export class KeychainService {
         if (!this.dynamicMasterKey && !this.context.settings.keychainCorrupted) {
             HealerLogger.info('No master key found. Generating a new dynamic key.');
             this.dynamicMasterKey = await CryptoUtils.generateKey();
-            jwk = await CryptoUtils.exportKey(this.dynamicMasterKey);
-        }
+            const exportedJwk = await CryptoUtils.exportKey(this.dynamicMasterKey);
 
-        // 4. Persistence & Sync Propagation
-        if (this.dynamicMasterKey && jwk) {
-            // A. Save to Local Secure Storage
             if (this.isSecureStorageAvailable && this.storage) {
                 try {
-                    await this.storage.set(keyName, jwk);
+                    await this.storage.set(keyName, exportedJwk);
+                    HealerLogger.info('New master key saved to SecretStorage.');
                 } catch (e) {
-                    HealerLogger.error('Failed to save master key to SecretStorage.', e);
+                    HealerLogger.error('Failed to save new master key to SecretStorage.', e);
                 }
-            }
-
-            // B. Save to Sync-Resilient Storage (Encrypted with Legacy Key for cross-device recovery)
-            try {
-                const encryptedForSync = await CryptoUtils.encrypt(jwk, this.LEGACY_MASTER_KEY, salt);
-                if (this.context.settings.sghealerMasterKeyJWK !== encryptedForSync) {
-                    this.context.settings.sghealerMasterKeyJWK = encryptedForSync;
-                    await this.context.saveSettings();
-                    HealerLogger.info('Master key persisted/mirrored to sync-resilient storage.');
-                }
-            } catch (e) {
-                HealerLogger.error('Failed to encrypt master key for sync.', e);
+            } else {
+                // ONLY save to data.json if NO secure storage is available
+                this.context.settings.sghealerMasterKeyJWK = exportedJwk;
+                await this.context.saveSettings();
+                HealerLogger.warn('Master key saved to unencrypted data.json (No secure storage available).');
             }
         }
     }
@@ -224,18 +211,15 @@ export class KeychainService {
         const types: ApiKeyType[] = ['openai', 'anthropic', 'deepseek', 'infranodus', 'custom'];
         const salt = this.getStableSalt();
         let migratedAny = false;
-        let failedAny = false;
 
         for (const type of types) {
             const storageKey = `semantic-graph-healer-${type}-key`;
             let plaintext: string | null = null;
-            let foundLegacy = false;
 
             // 1. Try to get from storage (Double-Locked)
             if (this.isSecureStorageAvailable && this.storage) {
                 const encVal = await this.storage.get(storageKey);
                 if (encVal && encVal.startsWith('enc:')) {
-                    foundLegacy = true;
                     plaintext = await CryptoUtils.decrypt(encVal.substring(4), this.LEGACY_MASTER_KEY, salt);
                 }
             }
@@ -245,7 +229,6 @@ export class KeychainService {
                 const settingsKey = `${type}LlmApiKeyEncrypted` as keyof typeof this.context.settings;
                 const encVal = this.context.settings[settingsKey];
                 if (encVal && typeof encVal === 'string') {
-                    foundLegacy = true;
                     plaintext = await CryptoUtils.decrypt(encVal, this.LEGACY_MASTER_KEY, salt);
                 }
             }
@@ -255,21 +238,12 @@ export class KeychainService {
                 await this.setApiKey(type, plaintext);
                 migratedAny = true;
                 HealerLogger.info(`Migrated ${type} key to dynamic encryption.`);
-            } else if (foundLegacy) {
-                failedAny = true;
-                HealerLogger.error(
-                    `Failed to decrypt legacy ${type} key during migration. Salt or master key mismatch.`,
-                );
             }
         }
 
-        if (!failedAny) {
-            this.context.settings.keychainMigrationComplete = true;
-            await this.context.saveSettings();
-            HealerLogger.info('Keychain migration complete.');
-        } else {
-            HealerLogger.warn('Keychain migration partially failed. Will retry on next boot.');
-        }
+        this.context.settings.keychainMigrationComplete = true;
+        await this.context.saveSettings();
+        HealerLogger.info('Keychain migration complete.');
         return migratedAny;
     }
 

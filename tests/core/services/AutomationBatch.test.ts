@@ -22,7 +22,7 @@ describe('AutomationBatch', () => {
             settings: {
                 lastScanTimestamp: 12345,
             },
-            analyzeGraph: vi.fn().mockResolvedValue(true),
+            analyzeGraph: vi.fn().mockResolvedValue(undefined),
         };
     });
 

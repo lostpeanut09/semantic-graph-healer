@@ -35,13 +35,13 @@ npm run test
 npx vitest
 
 # Run specific subsets of tests
-npm run test:adapter       # Datacore adapter tests
+npm run test:adapter     # Datacore adapter tests
 npm run test:breadcrumbs   # Breadcrumbs adapter tests
-npm run test:worker        # Graph analysis worker core tests
+npm run test:worker      # Graph analysis worker core tests
 
 # Performance and Benchmarking
-npm run bench:generate     # Generate a 10k-node mock vault for benchmarking
-npm run bench:run          # Execute the primary performance benchmark suite
+npm run bench:generate   # Generate a 10k-node mock vault for benchmarking
+npm run bench:run        # Execute the primary performance benchmark suite
 ```
 
 ## Writing new tests

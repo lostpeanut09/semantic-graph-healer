@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync } from 'fs';
-import { join } from 'pathe';
+import { join } from 'path';
 
 describe('Nyquist Validation Audit - Deep Architectural Alignment', () => {
     describe('Hardening & Release Readiness', () => {

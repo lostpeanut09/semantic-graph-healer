@@ -29,7 +29,7 @@ describe('AutomationApi', () => {
             settings: {
                 lastScanTimestamp: 12345,
             },
-            analyzeGraph: vi.fn().mockResolvedValue(true),
+            analyzeGraph: vi.fn().mockResolvedValue(undefined),
         };
 
         loggerInfoSpy = vi.spyOn(HealerLogger, 'info').mockImplementation(() => {});
