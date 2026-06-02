@@ -269,11 +269,13 @@ export class GraphWorkerService {
         if (nodes.length > MOBILE_NODE_LIMIT) {
             const fileStats = options?.fileStats as Record<string, { mtime: number }> | undefined;
             if (fileStats) {
-                truncatedNodes = [...nodes].sort((a, b) => {
-                    const mtimeA = fileStats[a.key]?.mtime || 0;
-                    const mtimeB = fileStats[b.key]?.mtime || 0;
-                    return mtimeB - mtimeA;
-                }).slice(0, MOBILE_NODE_LIMIT);
+                truncatedNodes = [...nodes]
+                    .sort((a, b) => {
+                        const mtimeA = fileStats[a.key]?.mtime || 0;
+                        const mtimeB = fileStats[b.key]?.mtime || 0;
+                        return mtimeB - mtimeA;
+                    })
+                    .slice(0, MOBILE_NODE_LIMIT);
             }
         }
         const nodeKeys = new Set(truncatedNodes.map((n) => n.key));
