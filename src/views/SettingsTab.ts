@@ -66,7 +66,7 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
             plugin: this.plugin,
             app: this.app as ExtendedApp,
             setCssProps: (el, props) => this.setCssProps(el, props),
-            // eslint-disable-next-line @typescript-eslint/no-deprecated
+
             refresh: () => this.display(),
             runModelDetection: (button, isPrimary) => this.runModelDetection(button, isPrimary),
         };
@@ -127,7 +127,7 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
                     ? `Success: Detected ${models.length} models.`
                     : 'No server models detected. Falling back to SOTA cloud presets.',
             );
-            // eslint-disable-next-line @typescript-eslint/no-deprecated
+
             this.display();
         } catch (e) {
             this.plugin.logger.error('Model detection failed', e);
