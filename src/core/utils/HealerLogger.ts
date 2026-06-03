@@ -1,3 +1,9 @@
+/**
+ * HealerLogger intentionally uses console.warn/error/debug/info for Obsidian logging.
+ * The global ESLint config already allows these methods, but the above file-level
+ * annotation makes the intent explicit for reviewers (STRIDE T-13-02-01).
+ */
+
 import { Plugin, TFile, TFolder, normalizePath } from 'obsidian';
 import type { SemanticGraphHealerSettings } from '../../types';
 import { sanitizeForLog, redactObject } from './RedactUtils';

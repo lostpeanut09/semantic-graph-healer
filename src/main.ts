@@ -516,8 +516,6 @@ export default class SemanticGraphHealer extends Plugin {
             return;
         }
 
-        /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment */
-
         this.registerCliHandler(
             'healer:scan',
             'Scan semantic graph for structural and semantic gaps',
@@ -528,8 +526,7 @@ export default class SemanticGraphHealer extends Plugin {
             },
             async (params) => {
                 try {
-                    const p = params as any;
-                    const silent = p?.silent !== undefined ? p.silent === 'true' || p.silent === true : true;
+                    const silent = params.silent !== undefined ? params.silent === 'true' : true;
                     const suggestions = await this.api.runAnalysis({ silent });
                     return JSON.stringify(suggestions);
                 } catch (e) {
@@ -573,17 +570,15 @@ export default class SemanticGraphHealer extends Plugin {
             },
             async (params) => {
                 try {
-                    const p = params as any;
-                    const confidenceVal = p?.confidence;
+                    const confidenceRaw = params.confidence;
                     let confidence = 0.8;
-                    if (confidenceVal !== undefined && confidenceVal !== null) {
-                        const parsed =
-                            typeof confidenceVal === 'number' ? confidenceVal : parseFloat(String(confidenceVal));
+                    if (confidenceRaw !== undefined) {
+                        const parsed = parseFloat(confidenceRaw);
                         if (!isNaN(parsed)) {
                             confidence = parsed;
                         }
                     }
-                    const category = p?.category ? String(p.category) : undefined;
+                    const category = params.category || undefined;
                     const result = await this.api.executeBatch({ confidence, category });
                     return JSON.stringify(result);
                 } catch (e) {
@@ -607,8 +602,7 @@ export default class SemanticGraphHealer extends Plugin {
             },
             async (params) => {
                 try {
-                    const p = params as any;
-                    const batchId = p?.batchId ? String(p.batchId) : undefined;
+                    const batchId = params.batchId || undefined;
                     if (!batchId) {
                         return JSON.stringify({
                             status: 'error',
@@ -625,8 +619,6 @@ export default class SemanticGraphHealer extends Plugin {
                 }
             },
         );
-
-        /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment */
     }
 
     private registerViews() {
