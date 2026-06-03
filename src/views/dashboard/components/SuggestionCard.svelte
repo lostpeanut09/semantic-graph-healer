@@ -66,7 +66,7 @@
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <span><strong>AI Verdict:</strong> {suggestion.reasoning.verdict || (suggestion.reasoning.winner ? 'STABLE' : 'UNCERTAIN')}</span>
         {#if onShowReasoning}
-          <button class="healer-btn-link" aria-label="View log for {suggestion.link}" style="background: none; border: none; color: var(--text-accent); cursor: pointer; padding: 0; font-size: 0.9em; text-decoration: underline;" onclick={() => onShowReasoning(suggestion)}>View Log</button>
+           <button class="healer-btn-link" aria-label="View log for {suggestion.link}" style="background: none; border: none; color: var(--text-accent); cursor: pointer; padding: 0; font-size: 0.9em; text-decoration: underline;" onclick={() => onShowReasoning(suggestion)}>View log</button>
         {/if}
       </div>
       {#if suggestion.reasoning.winner}
@@ -119,12 +119,12 @@
 {#if onVerifyAI && (suggestion.type === 'ai' || suggestion.id.startsWith('branch_') || suggestion.id.startsWith('tag_'))}
       <button
         class="healer-btn-verify"
-        aria-label="{suggestion.isVerifying ? 'Verifying...' : 'AI Verify'} fix for {suggestion.link}"
+        aria-label="{suggestion.isVerifying ? 'Verifying...' : 'AI verify'} fix for {suggestion.link}"
         aria-busy={suggestion.isVerifying || false}
         disabled={isFixed || suggestion.isVerifying}
         onclick={() => onVerifyAI(suggestion)}
       >
-        {suggestion.isVerifying ? 'Verifying...' : 'AI Verify'}
+        {suggestion.isVerifying ? 'Verifying...' : 'AI verify'}
       </button>
     {/if}
     <button class="healer-btn-ignore" aria-label="Ignore suggestion for {suggestion.link}" disabled={isFixed} onclick={() => onIgnore(suggestion)}>Ignore</button>

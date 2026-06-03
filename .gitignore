@@ -75,6 +75,15 @@ REQUIREMENTS.md
 /main.css
 /styles.css
 
+# Research docs (web-scraped)
+brat-docs/
+breadcrumbs-docs/
+datacore-docs/
+dataview-docs/
+excalibrain-docs/
+graphology-docs/
+ladybugdb-docs/
+
 # Repository Garbage & Artifacts
 garbage/
 run/

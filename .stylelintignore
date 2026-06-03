@@ -2,3 +2,10 @@
 /main.css
 node_modules/
 dist/
+brat-docs/
+breadcrumbs-docs/
+datacore-docs/
+dataview-docs/
+excalibrain-docs/
+graphology-docs/
+ladybugdb-docs/

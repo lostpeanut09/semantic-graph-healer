@@ -11,3 +11,10 @@ dist
 .kilo
 .agent
 .planning
+brat-docs
+breadcrumbs-docs
+datacore-docs
+dataview-docs
+excalibrain-docs
+graphology-docs
+ladybugdb-docs

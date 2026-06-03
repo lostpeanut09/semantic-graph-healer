@@ -6,15 +6,6 @@ import { z } from 'zod';
 import type { WorkerResponse, GraphAnalysisResult } from '../../types';
 export type { WorkerResponse };
 
-interface PagerankOptions {
-    maxIterations?: number;
-    tolerance?: number;
-    attributes?: {
-        weight?: string;
-    };
-    damping?: number;
-}
-
 // --- Phase 2: OSS Hardening (Zod Validation) ---
 
 const NodeSchema = z.object({
@@ -64,10 +55,10 @@ const WorkerMessageSchema = z
                 embeddings: z.record(z.string(), z.array(z.number())).optional(),
                 safetyMode: z.boolean().optional(),
             })
-            .passthrough()
+            .loose()
             .optional(),
     })
-    .passthrough();
+    .loose();
 
 /**
  * WorkerMessage
@@ -209,7 +200,7 @@ export function handleGraphWorkerMessage(message: WorkerMessage, reporter?: Prog
                 const v1 = embeddings[source];
                 const v2 = embeddings[target];
                 const similarity = v1 && v2 ? cosineSimilarity(v1, v2) : 0;
-                const structural = (attrs.weight as number) || 1.0;
+                const structural = typeof attrs.weight === 'number' ? attrs.weight : 1.0;
                 const newWeight = structural * htrWeight + similarity * (1 - htrWeight);
                 return {
                     ...attrs,
@@ -218,32 +209,47 @@ export function handleGraphWorkerMessage(message: WorkerMessage, reporter?: Prog
             });
         }
 
-        let result: unknown;
+        let result: GraphAnalysisResult;
 
         switch (type) {
             case 'PAGERANK': {
                 validateGraphSize('PAGERANK', options, DEFAULT_LIMITS.PAGERANK);
-                let pagerankOptions: PagerankOptions = (options as unknown as PagerankOptions) || {};
-                if (safetyMode) {
-                    pagerankOptions = {
-                        ...pagerankOptions,
-                        maxIterations: pagerankOptions.maxIterations ?? 50,
-                        tolerance: pagerankOptions.tolerance ?? 0.001,
-                    };
+                const pagerankOpts: {
+                    getEdgeWeight: string;
+                    maxIterations?: number;
+                    tolerance?: number;
+                    damping?: number;
+                } = {
+                    getEdgeWeight: 'weight',
+                };
+                // Loose-schema properties accessed via Record for type narrowing
+                const opts = options ?? {};
+                if (typeof opts.maxIterations === 'number') {
+                    pagerankOpts.maxIterations = opts.maxIterations;
                 }
-                result = pagerank(graph, pagerankOptions as Parameters<typeof pagerank>[1]);
+                if (typeof opts.tolerance === 'number') {
+                    pagerankOpts.tolerance = opts.tolerance;
+                }
+                if (typeof opts.damping === 'number') {
+                    pagerankOpts.damping = opts.damping;
+                }
+                if (safetyMode) {
+                    pagerankOpts.maxIterations ??= 50;
+                    pagerankOpts.tolerance ??= 0.001;
+                }
+                result = pagerank(graph, pagerankOpts as Parameters<typeof pagerank>[1]);
                 break;
             }
 
             case 'COMMUNITY':
                 validateGraphSize('COMMUNITY', options, DEFAULT_LIMITS.COMMUNITY);
-                result = louvain(graph, options as Parameters<typeof louvain>[1]);
+                result = louvain(graph);
                 break;
 
             case 'BETWEENNESS': {
                 const betweennessLimit = safetyMode ? 1000 : DEFAULT_LIMITS.BETWEENNESS;
                 validateGraphSize('BETWEENNESS', options, betweennessLimit);
-                result = betweennessCentrality(graph, options as Parameters<typeof betweennessCentrality>[1]);
+                result = betweennessCentrality(graph);
                 break;
             }
 
@@ -260,15 +266,9 @@ export function handleGraphWorkerMessage(message: WorkerMessage, reporter?: Prog
             case 'FULL_ANALYSIS':
                 validateGraphSize('FULL_ANALYSIS', options, DEFAULT_LIMITS.FULL_ANALYSIS);
                 result = {
-                    pageRank: pagerank(graph, options as Parameters<typeof pagerank>[1]),
-                    communities: louvain(graph, options as Parameters<typeof louvain>[1]),
-                    betweenness:
-                        graph.order <= DEFAULT_LIMITS.BETWEENNESS
-                            ? (betweennessCentrality(
-                                  graph,
-                                  options as Parameters<typeof betweennessCentrality>[1],
-                              ) as Record<string, number>)
-                            : null,
+                    pageRank: pagerank(graph),
+                    communities: louvain(graph),
+                    betweenness: graph.order <= DEFAULT_LIMITS.BETWEENNESS ? betweennessCentrality(graph) : null,
                     nodeCount: graph.order,
                     edgeCount: graph.size,
                 };
@@ -285,10 +285,10 @@ export function handleGraphWorkerMessage(message: WorkerMessage, reporter?: Prog
 
         return {
             type: 'RESULT',
-            payload: { requestId, data: result as GraphAnalysisResult },
+            payload: { requestId, data: result },
         };
     } catch (error: unknown) {
-        let message = (error as Error).message || 'Unknown analysis error';
+        let message = error instanceof Error ? error.message : 'Unknown analysis error';
 
         // --- Phase 2 Hardening: Structural Error Formatting ---
         if (error instanceof z.ZodError) {

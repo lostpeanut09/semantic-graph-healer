@@ -9,26 +9,27 @@ import type { ForceGraphNode, ForceGraphLink } from '../types';
 export const GRAPH_VIEW_TYPE = 'healer-graph-view';
 
 /**
- * Partial interface for the ForceGraph3D instance to enable strict typing.
+ * Minimal interface for the subset of the ForceGraph3D chaining API used in this view.
+ * Concrete types avoid the structural mismatch between the library's recursive
+ * generic ChainableInstance pattern and our narrower ForceGraphNode/ForceGraphLink shapes.
  */
-interface ForceGraph3DInstance {
-    (element: HTMLElement): ForceGraph3DInstance;
-    nodeLabel(fn: (node: ForceGraphNode) => string): ForceGraph3DInstance;
-    nodeAutoColorBy(attr: string): ForceGraph3DInstance;
-    nodeResolution(res: number): ForceGraph3DInstance;
-    nodeColor(fn: (node: ForceGraphNode) => string): ForceGraph3DInstance;
+interface ForceGraphInstance {
+    nodeLabel(fn: (node: ForceGraphNode) => string): ForceGraphInstance;
+    nodeAutoColorBy(attr: string): ForceGraphInstance;
+    nodeResolution(res: number): ForceGraphInstance;
+    nodeColor(fn: (node: ForceGraphNode) => string): ForceGraphInstance;
     nodeColor(): (node: ForceGraphNode) => string;
-    linkWidth(fn: (link: ForceGraphLink) => number): ForceGraph3DInstance;
+    linkWidth(fn: (link: ForceGraphLink) => number): ForceGraphInstance;
     linkWidth(): (link: ForceGraphLink) => number;
-    linkDash(fn: (link: ForceGraphLink) => number[] | null): ForceGraph3DInstance;
-    linkColor(fn: (link: ForceGraphLink) => string): ForceGraph3DInstance;
-    onNodeClick(fn: (node: ForceGraphNode, event: MouseEvent) => void): ForceGraph3DInstance;
-    onLinkClick(fn: (link: ForceGraphLink, event: MouseEvent) => void): ForceGraph3DInstance;
-    graphData(data: { nodes: ForceGraphNode[]; links: ForceGraphLink[] }): ForceGraph3DInstance;
-    enablePointerInteraction(enabled: boolean): ForceGraph3DInstance;
-    showNavInfo(enabled: boolean): ForceGraph3DInstance;
-    pauseAnimation(): ForceGraph3DInstance;
-    _destructor?: () => void;
+    linkDash(fn: (link: ForceGraphLink) => number[] | null): ForceGraphInstance;
+    linkColor(fn: (link: ForceGraphLink) => string): ForceGraphInstance;
+    onNodeClick(fn: (node: ForceGraphNode, event: MouseEvent) => void): ForceGraphInstance;
+    onLinkClick(fn: (link: ForceGraphLink, event: MouseEvent) => void): ForceGraphInstance;
+    graphData(data: { nodes: ForceGraphNode[]; links: ForceGraphLink[] }): ForceGraphInstance;
+    enablePointerInteraction(enabled: boolean): ForceGraphInstance;
+    showNavInfo(enabled: boolean): ForceGraphInstance;
+    pauseAnimation(): ForceGraphInstance;
+    _destructor?(): void;
 }
 
 /**
@@ -37,7 +38,7 @@ interface ForceGraph3DInstance {
  */
 export class GraphVisualizerView extends ItemView {
     plugin: SemanticGraphHealer;
-    private graph: ForceGraph3DInstance | null = null;
+    private graph: ForceGraphInstance | null = null;
     private startTime: number;
     private animationId: number | null = null;
     private popup: GraphPopup | null = null;
@@ -83,8 +84,10 @@ export class GraphVisualizerView extends ItemView {
         const isSafetyMode = this.plugin.performanceService.isSafetyModeActive();
 
         // Initialize 3D Force Graph
-        // @ts-ignore - ForceGraph3D types can be tricky depending on build
-        this.graph = (ForceGraph3D as unknown as (el: HTMLElement) => ForceGraph3DInstance)(container)
+        // Cast via unknown because the library's chaining return type uses a recursive
+        // generic (ChainableInstance) that is structurally incompatible with our narrower
+        // ForceGraphInstance interface — the runtime shape is identical.
+        this.graph = (ForceGraph3D as unknown as (el: HTMLElement) => ForceGraphInstance)(container)
             .nodeLabel((node: ForceGraphNode) => {
                 return node.label || node.id;
             })
@@ -133,15 +136,18 @@ export class GraphVisualizerView extends ItemView {
                 }
             })
             .onLinkClick((link: ForceGraphLink, event: MouseEvent) => {
-                const source = link.source as ForceGraphNode;
-                const target = link.target as ForceGraphNode;
-                this.plugin.logger.info(`Link clicked: ${source.id} -> ${target.id}`);
+                // After ForceGraph3D layout, link.source/target are always node objects
+                const linkSourceNode = typeof link.source === 'object' ? link.source : null;
+                const linkTargetNode = typeof link.target === 'object' ? link.target : null;
+                const sourceId = linkSourceNode?.id ?? (typeof link.source === 'string' ? link.source : '');
+                const targetId = linkTargetNode?.id ?? (typeof link.target === 'string' ? link.target : '');
+                this.plugin.logger.info(`Link clicked: ${sourceId} -> ${targetId}`);
 
                 // Find suggestion for this link (e.g. topology gaps/bridges)
                 const suggestion = this.plugin.cache.suggestions.find(
                     (s) =>
-                        (s.meta?.sourcePath === source.id && s.meta?.targetPath === target.id) ||
-                        (s.meta?.sourcePath === target.id && s.meta?.targetPath === source.id),
+                        (s.meta?.sourcePath === sourceId && s.meta?.targetPath === targetId) ||
+                        (s.meta?.sourcePath === targetId && s.meta?.targetPath === sourceId),
                 );
 
                 const rect = container.getBoundingClientRect();
@@ -149,7 +155,7 @@ export class GraphVisualizerView extends ItemView {
                     this.popup.show(
                         event.clientX - rect.left,
                         event.clientY - rect.top,
-                        `Link: ${source.label || source.id} → ${target.label || target.id}`,
+                        `Link: ${linkSourceNode?.label || sourceId} → ${linkTargetNode?.label || targetId}`,
                         suggestion,
                     );
                 }
@@ -251,11 +257,8 @@ export class GraphVisualizerView extends ItemView {
 
         if (this.graph) {
             this.plugin.logger.info('Destroying graph visualization and cleaning up WebGL context...');
-            const graphWithDestructor = this.graph as unknown as {
-                _destructor?: () => void;
-            };
-            if (typeof graphWithDestructor._destructor === 'function') {
-                graphWithDestructor._destructor();
+            if (typeof this.graph._destructor === 'function') {
+                this.graph._destructor();
             }
             this.graph = null;
         }
