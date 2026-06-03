@@ -139,6 +139,13 @@ export default defineConfig([
             '.agent/',
             '**/*.test.ts',
             '**/*.bak',
+            'brat-docs/',
+            'breadcrumbs-docs/',
+            'datacore-docs/',
+            'dataview-docs/',
+            'excalibrain-docs/',
+            'graphology-docs/',
+            'ladybugdb-docs/',
         ],
     },
 
