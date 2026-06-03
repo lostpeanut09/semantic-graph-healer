@@ -137,6 +137,7 @@ export default defineConfig([
             '.agent/',
             '**/*.test.ts',
             '**/*.bak',
+            '*-docs/**',
         ],
     },
 

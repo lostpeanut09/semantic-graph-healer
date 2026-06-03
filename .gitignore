@@ -75,6 +75,9 @@ REQUIREMENTS.md
 /main.css
 /styles.css
 
+# Local reference documentation (cloned repos for offline study)
+*-docs/
+
 # Repository Garbage & Artifacts
 garbage/
 run/
