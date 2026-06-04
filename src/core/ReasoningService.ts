@@ -1,7 +1,8 @@
 import { App, TFile } from 'obsidian';
 import { basename } from 'pathe';
 import type { Suggestion, DataviewApi, ReasoningResult, SemanticGraphHealerSettings } from '../types';
-import { HealerLogger, resolveTargetFile, formatIncongruencePrompt, calculateHtrScore } from './HealerUtils';
+import { HealerLogger } from './utils/HealerLogger';
+import { resolveTargetFile, formatIncongruencePrompt, calculateHtrScore } from './HealerUtils';
 import { SmartConnectionsAdapter } from './DataAdapter';
 import type { EmbeddingService } from './EmbeddingService';
 

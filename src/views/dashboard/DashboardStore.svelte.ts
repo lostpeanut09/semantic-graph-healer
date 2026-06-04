@@ -1,4 +1,4 @@
-import { HealerLogger } from '../../core/HealerUtils';
+import { HealerLogger } from '../../core/utils/HealerLogger';
 import type { Suggestion, HistoryItem, SemanticGraphHealerSettings, ReasoningResult } from '../../types';
 import { Notice } from 'obsidian';
 import type { App, EventRef } from 'obsidian';

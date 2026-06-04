@@ -3,18 +3,27 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { SmartConnectionsAdapter } from '../../../src/core/adapters/SmartConnectionsAdapter';
 import { TFile, type App } from 'obsidian';
-import { HealerLogger } from '../../../src/core/HealerUtils';
+import { HealerLogger } from '../../../src/core/utils/HealerLogger';
 
 vi.mock('../../../src/core/HealerUtils', async () => {
     const actual = await vi.importActual('../../../src/core/HealerUtils');
+    return {
+        ...actual,
+        isObsidianInternalApp: vi.fn(() => true),
+    };
+});
+
+vi.mock('../../../src/core/utils/HealerLogger', async () => {
+    const actual = await vi.importActual('../../../src/core/utils/HealerLogger');
     return {
         ...actual,
         HealerLogger: {
             warn: vi.fn(),
             error: vi.fn(),
             debug: vi.fn(),
+            info: vi.fn(),
+            setInstance: vi.fn(),
         },
-        isObsidianInternalApp: vi.fn(() => true),
     };
 });
 

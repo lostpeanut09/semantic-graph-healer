@@ -1,4 +1,4 @@
-import { HealerLogger } from '../HealerUtils';
+import { HealerLogger } from '../utils/HealerLogger';
 import type { HealerAutomationApi, HealerNotifier, Suggestion, TopologicalMetrics, HistoryItem } from '../../types';
 import { generateId } from '../HealerUtils';
 

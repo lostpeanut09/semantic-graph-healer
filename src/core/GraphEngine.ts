@@ -4,7 +4,7 @@ import pagerank from 'graphology-metrics/centrality/pagerank';
 // louvain: Refactored to Web Worker
 // betweennessCentrality: Refactored to Web Worker
 import type { Suggestion, SemanticGraphHealerSettings, TopologicalMetrics } from '../types';
-import { HealerLogger } from './HealerUtils';
+import { HealerLogger } from './utils/HealerLogger';
 import { LinkPredictionEngine } from './LinkPredictionEngine';
 
 import type { GraphContext } from './services/PluginContext';

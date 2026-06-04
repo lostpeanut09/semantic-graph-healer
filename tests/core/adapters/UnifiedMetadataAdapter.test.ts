@@ -5,12 +5,21 @@ vi.mock('../../../src/core/HealerUtils', async () => {
     const actual = await vi.importActual('../../../src/core/HealerUtils');
     return {
         ...actual,
+        isObsidianInternalApp: vi.fn(() => true),
+    };
+});
+
+vi.mock('../../../src/core/utils/HealerLogger', async () => {
+    const actual = await vi.importActual('../../../src/core/utils/HealerLogger');
+    return {
+        ...actual,
         HealerLogger: {
             warn: vi.fn(),
             error: vi.fn(),
             debug: vi.fn(),
+            info: vi.fn(),
+            setInstance: vi.fn(),
         },
-        isObsidianInternalApp: vi.fn(() => true),
     };
 });
 
@@ -80,7 +89,7 @@ vi.mock('obsidian', () => ({
 
 // Import AFTER all mocks
 import { UnifiedMetadataAdapter } from '../../../src/core/adapters/UnifiedMetadataAdapter';
-import { HealerLogger } from '../../../src/core/HealerUtils';
+import { HealerLogger } from '../../../src/core/utils/HealerLogger';
 
 describe('UnifiedMetadataAdapter Hardening', () => {
     let adapter: UnifiedMetadataAdapter;

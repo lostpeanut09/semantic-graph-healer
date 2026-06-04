@@ -1,6 +1,6 @@
 import { Plugin, normalizePath } from 'obsidian';
 import type { Suggestion, HistoryItem, TopologicalMetrics } from '../types';
-import { HealerLogger } from './HealerUtils';
+import { HealerLogger } from './utils/HealerLogger';
 
 /**
  * CacheService: Manages volatile plugin state (suggestions, history) in a

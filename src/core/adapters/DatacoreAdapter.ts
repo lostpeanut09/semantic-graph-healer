@@ -3,7 +3,8 @@ import { BaseAdapter } from './BaseAdapter';
 import type { SemanticLinkEdge } from './types';
 import type { IDataviewPort } from '../ports/IDataviewPort';
 import type { DataviewApi, DataviewPage, MarkdownPage, ExtendedApp, DatacoreApi, DataviewLink } from '../../types';
-import { HealerLogger, isObsidianInternalApp, normalizeVaultPath } from '../HealerUtils';
+import { HealerLogger } from '../utils/HealerLogger';
+import { isObsidianInternalApp, normalizeVaultPath } from '../HealerUtils';
 
 import { BoundedMap } from '../utils/BoundedMap';
 import { ListenerManager } from '../utils/ListenerManager';
