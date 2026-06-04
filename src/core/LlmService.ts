@@ -1,27 +1,10 @@
 import { requestUrl } from 'obsidian';
 import type { RequestUrlParam } from 'obsidian';
 import type { SemanticGraphHealerSettings, ReasoningResult } from '../types';
-import { HealerLogger, getProviderFromEndpoint, cosineSimilarity } from './HealerUtils';
+import { HealerLogger } from './utils/HealerLogger';
+import { getProviderFromEndpoint, cosineSimilarity } from './HealerUtils';
 import type { ApiKeyType } from './HealerUtils';
-
-/**
- * Custom Error for LLM operations.
- */
-class LlmError extends Error {
-    /**
-     * Creates an instance of LlmError.
-     * @param model - The name of the model that failed.
-     * @param status - The HTTP status code of the failure.
-     * @param message - The error message.
-     */
-    constructor(
-        public readonly model: string,
-        public readonly status: number,
-        message: string,
-    ) {
-        super(`LLM [${model}] failed: ${status} - ${message}`);
-    }
-}
+import { LlmError } from './errors/HealerError';
 
 /**
  * Standard structure for LLM API responses.

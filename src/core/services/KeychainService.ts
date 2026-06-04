@@ -1,4 +1,5 @@
-import { HealerLogger, getProviderFromEndpoint } from '../HealerUtils';
+import { HealerLogger } from '../utils/HealerLogger';
+import { getProviderFromEndpoint } from '../HealerUtils';
 import { isThenable } from '../HealerUtils';
 import type { ExtendedApp, LegacyKeychain, ObsidianSecretStorage } from '../../types';
 import type { KeychainContext } from './PluginContext';

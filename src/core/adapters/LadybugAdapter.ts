@@ -1,6 +1,6 @@
 import { LadybugService } from '../services/LadybugService';
 import { UnifiedMetadataAdapter } from './UnifiedMetadataAdapter';
-import { HealerLogger } from '../HealerUtils';
+import { HealerLogger } from '../utils/HealerLogger';
 
 interface ObsidianPage {
     file?: {

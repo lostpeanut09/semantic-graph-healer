@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AutomationApi } from '../../../src/core/services/AutomationApi';
-import { HealerLogger } from '../../../src/core/HealerUtils';
+import { HealerLogger } from '../../../src/core/utils/HealerLogger';
 import type { HealerNotifier, Suggestion } from '../../../src/types';
 
 describe('AutomationApi', () => {

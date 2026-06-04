@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { HealerLogger } from '../../../src/core/HealerUtils';
+import { HealerLogger } from '../../../src/core/utils/HealerLogger';
 import { BaseAdapter } from '../../../src/core/adapters/BaseAdapter';
 
 class TestAdapter extends BaseAdapter {

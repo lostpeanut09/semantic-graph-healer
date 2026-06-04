@@ -3,7 +3,8 @@ import { BaseAdapter } from './BaseAdapter';
 import type { SemanticLinkEdge } from './types';
 import type { ISmartConnectionsPort } from '../ports/ISmartConnectionsPort';
 import type { RelatedNote, ExtendedApp } from '../../types';
-import { HealerLogger, isObsidianInternalApp, pathToWikilink, normalizeVaultPath } from '../HealerUtils';
+import { HealerLogger } from '../utils/HealerLogger';
+import { isObsidianInternalApp, pathToWikilink, normalizeVaultPath } from '../HealerUtils';
 
 interface LegacyScApi {
     search?: (query: string, opts?: { limit?: number }) => Promise<SearchResult[]> | SearchResult[];

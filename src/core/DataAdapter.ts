@@ -1,7 +1,8 @@
 import { App, TFile } from 'obsidian';
 import { basename } from 'pathe';
 import type { DataviewPage, Suggestion } from '../types';
-import { HealerLogger, isObsidianInternalApp, pathToWikilink, generateId } from './HealerUtils';
+import { HealerLogger } from './utils/HealerLogger';
+import { isObsidianInternalApp, pathToWikilink, generateId } from './HealerUtils';
 
 interface ObsidianPluginRegistry {
     getPlugin(id: string): unknown;

@@ -4,7 +4,8 @@ import type { SemanticLinkEdge } from './types';
 import type { MultiGraph } from 'graphology';
 import type { IBreadcrumbsPort } from '../ports/IBreadcrumbsPort';
 import type { BreadcrumbsApi, HierarchyNode, BCDirection } from '../../types';
-import { HealerLogger, isObsidianInternalApp, normalizeVaultPath } from '../HealerUtils';
+import { HealerLogger } from '../utils/HealerLogger';
+import { isObsidianInternalApp, normalizeVaultPath } from '../HealerUtils';
 
 /**
  * BreadcrumbsAdapter: Decoupled Navigation Wrapper.

@@ -1,8 +1,8 @@
 import { TFile } from 'obsidian';
 import { basename } from 'pathe';
 import type { Suggestion, DataviewPage } from '../types';
+import { HealerLogger } from './utils/HealerLogger';
 import {
-    HealerLogger,
     extractLinkpaths,
     generateId,
     resolveLinkpathsToPaths,

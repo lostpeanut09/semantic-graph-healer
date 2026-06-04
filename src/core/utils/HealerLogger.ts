@@ -41,6 +41,24 @@ interface LogEntry {
 }
 
 /**
+ * Configuration for log deduplication and rate-limiting (Phase 25 — ERR-03).
+ */
+interface DedupConfig {
+    /** Time window in milliseconds during which identical fingerprints are collapsed. */
+    windowMs: number;
+    /** Max accepted log calls per module per window. */
+    perModuleCap: number;
+    /** Max accepted log calls across all modules per window. */
+    globalCap: number;
+}
+
+const DEFAULT_DEDUP_CONFIG: DedupConfig = {
+    windowMs: 5000,
+    perModuleCap: 10,
+    globalCap: 100,
+};
+
+/**
  * HealerLogger
  *
  * Advanced logging utility for the Semantic Graph Healer plugin.
@@ -50,8 +68,84 @@ interface LogEntry {
  * - Secure logging: masks sensitive keys and patterns (API keys, tokens, JWT).
  * - Control character neutralization to prevent log injection.
  * - Persistent file logging with size-based rotation and auto-disable on failure.
+ * - Per-call deduplication of identical (level + module + normalized message) fingerprints
+ *   inside a sliding time window (default 5000ms).
+ * - Per-module and global rate caps enforced inside the same window.
+ * - Static convenience methods that delegate to a registered singleton instance.
  */
 export class HealerLogger {
+    private static _singletonInstance: HealerLogger | null = null;
+
+    /**
+     * Registers a process-wide singleton instance. Subsequent static calls
+     * (`HealerLogger.info`, `HealerLogger.warn`, `HealerLogger.error`,
+     * `HealerLogger.debug`) delegate to this instance, which routes them
+     * through the dedup / rate-limit pipeline. Pre-`setInstance` static
+     * calls fall back to the console with the legacy `[SemanticHealer][LEVEL]`
+     * prefix so no log line is silently lost during early module init.
+     *
+     * @param instance - The logger to route static calls to.
+     */
+    public static setInstance(instance: HealerLogger): void {
+        HealerLogger._singletonInstance = instance;
+    }
+
+    /**
+     * Static convenience: logs an info message via the registered singleton,
+     * or via the console fallback if no instance has been registered yet.
+     * @param message - The message to log.
+     * @param args - Additional structured arguments.
+     */
+    public static info(message: string, ...args: unknown[]): void {
+        if (HealerLogger._singletonInstance) {
+            HealerLogger._singletonInstance.info(message, ...args);
+        } else {
+            console.info('[SemanticHealer][INFO]', message, ...args);
+        }
+    }
+
+    /**
+     * Static convenience: logs a warning via the registered singleton, or
+     * via the console fallback if no instance has been registered yet.
+     * @param message - The message to log.
+     * @param args - Additional structured arguments.
+     */
+    public static warn(message: string, ...args: unknown[]): void {
+        if (HealerLogger._singletonInstance) {
+            HealerLogger._singletonInstance.warn(message, ...args);
+        } else {
+            console.warn('[SemanticHealer][WARN]', message, ...args);
+        }
+    }
+
+    /**
+     * Static convenience: logs an error via the registered singleton, or
+     * via the console fallback if no instance has been registered yet.
+     * @param message - The message to log.
+     * @param args - Additional structured arguments.
+     */
+    public static error(message: string, ...args: unknown[]): void {
+        if (HealerLogger._singletonInstance) {
+            HealerLogger._singletonInstance.error(message, ...args);
+        } else {
+            console.error('[SemanticHealer][ERROR]', message, ...args);
+        }
+    }
+
+    /**
+     * Static convenience: logs a debug message via the registered singleton,
+     * or via the console fallback if no instance has been registered yet.
+     * @param message - The message to log.
+     * @param args - Additional structured arguments.
+     */
+    public static debug(message: string, ...args: unknown[]): void {
+        if (HealerLogger._singletonInstance) {
+            HealerLogger._singletonInstance.debug(message, ...args);
+        } else {
+            console.debug('[SemanticHealer][DEBUG]', message, ...args);
+        }
+    }
+
     private module: string;
     private plugin: Plugin;
     private settings: SemanticGraphHealerSettings;
@@ -60,6 +154,10 @@ export class HealerLogger {
     private fileLoggingEnabled: boolean = false;
     private fileWriteFailures: number = 0;
     private logFilePath: string = 'SemanticGraphHealer/logs';
+    private dedupConfig: DedupConfig = { ...DEFAULT_DEDUP_CONFIG };
+    private recentFingerprints: Map<string, number> = new Map();
+    private moduleLogCounts: Map<string, number[]> = new Map();
+    private globalLogTimestamps: number[] = [];
 
     /**
      * Creates a new HealerLogger instance for a specific module.
@@ -76,6 +174,15 @@ export class HealerLogger {
             this.maxBufferSize = this.settings.logBufferSize || 1000;
             this.fileLoggingEnabled = this.settings.enableFileLogging || false;
             this.logFilePath = this.settings.logFilePath || 'SemanticGraphHealer/logs';
+            if (this.settings.logDedupWindowMs !== undefined) {
+                this.dedupConfig.windowMs = this.settings.logDedupWindowMs;
+            }
+            if (this.settings.logPerModuleCap !== undefined) {
+                this.dedupConfig.perModuleCap = this.settings.logPerModuleCap;
+            }
+            if (this.settings.logGlobalCap !== undefined) {
+                this.dedupConfig.globalCap = this.settings.logGlobalCap;
+            }
         }
     }
 
@@ -100,10 +207,91 @@ export class HealerLogger {
         }
     }
 
+    /**
+     * Live-updates the deduplication / rate-limit configuration. The new
+     * values are applied to subsequent log calls without re-instantiation.
+     * Existing fingerprint and per-module counts are preserved; tighter caps
+     * are enforced immediately on the next call.
+     *
+     * @param cfg - Partial config: only the keys you want to change.
+     */
+    setDedupConfig(cfg: { windowMs?: number; perModuleCap?: number; globalCap?: number }): void {
+        if (cfg.windowMs !== undefined && Number.isFinite(cfg.windowMs)) {
+            this.dedupConfig.windowMs = Math.max(0, Math.floor(cfg.windowMs));
+        }
+        if (cfg.perModuleCap !== undefined && Number.isFinite(cfg.perModuleCap)) {
+            this.dedupConfig.perModuleCap = Math.max(0, Math.floor(cfg.perModuleCap));
+        }
+        if (cfg.globalCap !== undefined && Number.isFinite(cfg.globalCap)) {
+            this.dedupConfig.globalCap = Math.max(0, Math.floor(cfg.globalCap));
+        }
+    }
+
     private shouldLog(level: LogLevel): boolean {
         if (!this.settings) return true;
         const currentLevel = this.settings.logLevel;
         return LOG_LEVELS[level] >= LOG_LEVELS[currentLevel];
+    }
+
+    /**
+     * Trims, collapses internal whitespace runs into a single space, and
+     * lowercases the message so surface-level variations ("Failed: 500" vs
+     * "failed:500") produce the same fingerprint.
+     */
+    private normalizeMessage(message: string): string {
+        return message.trim().replace(/\s+/g, ' ').toLowerCase();
+    }
+
+    private computeFingerprint(level: LogLevel, module: string, message: string): string {
+        return `${level}|${module}|${this.normalizeMessage(message)}`;
+    }
+
+    /**
+     * Manually prunes timestamps older than `cutoff` from a monotonically
+     * non-decreasing timestamp array. Uses a forward-iterating splice loop
+     * (no spread/filter, no array re-allocation) to keep GC pressure flat on
+     * hot paths.
+     */
+    private pruneTimestamps(arr: number[], cutoff: number): void {
+        for (let i = 0; i < arr.length; ) {
+            if (arr[i] < cutoff) arr.splice(i, 1);
+            else i++;
+        }
+    }
+
+    /**
+     * Returns true if the (level, module, message) triple is allowed to
+     * emit under the current dedup/rate-limit config. When accepted, the
+     * fingerprint, per-module and global timestamp arrays are updated as
+     * a side-effect so future calls observe the new state immediately.
+     */
+    private shouldEmit(level: LogLevel, module: string, message: string): boolean {
+        const cfg = this.dedupConfig;
+        const now = Date.now();
+        const cutoff = now - cfg.windowMs;
+
+        this.pruneTimestamps(this.globalLogTimestamps, cutoff);
+        const moduleTimes = this.moduleLogCounts.get(module) ?? [];
+        this.moduleLogCounts.set(module, moduleTimes);
+        this.pruneTimestamps(moduleTimes, cutoff);
+
+        const fp = this.computeFingerprint(level, module, message);
+        const last = this.recentFingerprints.get(fp);
+        if (last !== undefined && now - last < cfg.windowMs) {
+            return false;
+        }
+
+        if (cfg.perModuleCap > 0 && moduleTimes.length >= cfg.perModuleCap) {
+            return false;
+        }
+        if (cfg.globalCap > 0 && this.globalLogTimestamps.length >= cfg.globalCap) {
+            return false;
+        }
+
+        this.recentFingerprints.set(fp, now);
+        moduleTimes.push(now);
+        this.globalLogTimestamps.push(now);
+        return true;
     }
 
     private formatTimestamp(): string {
@@ -253,6 +441,7 @@ export class HealerLogger {
 
     private log(level: LogLevel, message: string, data?: unknown): void {
         if (!this.shouldLog(level)) return;
+        if (!this.shouldEmit(level, this.module, message)) return;
 
         const entry: LogEntry = {
             timestamp: this.formatTimestamp(),

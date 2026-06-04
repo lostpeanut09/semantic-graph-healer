@@ -55,4 +55,48 @@ export function renderLoggingSettings(containerEl: HTMLElement, ctx: SectionCont
                 new Notice(`Exported to ${path}`);
             }),
         );
+
+    createHeader('Deduplication and rate limit', 'Prevent log spam from rapid-fire or repeated errors.');
+
+    new Setting(containerEl)
+        .setName('Duplicate suppression window (ms)')
+        .setDesc('Time window during which identical (level + module + message) log calls are collapsed into one.')
+        .addText((text) => {
+            text.setPlaceholder('5000')
+                .setValue(String(plugin.settings.logDedupWindowMs))
+                .onChange(async (value) => {
+                    const n = Math.max(0, Math.floor(Number(value) || 0));
+                    plugin.settings.logDedupWindowMs = n;
+                    await plugin.saveSettings();
+                    plugin.logger.setDedupConfig({ windowMs: n });
+                });
+        });
+
+    new Setting(containerEl)
+        .setName('Max logs per module per window')
+        .setDesc('Upper bound on log calls accepted from a single module within the window.')
+        .addText((text) => {
+            text.setPlaceholder('10')
+                .setValue(String(plugin.settings.logPerModuleCap))
+                .onChange(async (value) => {
+                    const n = Math.max(0, Math.floor(Number(value) || 0));
+                    plugin.settings.logPerModuleCap = n;
+                    await plugin.saveSettings();
+                    plugin.logger.setDedupConfig({ perModuleCap: n });
+                });
+        });
+
+    new Setting(containerEl)
+        .setName('Max logs globally per window')
+        .setDesc('Upper bound on log calls accepted from all modules within the window.')
+        .addText((text) => {
+            text.setPlaceholder('100')
+                .setValue(String(plugin.settings.logGlobalCap))
+                .onChange(async (value) => {
+                    const n = Math.max(0, Math.floor(Number(value) || 0));
+                    plugin.settings.logGlobalCap = n;
+                    await plugin.saveSettings();
+                    plugin.logger.setDedupConfig({ globalCap: n });
+                });
+        });
 }
