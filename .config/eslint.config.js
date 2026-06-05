@@ -146,6 +146,6 @@ export default defineConfig([
         ],
     },
 
-    // 8. Prettier in coda
+    // 9. Prettier in coda
     prettierConfig,
 ]);
