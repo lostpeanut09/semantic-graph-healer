@@ -24,20 +24,12 @@ describe('Result factories', () => {
         expect(r.isErr()).toBe(true);
     });
 
-    it('default error type E is HealerError (Result.ok(1) is Result<number, HealerError>)', () => {
-        // No explicit <E>: type-level check via the inferred parameter of map().
-        const r = Result.ok(1).map<HealerError>((v) => {
-            // map<U> lets us carry through any error type; here we declare it.
-            return new HealerError({
-                code: 'X',
-                message: String(v),
-                severity: 'error',
-                module: 'm',
-                recoverable: false,
-            });
-        });
-        // r is Result<HealerError, HealerError> at the type level — both branches exist.
-        expect(r).toBeInstanceOf(Result);
+    it('default error type E is HealerError (type-level check)', () => {
+        const r = Result.ok(1); // inferred as Result<number, HealerError>
+        // map preserves E=HealerError while transforming T=number -> string
+        const mapped: Result<string, HealerError> = r.map((n) => String(n));
+        expect(mapped.isOk()).toBe(true);
+        expect(mapped.unwrap()).toBe('1');
     });
 });
 
