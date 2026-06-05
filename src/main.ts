@@ -520,9 +520,7 @@ export default class SemanticGraphHealer extends Plugin {
             async (params) => {
                 try {
                     const silent =
-                        params.silent !== undefined
-                            ? params.silent === 'true' || params.silent === (true as unknown)
-                            : true;
+                        params.silent !== undefined ? params.silent === 'true' : true;
                     const suggestions = await this.api.runAnalysis({ silent });
                     return JSON.stringify(suggestions);
                 } catch (e) {
