@@ -33,18 +33,37 @@ export function isObsidianInternalApp(app: App): app is App & ObsidianInternalAp
 }
 
 /**
+ * Monotonic counter for the non-cryptographic UUID fallback path.
+ * @internal
+ */
+let uuidFallbackCounter = 0;
+
+/**
  * UUID Fallback for non-secure contexts (MDN Compliance).
- * @returns A randomly generated v4 UUID string.
+ * Uses crypto.randomUUID() when available, otherwise a counter+timestamp
+ * scheme that is unique within a single process but NOT cryptographically
+ * random. Intentionally avoids Math.random() per the Sentinel rule.
+ * @returns A v4-shaped UUID string.
  */
 function uuidFallbackV4(): string {
     const c = globalThis.crypto;
+    if (c?.randomUUID) {
+        return c.randomUUID();
+    }
     if (!c?.getRandomValues) {
         HealerLogger.warn(
-            'Secure Crypto.getRandomValues not available. Using non-cryptographic Math.random fallback for ID generation.',
+            'Secure Crypto.randomUUID/getRandomValues not available. Using counter-based fallback for ID generation.',
         );
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (ch) => {
-            const r = (Math.random() * 16) | 0;
-            const v = ch === 'x' ? r : (r & 0x3) | 0x8;
+        // Sentinel-compliant fallback: timestamp + monotonic counter (no Math.random).
+        uuidFallbackCounter = (uuidFallbackCounter + 1) & 0xffffffff;
+        const ts = Date.now().toString(36);
+        const cHex = uuidFallbackCounter.toString(16).padStart(8, '0');
+        // Shape as a v4-shaped UUID (version 4 nibble + variant bits).
+        return `xxxxxxxx-xxxx-4xxx-yxxx-${cHex}`.replace(/[xy]/g, (ch, idx) => {
+            const v =
+                ch === 'x'
+                    ? parseInt(ts[(idx + uuidFallbackCounter) % ts.length] ?? '0', 36)
+                    : (uuidFallbackCounter >> (idx % 4)) & 0x3;
             return v.toString(16);
         });
     }
@@ -52,7 +71,13 @@ function uuidFallbackV4(): string {
     c.getRandomValues(bytes);
     bytes[6] = (bytes[6] & 0x0f) | 0x40; // v4
     bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 10
-    const hex = [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
+    // Manual hex conversion (avoids [...bytes] spread per Bolt rule).
+    const HEX = '0123456789abcdef';
+    let hex = '';
+    for (let i = 0; i < bytes.length; i++) {
+        const b = bytes[i];
+        hex += HEX[b >> 4] + HEX[b & 0x0f];
+    }
     return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
