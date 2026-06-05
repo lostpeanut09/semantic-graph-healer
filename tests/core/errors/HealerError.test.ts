@@ -170,4 +170,22 @@ describe('LlmError dual constructor', () => {
         expect(err.model).toBeUndefined();
         expect(err.status).toBeUndefined();
     });
+
+    it('legacy form: status is undefined when status arg is omitted (WR-05 regression)', () => {
+        // Call legacy 3-arg form with an explicit `undefined` for the status
+        // parameter to verify the field is undefined rather than the previous
+        // default of 0 (which is not a valid HTTP status code).
+        const err = new LlmError('gpt-4', undefined as unknown as number, 'no status given');
+        expect(err).toBeInstanceOf(LlmError);
+        expect(err.model).toBe('gpt-4');
+        expect(err.status).toBeUndefined();
+        // Message interpolation should not embed "0" since status is undefined.
+        expect(err.message).not.toContain('- 0');
+    });
+
+    it('legacy form: 3-arg form preserves provided status as a number', () => {
+        const err = new LlmError('claude-3', 504, 'Gateway Timeout');
+        expect(err.status).toBe(504);
+        expect(err.message).toContain('504');
+    });
 });
