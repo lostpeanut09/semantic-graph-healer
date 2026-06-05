@@ -121,15 +121,19 @@ export class HealerLogger {
     /**
      * Static convenience: logs an error via the registered singleton, or
      * via the console fallback if no instance has been registered yet.
+     * Mirrors the instance method's Error extraction so pre-init calls
+     * retain `message`, `stack`, and `name` from real Error instances.
      * @param message - The message to log.
      * @param args - Additional structured arguments.
      */
     public static error(message: string, ...args: unknown[]): void {
         if (HealerLogger._singletonInstance) {
             HealerLogger._singletonInstance.error(message, ...args);
-        } else {
-            console.error('[SemanticHealer][ERROR]', message, ...args);
+            return;
         }
+        const err = args[0];
+        const errorData = err instanceof Error ? { message: err.message, stack: err.stack, name: err.name } : err;
+        console.error('[SemanticHealer][ERROR]', message, errorData);
     }
 
     /**
