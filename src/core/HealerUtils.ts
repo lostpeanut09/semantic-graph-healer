@@ -231,7 +231,7 @@ export function extractLinkpaths(page: Record<string, unknown>, keys: string[]):
             extractLinkpathsFromValue(value).forEach((lp) => seen.add(lp));
         }
     });
-    return [...seen];
+    return Array.from(seen);
 }
 
 /**
@@ -261,7 +261,7 @@ export function resolveLinkpathsToPaths(
         if (cache) cache.set(key, resolved);
         if (resolved) seen.add(resolved);
     }
-    return [...seen];
+    return Array.from(seen);
 }
 
 /**
