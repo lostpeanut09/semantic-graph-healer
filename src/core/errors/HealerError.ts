@@ -140,7 +140,10 @@ export class LlmError extends HealerError {
     constructor(optionsOrModel: LlmErrorOptions | string, legacyStatus?: number, legacyMessage?: string) {
         if (typeof optionsOrModel === 'string') {
             const model = optionsOrModel;
-            const status = legacyStatus ?? 0;
+            // 0 is not a valid HTTP status; keep the field undefined when
+            // the legacy caller does not pass one so downstream consumers
+            // can use a presence check rather than treating 0 as meaningful.
+            const status = legacyStatus;
             const message = legacyMessage ?? '';
             super({
                 code: 'LLM_ERROR',
