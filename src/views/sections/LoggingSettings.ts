@@ -58,6 +58,17 @@ export function renderLoggingSettings(containerEl: HTMLElement, ctx: SectionCont
 
     createHeader('Deduplication and rate limit', 'Prevent log spam from rapid-fire or repeated errors.');
 
+    // Upper bound for the dedup window (24h) — prevents accidental "Infinity" / huge values.
+    const MAX_DEDUP_WINDOW_MS = 86_400_000;
+    // Upper bound for caps (10k) — generous headroom for noisy workloads.
+    const MAX_LOG_CAP = 10_000;
+
+    const sanitizeBoundedInt = (raw: string, max: number): number => {
+        const parsed = Number(raw);
+        if (!Number.isFinite(parsed)) return 0;
+        return Math.max(0, Math.min(max, Math.floor(parsed)));
+    };
+
     new Setting(containerEl)
         .setName('Duplicate suppression window (ms)')
         .setDesc('Time window during which identical (level + module + message) log calls are collapsed into one.')
@@ -65,7 +76,10 @@ export function renderLoggingSettings(containerEl: HTMLElement, ctx: SectionCont
             text.setPlaceholder('5000')
                 .setValue(String(plugin.settings.logDedupWindowMs))
                 .onChange(async (value) => {
-                    const n = Math.max(0, Math.floor(Number(value) || 0));
+                    const n = sanitizeBoundedInt(value, MAX_DEDUP_WINDOW_MS);
+                    if (!Number.isFinite(Number(value)) && value.trim() !== '') {
+                        new Notice(`Invalid value "${value}". Using 0.`);
+                    }
                     plugin.settings.logDedupWindowMs = n;
                     await plugin.saveSettings();
                     plugin.logger.setDedupConfig({ windowMs: n });
@@ -79,7 +93,7 @@ export function renderLoggingSettings(containerEl: HTMLElement, ctx: SectionCont
             text.setPlaceholder('10')
                 .setValue(String(plugin.settings.logPerModuleCap))
                 .onChange(async (value) => {
-                    const n = Math.max(0, Math.floor(Number(value) || 0));
+                    const n = sanitizeBoundedInt(value, MAX_LOG_CAP);
                     plugin.settings.logPerModuleCap = n;
                     await plugin.saveSettings();
                     plugin.logger.setDedupConfig({ perModuleCap: n });
@@ -93,7 +107,7 @@ export function renderLoggingSettings(containerEl: HTMLElement, ctx: SectionCont
             text.setPlaceholder('100')
                 .setValue(String(plugin.settings.logGlobalCap))
                 .onChange(async (value) => {
-                    const n = Math.max(0, Math.floor(Number(value) || 0));
+                    const n = sanitizeBoundedInt(value, MAX_LOG_CAP);
                     plugin.settings.logGlobalCap = n;
                     await plugin.saveSettings();
                     plugin.logger.setDedupConfig({ globalCap: n });
