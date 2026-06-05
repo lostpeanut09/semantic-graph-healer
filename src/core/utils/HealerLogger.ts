@@ -162,6 +162,16 @@ export class HealerLogger {
     private recentFingerprints: Map<string, number> = new Map();
     private moduleLogCounts: Map<string, number[]> = new Map();
     private globalLogTimestamps: number[] = [];
+    /**
+     * In-flight file-write promises from log()/clearBuffer() (IN-05).
+     *
+     * The logger's public API is fire-and-forget: it calls
+     * `void this.writeToFile(entry)` so the UI thread is never blocked.
+     * If the Obsidian process terminates right after a log call, any
+     * unresolved promise is lost. `flush()` awaits all entries so the
+     * plugin can drain in-flight writes from `onunload()`.
+     */
+    private pendingFileWrites: Promise<void>[] = [];
 
     /**
      * Creates a new HealerLogger instance for a specific module.
@@ -255,6 +265,16 @@ export class HealerLogger {
      * non-decreasing timestamp array. Uses a forward-iterating splice loop
      * (no spread/filter, no array re-allocation) to keep GC pressure flat on
      * hot paths.
+     *
+     * **IN-06 monotonicity contract (IN-06):** this function relies on the
+     * caller never inserting out-of-order timestamps. It iterates from
+     * index 0 and stops at the first timestamp `>= cutoff`, so a smaller
+     * timestamp inserted later (e.g. via a clock skew or a manual
+     * mutation) would be silently skipped. All current producers —
+     * `shouldEmit()` pushing `Date.now()`, and the fingerprint
+     * map's `Map` iteration order — append in non-decreasing time
+     * order, which keeps the assumption valid. If a future change
+     * writes timestamps out of order, switch this to a full scan.
      */
     private pruneTimestamps(arr: number[], cutoff: number): void {
         for (let i = 0; i < arr.length; ) {
@@ -292,6 +312,14 @@ export class HealerLogger {
      * emit under the current dedup/rate-limit config. When accepted, the
      * fingerprint, per-module and global timestamp arrays are updated as
      * a side-effect so future calls observe the new state immediately.
+     *
+     * **IN-06 ordering assumption:** the side-effects at the bottom of
+     * this method (`moduleTimes.push(now)` and
+     * `globalLogTimestamps.push(now)`) preserve the monotonic
+     * non-decreasing ordering that `pruneTimestamps` and
+     * `pruneAllModuleCounts` rely on for forward-splice efficiency.
+     * Do not insert or mutate these arrays from any other code path
+     * without also auditing the prune logic.
      */
     private shouldEmit(level: LogLevel, module: string, message: string): boolean {
         const cfg = this.dedupConfig;
@@ -487,8 +515,12 @@ export class HealerLogger {
         else if (level === 'info') console.info(logLine);
         else console.debug(logLine);
 
-        // File output
-        void this.writeToFile(entry);
+        // File output — track the promise so flush() can await it.
+        // writeToFile already catches its own errors internally, but
+        // attach a no-op catch here as a belt-and-braces guarantee that
+        // no rejected promise leaks into pendingFileWrites.
+        const writePromise = this.writeToFile(entry).catch(() => undefined);
+        this.pendingFileWrites.push(writePromise);
     }
 
     /**
@@ -557,7 +589,8 @@ export class HealerLogger {
             console.debug(this.formatLogLine(entry));
         }
 
-        void this.writeToFile(entry);
+        const writePromise = this.writeToFile(entry).catch(() => undefined);
+        this.pendingFileWrites.push(writePromise);
     }
 
     private addToBuffer(entry: LogEntry): void {
@@ -587,5 +620,33 @@ export class HealerLogger {
             stats.byLevel[entry.level]++;
         });
         return stats;
+    }
+
+    /**
+     * Awaits all in-flight file writes queued by `log()` and
+     * `clearBuffer()` (IN-05). Call from the plugin's `onunload()`
+     * to maximize the chance that buffered log lines reach disk before
+     * the Obsidian process tears down.
+     *
+     * Uses `Promise.allSettled` so a single rejected write does not
+     * block the rest of the queue. The internal `pendingFileWrites`
+     * array is replaced with a fresh one before the await, so any
+     * writes enqueued during the flush are picked up by a subsequent
+     * `flush()` call (not the current one) — this matches the
+     * intuitive "drain what's pending right now" contract.
+     */
+    async flush(): Promise<void> {
+        const pending = this.pendingFileWrites;
+        this.pendingFileWrites = [];
+        await Promise.allSettled(pending);
+    }
+
+    /**
+     * Returns the number of file writes currently pending (IN-05).
+     * Exposed for tests and diagnostics; do not depend on this from
+     * production hot paths.
+     */
+    get pendingWriteCount(): number {
+        return this.pendingFileWrites.length;
     }
 }
