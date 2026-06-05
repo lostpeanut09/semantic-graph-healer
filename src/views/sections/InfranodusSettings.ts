@@ -48,6 +48,8 @@ export function renderInfranodusSettings(containerEl: HTMLElement, ctx: SectionC
         .setDesc('Identify missing links between clusters using network science.')
         .addButton((btn) =>
             btn.setButtonText('Fetch gaps').onClick(async () => {
+                btn.buttonEl.setAttribute('aria-busy', 'true');
+                btn.buttonEl.setAttribute('aria-label', 'Querying service');
                 btn.setButtonText('Querying service...');
                 const count = await plugin.fetchInfraNodusGaps();
                 if (count > 0) {
@@ -57,6 +59,8 @@ export function renderInfranodusSettings(containerEl: HTMLElement, ctx: SectionC
                 } else {
                     new Notice('Service error. Check token.');
                 }
+                btn.buttonEl.removeAttribute('aria-busy');
+                btn.buttonEl.removeAttribute('aria-label');
                 btn.setButtonText('Fetch gaps');
             }),
         );

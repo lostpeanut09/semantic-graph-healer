@@ -52,6 +52,7 @@
       class="mod-cta" 
       disabled={loading} 
       aria-busy={loading}
+      aria-label={loading ? 'Searching' : 'Search'}
       onclick={handleSearch}
     >
       {loading ? 'Searching...' : 'Search'}
