@@ -129,6 +129,8 @@ export default defineConfig([
     // 8. Ignore globals: *.mjs reviewer scripts (e.g. kilo_review.mjs) are intentionally
     //    excluded via `ignores` rather than the scripts/ override (which only covers .ts).
     //    They are Node.js stdio tools, not plugin code, so linting them adds no value.
+    //    tests/fixtures/** contains reviewer test artifacts (e.g. JulesTest.ts) with
+    //    intentional rule violations used to validate the Jules AI reviewer.
     {
         ignores: [
             '**/*.js',
@@ -140,6 +142,7 @@ export default defineConfig([
             '**/*.test.ts',
             '**/*.bak',
             '*-docs/**',
+            'tests/fixtures/**',
         ],
     },
 
