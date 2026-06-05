@@ -260,6 +260,30 @@ export class HealerLogger {
     }
 
     /**
+     * Removes fingerprint entries whose last-seen timestamp is older than
+     * `cutoff`. Bounded growth guard: prevents the dedup Map from leaking
+     * memory across long-running sessions when many unique messages are
+     * logged (e.g. logs that embed per-file paths).
+     */
+    private pruneFingerprints(cutoff: number): void {
+        for (const [fp, ts] of this.recentFingerprints) {
+            if (ts < cutoff) this.recentFingerprints.delete(fp);
+        }
+    }
+
+    /**
+     * Prunes per-module timestamp arrays across ALL modules and removes
+     * entries whose arrays became empty. Called on every shouldEmit() so
+     * abandoned modules don't leak Map slots across long-running sessions.
+     */
+    private pruneAllModuleCounts(cutoff: number): void {
+        for (const [mod, arr] of this.moduleLogCounts) {
+            this.pruneTimestamps(arr, cutoff);
+            if (arr.length === 0) this.moduleLogCounts.delete(mod);
+        }
+    }
+
+    /**
      * Returns true if the (level, module, message) triple is allowed to
      * emit under the current dedup/rate-limit config. When accepted, the
      * fingerprint, per-module and global timestamp arrays are updated as
@@ -271,23 +295,22 @@ export class HealerLogger {
         const cutoff = now - cfg.windowMs;
 
         this.pruneTimestamps(this.globalLogTimestamps, cutoff);
+        this.pruneAllModuleCounts(cutoff);
+        this.pruneFingerprints(cutoff);
+
         const moduleTimes = this.moduleLogCounts.get(module) ?? [];
-        this.moduleLogCounts.set(module, moduleTimes);
-        this.pruneTimestamps(moduleTimes, cutoff);
 
         const fp = this.computeFingerprint(level, module, message);
         const last = this.recentFingerprints.get(fp);
-        if (last !== undefined && now - last < cfg.windowMs) {
+        const isDuplicate = last !== undefined && now - last < cfg.windowMs;
+        const overModuleCap = cfg.perModuleCap > 0 && moduleTimes.length >= cfg.perModuleCap;
+        const overGlobalCap = cfg.globalCap > 0 && this.globalLogTimestamps.length >= cfg.globalCap;
+
+        if (isDuplicate || overModuleCap || overGlobalCap) {
             return false;
         }
 
-        if (cfg.perModuleCap > 0 && moduleTimes.length >= cfg.perModuleCap) {
-            return false;
-        }
-        if (cfg.globalCap > 0 && this.globalLogTimestamps.length >= cfg.globalCap) {
-            return false;
-        }
-
+        this.moduleLogCounts.set(module, moduleTimes);
         this.recentFingerprints.set(fp, now);
         moduleTimes.push(now);
         this.globalLogTimestamps.push(now);
