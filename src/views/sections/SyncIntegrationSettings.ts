@@ -21,7 +21,9 @@ export function renderSyncIntegrationSettings(containerEl: HTMLElement, ctx: Sec
                 .setButtonText('Sync data now')
                 .setCta()
                 .onClick(async () => {
-                    btn.setButtonText('Scanning...');
+                    btn.buttonEl.setAttribute('aria-busy', 'true');
+                    btn.buttonEl.setAttribute('aria-label', 'Scanning');
+                    btn.setButtonText('Scanning');
                     btn.setDisabled(true);
                     const success = await plugin.syncExternalSettings();
                     if (success) {
@@ -33,6 +35,8 @@ export function renderSyncIntegrationSettings(containerEl: HTMLElement, ctx: Sec
                     } else {
                         new Notice('No compatible settings found in breadcrumbs or excalibrain.');
                     }
+                    btn.buttonEl.removeAttribute('aria-busy');
+                    btn.buttonEl.setAttribute('aria-label', 'Sync data now');
                     btn.setButtonText('Sync data now');
                     btn.setDisabled(false);
                 }),

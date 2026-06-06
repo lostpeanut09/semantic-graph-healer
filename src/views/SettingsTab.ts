@@ -66,6 +66,7 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
             plugin: this.plugin,
             app: this.app as ExtendedApp,
             setCssProps: (el, props) => this.setCssProps(el, props),
+            // eslint-disable-next-line @typescript-eslint/no-deprecated
             refresh: () => this.display(),
             runModelDetection: (button, isPrimary) => this.runModelDetection(button, isPrimary),
         };
@@ -104,7 +105,9 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
         const cloudFallbacks = ['gpt-4o', 'claude-3-5-sonnet-latest', 'gemini-1.5-pro', 'deepseek-chat', 'o3-mini'];
 
         try {
-            button.setButtonText('Scanning...');
+            button.buttonEl.setAttribute('aria-busy', 'true');
+            button.buttonEl.setAttribute('aria-label', 'Scanning');
+            button.setButtonText('Scanning');
             button.setDisabled(true);
             new Notice(`Testing ${isPrimary ? 'primary' : 'secondary'} connection...`);
 
@@ -126,12 +129,15 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
                     ? `Success: Detected ${models.length} models.`
                     : 'No server models detected. Falling back to SOTA cloud presets.',
             );
+            // eslint-disable-next-line @typescript-eslint/no-deprecated
             this.display();
         } catch (e) {
             this.plugin.logger.error('Model detection failed', e);
             new Notice('Detection failed. Check endpoint or firewall.');
         } finally {
             button.setDisabled(false);
+            button.buttonEl.removeAttribute('aria-busy');
+            button.buttonEl.setAttribute('aria-label', isPrimary ? 'Scan primary' : 'Scan secondary');
             button.setButtonText(isPrimary ? 'Scan primary' : 'Scan secondary');
         }
     }

@@ -62,6 +62,8 @@ export function renderEmbeddingSettings(containerEl: HTMLElement, ctx: SectionCo
         .setDesc('Run semantic anchor check to verify model quality and dimensions')
         .addButton((btn) =>
             btn.setButtonText('Verify model').onClick(async () => {
+                btn.buttonEl.setAttribute('aria-busy', 'true');
+                btn.buttonEl.setAttribute('aria-label', 'Verifying');
                 btn.setDisabled(true);
                 btn.setButtonText('Verifying');
                 try {
@@ -75,6 +77,8 @@ export function renderEmbeddingSettings(containerEl: HTMLElement, ctx: SectionCo
                     new Notice('Verification failed');
                 } finally {
                     btn.setDisabled(false);
+                    btn.buttonEl.removeAttribute('aria-busy');
+                    btn.buttonEl.setAttribute('aria-label', 'Verify model');
                     btn.setButtonText('Verify model');
                     refresh();
                 }
@@ -99,6 +103,8 @@ export function renderEmbeddingSettings(containerEl: HTMLElement, ctx: SectionCo
         .setDesc('Build community themes and entity indices. Required for graphrag queries.')
         .addButton((btn) =>
             btn.setButtonText('Rebuild').onClick(async () => {
+                btn.buttonEl.setAttribute('aria-busy', 'true');
+                btn.buttonEl.setAttribute('aria-label', 'Indexing');
                 btn.setDisabled(true);
                 btn.setButtonText('Indexing');
                 new Notice('Starting background indexing');
@@ -109,6 +115,8 @@ export function renderEmbeddingSettings(containerEl: HTMLElement, ctx: SectionCo
                     new Notice('Indexing failed');
                 } finally {
                     btn.setDisabled(false);
+                    btn.buttonEl.removeAttribute('aria-busy');
+                    btn.buttonEl.setAttribute('aria-label', 'Rebuild');
                     btn.setButtonText('Rebuild');
                 }
             }),
