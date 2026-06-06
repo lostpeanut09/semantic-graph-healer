@@ -83,3 +83,142 @@ describe('HealerLogger Rate Limit', () => {
         expect(buffer.length).toBe(7);
     });
 });
+
+describe('G6 — Bolt rule stress test: pruning with 200+ entries', () => {
+    const mockPlugin = {
+        app: {
+            vault: {
+                getAbstractFileByPath: vi.fn(),
+                create: vi.fn(),
+            },
+        },
+    } as unknown as Plugin;
+
+    it('prunes globalLogTimestamps correctly with 250 entries (write-pointer no-shift)', () => {
+        vi.useFakeTimers();
+        const start = Date.now();
+        vi.setSystemTime(start);
+
+        const settings = baseSettings();
+        settings.logPerModuleCap = 0;
+        settings.logGlobalCap = 0; // disable all caps so all 250 messages emit timestamps
+        const logger = new HealerLogger('StressMod', mockPlugin, settings);
+
+        for (let i = 0; i < 250; i++) {
+            logger.info(`stress-msg-${i}`);
+        }
+
+        const globalTimestamps = (logger as unknown as { globalLogTimestamps: number[] }).globalLogTimestamps;
+        expect(globalTimestamps.length).toBe(250);
+
+        vi.setSystemTime(start + 6000);
+
+        logger.info('post-prune probe');
+
+        expect(globalTimestamps.length).toBe(1);
+
+        const buffer = (logger as unknown as { logBuffer: Array<unknown> }).logBuffer;
+        expect(buffer.length).toBe(251);
+
+        vi.useRealTimers();
+    });
+
+    it('prunes moduleLogCounts correctly after 200+ entries across modules', () => {
+        vi.useFakeTimers();
+        const start = Date.now();
+        vi.setSystemTime(start);
+
+        const loggerA = new HealerLogger('ModStressA', mockPlugin, baseSettings());
+        const loggerB = new HealerLogger('ModStressB', mockPlugin, baseSettings());
+
+        // Seed 15 messages each (perModuleCap is 10, so 10 emitted, 5 dropped)
+        for (let i = 0; i < 15; i++) {
+            loggerA.info(`modA-msg-${i}`);
+            loggerB.info(`modB-msg-${i}`);
+        }
+
+        const moduleCountsA = (loggerA as unknown as { moduleLogCounts: Map<string, number[]> }).moduleLogCounts;
+        const moduleCountsB = (loggerB as unknown as { moduleLogCounts: Map<string, number[]> }).moduleLogCounts;
+
+        expect(moduleCountsA.get('ModStressA')?.length).toBe(10);
+        expect(moduleCountsB.get('ModStressB')?.length).toBe(10);
+
+        // Advance past window
+        vi.setSystemTime(start + 6000);
+
+        // Emit from loggerA — triggers pruneAllModuleCounts across ALL moduleCounts
+        // loggerB's moduleCounts are not on loggerA, but loggerA's pruneAllModuleCounts
+        // only prunes loggerA's own moduleCounts map.
+        loggerA.info('post-prune probe A');
+
+        // loggerA's ModStressA count should be pruned to just 1 (the new probe)
+        expect(moduleCountsA.get('ModStressA')?.length).toBe(1);
+
+        // Now emit from loggerB to prune its moduleCounts
+        loggerB.info('post-prune probe B');
+        expect(moduleCountsB.get('ModStressB')?.length).toBe(1);
+
+        vi.useRealTimers();
+    });
+
+    it('pruneFingerprints handles 200+ entries correctly', () => {
+        vi.useFakeTimers();
+        const start = Date.now();
+        vi.setSystemTime(start);
+
+        const settings = baseSettings();
+        settings.logPerModuleCap = 0;
+        settings.logGlobalCap = 0; // disable all caps so all 200 messages emit fingerprints
+        const logger = new HealerLogger('FingerprintMod', mockPlugin, settings);
+
+        for (let i = 0; i < 200; i++) {
+            logger.info(`distinct-fingerprint-${i}`);
+        }
+
+        const fingerprints = (logger as unknown as { recentFingerprints: Map<string, number> }).recentFingerprints;
+        expect(fingerprints.size).toBe(200);
+
+        vi.setSystemTime(start + 6000);
+
+        logger.info('fingerprint probe');
+
+        expect(fingerprints.size).toBe(1);
+        expect(fingerprints.has('info|FingerprintMod|fingerprint probe')).toBe(true);
+
+        vi.useRealTimers();
+    });
+
+    it('buffer count is correct after pruning with large dataset', () => {
+        vi.useFakeTimers();
+        const start = Date.now();
+        vi.setSystemTime(start);
+
+        const settings = baseSettings();
+        settings.logPerModuleCap = 0;
+        settings.logGlobalCap = 0; // disable all caps
+        const logger = new HealerLogger('MixedStress', mockPlugin, settings);
+
+        for (let i = 0; i < 250; i++) {
+            logger.info(`msg-${i}`);
+        }
+
+        let buffer = (logger as unknown as { logBuffer: Array<unknown> }).logBuffer;
+        let globalTimestamps = (logger as unknown as { globalLogTimestamps: number[] }).globalLogTimestamps;
+        expect(buffer.length).toBe(250);
+        expect(globalTimestamps.length).toBe(250);
+
+        vi.setSystemTime(start + 6000);
+
+        for (let i = 0; i < 20; i++) {
+            logger.info(`post-${i}`);
+        }
+
+        globalTimestamps = (logger as unknown as { globalLogTimestamps: number[] }).globalLogTimestamps;
+        expect(globalTimestamps.length).toBe(20);
+
+        buffer = (logger as unknown as { logBuffer: Array<unknown> }).logBuffer;
+        expect(buffer.length).toBe(270);
+
+        vi.useRealTimers();
+    });
+});

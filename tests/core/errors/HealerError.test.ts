@@ -131,9 +131,33 @@ describe('LlmError dual constructor', () => {
         expect(err.code).toBe('LLM_ERROR');
         expect(err.severity).toBe('error');
         expect(err.module).toBe('LlmService');
-        expect(err.recoverable).toBe(false);
+        // recoverable contract per IN-02 (25-REVIEW-FIX.md): 429, 500, 502, 503, 504 → true
+        expect(err.recoverable).toBe(true);
         // timestamp populated
         expect(typeof err.timestamp).toBe('number');
+    });
+
+    it('legacy LlmError recoverable contract: 429 → true, 400 → false', () => {
+        // 429 (rate limit) → recoverable
+        const rateLimited = new LlmError('gpt-4', 429, 'Rate Limited');
+        expect(rateLimited.recoverable).toBe(true);
+        // 400 (bad request) → not recoverable
+        const badRequest = new LlmError('gpt-4', 400, 'Bad Request');
+        expect(badRequest.recoverable).toBe(false);
+        // 500, 503, 504 also recoverable per IN-02 contract
+        const serverErr = new LlmError('claude-3', 500, 'Internal Server Error');
+        expect(serverErr.recoverable).toBe(true);
+        const unavailable = new LlmError('claude-3', 503, 'Service Unavailable');
+        expect(unavailable.recoverable).toBe(true);
+        const gatewayTimeout = new LlmError('claude-3', 504, 'Gateway Timeout');
+        expect(gatewayTimeout.recoverable).toBe(true);
+        // 401, 403, 404 → not recoverable
+        const unauthorized = new LlmError('gpt-4', 401, 'Unauthorized');
+        expect(unauthorized.recoverable).toBe(false);
+        const forbidden = new LlmError('gpt-4', 403, 'Forbidden');
+        expect(forbidden.recoverable).toBe(false);
+        const notFound = new LlmError('gpt-4', 404, 'Not Found');
+        expect(notFound.recoverable).toBe(false);
     });
 
     it('accepts the new options form', () => {
