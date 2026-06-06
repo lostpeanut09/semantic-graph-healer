@@ -864,10 +864,12 @@ Only return the JSON. No markdown or meta-talk.
     endpoint: string,
     apiKey: string,
   ): Promise<string[]> {
+    const base = endpoint.replace(/\/+$/, "");
+    const alreadyV1 = base.endsWith("/v1");
     const tryEndpoints = [
-      endpoint.endsWith("/") ? `${endpoint}v1/models` : `${endpoint}/v1/models`,
-      endpoint.endsWith("/") ? `${endpoint}models` : `${endpoint}/models`,
-      endpoint.endsWith("/") ? `${endpoint}api/tags` : `${endpoint}/api/tags`, // Ollama native
+      alreadyV1 ? `${base}/models` : `${base}/v1/models`,
+      `${base}/models`,
+      `${base}/api/tags`, // Ollama native
     ];
 
     for (const url of tryEndpoints) {
