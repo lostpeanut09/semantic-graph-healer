@@ -139,7 +139,6 @@ export default defineConfig([
             'node_modules_bak/',
             '.kilo/',
             '.agent/',
-            '**/*.test.ts',
             '**/*.bak',
             '*-docs/**',
             'tests/fixtures/**',
