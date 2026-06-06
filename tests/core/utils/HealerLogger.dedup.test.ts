@@ -154,4 +154,56 @@ describe('HealerLogger Deduplication', () => {
         // ModA is still active (just emitted), so it must remain.
         expect(moduleCounts.has('ModA')).toBe(true);
     });
+
+    describe('G5 — setDedupConfig coercion (Settings UI parity)', () => {
+        it('coerces negative windowMs to 0 (disables dedup)', () => {
+            logger.setDedupConfig({ windowMs: -100 });
+            const cfg = (logger as unknown as { dedupConfig: { windowMs: number } }).dedupConfig;
+            expect(cfg.windowMs).toBe(0);
+        });
+
+        it('coerces floating-point windowMs to integer floor', () => {
+            logger.setDedupConfig({ windowMs: 4999.9 });
+            const cfg = (logger as unknown as { dedupConfig: { windowMs: number } }).dedupConfig;
+            expect(cfg.windowMs).toBe(4999);
+        });
+
+        it('coerces negative perModuleCap to 0', () => {
+            logger.setDedupConfig({ perModuleCap: -5 });
+            const cfg = (logger as unknown as { dedupConfig: { perModuleCap: number } }).dedupConfig;
+            expect(cfg.perModuleCap).toBe(0);
+        });
+
+        it('coerces floating-point perModuleCap to integer floor', () => {
+            logger.setDedupConfig({ perModuleCap: 9.7 });
+            const cfg = (logger as unknown as { dedupConfig: { perModuleCap: number } }).dedupConfig;
+            expect(cfg.perModuleCap).toBe(9);
+        });
+
+        it('coerces negative globalCap to 0', () => {
+            logger.setDedupConfig({ globalCap: -10 });
+            const cfg = (logger as unknown as { dedupConfig: { globalCap: number } }).dedupConfig;
+            expect(cfg.globalCap).toBe(0);
+        });
+
+        it('coerces floating-point globalCap to integer floor', () => {
+            logger.setDedupConfig({ globalCap: 99.1 });
+            const cfg = (logger as unknown as { dedupConfig: { globalCap: number } }).dedupConfig;
+            expect(cfg.globalCap).toBe(99);
+        });
+
+        it('coerces NaN windowMs to unchanged (Number.isFinite guard)', () => {
+            const before = (logger as unknown as { dedupConfig: { windowMs: number } }).dedupConfig.windowMs;
+            logger.setDedupConfig({ windowMs: NaN });
+            const after = (logger as unknown as { dedupConfig: { windowMs: number } }).dedupConfig.windowMs;
+            expect(after).toBe(before);
+        });
+
+        it('coerces Infinity globalCap to unchanged (Number.isFinite guard)', () => {
+            const before = (logger as unknown as { dedupConfig: { globalCap: number } }).dedupConfig.globalCap;
+            logger.setDedupConfig({ globalCap: Infinity });
+            const after = (logger as unknown as { dedupConfig: { globalCap: number } }).dedupConfig.globalCap;
+            expect(after).toBe(before);
+        });
+    });
 });
