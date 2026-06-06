@@ -54,6 +54,8 @@ let uuidFallbackCounter = 0;
  */
 function uuidFallbackV4(): string {
   const c = globalThis.crypto;
+  // NOTE: generateId() already checks randomUUID before calling us.
+  // This branch is only reachable when uuidFallbackV4 is invoked directly.
   if (c?.randomUUID) {
     return c.randomUUID();
   }
