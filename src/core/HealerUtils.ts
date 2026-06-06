@@ -1,9 +1,14 @@
-import { App, TFile, parseLinktext } from 'obsidian';
-import { maskSecrets } from './utils/RedactUtils';
-import { HealerLogger } from './utils/HealerLogger';
-import type { ObsidianInternalApp } from '../types';
+import { App, TFile, parseLinktext } from "obsidian";
+import { maskSecrets } from "./utils/RedactUtils";
+import { HealerLogger } from "./utils/HealerLogger";
+import type { ObsidianInternalApp } from "../types";
 
-export type ApiKeyType = 'openai' | 'anthropic' | 'deepseek' | 'infranodus' | 'custom';
+export type ApiKeyType =
+  | "openai"
+  | "anthropic"
+  | "deepseek"
+  | "infranodus"
+  | "custom";
 
 /**
  * Detects LLM provider from endpoint URL.
@@ -11,11 +16,11 @@ export type ApiKeyType = 'openai' | 'anthropic' | 'deepseek' | 'infranodus' | 'c
  * @returns The detected provider type.
  */
 export function getProviderFromEndpoint(endpoint: string): ApiKeyType {
-    const ep = (endpoint || '').toLowerCase();
-    if (ep.includes('anthropic.com')) return 'anthropic';
-    if (ep.includes('openai.com')) return 'openai';
-    if (ep.includes('deepseek')) return 'deepseek';
-    return 'custom';
+  const ep = (endpoint || "").toLowerCase();
+  if (ep.includes("anthropic.com")) return "anthropic";
+  if (ep.includes("openai.com")) return "openai";
+  if (ep.includes("deepseek")) return "deepseek";
+  return "custom";
 }
 
 /**
@@ -23,13 +28,15 @@ export function getProviderFromEndpoint(endpoint: string): ApiKeyType {
  * @param app - The Obsidian App instance.
  * @returns True if the app has internal plugin management extensions.
  */
-export function isObsidianInternalApp(app: App): app is App & ObsidianInternalApp {
-    const internal = app as unknown as ObsidianInternalApp;
-    return !!(
-        internal.plugins &&
-        typeof internal.plugins.enabledPlugins !== 'undefined' &&
-        typeof internal.plugins.getPlugin === 'function'
-    );
+export function isObsidianInternalApp(
+  app: App,
+): app is App & ObsidianInternalApp {
+  const internal = app as unknown as ObsidianInternalApp;
+  return !!(
+    internal.plugins &&
+    typeof internal.plugins.enabledPlugins !== "undefined" &&
+    typeof internal.plugins.getPlugin === "function"
+  );
 }
 
 /**
@@ -46,39 +53,39 @@ let uuidFallbackCounter = 0;
  * @returns A v4-shaped UUID string.
  */
 function uuidFallbackV4(): string {
-    const c = globalThis.crypto;
-    if (c?.randomUUID) {
-        return c.randomUUID();
-    }
-    if (!c?.getRandomValues) {
-        HealerLogger.warn(
-            'Secure Crypto.randomUUID/getRandomValues not available. Using counter-based fallback for ID generation.',
-        );
-        // Sentinel-compliant fallback: timestamp + monotonic counter (no Math.random).
-        uuidFallbackCounter = (uuidFallbackCounter + 1) & 0xffffffff;
-        const ts = Date.now().toString(36);
-        const cHex = uuidFallbackCounter.toString(16).padStart(8, '0');
-        // Shape as a v4-shaped UUID (version 4 nibble + variant bits).
-        return `xxxxxxxx-xxxx-4xxx-yxxx-${cHex}`.replace(/[xy]/g, (ch, idx) => {
-            const v =
-                ch === 'x'
-                    ? parseInt(ts[(idx + uuidFallbackCounter) % ts.length] ?? '0', 36)
-                    : (uuidFallbackCounter >> (idx % 4)) & 0x3;
-            return v.toString(16);
-        });
-    }
-    const bytes = new Uint8Array(16);
-    c.getRandomValues(bytes);
-    bytes[6] = (bytes[6] & 0x0f) | 0x40; // v4
-    bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 10
-    // Manual hex conversion (avoids [...bytes] spread per Bolt rule).
-    const HEX = '0123456789abcdef';
-    let hex = '';
-    for (let i = 0; i < bytes.length; i++) {
-        const b = bytes[i];
-        hex += HEX[b >> 4] + HEX[b & 0x0f];
-    }
-    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  const c = globalThis.crypto;
+  if (c?.randomUUID) {
+    return c.randomUUID();
+  }
+  if (!c?.getRandomValues) {
+    HealerLogger.warn(
+      "Secure Crypto.randomUUID/getRandomValues not available. Using counter-based fallback for ID generation.",
+    );
+    // Sentinel-compliant fallback: timestamp + monotonic counter (no Math.random).
+    uuidFallbackCounter = (uuidFallbackCounter + 1) & 0xffffffff;
+    const ts = Date.now().toString(36);
+    const cHex = uuidFallbackCounter.toString(16).padStart(8, "0");
+    // Shape as a v4-shaped UUID (version 4 nibble + variant bits).
+    return `xxxxxxxx-xxxx-4xxx-yxxx-${cHex}`.replace(/[xy]/g, (ch, idx) => {
+      const v =
+        ch === "x"
+          ? parseInt(ts[(idx + uuidFallbackCounter) % ts.length] ?? "0", 36)
+          : (uuidFallbackCounter >> (idx % 4)) & 0x3;
+      return v.toString(16);
+    });
+  }
+  const bytes = new Uint8Array(16);
+  c.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40; // v4
+  bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 10
+  // Manual hex conversion (avoids [...bytes] spread per Bolt rule).
+  const HEX = "0123456789abcdef";
+  let hex = "";
+  for (let i = 0; i < bytes.length; i++) {
+    const b = bytes[i];
+    hex += HEX[b >> 4] + HEX[b & 0x0f];
+  }
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
 /**
@@ -87,11 +94,11 @@ function uuidFallbackV4(): string {
  * @returns A unique identifier string.
  */
 export function generateId(prefix: string): string {
-    const cryptoObj = globalThis.crypto as unknown as {
-        randomUUID?: () => string;
-    };
-    const uuid = cryptoObj?.randomUUID?.() || uuidFallbackV4();
-    return `${prefix}_${uuid}`;
+  const cryptoObj = globalThis.crypto as unknown as {
+    randomUUID?: () => string;
+  };
+  const uuid = cryptoObj?.randomUUID?.() || uuidFallbackV4();
+  return `${prefix}_${uuid}`;
 }
 
 /**
@@ -102,23 +109,27 @@ export function generateId(prefix: string): string {
  * @param sourcePath - The path of the file containing the link (for relative resolution).
  * @returns The normalized absolute vault path.
  */
-export function normalizeVaultPath(app: App, path: string, sourcePath = ''): string {
-    const { path: linkpath } = parseLinktext(path);
-    const file = app.vault.getAbstractFileByPath(linkpath);
-    if (file instanceof TFile) return file.path;
-    const resolved = app.metadataCache.getFirstLinkpathDest(linkpath, sourcePath);
-    return resolved?.path ?? linkpath;
+export function normalizeVaultPath(
+  app: App,
+  path: string,
+  sourcePath = "",
+): string {
+  const { path: linkpath } = parseLinktext(path);
+  const file = app.vault.getAbstractFileByPath(linkpath);
+  if (file instanceof TFile) return file.path;
+  const resolved = app.metadataCache.getFirstLinkpathDest(linkpath, sourcePath);
+  return resolved?.path ?? linkpath;
 }
 
 /**
  * Universal Link Processing Logic (v2026.3)
  */
 type DVLinkLike = {
-    path: string;
-    display?: string;
-    subpath?: string;
-    type?: string;
-    embed?: boolean;
+  path: string;
+  display?: string;
+  subpath?: string;
+  type?: string;
+  embed?: boolean;
 };
 
 /**
@@ -127,8 +138,12 @@ type DVLinkLike = {
  * @returns True if the value is a DVLinkLike object.
  */
 function isDvLinkLike(v: unknown): v is DVLinkLike {
-    const candidate = v as DVLinkLike;
-    return !!candidate && typeof candidate === 'object' && typeof candidate.path === 'string';
+  const candidate = v as DVLinkLike;
+  return (
+    !!candidate &&
+    typeof candidate === "object" &&
+    typeof candidate.path === "string"
+  );
 }
 
 /**
@@ -137,16 +152,16 @@ function isDvLinkLike(v: unknown): v is DVLinkLike {
  * @returns The cleaned linkpath.
  */
 export function normalizeToLinkpath(raw: string): string {
-    const s0 = raw.trim().replace(/^["']|["']$/g, '');
-    const noAlias = s0.split('|')[0].trim();
-    const noSubpath = noAlias.split('#')[0].trim();
-    const stripped = noSubpath.replace(/^\[\[|\]\]$/g, '').trim();
-    const noExt = stripped.replace(/\.md$/i, '').trim();
-    try {
-        return decodeURIComponent(noExt);
-    } catch {
-        return noExt;
-    }
+  const s0 = raw.trim().replace(/^["']|["']$/g, "");
+  const noAlias = s0.split("|")[0].trim();
+  const noSubpath = noAlias.split("#")[0].trim();
+  const stripped = noSubpath.replace(/^\[\[|\]\]$/g, "").trim();
+  const noExt = stripped.replace(/\.md$/i, "").trim();
+  try {
+    return decodeURIComponent(noExt);
+  } catch {
+    return noExt;
+  }
 }
 
 /**
@@ -155,56 +170,56 @@ export function normalizeToLinkpath(raw: string): string {
  * @returns An array of normalized linkpaths.
  */
 function extractLinkpathsFromValue(v: unknown): string[] {
-    if (v == null) return [];
-    if (Array.isArray(v)) return v.flatMap(extractLinkpathsFromValue);
-    if (isDvLinkLike(v)) {
-        const lp = normalizeToLinkpath(v.path);
-        return lp ? [lp] : [];
+  if (v == null) return [];
+  if (Array.isArray(v)) return v.flatMap(extractLinkpathsFromValue);
+  if (isDvLinkLike(v)) {
+    const lp = normalizeToLinkpath(v.path);
+    return lp ? [lp] : [];
+  }
+  if (typeof v !== "string") return [];
+
+  const str = v.trim();
+  if (!str || str === "?") return [];
+
+  const out: string[] = [];
+
+  // 1) Wikilinks / embeds: [[...]] or ![[...]]
+  const wikiRe = /!?\[\[([^\]]+)\]\]/g;
+  let m: RegExpExecArray | null;
+  while ((m = wikiRe.exec(str)) !== null) {
+    const lp = normalizeToLinkpath(m[1]);
+    if (lp) out.push(lp);
+  }
+
+  // 2) Markdown links: [text](link) - Only if internal (no scheme)
+  const mdRe = /\[[^\]]*\]\(([^)]+)\)/g;
+  while ((m = mdRe.exec(str)) !== null) {
+    const targetRaw = m[1].trim();
+    const target = targetRaw.replace(/\s+["'][^"']*["']\s*$/, "").trim();
+    const hasScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(target);
+    if (!hasScheme) {
+      const lp = normalizeToLinkpath(target);
+      if (lp) out.push(lp);
     }
-    if (typeof v !== 'string') return [];
+  }
 
-    const str = v.trim();
-    if (!str || str === '?') return [];
+  if (out.length) return out;
 
-    const out: string[] = [];
+  // 3) Fallback: plain text
+  const cleaned = str.replace(/\[/g, "").replace(/\]/g, "").trim();
+  const parts = cleaned.includes(",")
+    ? cleaned
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [cleaned];
 
-    // 1) Wikilinks / embeds: [[...]] or ![[...]]
-    const wikiRe = /!?\[\[([^\]]+)\]\]/g;
-    let m: RegExpExecArray | null;
-    while ((m = wikiRe.exec(str)) !== null) {
-        const lp = normalizeToLinkpath(m[1]);
-        if (lp) out.push(lp);
-    }
+  for (const p of parts) {
+    const lp = normalizeToLinkpath(p);
+    if (lp) out.push(lp);
+  }
 
-    // 2) Markdown links: [text](link) - Only if internal (no scheme)
-    const mdRe = /\[[^\]]*\]\(([^)]+)\)/g;
-    while ((m = mdRe.exec(str)) !== null) {
-        const targetRaw = m[1].trim();
-        const target = targetRaw.replace(/\s+["'][^"']*["']\s*$/, '').trim();
-        const hasScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(target);
-        if (!hasScheme) {
-            const lp = normalizeToLinkpath(target);
-            if (lp) out.push(lp);
-        }
-    }
-
-    if (out.length) return out;
-
-    // 3) Fallback: plain text
-    const cleaned = str.replace(/\[/g, '').replace(/\]/g, '').trim();
-    const parts = cleaned.includes(',')
-        ? cleaned
-              .split(',')
-              .map((s) => s.trim())
-              .filter(Boolean)
-        : [cleaned];
-
-    for (const p of parts) {
-        const lp = normalizeToLinkpath(p);
-        if (lp) out.push(lp);
-    }
-
-    return out;
+  return out;
 }
 
 /**
@@ -213,25 +228,32 @@ function extractLinkpathsFromValue(v: unknown): string[] {
  * @param keys - The keys to extract links from.
  * @returns An array of unique normalized linkpaths.
  */
-export function extractLinkpaths(page: Record<string, unknown>, keys: string[]): string[] {
-    const seen = new Set<string>();
-    keys.forEach((key) => {
-        const value = page[key];
-        if (value == null) return;
+export function extractLinkpaths(
+  page: Record<string, unknown>,
+  keys: string[],
+): string[] {
+  const seen = new Set<string>();
+  keys.forEach((key) => {
+    const value = page[key];
+    if (value == null) return;
 
-        const isIterable =
-            Array.isArray(value) ||
-            (value && typeof value === 'object' && typeof (value as Record<string, unknown>).forEach === 'function');
+    const isIterable =
+      Array.isArray(value) ||
+      (value &&
+        typeof value === "object" &&
+        typeof (value as Record<string, unknown>).forEach === "function");
 
-        if (isIterable) {
-            (value as { forEach: (cb: (v: unknown) => void) => void }).forEach((val: unknown) => {
-                extractLinkpathsFromValue(val).forEach((lp) => seen.add(lp));
-            });
-        } else {
-            extractLinkpathsFromValue(value).forEach((lp) => seen.add(lp));
-        }
-    });
-    return Array.from(seen);
+    if (isIterable) {
+      (value as { forEach: (cb: (v: unknown) => void) => void }).forEach(
+        (val: unknown) => {
+          extractLinkpathsFromValue(val).forEach((lp) => seen.add(lp));
+        },
+      );
+    } else {
+      extractLinkpathsFromValue(value).forEach((lp) => seen.add(lp));
+    }
+  });
+  return Array.from(seen);
 }
 
 /**
@@ -243,25 +265,25 @@ export function extractLinkpaths(page: Record<string, unknown>, keys: string[]):
  * @returns Array of unique resolved TFile paths.
  */
 export function resolveLinkpathsToPaths(
-    app: App,
-    linkpaths: string[],
-    sourcePath: string,
-    cache?: Map<string, string | null>,
+  app: App,
+  linkpaths: string[],
+  sourcePath: string,
+  cache?: Map<string, string | null>,
 ): string[] {
-    const seen = new Set<string>();
-    for (const lp of linkpaths) {
-        const key = `${sourcePath}::${lp}`;
-        if (cache && cache.has(key)) {
-            const cached = cache.get(key);
-            if (cached) seen.add(cached);
-            continue;
-        }
-        const file = app.metadataCache.getFirstLinkpathDest(lp, sourcePath);
-        const resolved = file?.path ?? null;
-        if (cache) cache.set(key, resolved);
-        if (resolved) seen.add(resolved);
+  const seen = new Set<string>();
+  for (const lp of linkpaths) {
+    const key = `${sourcePath}::${lp}`;
+    if (cache && cache.has(key)) {
+      const cached = cache.get(key);
+      if (cached) seen.add(cached);
+      continue;
     }
-    return Array.from(seen);
+    const file = app.metadataCache.getFirstLinkpathDest(lp, sourcePath);
+    const resolved = file?.path ?? null;
+    if (cache) cache.set(key, resolved);
+    if (resolved) seen.add(resolved);
+  }
+  return Array.from(seen);
 }
 
 /**
@@ -274,14 +296,14 @@ export function resolveLinkpathsToPaths(
  * @returns Array of unique resolved TFile paths.
  */
 export function extractResolvedPaths(
-    app: App,
-    page: Record<string, unknown>,
-    keys: string[],
-    sourcePath: string,
-    cache?: Map<string, string | null>,
+  app: App,
+  page: Record<string, unknown>,
+  keys: string[],
+  sourcePath: string,
+  cache?: Map<string, string | null>,
 ): string[] {
-    const linkpaths = extractLinkpaths(page, keys);
-    return resolveLinkpathsToPaths(app, linkpaths, sourcePath, cache);
+  const linkpaths = extractLinkpaths(page, keys);
+  return resolveLinkpathsToPaths(app, linkpaths, sourcePath, cache);
 }
 
 /**
@@ -291,13 +313,17 @@ export function extractResolvedPaths(
  * @param sourcePath - The originating file path.
  * @returns A formatted Wikilink string.
  */
-export function pathToWikilink(app: App, targetPath: string, sourcePath: string): string {
-    const af = app.vault.getAbstractFileByPath(targetPath);
-    if (af instanceof TFile) {
-        const linktext = app.metadataCache.fileToLinktext(af, sourcePath, true);
-        return `[[${linktext}]]`;
-    }
-    return `[[${targetPath}]]`;
+export function pathToWikilink(
+  app: App,
+  targetPath: string,
+  sourcePath: string,
+): string {
+  const af = app.vault.getAbstractFileByPath(targetPath);
+  if (af instanceof TFile) {
+    const linktext = app.metadataCache.fileToLinktext(af, sourcePath, true);
+    return `[[${linktext}]]`;
+  }
+  return `[[${targetPath}]]`;
 }
 
 /**
@@ -307,18 +333,21 @@ export function pathToWikilink(app: App, targetPath: string, sourcePath: string)
  * @returns The resolved TFile or null if not found.
  */
 export function resolveTargetFile(
-    app: App,
-    suggestion: {
-        link: string;
-        meta?: { targetPath?: string; sourcePath?: string };
-    },
+  app: App,
+  suggestion: {
+    link: string;
+    meta?: { targetPath?: string; sourcePath?: string };
+  },
 ): TFile | null {
-    if (suggestion.meta?.targetPath) {
-        const f = app.vault.getAbstractFileByPath(suggestion.meta.targetPath);
-        if (f instanceof TFile) return f;
-    }
-    const linkpath = normalizeToLinkpath(suggestion.link);
-    return app.metadataCache.getFirstLinkpathDest(linkpath, suggestion.meta?.sourcePath || '');
+  if (suggestion.meta?.targetPath) {
+    const f = app.vault.getAbstractFileByPath(suggestion.meta.targetPath);
+    if (f instanceof TFile) return f;
+  }
+  const linkpath = normalizeToLinkpath(suggestion.link);
+  return app.metadataCache.getFirstLinkpathDest(
+    linkpath,
+    suggestion.meta?.sourcePath || "",
+  );
 }
 
 /**
@@ -330,13 +359,13 @@ export function resolveTargetFile(
  * @returns The formatted prompt string.
  */
 export function formatRagPrompt(
-    basename: string,
-    tags: string,
-    propertiesCount: number,
-    contentSnippet: string,
+  basename: string,
+  tags: string,
+  propertiesCount: number,
+  contentSnippet: string,
 ): string {
-    const safeSnippet = maskSecrets(contentSnippet);
-    return `[GRAPH RAG: SEMANTIC PROXIMITY]\nFocus Node: [[${basename}]]\nTags: ${tags}\nProperties Count: ${propertiesCount}\n\nSnippet:\n${safeSnippet}...\n\nTASK: Identify 3 distinct concepts or non-existing MOCs that should be linked to this node to enhance the semantic graph topology. Output as a bulleted list of Obsidian links [[Link]].`;
+  const safeSnippet = maskSecrets(contentSnippet);
+  return `[GRAPH RAG: SEMANTIC PROXIMITY]\nFocus Node: [[${basename}]]\nTags: ${tags}\nProperties Count: ${propertiesCount}\n\nSnippet:\n${safeSnippet}...\n\nTASK: Identify 3 distinct concepts or non-existing MOCs that should be linked to this node to enhance the semantic graph topology. Output as a bulleted list of Obsidian links [[Link]].`;
 }
 
 /**
@@ -350,32 +379,32 @@ export function formatRagPrompt(
  * @returns The formatted prompt string.
  */
 export function formatIncongruencePrompt(
-    noteName: string,
-    property: string,
-    values: string[],
-    contentSnippet: string,
-    candidateData: Record<string, unknown> = {},
-    isInfraNodus: boolean = false,
+  noteName: string,
+  property: string,
+  values: string[],
+  contentSnippet: string,
+  candidateData: Record<string, unknown> = {},
+  isInfraNodus: boolean = false,
 ): string {
-    const infraContext = isInfraNodus
-        ? '\n[INFRANODUS INSIGHT]\nThis conflict was identified as a structural gap by the InfraNodus network science engine. It suggests a missing bridge between clusters.\n'
-        : '';
+  const infraContext = isInfraNodus
+    ? "\n[INFRANODUS INSIGHT]\nThis conflict was identified as a structural gap by the InfraNodus network science engine. It suggests a missing bridge between clusters.\n"
+    : "";
 
-    let candidateContext = '\n[CANDIDATE METADATA]\n';
-    for (const [val, data] of Object.entries(candidateData)) {
-        const d = data as { folder?: string; score?: number };
-        candidateContext += `- ${val}: Folder=${d.folder || 'unknown'}, HTR_Score=${d.score || 0}%\n`;
-    }
+  let candidateContext = "\n[CANDIDATE METADATA]\n";
+  for (const [val, data] of Object.entries(candidateData)) {
+    const d = data as { folder?: string; score?: number };
+    candidateContext += `- ${val}: Folder=${d.folder || "unknown"}, HTR_Score=${d.score || 0}%\n`;
+  }
 
-    const safeSnippet = maskSecrets(contentSnippet);
+  const safeSnippet = maskSecrets(contentSnippet);
 
-    return `
+  return `
 You are the Supreme Tribunal of the Knowledge Graph.
 An incongruence has been detected in the vault. 
 
 Note: [[${noteName}]]
 Property: '${property}'
-Competing values: ${values.join(', ')}
+Competing values: ${values.join(", ")}
 
 ${infraContext}
 ${candidateContext}
@@ -397,17 +426,17 @@ RUNNERUP: [[Note Name]] | SCORE: % | WHY: reason
  * @returns The similarity score (0-1).
  */
 export function cosineSimilarity(v1: number[], v2: number[]): number {
-    if (!v1 || !v2 || v1.length === 0 || v1.length !== v2.length) return 0;
-    let dot = 0;
-    let norm1 = 0;
-    let norm2 = 0;
-    for (let i = 0; i < v1.length; i++) {
-        dot += v1[i] * v2[i];
-        norm1 += v1[i] * v1[i];
-        norm2 += v2[i] * v2[i];
-    }
-    const mag = Math.sqrt(norm1) * Math.sqrt(norm2);
-    return mag === 0 ? 0 : dot / mag;
+  if (!v1 || !v2 || v1.length === 0 || v1.length !== v2.length) return 0;
+  let dot = 0;
+  let norm1 = 0;
+  let norm2 = 0;
+  for (let i = 0; i < v1.length; i++) {
+    dot += v1[i] * v2[i];
+    norm1 += v1[i] * v1[i];
+    norm2 += v2[i] * v2[i];
+  }
+  const mag = Math.sqrt(norm1) * Math.sqrt(norm2);
+  return mag === 0 ? 0 : dot / mag;
 }
 
 /**
@@ -416,11 +445,14 @@ export function cosineSimilarity(v1: number[], v2: number[]): number {
  * @param folderDepth - The folder depth difference.
  * @returns The HTR score (0-100).
  */
-export function calculateHtrScore(vectorSim: number, folderDepth: number): number {
-    const vs = vectorSim <= 1 ? vectorSim * 100 : vectorSim;
-    const depthScore = Math.min(Math.max(folderDepth, 0) * 10, 100);
-    const combined = vs * 0.6 + depthScore * 0.4;
-    return Math.round(Math.min(Math.max(combined, 0), 100));
+export function calculateHtrScore(
+  vectorSim: number,
+  folderDepth: number,
+): number {
+  const vs = vectorSim <= 1 ? vectorSim * 100 : vectorSim;
+  const depthScore = Math.min(Math.max(folderDepth, 0) * 10, 100);
+  const combined = vs * 0.6 + depthScore * 0.4;
+  return Math.round(Math.min(Math.max(combined, 0), 100));
 }
 
 /**
@@ -429,7 +461,7 @@ export function calculateHtrScore(vectorSim: number, folderDepth: number): numbe
  * @returns A promise that resolves after the timeout.
  */
 export function sleep(ms: number): Promise<void> {
-    return new Promise((r) => setTimeout(r, ms));
+  return new Promise((r) => setTimeout(r, ms));
 }
 
 // ============================================================================
@@ -443,14 +475,17 @@ export function sleep(ms: number): Promise<void> {
  * @param flags - Optional regex flags.
  * @returns A RegExp object or null if compilation fails.
  */
-export function safeCompileRegex(pattern: string, flags?: string): RegExp | null {
-    try {
-        if (!pattern) return null;
-        return new RegExp(pattern, flags);
-    } catch (e) {
-        HealerLogger.error(`Invalid regex pattern: "${pattern}"`, e);
-        return null;
-    }
+export function safeCompileRegex(
+  pattern: string,
+  flags?: string,
+): RegExp | null {
+  try {
+    if (!pattern) return null;
+    return new RegExp(pattern, flags);
+  } catch (e) {
+    HealerLogger.error(`Invalid regex pattern: "${pattern}"`, e);
+    return null;
+  }
 }
 
 /**
@@ -459,11 +494,11 @@ export function safeCompileRegex(pattern: string, flags?: string): RegExp | null
  * @returns True if the value is thenable.
  */
 export function isThenable<T>(val: unknown): val is Promise<T> {
-    return (
-        val !== null &&
-        (typeof val === 'object' || typeof val === 'function') &&
-        typeof (val as Record<string, unknown>).then === 'function'
-    );
+  return (
+    val !== null &&
+    (typeof val === "object" || typeof val === "function") &&
+    typeof (val as Record<string, unknown>).then === "function"
+  );
 }
 
 /**
@@ -472,11 +507,15 @@ export function isThenable<T>(val: unknown): val is Promise<T> {
  * @returns A string representation of the value.
  */
 export function safeString(val: unknown): string {
-    if (val === null || val === undefined) return 'none';
-    if (typeof val === 'string') return val;
-    if (typeof val === 'number' || typeof val === 'boolean') return String(val);
-    if (typeof val === 'object' && 'path' in (val as Record<string, unknown>)) {
-        return (val as { path: string }).path;
-    }
+  if (val === null || val === undefined) return "none";
+  if (typeof val === "string") return val;
+  if (typeof val === "number" || typeof val === "boolean") return String(val);
+  if (typeof val === "object" && "path" in (val as Record<string, unknown>)) {
+    return (val as { path: string }).path;
+  }
+  try {
     return JSON.stringify(val);
+  } catch {
+    return "[Unserializable]";
+  }
 }
