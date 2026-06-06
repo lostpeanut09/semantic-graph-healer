@@ -757,27 +757,41 @@ Only return the JSON. No markdown or meta-talk.
 
       try {
         const response = await this.callLlm(batchPrompt, false, signal);
-        // Extract JSON array
-        const jsonMatch = response.match(/\[[\s\S]*\]/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]) as Array<{
-            id: string;
-            valid: boolean;
-            reason: string;
-          }>;
-          parsed.forEach((item, idx) => {
-            const child = chunk[idx];
-            if (child) {
-              const res = { valid: item.valid, reason: item.reason };
-              results[child.name] = res;
-              // Cache result
-              const cacheKey = `relation:${parentName}:${child.name}:${mtimeParent}:${child.mtime}`;
-              this.verificationCache.set(cacheKey, {
-                result: res,
-                timestamp: Date.now(),
-              });
+        // Extract JSON array: find the first balanced JSON array to avoid
+        // greedy regex matching trailing prose that would cause parse failures.
+        const startIdx = response.indexOf("[");
+        if (startIdx !== -1) {
+          let depth = 0;
+          for (let j = startIdx; j < response.length; j++) {
+            if (response[j] === "[") depth++;
+            else if (response[j] === "]") depth--;
+            if (depth === 0) {
+              try {
+                const parsed = JSON.parse(
+                  response.slice(startIdx, j + 1),
+                ) as Array<{
+                  id: string;
+                  valid: boolean;
+                  reason: string;
+                }>;
+                parsed.forEach((item, idx) => {
+                  const child = chunk[idx];
+                  if (child) {
+                    const res = { valid: item.valid, reason: item.reason };
+                    results[child.name] = res;
+                    const cacheKey = `relation:${parentName}:${child.name}:${mtimeParent}:${child.mtime}`;
+                    this.verificationCache.set(cacheKey, {
+                      result: res,
+                      timestamp: Date.now(),
+                    });
+                  }
+                });
+              } catch {
+                // JSON parse failed — fall through to next chunk
+              }
+              break;
             }
-          });
+          }
         }
       } catch (e) {
         HealerLogger.error(
