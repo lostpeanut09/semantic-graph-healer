@@ -957,7 +957,7 @@ Only return the JSON. No markdown or meta-talk.
         result.winnerWhy = winnerMatch[3].trim();
       }
 
-      const runnerUpMatch = raw.match(
+      const runnerUpMatch = mainContent.match(
         /RUNNERUP:\s*(?:\[\[)?(.*?)(?:\]\])?\s*\|\s*SCORE:\s*(\d+)%?\s*\|\s*WHY:\s*(.*)/i,
       );
       if (runnerUpMatch) {
