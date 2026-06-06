@@ -145,9 +145,9 @@ export class LlmService {
 
       const cleanEp = endpoint.replace(/\/+$/, "");
       const isResponsesApi = cleanEp.endsWith("/v1/responses");
-      const apiPath = isResponsesApi
+      const apiPath: "responses" | "chat/completions" = isResponsesApi
         ? "responses"
-        : ("chat/completions" as const);
+        : "chat/completions";
 
       const makeRequest = async (): Promise<{
         status: number;
