@@ -1,79 +1,68 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { LlmService } from "../../../src/core/LlmService";
-import type { SemanticGraphHealerSettings } from "../../../src/types";
-import {
-  formatRagPrompt,
-  formatIncongruencePrompt,
-} from "../../../src/core/HealerUtils";
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { LlmService } from '../../../src/core/LlmService';
+import type { SemanticGraphHealerSettings } from '../../../src/types';
+import { formatRagPrompt, formatIncongruencePrompt } from '../../../src/core/HealerUtils';
 
-vi.mock("obsidian", () => ({
-  requestUrl: vi.fn(),
-  normalizePath: (p: string) => p,
+vi.mock('obsidian', () => ({
+    requestUrl: vi.fn(),
+    normalizePath: (p: string) => p,
 }));
 
-import { requestUrl } from "obsidian";
-import type { RequestUrlResponse, RequestUrlResponsePromise } from "obsidian";
+import { requestUrl } from 'obsidian';
+import type { RequestUrlResponse, RequestUrlResponsePromise } from 'obsidian';
 
-describe("LLM Hardening", () => {
-  let mockGetKey: (key: string) => Promise<string>;
-  let settings: Record<string, unknown>;
-  let plugin: Record<string, unknown>;
+describe('LLM Hardening', () => {
+    let mockGetKey: (key: string) => Promise<string>;
+    let settings: Record<string, unknown>;
+    let plugin: Record<string, unknown>;
 
-  beforeEach(() => {
-    settings = {
-      llmEndpoint: "https://api.openai.com",
-      llmModelName: "gpt-4o",
-      primaryTimeout: 30,
-      secondaryLlmEndpoint: "https://api.anthropic.com",
-      secondaryLlmModelName: "claude-3-5",
-      secondaryTimeout: 45,
-      enableAiTribunal: true,
-    };
+    beforeEach(() => {
+        settings = {
+            llmEndpoint: 'https://api.openai.com',
+            llmModelName: 'gpt-4o',
+            primaryTimeout: 30,
+            secondaryLlmEndpoint: 'https://api.anthropic.com',
+            secondaryLlmModelName: 'claude-3-5',
+            secondaryTimeout: 45,
+            enableAiTribunal: true,
+        };
 
-    plugin = {
-      app: {
-        vault: {
-          getAbstractFileByPath: vi.fn(),
-        },
-      },
-      saveSettings: vi.fn(),
-    };
+        plugin = {
+            app: {
+                vault: {
+                    getAbstractFileByPath: vi.fn(),
+                },
+            },
+            saveSettings: vi.fn(),
+        };
 
-    mockGetKey = vi.fn().mockResolvedValue("test-key");
-  });
-
-  describe("HealerUtils: Prompt Redaction (ULTRA-8)", () => {
-    const sensitiveSnippet =
-      "Note contains Bearer sk-1234567890abcdef and JWT eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoyMDI2fQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c. End.";
-
-    it("redacts secrets in RAG prompts", () => {
-      const prompt = formatRagPrompt("TestNote", "#tag", 5, sensitiveSnippet);
-      expect(prompt).toContain("Bearer ***");
-      expect(prompt).toContain("***JWT***");
-      expect(prompt).not.toContain("sk-1234567890");
-      expect(prompt).not.toContain("eyJhbGci");
+        mockGetKey = vi.fn().mockResolvedValue('test-key');
     });
 
-    it("redacts secrets in Incongruence prompts", () => {
-      const prompt = formatIncongruencePrompt(
-        "TestNote",
-        "prop",
-        ["val1"],
-        sensitiveSnippet,
-      );
-      expect(prompt).toContain("Bearer ***");
-      expect(prompt).toContain("***JWT***");
-    });
-  });
+    describe('HealerUtils: Prompt Redaction (ULTRA-8)', () => {
+        const sensitiveSnippet =
+            'Note contains Bearer sk-1234567890abcdef and JWT eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoyMDI2fQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c. End.';
 
-  describe("LlmService: AI Tribunal Parsing (ULTRA-9)", () => {
-    it("ignores text inside <tribunal_audit> tags", () => {
-      const service = new LlmService(
-        settings as unknown as SemanticGraphHealerSettings,
-        mockGetKey,
-      );
-      const rawResponse = `
+        it('redacts secrets in RAG prompts', () => {
+            const prompt = formatRagPrompt('TestNote', '#tag', 5, sensitiveSnippet);
+            expect(prompt).toContain('Bearer ***');
+            expect(prompt).toContain('***JWT***');
+            expect(prompt).not.toContain('sk-1234567890');
+            expect(prompt).not.toContain('eyJhbGci');
+        });
+
+        it('redacts secrets in Incongruence prompts', () => {
+            const prompt = formatIncongruencePrompt('TestNote', 'prop', ['val1'], sensitiveSnippet);
+            expect(prompt).toContain('Bearer ***');
+            expect(prompt).toContain('***JWT***');
+        });
+    });
+
+    describe('LlmService: AI Tribunal Parsing (ULTRA-9)', () => {
+        it('ignores text inside <tribunal_audit> tags', () => {
+            const service = new LlmService(settings as unknown as SemanticGraphHealerSettings, mockGetKey);
+            const rawResponse = `
 WINNER: [[CorrectNote]] | SCORE: 90% | WHY: matches context
 RUNNERUP: [[Other]] | SCORE: 10% | WHY: weak link
 
@@ -83,17 +72,14 @@ Secondary Model Output: WINNER: [[WrongNote]] | SCORE: 95% | WHY: deceived by ha
 </tribunal_audit>
             `;
 
-      const parsed = service.parseReasoningResult(rawResponse);
-      expect(parsed.winner).toBe("CorrectNote");
-      expect(parsed.winner).not.toBe("WrongNote");
-    });
+            const parsed = service.parseReasoningResult(rawResponse);
+            expect(parsed.winner).toBe('CorrectNote');
+            expect(parsed.winner).not.toBe('WrongNote');
+        });
 
-    it("handles fallback search correctly after stripping tags", () => {
-      const service = new LlmService(
-        settings as unknown as SemanticGraphHealerSettings,
-        mockGetKey,
-      );
-      const rawResponse = `
+        it('handles fallback search correctly after stripping tags', () => {
+            const service = new LlmService(settings as unknown as SemanticGraphHealerSettings, mockGetKey);
+            const rawResponse = `
 The winner is clear.
 WINNER: [[DeepNote]]
 
@@ -102,65 +88,57 @@ WINNER: [[AuditNote]]
 </tribunal_audit>
             `;
 
-      const parsed = service.parseReasoningResult(rawResponse);
-      expect(parsed.winner).toBe("DeepNote");
-    });
-  });
-
-  describe("LlmService: Modern API Integration (ULTRA-10)", () => {
-    it("uses native timeout property in requestUrl", async () => {
-      const service = new LlmService(
-        settings as unknown as SemanticGraphHealerSettings,
-        mockGetKey,
-      );
-      vi.mocked(requestUrl).mockResolvedValue({
-        status: 200,
-        json: { choices: [{ message: { content: "WINNER: [[OK]]" } }] },
-      } as unknown as RequestUrlResponse);
-
-      await (
-        service as unknown as {
-          callLlm: (p: string, b: boolean) => Promise<string>;
-        }
-      ).callLlm("test-prompt", false);
-
-      expect(requestUrl).toHaveBeenCalledWith(
-        expect.objectContaining({
-          timeout: 30000, // primaryTimeout * 1000
-        }),
-      );
+            const parsed = service.parseReasoningResult(rawResponse);
+            expect(parsed.winner).toBe('DeepNote');
+        });
     });
 
-    it("triggers logical timeout fallback when network hangs (ULTRA-11)", async () => {
-      const service = new LlmService(
-        settings as unknown as SemanticGraphHealerSettings,
-        mockGetKey,
-      );
+    describe('LlmService: Modern API Integration (ULTRA-10)', () => {
+        it('uses native timeout property in requestUrl', async () => {
+            const service = new LlmService(settings as unknown as SemanticGraphHealerSettings, mockGetKey);
+            vi.mocked(requestUrl).mockResolvedValue({
+                status: 200,
+                json: { choices: [{ message: { content: 'WINNER: [[OK]]' } }] },
+            } as unknown as RequestUrlResponse);
 
-      // Mock a "hanging" request that never resolves
-      vi.mocked(requestUrl).mockReturnValue(
-        new Promise(() => {}) as unknown as RequestUrlResponsePromise,
-      );
+            await (
+                service as unknown as {
+                    callLlm: (p: string, b: boolean) => Promise<string>;
+                }
+            ).callLlm('test-prompt', false);
 
-      // Force dynamic timeout and disable retries for the test
-      (
-        service as unknown as {
-          settings: { primaryTimeout: number; llmMaxRetries: number };
-        }
-      ).settings.primaryTimeout = 0.1; // 100ms
-      (
-        service as unknown as {
-          settings: { primaryTimeout: number; llmMaxRetries: number };
-        }
-      ).settings.llmMaxRetries = 0;
+            expect(requestUrl).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    timeout: 30000, // primaryTimeout * 1000
+                }),
+            );
+        });
 
-      const result = await (
-        service as unknown as {
-          callLlm: (p: string, b: boolean) => Promise<string>;
-        }
-      ).callLlm("test-prompt", false);
+        it('triggers logical timeout fallback when network hangs (ULTRA-11)', async () => {
+            const service = new LlmService(settings as unknown as SemanticGraphHealerSettings, mockGetKey);
 
-      expect(result).toContain("TimeoutError: Logical timeout reached");
+            // Mock a "hanging" request that never resolves
+            vi.mocked(requestUrl).mockReturnValue(new Promise(() => {}) as unknown as RequestUrlResponsePromise);
+
+            // Force dynamic timeout and disable retries for the test
+            (
+                service as unknown as {
+                    settings: { primaryTimeout: number; llmMaxRetries: number };
+                }
+            ).settings.primaryTimeout = 0.1; // 100ms
+            (
+                service as unknown as {
+                    settings: { primaryTimeout: number; llmMaxRetries: number };
+                }
+            ).settings.llmMaxRetries = 0;
+
+            const result = await (
+                service as unknown as {
+                    callLlm: (p: string, b: boolean) => Promise<string>;
+                }
+            ).callLlm('test-prompt', false);
+
+            expect(result).toContain('TimeoutError: Logical timeout reached');
+        });
     });
-  });
 });

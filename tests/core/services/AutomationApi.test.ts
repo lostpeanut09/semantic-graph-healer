@@ -1,131 +1,116 @@
-import {
-  describe,
-  it,
-  expect,
-  vi,
-  beforeEach,
-  afterEach,
-  type MockInstance,
-} from "vitest";
-import {
-  AutomationApi,
-  type AutomationPluginContext,
-} from "../../../src/core/services/AutomationApi";
-import { HealerLogger } from "../../../src/core/utils/HealerLogger";
-import type { HealerNotifier, Suggestion } from "../../../src/types";
+import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest';
+import { AutomationApi, type AutomationPluginContext } from '../../../src/core/services/AutomationApi';
+import { HealerLogger } from '../../../src/core/utils/HealerLogger';
+import type { HealerNotifier, Suggestion } from '../../../src/types';
 
-describe("AutomationApi", () => {
-  let mockNotifier: HealerNotifier;
-  let mockContext: AutomationPluginContext;
-  let loggerInfoSpy: MockInstance;
+describe('AutomationApi', () => {
+    let mockNotifier: HealerNotifier;
+    let mockContext: AutomationPluginContext;
+    let loggerInfoSpy: MockInstance;
 
-  beforeEach(() => {
-    mockNotifier = {
-      show: vi.fn(),
-    };
+    beforeEach(() => {
+        mockNotifier = {
+            show: vi.fn(),
+        };
 
-    mockContext = {
-      executor: {
-        getNotifier: vi.fn().mockReturnValue(mockNotifier),
-        setNotifier: vi.fn(),
-        execute: vi.fn().mockResolvedValue(true),
-        undo: vi.fn().mockResolvedValue(true),
-      },
-      cache: {
-        suggestions: [] as Suggestion[],
-        history: [],
-        save: vi.fn(),
-        topologicalScores: {
-          pageRank: { nodeA: 1.0 },
-          betweenness: {},
-          communities: {},
-        },
-      },
-      settings: {
-        lastScanTimestamp: 12345,
-      },
-      analyzeGraph: vi.fn().mockResolvedValue(true),
-    };
+        mockContext = {
+            executor: {
+                getNotifier: vi.fn().mockReturnValue(mockNotifier),
+                setNotifier: vi.fn(),
+                execute: vi.fn().mockResolvedValue(true),
+                undo: vi.fn().mockResolvedValue(true),
+            },
+            cache: {
+                suggestions: [] as Suggestion[],
+                history: [],
+                save: vi.fn(),
+                topologicalScores: {
+                    pageRank: { nodeA: 1.0 },
+                    betweenness: {},
+                    communities: {},
+                },
+            },
+            settings: {
+                lastScanTimestamp: 12345,
+            },
+            analyzeGraph: vi.fn().mockResolvedValue(true),
+        };
 
-    loggerInfoSpy = vi.spyOn(HealerLogger, "info").mockImplementation(() => {});
-  });
+        loggerInfoSpy = vi.spyOn(HealerLogger, 'info').mockImplementation(() => {});
+    });
 
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
 
-  it("should use SilentNotifier when silent is true", async () => {
-    const api = new AutomationApi(mockContext);
+    it('should use SilentNotifier when silent is true', async () => {
+        const api = new AutomationApi(mockContext);
 
-    await api.runAnalysis({ silent: true });
+        await api.runAnalysis({ silent: true });
 
-    expect(mockContext.executor.getNotifier).toHaveBeenCalled();
-    expect(mockContext.executor.setNotifier).toHaveBeenCalledTimes(2);
+        expect(mockContext.executor.getNotifier).toHaveBeenCalled();
+        expect(mockContext.executor.setNotifier).toHaveBeenCalledTimes(2);
 
-    // First call should be setting the SilentNotifier
-    const silentNotifier = (
-      mockContext.executor.setNotifier as unknown as ReturnType<typeof vi.fn>
-    ).mock.calls[0][0];
-    expect(silentNotifier).toBeDefined();
+        // First call should be setting the SilentNotifier
+        const silentNotifier = (mockContext.executor.setNotifier as unknown as ReturnType<typeof vi.fn>).mock
+            .calls[0][0];
+        expect(silentNotifier).toBeDefined();
 
-    // Verify it logs via HealerLogger instead of throwing/using UI
-    silentNotifier.show("Test message", "info");
-    expect(loggerInfoSpy).toHaveBeenCalledWith(
-      expect.stringContaining("[SilentNotifier] Test message"),
-    );
+        // Verify it logs via HealerLogger instead of throwing/using UI
+        silentNotifier.show('Test message', 'info');
+        expect(loggerInfoSpy).toHaveBeenCalledWith(expect.stringContaining('[SilentNotifier] Test message'));
 
-    // Should restore the original notifier
-    expect(
-      (mockContext.executor.setNotifier as unknown as ReturnType<typeof vi.fn>)
-        .mock.calls[1][0],
-    ).toBe(mockNotifier);
+        // Should restore the original notifier
+        expect((mockContext.executor.setNotifier as unknown as ReturnType<typeof vi.fn>).mock.calls[1][0]).toBe(
+            mockNotifier,
+        );
 
-    expect(mockContext.analyzeGraph).toHaveBeenCalledWith(true);
-  });
+        expect(mockContext.analyzeGraph).toHaveBeenCalledWith(true);
+    });
 
-  it("should NOT use SilentNotifier when silent is false", async () => {
-    const api = new AutomationApi(mockContext);
+    it('should NOT use SilentNotifier when silent is false', async () => {
+        const api = new AutomationApi(mockContext);
 
-    await api.runAnalysis({ silent: false });
+        await api.runAnalysis({ silent: false });
 
-    expect(mockContext.executor.getNotifier).toHaveBeenCalled();
-    expect(mockContext.executor.setNotifier).not.toHaveBeenCalled();
-    expect(mockContext.analyzeGraph).toHaveBeenCalledWith(false);
-  });
+        expect(mockContext.executor.getNotifier).toHaveBeenCalled();
+        expect(mockContext.executor.setNotifier).not.toHaveBeenCalled();
+        expect(mockContext.analyzeGraph).toHaveBeenCalledWith(false);
+    });
 
-  it("should properly shallow clone suggestions for JSON output", () => {
-    const api = new AutomationApi(mockContext);
+    it('should properly shallow clone suggestions for JSON output', () => {
+        const api = new AutomationApi(mockContext);
 
-    const mockSuggestion: Suggestion = {
-      id: "1",
-      type: "deterministic",
-      category: "suggestion",
-      link: "[[Test]]",
-      source: "test-source",
-      timestamp: 1000,
-      meta: { property: "up" },
-      // Add a cyclic or deep object that we want to ensure isn't deep cloned deeply but metadata is cloned
-    };
+        const mockSuggestion: Suggestion = {
+            id: '1',
+            type: 'deterministic',
+            category: 'suggestion',
+            link: '[[Test]]',
+            source: 'test-source',
+            timestamp: 1000,
+            meta: { property: 'up' },
+            // Add a cyclic or deep object that we want to ensure isn't deep cloned deeply but metadata is cloned
+        };
 
-    mockContext.cache.suggestions.push(mockSuggestion);
+        mockContext.cache.suggestions.push(mockSuggestion);
 
-    const suggestions = api.getSuggestions();
-    expect(suggestions).toHaveLength(1);
-    const cloned = suggestions[0];
+        const suggestions = api.getSuggestions();
+        expect(suggestions).toHaveLength(1);
+        const cloned = suggestions[0];
 
-    expect(cloned.id).toBe("1");
-    expect(cloned.meta).toEqual({ property: "up" });
+        expect(cloned.id).toBe('1');
+        expect(cloned.meta).toEqual({ property: 'up' });
 
-    // Ensure it's a new object reference for meta
-    expect(cloned.meta).not.toBe(mockSuggestion.meta);
-  });
+        // Ensure it's a new object reference for meta
+        expect(cloned.meta).not.toBe(mockSuggestion.meta);
+    });
 
-  it("should return metrics correctly", () => {
-    const api = new AutomationApi(mockContext);
+    it('should return metrics correctly', () => {
+        const api = new AutomationApi(mockContext);
 
-    const metrics = api.getMetrics();
-    expect(metrics).not.toBeNull();
-    expect(metrics?.pageRank).toEqual({ nodeA: 1.0 });
-    expect(metrics?.lastAnalysisTimestamp).toBe(12345);
-  });
+        const metrics = api.getMetrics();
+        expect(metrics).not.toBeNull();
+        expect(metrics?.pageRank).toEqual({ nodeA: 1.0 });
+        expect(metrics?.lastAnalysisTimestamp).toBe(12345);
+    });
 });

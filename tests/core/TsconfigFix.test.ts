@@ -1,150 +1,137 @@
-import { describe, expect, it, beforeAll, afterAll } from "vitest";
-import { readFileSync, existsSync, writeFileSync, unlinkSync } from "node:fs";
-import { execSync } from "node:child_process";
-import { rmSync } from "node:fs";
+import { describe, expect, it, beforeAll, afterAll } from 'vitest';
+import { readFileSync, existsSync, writeFileSync, unlinkSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+import { rmSync } from 'node:fs';
 
-const tsconfig = JSON.parse(readFileSync("./tsconfig.json", "utf-8"));
-const esbuildConfig = readFileSync("./.config/esbuild.config.mjs", "utf-8");
-const packageJson = JSON.parse(readFileSync("./package.json", "utf-8"));
+const tsconfig = JSON.parse(readFileSync('./tsconfig.json', 'utf-8'));
+const esbuildConfig = readFileSync('./.config/esbuild.config.mjs', 'utf-8');
+const packageJson = JSON.parse(readFileSync('./package.json', 'utf-8'));
 
-describe("tsconfig.json Phase 20 Fix", () => {
-  describe("D-01: moduleResolution", () => {
-    it('must be set to "bundler" for verbatimModuleSyntax compatibility', () => {
-      expect(tsconfig.compilerOptions.moduleResolution).toBe("bundler");
-    });
-  });
-
-  describe("D-02: noEmit", () => {
-    it("must be true to prevent tsc from emitting .js files", () => {
-      expect(tsconfig.compilerOptions.noEmit).toBe(true);
+describe('tsconfig.json Phase 20 Fix', () => {
+    describe('D-01: moduleResolution', () => {
+        it('must be set to "bundler" for verbatimModuleSyntax compatibility', () => {
+            expect(tsconfig.compilerOptions.moduleResolution).toBe('bundler');
+        });
     });
 
-    it("must NOT emit .js files when tsc runs on src files", () => {
-      const beforeMain = existsSync("src/main.ts.js");
-      const beforeWorker = existsSync(
-        "src/core/workers/graph-analysis-worker.ts.js",
-      );
-      // tsc --noEmit should not emit files
-      // We verify the config setting is correct (noEmit: true)
-      expect(tsconfig.compilerOptions.noEmit).toBe(true);
-    });
-  });
+    describe('D-02: noEmit', () => {
+        it('must be true to prevent tsc from emitting .js files', () => {
+            expect(tsconfig.compilerOptions.noEmit).toBe(true);
+        });
 
-  describe("D-03: types array", () => {
-    it("must preserve obsidian-typings and node types", () => {
-      expect(tsconfig.compilerOptions.types).toEqual([
-        "obsidian-typings",
-        "node",
-      ]);
-    });
-  });
-
-  describe("verbatimModuleSyntax compatibility", () => {
-    it("must have verbatimModuleSyntax enabled for strict imports", () => {
-      expect(tsconfig.compilerOptions.verbatimModuleSyntax).toBe(true);
-    });
-  });
-
-  describe("integration with build process", () => {
-    it("must support ESNext module targets", () => {
-      expect(tsconfig.compilerOptions.module).toBe("ESNext");
+        it('must NOT emit .js files when tsc runs on src files', () => {
+            const beforeMain = existsSync('src/main.ts.js');
+            const beforeWorker = existsSync('src/core/workers/graph-analysis-worker.ts.js');
+            // tsc --noEmit should not emit files
+            // We verify the config setting is correct (noEmit: true)
+            expect(tsconfig.compilerOptions.noEmit).toBe(true);
+        });
     });
 
-    it("must target ES2022 or higher", () => {
-      expect(tsconfig.compilerOptions.target).toBe("ES2022");
+    describe('D-03: types array', () => {
+        it('must preserve obsidian-typings and node types', () => {
+            expect(tsconfig.compilerOptions.types).toEqual(['obsidian-typings', 'node']);
+        });
     });
-  });
+
+    describe('verbatimModuleSyntax compatibility', () => {
+        it('must have verbatimModuleSyntax enabled for strict imports', () => {
+            expect(tsconfig.compilerOptions.verbatimModuleSyntax).toBe(true);
+        });
+    });
+
+    describe('integration with build process', () => {
+        it('must support ESNext module targets', () => {
+            expect(tsconfig.compilerOptions.module).toBe('ESNext');
+        });
+
+        it('must target ES2022 or higher', () => {
+            expect(tsconfig.compilerOptions.target).toBe('ES2022');
+        });
+    });
 });
 
-describe("Phase 20: Build Integration Requirements", () => {
-  describe("D-04: esbuild.config.mjs unchanged and functional", () => {
-    it("must not reference tsconfig moduleResolution", () => {
-      expect(esbuildConfig).not.toMatch(/moduleResolution/);
-    });
-
-    it("must maintain platform: node configuration for main bundle", () => {
-      expect(esbuildConfig).toMatch(/platform:\s*['"]node['"]/);
-    });
-
-    it("must maintain format: cjs for Obsidian plugin compatibility", () => {
-      expect(esbuildConfig).toMatch(/format:\s*['"]cjs['"]/);
-    });
-
-    it("must successfully build main.js, worker.js, and ladybug-worker.js", () => {
-      // Clean up existing build artifacts
-      ["main.js", "worker.js", "ladybug-worker.js", "styles.css"].forEach(
-        (f) => {
-          rmSync(f, { force: true });
-        },
-      );
-
-      // Run esbuild production build
-      execSync("node .config/esbuild.config.mjs production", { stdio: "pipe" });
-
-      // Verify output files exist and have content
-      expect(existsSync("main.js")).toBe(true);
-      expect(existsSync("worker.js")).toBe(true);
-      expect(existsSync("ladybug-worker.js")).toBe(true);
-
-      const mainJs = readFileSync("main.js", "utf-8");
-      expect(mainJs.length).toBeGreaterThan(1000);
-      expect(mainJs).toMatch(/GENERATED BY ESBUILD/);
-    }, 30000);
-  });
-
-  describe("D-05: package.json build script unchanged and functional", () => {
-    it("must use tsc --noEmit for type checking before build", () => {
-      expect(packageJson.scripts.build).toMatch(/tsc\s+--noEmit/);
-    });
-
-    it("must invoke esbuild for production build", () => {
-      expect(packageJson.scripts.build).toMatch(
-        /esbuild\.config\.mjs\s+production/,
-      );
-    });
-
-    it("must include skipLibCheck for faster builds", () => {
-      expect(packageJson.scripts.build).toMatch(/--skipLibCheck/);
-    });
-
-    it("tsc --noEmit should complete without errors on project source files (excluding vitest.config.ts)", () => {
-      // Create a temporary tsconfig that excludes vitest.config.ts to avoid pre-existing TS2769 error
-      // The requirement is that tsconfig noEmit works correctly for source files
-      const tempTsconfig = {
-        ...tsconfig,
-        include: ["src/**/*.ts", "tests/**/*.ts", "scripts/**/*.ts"],
-      };
-
-      const tempConfigPath = "./tsconfig.temp.d05.json";
-      writeFileSync(tempConfigPath, JSON.stringify(tempTsconfig, null, 4));
-
-      try {
-        execSync(`npx tsc --noEmit --skipLibCheck -p ${tempConfigPath}`, {
-          encoding: "utf-8",
-          stdio: ["pipe", "pipe", "pipe"],
-          env: { ...process.env, npm_config_update_notifier: "false" },
+describe('Phase 20: Build Integration Requirements', () => {
+    describe('D-04: esbuild.config.mjs unchanged and functional', () => {
+        it('must not reference tsconfig moduleResolution', () => {
+            expect(esbuildConfig).not.toMatch(/moduleResolution/);
         });
-        // If we get here without exception, type checking passed
-      } catch (error: unknown) {
-        const err = error as unknown as {
-          stderr?: string;
-          stdout?: string;
-          message: string;
-        };
-        // Ignore npm warnings on npx
-        if (
-          err.stderr &&
-          err.stderr.includes("npm warn") &&
-          !err.stdout?.includes("error TS")
-        ) {
-          // Do nothing, pass
-        } else {
-          console.error("tsc output:", err.stdout);
-          throw new Error(err.message);
-        }
-      } finally {
-        unlinkSync(tempConfigPath);
-      }
-    }, 30000);
-  });
+
+        it('must maintain platform: node configuration for main bundle', () => {
+            expect(esbuildConfig).toMatch(/platform:\s*['"]node['"]/);
+        });
+
+        it('must maintain format: cjs for Obsidian plugin compatibility', () => {
+            expect(esbuildConfig).toMatch(/format:\s*['"]cjs['"]/);
+        });
+
+        it('must successfully build main.js, worker.js, and ladybug-worker.js', () => {
+            // Clean up existing build artifacts
+            ['main.js', 'worker.js', 'ladybug-worker.js', 'styles.css'].forEach((f) => {
+                rmSync(f, { force: true });
+            });
+
+            // Run esbuild production build
+            execSync('node .config/esbuild.config.mjs production', { stdio: 'pipe' });
+
+            // Verify output files exist and have content
+            expect(existsSync('main.js')).toBe(true);
+            expect(existsSync('worker.js')).toBe(true);
+            expect(existsSync('ladybug-worker.js')).toBe(true);
+
+            const mainJs = readFileSync('main.js', 'utf-8');
+            expect(mainJs.length).toBeGreaterThan(1000);
+            expect(mainJs).toMatch(/GENERATED BY ESBUILD/);
+        }, 30000);
+    });
+
+    describe('D-05: package.json build script unchanged and functional', () => {
+        it('must use tsc --noEmit for type checking before build', () => {
+            expect(packageJson.scripts.build).toMatch(/tsc\s+--noEmit/);
+        });
+
+        it('must invoke esbuild for production build', () => {
+            expect(packageJson.scripts.build).toMatch(/esbuild\.config\.mjs\s+production/);
+        });
+
+        it('must include skipLibCheck for faster builds', () => {
+            expect(packageJson.scripts.build).toMatch(/--skipLibCheck/);
+        });
+
+        it('tsc --noEmit should complete without errors on project source files (excluding vitest.config.ts)', () => {
+            // Create a temporary tsconfig that excludes vitest.config.ts to avoid pre-existing TS2769 error
+            // The requirement is that tsconfig noEmit works correctly for source files
+            const tempTsconfig = {
+                ...tsconfig,
+                include: ['src/**/*.ts', 'tests/**/*.ts', 'scripts/**/*.ts'],
+            };
+
+            const tempConfigPath = './tsconfig.temp.d05.json';
+            writeFileSync(tempConfigPath, JSON.stringify(tempTsconfig, null, 4));
+
+            try {
+                execSync(`npx tsc --noEmit --skipLibCheck -p ${tempConfigPath}`, {
+                    encoding: 'utf-8',
+                    stdio: ['pipe', 'pipe', 'pipe'],
+                    env: { ...process.env, npm_config_update_notifier: 'false' },
+                });
+                // If we get here without exception, type checking passed
+            } catch (error: unknown) {
+                const err = error as unknown as {
+                    stderr?: string;
+                    stdout?: string;
+                    message: string;
+                };
+                // Ignore npm warnings on npx
+                if (err.stderr && err.stderr.includes('npm warn') && !err.stdout?.includes('error TS')) {
+                    // Do nothing, pass
+                } else {
+                    console.error('tsc output:', err.stdout);
+                    throw new Error(err.message);
+                }
+            } finally {
+                unlinkSync(tempConfigPath);
+            }
+        }, 30000);
+    });
 });
