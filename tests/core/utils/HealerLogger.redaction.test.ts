@@ -1,6 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { HealerLogger } from '../../../src/core/utils/HealerLogger';
-import { SECRET_KEYS } from '../../../src/core/utils/RedactUtils';
+import type { Plugin } from 'obsidian';
+import type { SemanticGraphHealerSettings } from '../../../src/types';
+
+interface SafeStringifyable {
+    safeStringify(data: unknown): string;
+    formatLogLine(entry: { timestamp: string; level: string; module: string; message: string; data?: unknown }): string;
+}
 
 describe('HealerLogger Redaction Integration', () => {
     let logger: HealerLogger;
@@ -15,7 +21,11 @@ describe('HealerLogger Redaction Integration', () => {
                 },
             },
         };
-        logger = new HealerLogger('TestModule', mockPlugin as any, { logLevel: 'debug' } as any);
+        logger = new HealerLogger(
+            'TestModule',
+            mockPlugin as unknown as Plugin,
+            { logLevel: 'debug' } as unknown as SemanticGraphHealerSettings,
+        );
     });
 
     it('should redact sensitive keys in data objects', () => {
@@ -25,7 +35,7 @@ describe('HealerLogger Redaction Integration', () => {
             safe: 'public data',
         };
 
-        const result = (logger as any).safeStringify(data);
+        const result = (logger as unknown as SafeStringifyable).safeStringify(data);
         expect(result).toContain('"api_key":"***"');
         expect(result).toContain('"password":"***"');
         expect(result).toContain('"safe":"public data"');
@@ -36,7 +46,7 @@ describe('HealerLogger Redaction Integration', () => {
             config: 'Use Bearer my-secret-token to authenticate',
         };
 
-        const result = (logger as any).safeStringify(data);
+        const result = (logger as unknown as SafeStringifyable).safeStringify(data);
         expect(result).toContain('"config":"Use Bearer *** to authenticate"');
     });
 
@@ -46,7 +56,7 @@ describe('HealerLogger Redaction Integration', () => {
             infranodus_token: 'token-123',
         };
 
-        const result = (logger as any).safeStringify(data);
+        const result = (logger as unknown as SafeStringifyable).safeStringify(data);
         expect(result).toContain('"openai_api_key":"***"');
         expect(result).toContain('"infranodus_token":"***"');
     });
@@ -60,7 +70,7 @@ describe('HealerLogger Redaction Integration', () => {
             message: message,
         };
 
-        const result = (logger as any).formatLogLine(entry);
+        const result = (logger as unknown as SafeStringifyable).formatLogLine(entry);
         expect(result).toContain('Attack\\nVector\\tAttempted');
     });
 
@@ -73,7 +83,7 @@ describe('HealerLogger Redaction Integration', () => {
             message: message,
         };
 
-        const result = (logger as any).formatLogLine(entry);
+        const result = (logger as unknown as SafeStringifyable).formatLogLine(entry);
         expect(result).toContain('Failed with Bearer ***');
     });
 });

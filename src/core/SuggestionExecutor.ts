@@ -1,6 +1,7 @@
 import { App, TFile } from 'obsidian';
 import type { Suggestion, HistoryItem, HealerNotifier } from '../types';
-import { HealerLogger, resolveTargetFile } from './HealerUtils';
+import { HealerLogger } from './utils/HealerLogger';
+import { resolveTargetFile } from './HealerUtils';
 import type { ExecutionContext } from './services/PluginContext';
 
 export class SuggestionExecutor {

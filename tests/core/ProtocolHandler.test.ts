@@ -1,16 +1,28 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import SemanticGraphHealer from '../../src/main';
 
+interface MockPlugin {
+    registerObsidianProtocolHandler: ReturnType<typeof vi.fn>;
+    api: {
+        executeBatch: ReturnType<typeof vi.fn>;
+        undoBatch: ReturnType<typeof vi.fn>;
+    };
+    analyzeGraph: ReturnType<typeof vi.fn>;
+    logger: { error: ReturnType<typeof vi.fn> };
+}
+
 describe('ProtocolHandler', () => {
-    let mockPlugin: any;
-    let protocolHandlers: Map<string, (params: any) => Promise<void> | void>;
+    let mockPlugin: MockPlugin;
+    let protocolHandlers: Map<string, (params: unknown) => Promise<void> | void>;
 
     beforeEach(() => {
         protocolHandlers = new Map();
         mockPlugin = {
-            registerObsidianProtocolHandler: vi.fn().mockImplementation((name, callback) => {
-                protocolHandlers.set(name, callback);
-            }),
+            registerObsidianProtocolHandler: vi
+                .fn()
+                .mockImplementation((name: string, callback: (params: unknown) => Promise<void> | void) => {
+                    protocolHandlers.set(name, callback);
+                }),
             api: {
                 executeBatch: vi.fn(),
                 undoBatch: vi.fn(),
@@ -22,7 +34,11 @@ describe('ProtocolHandler', () => {
         };
 
         // Call the method from SemanticGraphHealer prototype bound to mockPlugin
-        const registerProtocolHandlers = (SemanticGraphHealer.prototype as any).registerProtocolHandlers;
+        const registerProtocolHandlers = (
+            SemanticGraphHealer.prototype as unknown as {
+                registerProtocolHandlers: (this: unknown) => void;
+            }
+        ).registerProtocolHandlers;
         registerProtocolHandlers.call(mockPlugin);
     });
 

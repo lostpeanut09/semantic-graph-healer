@@ -41,6 +41,24 @@ interface LogEntry {
 }
 
 /**
+ * Configuration for log deduplication and rate-limiting (Phase 25 — ERR-03).
+ */
+interface DedupConfig {
+    /** Time window in milliseconds during which identical fingerprints are collapsed. */
+    windowMs: number;
+    /** Max accepted log calls per module per window. */
+    perModuleCap: number;
+    /** Max accepted log calls across all modules per window. */
+    globalCap: number;
+}
+
+const DEFAULT_DEDUP_CONFIG: DedupConfig = {
+    windowMs: 5000,
+    perModuleCap: 10,
+    globalCap: 100,
+};
+
+/**
  * HealerLogger
  *
  * Advanced logging utility for the Semantic Graph Healer plugin.
@@ -50,8 +68,88 @@ interface LogEntry {
  * - Secure logging: masks sensitive keys and patterns (API keys, tokens, JWT).
  * - Control character neutralization to prevent log injection.
  * - Persistent file logging with size-based rotation and auto-disable on failure.
+ * - Per-call deduplication of identical (level + module + normalized message) fingerprints
+ *   inside a sliding time window (default 5000ms).
+ * - Per-module and global rate caps enforced inside the same window.
+ * - Static convenience methods that delegate to a registered singleton instance.
  */
 export class HealerLogger {
+    private static _singletonInstance: HealerLogger | null = null;
+
+    /**
+     * Registers a process-wide singleton instance. Subsequent static calls
+     * (`HealerLogger.info`, `HealerLogger.warn`, `HealerLogger.error`,
+     * `HealerLogger.debug`) delegate to this instance, which routes them
+     * through the dedup / rate-limit pipeline. Pre-`setInstance` static
+     * calls fall back to the console with the legacy `[SemanticHealer][LEVEL]`
+     * prefix so no log line is silently lost during early module init.
+     *
+     * @param instance - The logger to route static calls to.
+     */
+    public static setInstance(instance: HealerLogger): void {
+        HealerLogger._singletonInstance = instance;
+    }
+
+    /**
+     * Static convenience: logs an info message via the registered singleton,
+     * or via the console fallback if no instance has been registered yet.
+     * @param message - The message to log.
+     * @param args - Additional structured arguments.
+     */
+    public static info(message: string, ...args: unknown[]): void {
+        if (HealerLogger._singletonInstance) {
+            HealerLogger._singletonInstance.info(message, ...args);
+        } else {
+            console.info('[SemanticHealer][INFO]', message, ...args);
+        }
+    }
+
+    /**
+     * Static convenience: logs a warning via the registered singleton, or
+     * via the console fallback if no instance has been registered yet.
+     * @param message - The message to log.
+     * @param args - Additional structured arguments.
+     */
+    public static warn(message: string, ...args: unknown[]): void {
+        if (HealerLogger._singletonInstance) {
+            HealerLogger._singletonInstance.warn(message, ...args);
+        } else {
+            console.warn('[SemanticHealer][WARN]', message, ...args);
+        }
+    }
+
+    /**
+     * Static convenience: logs an error via the registered singleton, or
+     * via the console fallback if no instance has been registered yet.
+     * Mirrors the instance method's Error extraction so pre-init calls
+     * retain `message`, `stack`, and `name` from real Error instances.
+     * @param message - The message to log.
+     * @param args - Additional structured arguments.
+     */
+    public static error(message: string, ...args: unknown[]): void {
+        if (HealerLogger._singletonInstance) {
+            HealerLogger._singletonInstance.error(message, ...args);
+            return;
+        }
+        const err = args[0];
+        const errorData = err instanceof Error ? { message: err.message, stack: err.stack, name: err.name } : err;
+        console.error('[SemanticHealer][ERROR]', message, errorData);
+    }
+
+    /**
+     * Static convenience: logs a debug message via the registered singleton,
+     * or via the console fallback if no instance has been registered yet.
+     * @param message - The message to log.
+     * @param args - Additional structured arguments.
+     */
+    public static debug(message: string, ...args: unknown[]): void {
+        if (HealerLogger._singletonInstance) {
+            HealerLogger._singletonInstance.debug(message, ...args);
+        } else {
+            console.debug('[SemanticHealer][DEBUG]', message, ...args);
+        }
+    }
+
     private module: string;
     private plugin: Plugin;
     private settings: SemanticGraphHealerSettings;
@@ -60,6 +158,20 @@ export class HealerLogger {
     private fileLoggingEnabled: boolean = false;
     private fileWriteFailures: number = 0;
     private logFilePath: string = 'SemanticGraphHealer/logs';
+    private dedupConfig: DedupConfig = { ...DEFAULT_DEDUP_CONFIG };
+    private recentFingerprints: Map<string, number> = new Map();
+    private moduleLogCounts: Map<string, number[]> = new Map();
+    private globalLogTimestamps: number[] = [];
+    /**
+     * In-flight file-write promises from log()/clearBuffer() (IN-05).
+     *
+     * The logger's public API is fire-and-forget: it calls
+     * `void this.writeToFile(entry)` so the UI thread is never blocked.
+     * If the Obsidian process terminates right after a log call, any
+     * unresolved promise is lost. `flush()` awaits all entries so the
+     * plugin can drain in-flight writes from `onunload()`.
+     */
+    private pendingFileWrites: Promise<void>[] = [];
 
     /**
      * Creates a new HealerLogger instance for a specific module.
@@ -76,6 +188,15 @@ export class HealerLogger {
             this.maxBufferSize = this.settings.logBufferSize || 1000;
             this.fileLoggingEnabled = this.settings.enableFileLogging || false;
             this.logFilePath = this.settings.logFilePath || 'SemanticGraphHealer/logs';
+            if (this.settings.logDedupWindowMs !== undefined) {
+                this.dedupConfig.windowMs = this.settings.logDedupWindowMs;
+            }
+            if (this.settings.logPerModuleCap !== undefined) {
+                this.dedupConfig.perModuleCap = this.settings.logPerModuleCap;
+            }
+            if (this.settings.logGlobalCap !== undefined) {
+                this.dedupConfig.globalCap = this.settings.logGlobalCap;
+            }
         }
     }
 
@@ -100,10 +221,135 @@ export class HealerLogger {
         }
     }
 
+    /**
+     * Live-updates the deduplication / rate-limit configuration. The new
+     * values are applied to subsequent log calls without re-instantiation.
+     * Existing fingerprint and per-module counts are preserved; tighter caps
+     * are enforced immediately on the next call.
+     *
+     * @param cfg - Partial config: only the keys you want to change.
+     */
+    setDedupConfig(cfg: { windowMs?: number; perModuleCap?: number; globalCap?: number }): void {
+        if (cfg.windowMs !== undefined && Number.isFinite(cfg.windowMs)) {
+            this.dedupConfig.windowMs = Math.max(0, Math.floor(cfg.windowMs));
+        }
+        if (cfg.perModuleCap !== undefined && Number.isFinite(cfg.perModuleCap)) {
+            this.dedupConfig.perModuleCap = Math.max(0, Math.floor(cfg.perModuleCap));
+        }
+        if (cfg.globalCap !== undefined && Number.isFinite(cfg.globalCap)) {
+            this.dedupConfig.globalCap = Math.max(0, Math.floor(cfg.globalCap));
+        }
+    }
+
     private shouldLog(level: LogLevel): boolean {
         if (!this.settings) return true;
         const currentLevel = this.settings.logLevel;
         return LOG_LEVELS[level] >= LOG_LEVELS[currentLevel];
+    }
+
+    /**
+     * Trims, collapses internal whitespace runs into a single space, and
+     * lowercases the message so surface-level variations ("Failed: 500" vs
+     * "failed:500") produce the same fingerprint.
+     */
+    private normalizeMessage(message: string): string {
+        return message.trim().replace(/\s+/g, ' ').toLowerCase();
+    }
+
+    private computeFingerprint(level: LogLevel, module: string, message: string): string {
+        return `${level}|${module}|${this.normalizeMessage(message)}`;
+    }
+
+    /**
+     * Manually prunes timestamps older than `cutoff` from a monotonically
+     * non-decreasing timestamp array. Uses a write-pointer approach (O(n)
+     * single pass with no splice element-shifting) to keep GC pressure flat
+     * on hot paths.
+     *
+     * **IN-06 monotonicity contract (IN-06):** this function relies on the
+     * caller never inserting out-of-order timestamps. It iterates from
+     * index 0 and stops at the first timestamp `>= cutoff`, so a smaller
+     * timestamp inserted later (e.g. via a clock skew or a manual
+     * mutation) would be silently skipped. All current producers —
+     * `shouldEmit()` pushing `Date.now()`, and the fingerprint
+     * map's `Map` iteration order — append in non-decreasing time
+     * order, which keeps the assumption valid. If a future change
+     * writes timestamps out of order, switch this to a full scan.
+     */
+    private pruneTimestamps(arr: number[], cutoff: number): void {
+        let writeIdx = 0;
+        for (let i = 0; i < arr.length; i++) {
+            if (arr[i] >= cutoff) {
+                arr[writeIdx++] = arr[i];
+            }
+        }
+        arr.length = writeIdx;
+    }
+
+    /**
+     * Removes fingerprint entries whose last-seen timestamp is older than
+     * `cutoff`. Bounded growth guard: prevents the dedup Map from leaking
+     * memory across long-running sessions when many unique messages are
+     * logged (e.g. logs that embed per-file paths).
+     */
+    private pruneFingerprints(cutoff: number): void {
+        for (const [fp, ts] of this.recentFingerprints) {
+            if (ts < cutoff) this.recentFingerprints.delete(fp);
+        }
+    }
+
+    /**
+     * Prunes per-module timestamp arrays across ALL modules and removes
+     * entries whose arrays became empty. Called on every shouldEmit() so
+     * abandoned modules don't leak Map slots across long-running sessions.
+     */
+    private pruneAllModuleCounts(cutoff: number): void {
+        for (const [mod, arr] of this.moduleLogCounts) {
+            this.pruneTimestamps(arr, cutoff);
+            if (arr.length === 0) this.moduleLogCounts.delete(mod);
+        }
+    }
+
+    /**
+     * Returns true if the (level, module, message) triple is allowed to
+     * emit under the current dedup/rate-limit config. When accepted, the
+     * fingerprint, per-module and global timestamp arrays are updated as
+     * a side-effect so future calls observe the new state immediately.
+     *
+     * **IN-06 ordering assumption:** the side-effects at the bottom of
+     * this method (`moduleTimes.push(now)` and
+     * `globalLogTimestamps.push(now)`) preserve the monotonic
+     * non-decreasing ordering that `pruneTimestamps` and
+     * `pruneAllModuleCounts` rely on for forward-splice efficiency.
+     * Do not insert or mutate these arrays from any other code path
+     * without also auditing the prune logic.
+     */
+    private shouldEmit(level: LogLevel, module: string, message: string): boolean {
+        const cfg = this.dedupConfig;
+        const now = Date.now();
+        const cutoff = now - cfg.windowMs;
+
+        this.pruneTimestamps(this.globalLogTimestamps, cutoff);
+        this.pruneAllModuleCounts(cutoff);
+        this.pruneFingerprints(cutoff);
+
+        const moduleTimes = this.moduleLogCounts.get(module) ?? [];
+
+        const fp = this.computeFingerprint(level, module, message);
+        const last = this.recentFingerprints.get(fp);
+        const isDuplicate = last !== undefined && now - last < cfg.windowMs;
+        const overModuleCap = cfg.perModuleCap > 0 && moduleTimes.length >= cfg.perModuleCap;
+        const overGlobalCap = cfg.globalCap > 0 && this.globalLogTimestamps.length >= cfg.globalCap;
+
+        if (isDuplicate || overModuleCap || overGlobalCap) {
+            return false;
+        }
+
+        this.moduleLogCounts.set(module, moduleTimes);
+        this.recentFingerprints.set(fp, now);
+        moduleTimes.push(now);
+        this.globalLogTimestamps.push(now);
+        return true;
     }
 
     private formatTimestamp(): string {
@@ -253,6 +499,7 @@ export class HealerLogger {
 
     private log(level: LogLevel, message: string, data?: unknown): void {
         if (!this.shouldLog(level)) return;
+        if (!this.shouldEmit(level, this.module, message)) return;
 
         const entry: LogEntry = {
             timestamp: this.formatTimestamp(),
@@ -271,8 +518,12 @@ export class HealerLogger {
         else if (level === 'info') console.info(logLine);
         else console.debug(logLine);
 
-        // File output
-        void this.writeToFile(entry);
+        // File output — track the promise so flush() can await it.
+        // writeToFile already catches its own errors internally, but
+        // attach a no-op catch here as a belt-and-braces guarantee that
+        // no rejected promise leaks into pendingFileWrites.
+        const writePromise = this.writeToFile(entry).catch(() => undefined);
+        this.pendingFileWrites.push(writePromise);
     }
 
     /**
@@ -341,7 +592,8 @@ export class HealerLogger {
             console.debug(this.formatLogLine(entry));
         }
 
-        void this.writeToFile(entry);
+        const writePromise = this.writeToFile(entry).catch(() => undefined);
+        this.pendingFileWrites.push(writePromise);
     }
 
     private addToBuffer(entry: LogEntry): void {
@@ -371,5 +623,33 @@ export class HealerLogger {
             stats.byLevel[entry.level]++;
         });
         return stats;
+    }
+
+    /**
+     * Awaits all in-flight file writes queued by `log()` and
+     * `clearBuffer()` (IN-05). Call from the plugin's `onunload()`
+     * to maximize the chance that buffered log lines reach disk before
+     * the Obsidian process tears down.
+     *
+     * Uses `Promise.allSettled` so a single rejected write does not
+     * block the rest of the queue. The internal `pendingFileWrites`
+     * array is replaced with a fresh one before the await, so any
+     * writes enqueued during the flush are picked up by a subsequent
+     * `flush()` call (not the current one) — this matches the
+     * intuitive "drain what's pending right now" contract.
+     */
+    async flush(): Promise<void> {
+        const pending = this.pendingFileWrites;
+        this.pendingFileWrites = [];
+        await Promise.allSettled(pending);
+    }
+
+    /**
+     * Returns the number of file writes currently pending (IN-05).
+     * Exposed for tests and diagnostics; do not depend on this from
+     * production hot paths.
+     */
+    get pendingWriteCount(): number {
+        return this.pendingFileWrites.length;
     }
 }

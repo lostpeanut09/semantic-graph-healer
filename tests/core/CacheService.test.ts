@@ -1,16 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CacheService } from '../../src/core/CacheService';
-import { Plugin, normalizePath, TFile } from 'obsidian';
+import { Plugin } from 'obsidian';
 
 vi.mock('obsidian', () => ({
-    normalizePath: vi.fn((p) => p),
+    normalizePath: vi.fn((p: string): string => p),
     TFile: class {},
 }));
 
+interface MockAdapter {
+    exists: ReturnType<typeof vi.fn>;
+    read: ReturnType<typeof vi.fn>;
+    write: ReturnType<typeof vi.fn>;
+    rename: ReturnType<typeof vi.fn>;
+    remove: ReturnType<typeof vi.fn>;
+}
+
 describe('CacheService', () => {
     let service: CacheService;
-    let mockPlugin: any;
-    let mockAdapter: any;
+    let mockPlugin: unknown;
+    let mockAdapter: MockAdapter;
 
     beforeEach(() => {
         mockAdapter = {

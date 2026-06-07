@@ -1,27 +1,10 @@
 import { requestUrl } from 'obsidian';
 import type { RequestUrlParam } from 'obsidian';
 import type { SemanticGraphHealerSettings, ReasoningResult } from '../types';
-import { HealerLogger, getProviderFromEndpoint, cosineSimilarity } from './HealerUtils';
+import { HealerLogger } from './utils/HealerLogger';
+import { getProviderFromEndpoint, cosineSimilarity } from './HealerUtils';
 import type { ApiKeyType } from './HealerUtils';
-
-/**
- * Custom Error for LLM operations.
- */
-class LlmError extends Error {
-    /**
-     * Creates an instance of LlmError.
-     * @param model - The name of the model that failed.
-     * @param status - The HTTP status code of the failure.
-     * @param message - The error message.
-     */
-    constructor(
-        public readonly model: string,
-        public readonly status: number,
-        message: string,
-    ) {
-        super(`LLM [${model}] failed: ${status} - ${message}`);
-    }
-}
+import { LlmError } from './errors/HealerError';
 
 /**
  * Standard structure for LLM API responses.
@@ -151,7 +134,7 @@ export class LlmService {
 
             const cleanEp = endpoint.replace(/\/+$/, '');
             const isResponsesApi = cleanEp.endsWith('/v1/responses');
-            const apiPath = isResponsesApi ? 'responses' : ('chat/completions' as const);
+            const apiPath: 'responses' | 'chat/completions' = isResponsesApi ? 'responses' : 'chat/completions';
 
             const makeRequest = async (): Promise<{
                 status: number;
@@ -281,13 +264,17 @@ export class LlmService {
                     ''
                 );
             } catch (e) {
-                if (retryCount < MAX_RETRIES) {
+                const isTimeout = e instanceof Error && e.message.includes('TimeoutError');
+                if (!isTimeout && retryCount < MAX_RETRIES) {
                     const delay = Math.pow(2, retryCount) * 1000;
                     HealerLogger.warn(
                         `LLM [${model}] exception: ${e instanceof Error ? e.message : 'Unknown'}. Retry ${retryCount + 1}/${MAX_RETRIES} in ${delay}ms...`,
                     );
                     await new Promise((r) => setTimeout(r, delay));
                     return queryModel(endpoint, apiKey, model, timeoutSec, retryCount + 1);
+                }
+                if (isTimeout) {
+                    HealerLogger.warn(`LLM [${model}] timed out after ${timeoutSec}s; not retrying.`);
                 }
 
                 const finalError = `Error: LLM [${model}] final failure: ${e instanceof Error ? e.message : 'Unknown'}`;
@@ -302,6 +289,15 @@ export class LlmService {
             this.settings.llmModelName,
             this.settings.primaryTimeout,
         );
+
+        // CR-01: If the primary model returned an error string (all retries exhausted),
+        // bail out immediately instead of treating it as a valid LLM response.
+        // Without this check the error string flows into parseReasoningResult()
+        // which triggers a spurious (and costly) AI Tribunal invocation.
+        if (result.startsWith('Error:')) {
+            HealerLogger.error('LlmService: Primary model failed completely', result);
+            return `${result}\n\n<tribunal_audit>\nStatus: ERROR\nConfidenceScore: 0\nPrimaryReasoning: Primary model failure — no response available\n</tribunal_audit>`;
+        }
 
         if (!useTribunal || !this.settings.enableAiTribunal) {
             HealerLogger.debug('LlmService: Tribunal disabled or not requested. Returning primary result.');
@@ -683,27 +679,39 @@ Only return the JSON. No markdown or meta-talk.
 
             try {
                 const response = await this.callLlm(batchPrompt, false, signal);
-                // Extract JSON array
-                const jsonMatch = response.match(/\[[\s\S]*\]/);
-                if (jsonMatch) {
-                    const parsed = JSON.parse(jsonMatch[0]) as Array<{
-                        id: string;
-                        valid: boolean;
-                        reason: string;
-                    }>;
-                    parsed.forEach((item, idx) => {
-                        const child = chunk[idx];
-                        if (child) {
-                            const res = { valid: item.valid, reason: item.reason };
-                            results[child.name] = res;
-                            // Cache result
-                            const cacheKey = `relation:${parentName}:${child.name}:${mtimeParent}:${child.mtime}`;
-                            this.verificationCache.set(cacheKey, {
-                                result: res,
-                                timestamp: Date.now(),
-                            });
+                // Extract JSON array: find the first balanced JSON array to avoid
+                // greedy regex matching trailing prose that would cause parse failures.
+                const startIdx = response.indexOf('[');
+                if (startIdx !== -1) {
+                    let depth = 0;
+                    for (let j = startIdx; j < response.length; j++) {
+                        if (response[j] === '[') depth++;
+                        else if (response[j] === ']') depth--;
+                        if (depth === 0) {
+                            try {
+                                const parsed = JSON.parse(response.slice(startIdx, j + 1)) as Array<{
+                                    id: string;
+                                    valid: boolean;
+                                    reason: string;
+                                }>;
+                                parsed.forEach((item, idx) => {
+                                    const child = chunk[idx];
+                                    if (child) {
+                                        const res = { valid: item.valid, reason: item.reason };
+                                        results[child.name] = res;
+                                        const cacheKey = `relation:${parentName}:${child.name}:${mtimeParent}:${child.mtime}`;
+                                        this.verificationCache.set(cacheKey, {
+                                            result: res,
+                                            timestamp: Date.now(),
+                                        });
+                                    }
+                                });
+                            } catch {
+                                // JSON parse failed — fall through to next chunk
+                            }
+                            break;
                         }
-                    });
+                    }
                 }
             } catch (e) {
                 HealerLogger.error(`Batch validation failed for chunk starting at ${i} of parent ${parentName}`, e);
@@ -762,10 +770,12 @@ Only return the JSON. No markdown or meta-talk.
      * @returns A promise that resolves to an array of model names.
      */
     public async runModelDetection(endpoint: string, apiKey: string): Promise<string[]> {
+        const base = endpoint.replace(/\/+$/, '');
+        const alreadyV1 = base.endsWith('/v1');
         const tryEndpoints = [
-            endpoint.endsWith('/') ? `${endpoint}v1/models` : `${endpoint}/v1/models`,
-            endpoint.endsWith('/') ? `${endpoint}models` : `${endpoint}/models`,
-            endpoint.endsWith('/') ? `${endpoint}api/tags` : `${endpoint}/api/tags`, // Ollama native
+            alreadyV1 ? `${base}/models` : `${base}/v1/models`,
+            `${base}/models`,
+            `${base}/api/tags`, // Ollama native
         ];
 
         for (const url of tryEndpoints) {
@@ -857,7 +867,7 @@ Only return the JSON. No markdown or meta-talk.
                 result.winnerWhy = winnerMatch[3].trim();
             }
 
-            const runnerUpMatch = raw.match(
+            const runnerUpMatch = mainContent.match(
                 /RUNNERUP:\s*(?:\[\[)?(.*?)(?:\]\])?\s*\|\s*SCORE:\s*(\d+)%?\s*\|\s*WHY:\s*(.*)/i,
             );
             if (runnerUpMatch) {

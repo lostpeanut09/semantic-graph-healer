@@ -1,8 +1,57 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { DashboardStore } from '../../../src/views/dashboard/DashboardStore.svelte';
+import type { App, EventRef } from 'obsidian';
+import type { Suggestion, HistoryItem, SemanticGraphHealerSettings, ReasoningResult } from '../../../src/types';
+
+interface MockPluginContext {
+    app: App;
+    settings: SemanticGraphHealerSettings;
+    cache: {
+        suggestions: Suggestion[];
+        history: HistoryItem[];
+        save(): void;
+    };
+    executor: {
+        execute(suggestion: Suggestion): Promise<boolean>;
+        executeRelink(suggestion: Suggestion): Promise<boolean>;
+        undo(historyItem: HistoryItem): Promise<boolean>;
+        resolveChoice(suggestion: Suggestion, winner: string, losers: string[]): Promise<boolean>;
+    };
+    reasoner: {
+        analyze(suggestion: Suggestion): Promise<ReasoningResult | null>;
+    };
+    topology: {
+        getContextForAIValidation(
+            sourcePath: string,
+            targetPaths: string[],
+        ): Promise<{
+            sourceContent: string;
+            targetContents: string[];
+            existingRelations: unknown;
+        }>;
+    };
+    llm: {
+        validateBranching(
+            sourceNote: string,
+            targetNotes: string[],
+            sourceContent: string,
+            targetContents: string[],
+            existingRelations: unknown,
+        ): Promise<boolean>;
+        validateTagInheritance(
+            childName: string,
+            tag: string,
+            parentName: string,
+            childContent: string,
+            parentContent: string,
+        ): Promise<boolean>;
+    };
+    saveSettings(): Promise<void>;
+    registerEvent(event: EventRef): void;
+}
 
 describe('DashboardStore Sanitization E2E Simulation', () => {
-    let mockPlugin: any;
+    let mockPlugin: MockPluginContext;
     let store: DashboardStore;
 
     beforeEach(() => {
@@ -48,7 +97,7 @@ describe('DashboardStore Sanitization E2E Simulation', () => {
             },
             saveSettings: vi.fn().mockResolvedValue(undefined),
             registerEvent: vi.fn(),
-        };
+        } as unknown as MockPluginContext;
 
         store = new DashboardStore(mockPlugin);
     });
@@ -64,19 +113,19 @@ describe('DashboardStore Sanitization E2E Simulation', () => {
                 sourceNote: 'Source',
                 targetNotes: ['Target'],
             },
-        };
+        } as unknown as Suggestion;
 
         // Add suggestion to store (manually since it's private but we can set it via cache and refresh)
         mockPlugin.cache.suggestions = [suggestion];
         store.refresh();
 
-        mockPlugin.topology.getContextForAIValidation.mockResolvedValue({
+        (mockPlugin.topology.getContextForAIValidation as ReturnType<typeof vi.fn>).mockResolvedValue({
             sourceContent: 'Secret source: sk-1234567890abcdefghijklmnopqrstuvwxyz',
             targetContents: ['Secret target: Bearer my-token-123'],
             existingRelations: {},
         });
 
-        await store.verifyAI(suggestion as any);
+        await store.verifyAI(suggestion);
 
         expect(mockPlugin.llm.validateBranching).toHaveBeenCalledWith(
             'Source',
@@ -99,12 +148,12 @@ describe('DashboardStore Sanitization E2E Simulation', () => {
                 targetNote: 'Parent',
                 property: 'myTag',
             },
-        };
+        } as unknown as Suggestion;
 
         mockPlugin.cache.suggestions = [suggestion];
         store.refresh();
 
-        mockPlugin.topology.getContextForAIValidation.mockResolvedValue({
+        (mockPlugin.topology.getContextForAIValidation as ReturnType<typeof vi.fn>).mockResolvedValue({
             sourceContent: 'Child secret: sk-1234567890abcdefghijklmnopqrstuvwxyz',
             targetContents: [
                 'Parent secret: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signature',
@@ -112,7 +161,7 @@ describe('DashboardStore Sanitization E2E Simulation', () => {
             existingRelations: {},
         });
 
-        await store.verifyAI(suggestion as any);
+        await store.verifyAI(suggestion);
 
         expect(mockPlugin.llm.validateTagInheritance).toHaveBeenCalledWith(
             'Child',

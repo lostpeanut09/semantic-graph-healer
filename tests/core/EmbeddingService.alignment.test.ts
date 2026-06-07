@@ -9,7 +9,7 @@ vi.mock('obsidian', () => ({
 
 describe('EmbeddingService Alignment', () => {
     let service: EmbeddingService;
-    let mockSettings: any;
+    let mockSettings: typeof DEFAULT_SETTINGS;
 
     beforeEach(() => {
         mockSettings = {
@@ -26,9 +26,14 @@ describe('EmbeddingService Alignment', () => {
         // king (1,0), queen (0.9, 0.1) -> high similarity
         // cat (1,0), car (0,1) -> low similarity
 
-        vi.mocked(requestUrl).mockImplementation((async (options: any) => {
-            const body = JSON.parse(options.body);
-            const prompt = body.prompt;
+        const mockReq = requestUrl as unknown as {
+            mockImplementation: (fn: unknown) => void;
+            mockReturnValue: (val: unknown) => void;
+            mockResolvedValue: (val: unknown) => void;
+        };
+        mockReq.mockImplementation((options: { body: string }) => {
+            const body = JSON.parse(options.body) as { prompt: string };
+            const prompt: string = body.prompt;
 
             let vector = new Array(768).fill(0);
             if (
@@ -62,16 +67,16 @@ describe('EmbeddingService Alignment', () => {
                 vector[4] = 1;
             } else if (prompt === 'hot') {
                 vector[4] = 0.2;
-                vector[5] = 0.8; // Low similarity for hot/cold
+                vector[5] = 0.8;
             }
 
             return {
                 status: 200,
                 json: { embedding: vector },
-                text: async () => JSON.stringify({ embedding: vector }),
-                arrayBuffer: async () => new ArrayBuffer(0),
+                text: () => Promise.resolve(JSON.stringify({ embedding: vector })),
+                arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
             };
-        }) as any);
+        });
 
         const result = await service.checkModelAlignment();
 
@@ -82,16 +87,21 @@ describe('EmbeddingService Alignment', () => {
     it('should mark status as MISALIGNED if alignment check fails', async () => {
         // Return alternating vectors -> low similarity for most pairs
         let toggle = false;
-        vi.mocked(requestUrl).mockImplementation((async () => {
+        const mockReq = requestUrl as unknown as {
+            mockImplementation: (fn: unknown) => void;
+            mockReturnValue: (val: unknown) => void;
+            mockResolvedValue: (val: unknown) => void;
+        };
+        mockReq.mockImplementation(() => {
             toggle = !toggle;
             const vector = new Array(768).fill(toggle ? 1 : 0);
             return {
                 status: 200,
                 json: { embedding: vector },
-                text: async () => JSON.stringify({ embedding: vector }),
-                arrayBuffer: async () => new ArrayBuffer(0),
+                text: () => Promise.resolve(JSON.stringify({ embedding: vector })),
+                arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
             };
-        }) as any);
+        });
 
         const result = await service.checkModelAlignment();
 

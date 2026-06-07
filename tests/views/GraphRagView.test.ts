@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mount, unmount } from 'svelte';
 import GraphRagView from '../../src/views/GraphRagView.svelte';
+import type SemanticGraphHealer from '../../src/main';
 
 // Mock Obsidian
 vi.mock('obsidian', () => ({
@@ -8,7 +9,7 @@ vi.mock('obsidian', () => ({
 }));
 
 describe('GraphRagView', () => {
-    let pluginMock: any;
+    let pluginMock: SemanticGraphHealer;
 
     beforeEach(() => {
         pluginMock = {
@@ -22,7 +23,7 @@ describe('GraphRagView', () => {
                     },
                 },
             },
-        };
+        } as unknown as SemanticGraphHealer;
     });
 
     it('renders search bar', () => {
@@ -35,7 +36,7 @@ describe('GraphRagView', () => {
         expect(host.querySelector('input')).toBeTruthy();
         expect(host.querySelector('button')?.textContent).toContain('Search');
 
-        unmount(instance);
+        void unmount(instance);
     });
 
     it('executes query and displays answer', async () => {
@@ -50,7 +51,7 @@ describe('GraphRagView', () => {
                 },
             ],
         };
-        pluginMock.graphRag.query.mockResolvedValue(mockResult);
+        (pluginMock.graphRag as unknown as { query: ReturnType<typeof vi.fn> }).query.mockResolvedValue(mockResult);
 
         const host = document.createElement('div');
         const instance = mount(GraphRagView, {
@@ -63,7 +64,7 @@ describe('GraphRagView', () => {
         input.dispatchEvent(new Event('input'));
 
         const button = host.querySelector('button')!;
-        await button.click();
+        button.click();
 
         // Wait for async search
         await vi.waitFor(() => {
@@ -72,6 +73,6 @@ describe('GraphRagView', () => {
             expect(host.querySelector('.healer-comm-pill')?.textContent).toContain('Cluster 1');
         });
 
-        unmount(instance);
+        void unmount(instance);
     });
 });

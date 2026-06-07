@@ -1,4 +1,4 @@
-import { HealerLogger } from '../HealerUtils';
+import { HealerLogger } from './HealerLogger';
 
 /**
  * CryptoUtils

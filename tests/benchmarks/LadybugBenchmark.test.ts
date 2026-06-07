@@ -1,34 +1,48 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import type { App } from 'obsidian';
+import type { ExtendedManifest } from '../../src/types';
 import { LadybugService } from '../../src/core/services/LadybugService';
 import { LadybugAdapter } from '../../src/core/adapters/LadybugAdapter';
-import { UnifiedMetadataAdapter } from '../../src/core/adapters/UnifiedMetadataAdapter';
-import { vi } from 'vitest';
+import type { UnifiedMetadataAdapter } from '../../src/core/adapters/UnifiedMetadataAdapter';
 
 // Mock Worker for benchmarking if we don't want to run real WASM in tests
 // But the task says "Verify >10x speedup", so we might need a real-ish test or a very good mock.
 // Since we are in a test environment, let's try to mock the performance characteristics or use the real one if it works.
 
+interface MockUnifiedMetadataAdapter {
+    getLinksSafe: ReturnType<typeof vi.fn>;
+    queryPages: ReturnType<typeof vi.fn>;
+}
+
+interface MockWorkerShape {
+    postMessage: ReturnType<typeof vi.fn>;
+    onmessage: ((ev: MessageEvent) => void) | null;
+    addEventListener: (type: string, handler: unknown) => void;
+    removeEventListener: ReturnType<typeof vi.fn>;
+    terminate: ReturnType<typeof vi.fn>;
+}
+
 describe('LadybugBenchmark', () => {
     let service: LadybugService;
-    let metadataAdapter: any;
+    let metadataAdapter: MockUnifiedMetadataAdapter;
     let ladybugAdapter: LadybugAdapter;
 
-    beforeEach(async () => {
+    beforeEach(() => {
         const mockApp = {
             vault: {
                 adapter: {
                     read: vi.fn().mockResolvedValue('// mock worker content'),
                 },
             },
-        } as any;
-        const mockManifest = { dir: 'plugin-dir' } as any;
+        } as unknown as App;
+        const mockManifest = { dir: 'plugin-dir' } as unknown as ExtendedManifest;
 
         service = new LadybugService(mockApp, mockManifest);
         metadataAdapter = {
             getLinksSafe: vi.fn(),
             queryPages: vi.fn(),
         };
-        ladybugAdapter = new LadybugAdapter(service, metadataAdapter);
+        ladybugAdapter = new LadybugAdapter(service, metadataAdapter as unknown as UnifiedMetadataAdapter);
     });
 
     it('benchmarks 50,000 nodes sync and query', async () => {
@@ -48,11 +62,10 @@ describe('LadybugBenchmark', () => {
         // Mock the service methods to measure time if we can't run real WASM
         const originalSync = service.sync;
         service.sync = async (batch) => {
-            const start = performance.now();
             // Simulate processing time if needed, or just run real if available
             // For now, let's assume we want to measure the real thing if possible.
             // But real WASM might be slow to init in CI.
-            return originalSync.call(service, batch);
+            return (await originalSync.call(service, batch)) as Promise<void>;
         };
 
         const startSync = performance.now();
@@ -61,23 +74,29 @@ describe('LadybugBenchmark', () => {
         // But the task wants REAL benchmarks.
 
         // Let's mock the worker to measure overhead at least.
-        const mockWorker = {
-            postMessage: vi.fn((msg) => {
+        const mockWorker: MockWorkerShape = {
+            postMessage: vi.fn((msg: { type: string }) => {
                 if (msg.type === 'init') {
                     setTimeout(
                         () =>
-                            mockWorker.onmessage({
+                            mockWorker.onmessage?.({
                                 data: { type: 'ready', mode: 'st-wasm' },
-                            }),
+                            } as MessageEvent),
                         100,
                     );
                 } else if (msg.type === 'sync') {
-                    setTimeout(() => mockWorker.onmessage({ data: { type: 'sync-complete' } }), 500);
+                    setTimeout(
+                        () =>
+                            mockWorker.onmessage?.({
+                                data: { type: 'sync-complete' },
+                            } as MessageEvent),
+                        500,
+                    );
                 }
             }),
-            onmessage: null as any,
-            addEventListener: function (type: string, handler: any) {
-                this.onmessage = handler;
+            onmessage: null,
+            addEventListener: function (this: MockWorkerShape, type: string, handler: unknown) {
+                if (type === 'message') this.onmessage = handler as ((ev: MessageEvent) => void) | null;
             },
             removeEventListener: vi.fn(),
             terminate: vi.fn(),
@@ -86,7 +105,7 @@ describe('LadybugBenchmark', () => {
         function MockWorker() {
             return mockWorker;
         }
-        (global as any).Worker = MockWorker;
+        (global as unknown as { Worker: unknown }).Worker = MockWorker;
 
         await ladybugAdapter.initialize();
         const endSync = performance.now();
@@ -94,13 +113,13 @@ describe('LadybugBenchmark', () => {
 
         // Benchmark Cypher Query
         const startQuery = performance.now();
-        mockWorker.postMessage = vi.fn((msg) => {
+        mockWorker.postMessage = vi.fn((msg: { type: string }) => {
             if (msg.type === 'query') {
                 setTimeout(
                     () =>
-                        mockWorker.onmessage({
+                        mockWorker.onmessage?.({
                             data: { type: 'query-result', rows: [{ count: nodeCount }] },
-                        }),
+                        } as MessageEvent),
                     50,
                 );
             }
@@ -109,11 +128,12 @@ describe('LadybugBenchmark', () => {
         const endQuery = performance.now();
 
         console.log(`Query 50k nodes took: ${endQuery - startQuery}ms`);
-        expect((result as any)[0].count).toBe(nodeCount);
+        expect((result as unknown as { count: number }[])[0].count).toBe(nodeCount);
 
         // Memory usage
-        if (global.performance && (performance as any).memory) {
-            const used = (performance as any).memory.usedJSHeapSize / 1024 / 1024;
+        const perfMem = (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory;
+        if (global.performance && perfMem) {
+            const used = perfMem.usedJSHeapSize / 1024 / 1024;
             console.log(`Memory Usage: ${used.toFixed(2)}MB`);
             expect(used).toBeLessThan(256);
         }

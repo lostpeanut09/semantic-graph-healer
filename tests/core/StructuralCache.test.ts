@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { StructuralCache } from '../../src/core/StructuralCache';
+import type { App } from 'obsidian';
 
 describe('StructuralCache (HARDEN-02: LRU & Negative Caching)', () => {
-    let mockApp: any;
+    let mockApp: App;
     let cache: StructuralCache<string>;
 
     beforeEach(() => {
@@ -15,7 +16,7 @@ describe('StructuralCache (HARDEN-02: LRU & Negative Caching)', () => {
                 on: vi.fn().mockReturnValue({}),
                 offref: vi.fn(),
             },
-        };
+        } as unknown as App;
         cache = new StructuralCache<string>(mockApp, { maxNodes: 3, ttlMs: 1000 });
     });
 
@@ -36,7 +37,7 @@ describe('StructuralCache (HARDEN-02: LRU & Negative Caching)', () => {
         expect(cache.get('d')).toBe('4');
     });
 
-    it('should expire items after TTL', async () => {
+    it('should expire items after TTL', () => {
         vi.useFakeTimers();
 
         cache.set('a', '1');
@@ -73,7 +74,7 @@ describe('StructuralCache (HARDEN-02: LRU & Negative Caching)', () => {
         expect(nullCache.get('never-seen')).toBeUndefined();
     });
 
-    it('should refresh TTL on access (LRU behavior)', async () => {
+    it('should refresh TTL on access (LRU behavior)', () => {
         vi.useFakeTimers();
 
         cache.set('a', '1');

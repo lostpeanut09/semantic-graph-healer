@@ -1,6 +1,7 @@
 import { requestUrl } from 'obsidian';
 import type { SemanticGraphHealerSettings } from '../types';
-import { HealerLogger, cosineSimilarity } from './HealerUtils';
+import { HealerLogger } from './utils/HealerLogger';
+import { cosineSimilarity } from './HealerUtils';
 
 export type ModelStatus = 'STABLE' | 'MISALIGNED' | 'OFFLINE';
 

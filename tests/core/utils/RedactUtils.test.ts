@@ -51,7 +51,12 @@ describe('RedactUtils', () => {
                     safe: 'ok',
                 },
             };
-            const redacted = redactObject(data) as any;
+            const redacted = redactObject(data) as {
+                username: string;
+                password: string;
+                api_key: string;
+                nested: { token: string; safe: string };
+            };
             expect(redacted.username).toBe('alice');
             expect(redacted.password).toBe('***');
             expect(redacted.api_key).toBe('***');
@@ -64,15 +69,18 @@ describe('RedactUtils', () => {
                 description: 'Using Bearer my-token',
                 safe_key: 'sk-1234567890abcdefghijklmnopqrstuvwxyz',
             };
-            const redacted = redactObject(data) as any;
+            const redacted = redactObject(data) as {
+                description: string;
+                safe_key: string;
+            };
             expect(redacted.description).toBe('Using Bearer ***');
             expect(redacted.safe_key).toBe('sk-***');
         });
 
         it('should handle circular references', () => {
-            const a: any = { name: 'a' };
+            const a: { name: string; self?: unknown } = { name: 'a' };
             a.self = a;
-            const redacted = redactObject(a) as any;
+            const redacted = redactObject(a) as { name: string; self: string };
             expect(redacted.name).toBe('a');
             expect(redacted.self).toBe('[Circular]');
         });
@@ -90,7 +98,13 @@ describe('RedactUtils', () => {
                     },
                 },
             };
-            const redacted = redactObject(data) as any;
+            const redacted = redactObject(data) as {
+                a: {
+                    b: {
+                        c: { password: string; d: { token: string } };
+                    };
+                };
+            };
             expect(redacted.a.b.c.password).toBe('***');
             expect(redacted.a.b.c.d.token).toBe('***'); // 'token' is in SECRET_KEYS
         });
@@ -100,22 +114,26 @@ describe('RedactUtils', () => {
                 { id: 1, my_key: 'sk-1234567890abcdefghijklmnopqrstuvwxyz' },
                 { id: 2, password: '123' },
             ];
-            const redacted = redactObject(data) as any;
+            const redacted = redactObject(data) as Array<{
+                id: number;
+                my_key?: string;
+                password?: string;
+            }>;
             expect(redacted[0].my_key).toBe('sk-***'); // 'my_key' not in SECRET_KEYS, but value is masked
             expect(redacted[1].password).toBe('***');
         });
 
         it('should handle mixed content in arrays', () => {
             const data = ['safe', 'Bearer token123', { password: 'xyz' }];
-            const redacted = redactObject(data) as any;
+            const redacted = redactObject(data) as Array<string | { password: string }>;
             expect(redacted[0]).toBe('safe');
             expect(redacted[1]).toBe('Bearer ***');
-            expect(redacted[2].password).toBe('***');
+            expect((redacted[2] as { password: string }).password).toBe('***');
         });
 
         it('should handle BigInt', () => {
             const data = { val: BigInt(123) };
-            const redacted = redactObject(data) as any;
+            const redacted = redactObject(data) as { val: string };
             expect(redacted.val).toBe('123n');
         });
     });

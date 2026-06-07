@@ -5,12 +5,21 @@ vi.mock('../../../src/core/HealerUtils', async () => {
     const actual = await vi.importActual('../../../src/core/HealerUtils');
     return {
         ...actual,
+        isObsidianInternalApp: vi.fn(() => true),
+    };
+});
+
+vi.mock('../../../src/core/utils/HealerLogger', async () => {
+    const actual = await vi.importActual('../../../src/core/utils/HealerLogger');
+    return {
+        ...actual,
         HealerLogger: {
             warn: vi.fn(),
             error: vi.fn(),
             debug: vi.fn(),
+            info: vi.fn(),
+            setInstance: vi.fn(),
         },
-        isObsidianInternalApp: vi.fn(() => true),
     };
 });
 
@@ -27,7 +36,7 @@ vi.mock('../../../src/core/adapters/DatacoreAdapter', () => {
             destroy = vi.fn();
             invalidateBacklinkIndex = vi.fn();
             isAvailable = vi.fn(() => true);
-            getLinksSafe = vi.fn(async () => []);
+            getLinksSafe = vi.fn(() => Promise.resolve([]));
         },
     };
 });
@@ -39,7 +48,7 @@ vi.mock('../../../src/core/adapters/BreadcrumbsAdapter', () => {
             invalidate = vi.fn();
             destroy = vi.fn();
             isAvailable = vi.fn(() => true);
-            getLinksSafe = vi.fn(async () => []);
+            getLinksSafe = vi.fn(() => Promise.resolve([]));
         },
     };
 });
@@ -51,7 +60,7 @@ vi.mock('../../../src/core/adapters/SmartConnectionsAdapter', () => {
             invalidate = vi.fn();
             destroy = vi.fn();
             isAvailable = vi.fn(() => true);
-            getLinksSafe = vi.fn(async () => []);
+            getLinksSafe = vi.fn(() => Promise.resolve([]));
         },
     };
 });
@@ -62,7 +71,7 @@ vi.mock('../../../src/core/adapters/NativeVaultAdapter', () => {
             invalidate = vi.fn();
             destroy = vi.fn();
             isAvailable = vi.fn(() => true);
-            getLinksSafe = vi.fn(async () => []);
+            getLinksSafe = vi.fn(() => Promise.resolve([]));
         },
     };
 });
@@ -74,23 +83,67 @@ vi.mock('obsidian', () => ({
     parseLinktext: (t: string) => ({ path: t }),
     TFolder: vi.fn(),
     normalizePath: (p: string) => p,
-    debounce: (fn: any) => fn, // pass-through for testing
+    debounce: (fn: unknown) => fn, // pass-through for testing
     Notice: vi.fn(),
 }));
 
 // Import AFTER all mocks
 import { UnifiedMetadataAdapter } from '../../../src/core/adapters/UnifiedMetadataAdapter';
-import { HealerLogger } from '../../../src/core/HealerUtils';
+import { HealerLogger } from '../../../src/core/utils/HealerLogger';
+
+type SubAdapter = {
+    getPage: ReturnType<typeof vi.fn>;
+    getLinksSafe: ReturnType<typeof vi.fn>;
+    getHierarchy?: ReturnType<typeof vi.fn>;
+    getRelatedNotes?: ReturnType<typeof vi.fn>;
+    getBacklinks: ReturnType<typeof vi.fn>;
+    invalidate: ReturnType<typeof vi.fn>;
+    destroy: ReturnType<typeof vi.fn>;
+};
+
+type AdapterInternals = {
+    datacore: SubAdapter;
+    breadcrumbs: SubAdapter & { getHierarchy: ReturnType<typeof vi.fn> };
+    smartConnections: SubAdapter & { getRelatedNotes: ReturnType<typeof vi.fn> };
+    nativeVault: SubAdapter;
+    pageCache: { destroy: ReturnType<typeof vi.fn> };
+    hierarchyCache: {
+        destroy: ReturnType<typeof vi.fn>;
+        set: ReturnType<typeof vi.fn>;
+    };
+    relatedNotesCache: { destroy: ReturnType<typeof vi.fn> };
+};
+
+const internals = (a: UnifiedMetadataAdapter): AdapterInternals => a as unknown as AdapterInternals;
+
+interface MockApp {
+    vault: {
+        getAbstractFileByPath: ReturnType<typeof vi.fn>;
+        on: ReturnType<typeof vi.fn>;
+        off: ReturnType<typeof vi.fn>;
+        offref: ReturnType<typeof vi.fn>;
+    };
+    metadataCache: {
+        on: ReturnType<typeof vi.fn>;
+        off: ReturnType<typeof vi.fn>;
+        offref: ReturnType<typeof vi.fn>;
+        getFirstLinkpathDest: ReturnType<typeof vi.fn>;
+    };
+}
+
+interface MockSettings {
+    logLevel: string;
+}
 
 describe('UnifiedMetadataAdapter Hardening', () => {
     let adapter: UnifiedMetadataAdapter;
-    let mockApp: any;
-    let mockSettings: any;
+    let mockApp: MockApp;
+    let mockSettings: MockSettings;
 
     beforeEach(() => {
         mockApp = {
             vault: {
-                getAbstractFileByPath: vi.fn().mockImplementation((p) => ({ path: p })),
+                getAbstractFileByPath: vi.fn().mockImplementation((p: string) => ({ path: p })),
                 on: vi.fn(() => ({})), // return event ref for offref
                 off: vi.fn(),
                 offref: vi.fn(), // for StructuralCache.destroy
@@ -108,8 +161,8 @@ describe('UnifiedMetadataAdapter Hardening', () => {
         };
 
         adapter = new UnifiedMetadataAdapter(
-            mockApp,
-            mockSettings,
+            mockApp as unknown as ConstructorParameters<typeof UnifiedMetadataAdapter>[0],
+            mockSettings as unknown as ConstructorParameters<typeof UnifiedMetadataAdapter>[1],
             {},
             {
                 ttlMs: 10000,
@@ -121,11 +174,11 @@ describe('UnifiedMetadataAdapter Hardening', () => {
         it('should register metadataCache listener on initialize and unregister on destroy', async () => {
             await adapter.initialize();
 
-            const resolvedCall = mockApp.metadataCache.on.mock.calls.find((call: any) => call[0] === 'resolved');
+            const resolvedCall = mockApp.metadataCache.on.mock.calls.find((call: unknown[]) => call[0] === 'resolved');
             expect(resolvedCall).toBeDefined();
 
-            const resolvedCallIndex = mockApp.metadataCache.on.mock.calls.indexOf(resolvedCall);
-            const eventRef = mockApp.metadataCache.on.mock.results[resolvedCallIndex].value;
+            const resolvedCallIndex = mockApp.metadataCache.on.mock.calls.indexOf(resolvedCall as unknown[]);
+            const eventRef: unknown = mockApp.metadataCache.on.mock.results[resolvedCallIndex].value;
 
             adapter.destroy();
 
@@ -135,10 +188,10 @@ describe('UnifiedMetadataAdapter Hardening', () => {
 
     describe('Task 2: Parallel Link Aggregation and Deduplication', () => {
         it('aggregates links from multiple adapters in parallel', async () => {
-            const datacore = (adapter as any).datacore;
-            const breadcrumbs = (adapter as any).breadcrumbs;
-            const smartConnections = (adapter as any).smartConnections;
-            const nativeVault = (adapter as any).nativeVault;
+            const datacore = internals(adapter).datacore;
+            const breadcrumbs = internals(adapter).breadcrumbs;
+            const smartConnections = internals(adapter).smartConnections;
+            const nativeVault = internals(adapter).nativeVault;
 
             // Mock getLinksSafe for all adapters
             datacore.getLinksSafe = vi
@@ -164,8 +217,8 @@ describe('UnifiedMetadataAdapter Hardening', () => {
         });
 
         it('deduplicates links based on source|target|type and prioritizes higher confidence', async () => {
-            const datacore = (adapter as any).datacore;
-            const breadcrumbs = (adapter as any).breadcrumbs;
+            const datacore = internals(adapter).datacore;
+            const breadcrumbs = internals(adapter).breadcrumbs;
 
             // Same link, different confidence
             datacore.getLinksSafe = vi.fn().mockResolvedValue([
@@ -195,8 +248,8 @@ describe('UnifiedMetadataAdapter Hardening', () => {
         });
 
         it('merges context and keeps first position when confidence is tied', async () => {
-            const datacore = (adapter as any).datacore;
-            const breadcrumbs = (adapter as any).breadcrumbs;
+            const datacore = internals(adapter).datacore;
+            const breadcrumbs = internals(adapter).breadcrumbs;
 
             datacore.getLinksSafe = vi.fn().mockResolvedValue([
                 {
@@ -230,7 +283,7 @@ describe('UnifiedMetadataAdapter Hardening', () => {
     });
 
     it('should return cached page on repeated calls', () => {
-        const datacore = (adapter as any).datacore;
+        const datacore = internals(adapter).datacore;
         const mockPage = { file: { path: 'test.md' } };
         datacore.getPage.mockReturnValue(mockPage);
 
@@ -243,7 +296,7 @@ describe('UnifiedMetadataAdapter Hardening', () => {
     });
 
     it('should not cache null — second call after data becomes available should hit adapter again', () => {
-        const datacore = (adapter as any).datacore;
+        const datacore = internals(adapter).datacore;
         const mockPage = { file: { path: 'test.md' } };
 
         // First call returns null (simulating transient miss)
@@ -261,7 +314,7 @@ describe('UnifiedMetadataAdapter Hardening', () => {
     });
 
     it('should not cache null hierarchy results — second call after data becomes available should hit adapter again', async () => {
-        const bc = (adapter as any).breadcrumbs;
+        const bc = internals(adapter).breadcrumbs;
         const mockNode = {
             parents: [],
             children: [],
@@ -285,7 +338,7 @@ describe('UnifiedMetadataAdapter Hardening', () => {
     });
 
     it('should be resilient to sub-adapter failures (safeExecute)', () => {
-        const datacore = (adapter as any).datacore;
+        const datacore = internals(adapter).datacore;
         datacore.getBacklinks.mockImplementation(() => {
             throw new Error('Datacore Crash');
         });
@@ -296,7 +349,7 @@ describe('UnifiedMetadataAdapter Hardening', () => {
     });
 
     it('should cache related notes (Smart Connections) with short TTL', async () => {
-        const sc = (adapter as any).smartConnections;
+        const sc = internals(adapter).smartConnections;
         const mockNotes = [{ path: 'related.md', score: 0.9 }];
         sc.getRelatedNotes.mockResolvedValue(mockNotes);
 
@@ -309,9 +362,9 @@ describe('UnifiedMetadataAdapter Hardening', () => {
     });
 
     it('should invalidate all caches correctly', () => {
-        const datacore = (adapter as any).datacore;
-        const bc = (adapter as any).breadcrumbs;
-        const sc = (adapter as any).smartConnections;
+        const datacore = internals(adapter).datacore;
+        const bc = internals(adapter).breadcrumbs;
+        const sc = internals(adapter).smartConnections;
 
         datacore.getPage.mockReturnValue({ file: { path: 'test.md' } });
         adapter.getPage('test.md');
@@ -325,7 +378,7 @@ describe('UnifiedMetadataAdapter Hardening', () => {
     });
 
     it('should handle async failures in hierarchy (safeExecuteAsync)', async () => {
-        const bc = (adapter as any).breadcrumbs;
+        const bc = internals(adapter).breadcrumbs;
         bc.getHierarchy.mockRejectedValue(new Error('BC Failed'));
 
         const res = await adapter.getHierarchy('test.md');
@@ -333,9 +386,9 @@ describe('UnifiedMetadataAdapter Hardening', () => {
     });
 
     it('should destroy all sub-adapters even if one throws', () => {
-        const datacore = (adapter as any).datacore;
-        const breadcrumbs = (adapter as any).breadcrumbs;
-        const smartConnections = (adapter as any).smartConnections;
+        const datacore = internals(adapter).datacore;
+        const breadcrumbs = internals(adapter).breadcrumbs;
+        const smartConnections = internals(adapter).smartConnections;
 
         datacore.destroy.mockImplementation(() => {
             throw new Error('Datacore destroy crash');
@@ -349,7 +402,7 @@ describe('UnifiedMetadataAdapter Hardening', () => {
     });
 
     it('should log errors when sub-adapter destroy throws', () => {
-        const datacore = (adapter as any).datacore;
+        const datacore = internals(adapter).datacore;
         datacore.destroy.mockImplementation(() => {
             throw new Error('Datacore destroy crash');
         });
@@ -363,9 +416,9 @@ describe('UnifiedMetadataAdapter Hardening', () => {
     });
 
     it('should continue destroying caches even if one throws', () => {
-        const pageCache = (adapter as any).pageCache;
-        const hierarchyCache = (adapter as any).hierarchyCache;
-        const relatedNotesCache = (adapter as any).relatedNotesCache;
+        const pageCache = internals(adapter).pageCache;
+        const hierarchyCache = internals(adapter).hierarchyCache;
+        const relatedNotesCache = internals(adapter).relatedNotesCache;
 
         // Replace destroy with mock that throws on pageCache only
         pageCache.destroy = vi.fn(() => {
@@ -385,7 +438,7 @@ describe('UnifiedMetadataAdapter Hardening', () => {
 
     describe('stampede protection (coalescing)', () => {
         it('coalesces concurrent getHierarchy calls into single adapter invocation', async () => {
-            const bc = (adapter as any).breadcrumbs;
+            const bc = internals(adapter).breadcrumbs;
             const mockNode = {
                 parents: [],
                 children: [],
@@ -405,7 +458,7 @@ describe('UnifiedMetadataAdapter Hardening', () => {
         });
 
         it('coalesces concurrent getRelatedNotes calls into single adapter invocation', async () => {
-            const sc = (adapter as any).smartConnections;
+            const sc = internals(adapter).smartConnections;
             const mockNotes = [{ path: 'related.md', score: 0.9 }];
             const mockPromise = Promise.resolve(mockNotes);
             sc.getRelatedNotes.mockReturnValue(mockPromise);
@@ -423,11 +476,11 @@ describe('UnifiedMetadataAdapter Hardening', () => {
 
     describe('destroy() lifecycle guard', () => {
         it('does not write to cache after destroy with pending coalesced promise', async () => {
-            const bc = (adapter as any).breadcrumbs;
-            const hierarchyCache = (adapter as any).hierarchyCache;
+            const bc = internals(adapter).breadcrumbs;
+            const hierarchyCache = internals(adapter).hierarchyCache;
             const setSpy = vi.spyOn(hierarchyCache, 'set');
 
-            let resolveHierarchy!: (v: any) => void;
+            let resolveHierarchy!: (v: unknown) => void;
             const pendingPromise = new Promise((res) => {
                 resolveHierarchy = res;
             });
@@ -464,7 +517,7 @@ describe('UnifiedMetadataAdapter Hardening', () => {
         });
 
         it('getPage after destroy returns null without touching adapter or cache', () => {
-            const datacore = (adapter as any).datacore;
+            const datacore = internals(adapter).datacore;
             datacore.getPage.mockReturnValue({ file: { path: 'test.md' } });
 
             adapter.destroy();
@@ -475,7 +528,7 @@ describe('UnifiedMetadataAdapter Hardening', () => {
         });
 
         it('getHierarchy after destroy returns null without invoking breadcrumbs', async () => {
-            const bc = (adapter as any).breadcrumbs;
+            const bc = internals(adapter).breadcrumbs;
             bc.getHierarchy.mockResolvedValue({
                 parents: [],
                 children: [],
@@ -492,7 +545,7 @@ describe('UnifiedMetadataAdapter Hardening', () => {
         });
 
         it('getRelatedNotes after destroy returns [] without invoking smartConnections', async () => {
-            const sc = (adapter as any).smartConnections;
+            const sc = internals(adapter).smartConnections;
             sc.getRelatedNotes.mockResolvedValue([{ path: 'related.md', score: 0.9 }]);
 
             adapter.destroy();
@@ -505,17 +558,17 @@ describe('UnifiedMetadataAdapter Hardening', () => {
 
     describe('invalidate key normalization propagation', () => {
         it('passes normalized key to all adapters when path is provided', () => {
-            const datacore = (adapter as any).datacore;
-            const bc = (adapter as any).breadcrumbs;
-            const sc = (adapter as any).smartConnections;
+            const datacore = internals(adapter).datacore;
+            const bc = internals(adapter).breadcrumbs;
+            const sc = internals(adapter).smartConnections;
 
             // Use a path with trailing slash and uppercase to test normalization
             adapter.invalidate('Test.md/');
 
             // All adapters should receive the SAME normalized key (whatever normalizeVaultPath produces)
-            const callsDatacore = datacore.invalidate.mock.calls[0][0];
-            const callsBc = bc.invalidate.mock.calls[0][0];
-            const callsSc = sc.invalidate.mock.calls[0][0];
+            const callsDatacore: unknown = datacore.invalidate.mock.calls[0][0];
+            const callsBc: unknown = bc.invalidate.mock.calls[0][0];
+            const callsSc: unknown = sc.invalidate.mock.calls[0][0];
 
             expect(callsDatacore).toBe(callsBc);
             expect(callsBc).toBe(callsSc);
@@ -524,9 +577,9 @@ describe('UnifiedMetadataAdapter Hardening', () => {
         });
 
         it('passes undefined to adapters when no path given (global invalidate)', () => {
-            const datacore = (adapter as any).datacore;
-            const bc = (adapter as any).breadcrumbs;
-            const sc = (adapter as any).smartConnections;
+            const datacore = internals(adapter).datacore;
+            const bc = internals(adapter).breadcrumbs;
+            const sc = internals(adapter).smartConnections;
 
             adapter.invalidate();
 

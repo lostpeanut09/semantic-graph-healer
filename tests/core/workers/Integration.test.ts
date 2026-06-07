@@ -1,20 +1,45 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GraphWorkerService } from '../../../src/core/services/GraphWorkerService';
+import type { HealerLogger } from '../../../src/core/utils/HealerLogger';
+import type { HealerNotifier } from '../../../src/types';
 
 // We use a custom MockWorker instead of @vitest/web-worker due to NodeJS blob URL limitations (`blob:nodedata:`).
 
+type MockEdge = {
+    source: string;
+    target: string;
+    attributes: Record<string, unknown>;
+};
+type MockPayload = {
+    requestId?: string;
+    nodes?: { key: string }[];
+    edges?: MockEdge[];
+};
+type MockMsg = { type: string; payload: MockPayload };
+
 describe('GraphWorkerService Integration (Real Worker)', () => {
     let service: GraphWorkerService;
-    let mockLogger: any;
-    let mockPlugin: any;
+    let mockLogger: HealerLogger;
+    let mockPlugin: {
+        manifest: { dir: string };
+        settings: { workerTimeout: number };
+        app: {
+            vault: {
+                adapter: {
+                    read: ReturnType<typeof vi.fn>;
+                };
+            };
+        };
+    };
 
     beforeEach(() => {
         class MockWorker {
             onmessage: ((e: MessageEvent) => void) | null = null;
             onerror: ((e: ErrorEvent) => void) | null = null;
-            postMessage(msg: any) {
+            postMessage(msg: unknown) {
                 setTimeout(() => {
-                    const { type, payload } = msg;
+                    const m = msg as MockMsg;
+                    const { type, payload } = m;
                     const requestId = payload?.requestId;
                     if (!payload.nodes || !Array.isArray(payload.nodes)) {
                         this.onmessage?.({
@@ -29,8 +54,8 @@ describe('GraphWorkerService Integration (Real Worker)', () => {
                         return;
                     }
                     if (type === 'PAGERANK') {
-                        const results: any = {};
-                        payload.nodes.forEach((n: any) => (results[n.key] = 0.5));
+                        const results: Record<string, number> = {};
+                        payload.nodes.forEach((n: { key: string }) => (results[n.key] = 0.5));
                         this.onmessage?.({
                             data: { type: 'RESULT', payload: { requestId, data: results } },
                         } as MessageEvent);
@@ -38,21 +63,21 @@ describe('GraphWorkerService Integration (Real Worker)', () => {
                         // Mock implementation of TOPOLOGY_DIAGNOSTICS for integration testing
                         // This mirrors the logic in graph-analysis-core.ts
                         const results = {
-                            bridges: [] as any[],
-                            blackHoles: [] as any[],
-                            cycles: [] as any[],
+                            bridges: [] as Array<Record<string, unknown>>,
+                            blackHoles: [] as unknown[],
+                            cycles: [] as unknown[],
                         };
 
                         // Simple bridge detection A -> B -> C => A -> C
                         const edges = payload.edges || [];
-                        edges.forEach((e1: any) => {
+                        edges.forEach((e1: MockEdge) => {
                             const b = e1.target;
-                            const type = e1.attributes?.type;
+                            const type = e1.attributes?.type as string | undefined;
                             if (type) {
-                                edges.forEach((e2: any) => {
-                                    if (e2.source === b && e2.attributes?.type === type) {
+                                edges.forEach((e2: MockEdge) => {
+                                    if (e2.source === b && (e2.attributes?.type as string | undefined) === type) {
                                         const exists = edges.some(
-                                            (e: any) => e.source === e1.source && e.target === e2.target,
+                                            (e: MockEdge) => e.source === e1.source && e.target === e2.target,
                                         );
                                         if (!exists && e1.source !== e2.target) {
                                             results.bridges.push({
@@ -82,7 +107,7 @@ describe('GraphWorkerService Integration (Real Worker)', () => {
             warn: vi.fn(),
             error: vi.fn(),
             debug: vi.fn(),
-        };
+        } as unknown as HealerLogger;
 
         mockPlugin = {
             manifest: { dir: 'plugin-dir' },
@@ -96,11 +121,15 @@ describe('GraphWorkerService Integration (Real Worker)', () => {
             },
         };
 
-        const mockNotifier = {
+        const mockNotifier: HealerNotifier = {
             show: vi.fn(),
         };
 
-        service = new GraphWorkerService(mockLogger, mockPlugin, mockNotifier as any);
+        service = new GraphWorkerService(
+            mockLogger,
+            mockPlugin as unknown as ConstructorParameters<typeof GraphWorkerService>[1],
+            mockNotifier,
+        );
     });
 
     it('should successfully run a PageRank analysis in a real background thread', async () => {
@@ -110,7 +139,7 @@ describe('GraphWorkerService Integration (Real Worker)', () => {
             { key: 'A', attributes: {} },
             { key: 'B', attributes: {} },
         ];
-        const edges = [{ source: 'A', target: 'B', attributes: {} }];
+        const edges: MockEdge[] = [{ source: 'A', target: 'B', attributes: {} }];
 
         const result = await service.runAnalysis<Record<string, number>>('PAGERANK', nodes, edges);
 
@@ -128,12 +157,19 @@ describe('GraphWorkerService Integration (Real Worker)', () => {
             { key: 'B', attributes: {} },
             { key: 'C', attributes: {} },
         ];
-        const edges = [
+        const edges: MockEdge[] = [
             { source: 'A', target: 'B', attributes: { type: 'up' } },
             { source: 'B', target: 'C', attributes: { type: 'up' } },
         ];
 
-        const result = await service.runAnalysis<any>('TOPOLOGY_DIAGNOSTICS', nodes, edges);
+        const result = await service.runAnalysis<{
+            bridges: Array<{
+                source: string;
+                target: string;
+                via: string;
+                type: string;
+            }>;
+        }>('TOPOLOGY_DIAGNOSTICS', nodes, edges);
 
         expect(result).toBeDefined();
         expect(result.bridges).toHaveLength(1);
@@ -149,8 +185,11 @@ describe('GraphWorkerService Integration (Real Worker)', () => {
 
     it('should fail if Zod validation rejects the message', async () => {
         await service.initialize();
-        const nodes = null as any;
-        const edges: any[] = [];
+        const nodes = null as unknown as Array<{
+            key: string;
+            attributes: Record<string, unknown>;
+        }>;
+        const edges: MockEdge[] = [];
 
         await expect(service.runAnalysis('PAGERANK', nodes, edges)).rejects.toThrow();
 
@@ -161,7 +200,7 @@ describe('GraphWorkerService Integration (Real Worker)', () => {
         await service.initialize();
 
         const nodes = [{ key: 'A', attributes: {} }];
-        const edges: any[] = [];
+        const edges: MockEdge[] = [];
 
         const p1 = service.runAnalysis('PAGERANK', nodes, edges);
         const p2 = service.runAnalysis('PAGERANK', nodes, edges);

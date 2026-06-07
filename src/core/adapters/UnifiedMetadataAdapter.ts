@@ -8,7 +8,8 @@ import { NativeVaultAdapter } from './NativeVaultAdapter';
 import type { SemanticLinkEdge } from './types';
 import type { DataviewApi, DataviewPage, HierarchyNode, RelatedNote, SemanticGraphHealerSettings } from '../../types';
 import { StructuralCache } from '../StructuralCache';
-import { HealerLogger, normalizeVaultPath } from '../HealerUtils';
+import { HealerLogger } from '../utils/HealerLogger';
+import { normalizeVaultPath } from '../HealerUtils';
 
 export class UnifiedMetadataAdapter implements IMetadataAdapter {
     private datacore: DatacoreAdapter;

@@ -1,5 +1,5 @@
 import type { App, TAbstractFile, EventRef } from 'obsidian';
-import { HealerLogger } from './HealerUtils';
+import { HealerLogger } from './utils/HealerLogger';
 
 /**
  * StructuralCache

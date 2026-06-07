@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 
-import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, afterEach, expect, it, vi } from 'vitest';
+import type { App } from 'obsidian';
+import type { SemanticGraphHealerSettings } from '../../../src/types';
 
 // Mocks
 vi.mock('../../../src/core/utils/HealerLogger', () => ({
@@ -17,8 +19,8 @@ const { mockPlatform, mockWorker } = vi.hoisted(() => ({
     mockWorker: {
         postMessage: vi.fn(),
         terminate: vi.fn(),
-        onmessage: null as any,
-        onerror: null as any,
+        onmessage: null as ((ev: MessageEvent) => void) | null,
+        onerror: null as ((ev: ErrorEvent) => void) | null,
     },
 }));
 
@@ -28,23 +30,26 @@ vi.mock('obsidian', () => ({
 }));
 
 global.Worker = class MockWorker {
-    onmessage: any = null;
-    onerror: any = null;
+    onmessage: ((ev: MessageEvent) => void) | null = null;
+    onerror: ((ev: ErrorEvent) => void) | null = null;
     postMessage() {}
     terminate() {
         mockWorker.terminate();
     }
-} as any;
+} as unknown as typeof Worker;
 if (!global.URL) {
-    global.URL = {} as any;
+    global.URL = {} as unknown as typeof URL;
 }
 global.URL.createObjectURL = vi.fn(() => 'blob:mock-worker-url');
 global.URL.revokeObjectURL = vi.fn();
 
 vi.mock('../../../src/core/workers/graph-analysis-core', () => ({
-    handleGraphWorkerMessage: vi.fn((message: any) => ({
+    handleGraphWorkerMessage: vi.fn((message: { payload?: { requestId?: string } }) => ({
         type: 'RESULT',
-        payload: { data: { success: true }, requestId: message.payload?.requestId },
+        payload: {
+            data: { success: true },
+            requestId: message.payload?.requestId,
+        },
     })),
 }));
 
@@ -56,7 +61,13 @@ const mockNotifier = {
     show: vi.fn(),
 };
 
-function makePlugin() {
+interface MockPlugin {
+    manifest: { dir: string };
+    app: App;
+    settings: SemanticGraphHealerSettings;
+}
+
+function makePlugin(): MockPlugin {
     return {
         manifest: { dir: '/mock/dir' },
         app: {
@@ -65,8 +76,8 @@ function makePlugin() {
                     read: vi.fn().mockResolvedValue('console.log("worker mock");'),
                 },
             },
-        } as any,
-        settings: { workerTimeout: 120 } as any,
+        } as unknown as App,
+        settings: { workerTimeout: 120 } as unknown as SemanticGraphHealerSettings,
     };
 }
 
@@ -85,7 +96,7 @@ describe('GraphWorkerService', () => {
                 error: vi.fn(),
                 warn: vi.fn(),
             } as unknown as HealerLogger;
-            const service = new GraphWorkerService(loggerMock, plugin, mockNotifier as any);
+            const service = new GraphWorkerService(loggerMock, plugin, mockNotifier);
 
             await service.initialize();
 
@@ -113,7 +124,7 @@ describe('GraphWorkerService', () => {
                 error: vi.fn(),
                 warn: vi.fn(),
             } as unknown as HealerLogger;
-            const service = new GraphWorkerService(loggerMock, plugin, mockNotifier as any);
+            const service = new GraphWorkerService(loggerMock, plugin, mockNotifier);
 
             // Spy on worker creation
             const workerSpy = vi.spyOn(global, 'Worker');
@@ -142,14 +153,14 @@ describe('GraphWorkerService', () => {
                 error: vi.fn(),
                 warn: vi.fn(),
             } as unknown as HealerLogger;
-            const service = new GraphWorkerService(loggerMock, plugin, mockNotifier as any);
+            const service = new GraphWorkerService(loggerMock, plugin, mockNotifier);
 
             const originalWorker = global.Worker;
             global.Worker = class {
                 constructor() {
                     throw new Error('Worker constructor crash');
                 }
-            } as any;
+            } as unknown as typeof Worker;
 
             try {
                 await service.initialize();
@@ -171,7 +182,7 @@ describe('GraphWorkerService', () => {
                 error: vi.fn(),
                 warn: vi.fn(),
             } as unknown as HealerLogger;
-            const service = new GraphWorkerService(loggerMock, plugin, mockNotifier as any);
+            const service = new GraphWorkerService(loggerMock, plugin, mockNotifier);
 
             await service.initialize();
 
@@ -179,14 +190,14 @@ describe('GraphWorkerService', () => {
             const promise = service.runAnalysis('SIMILARITY', [], [], {});
 
             // Simulate worker throwing an error event
-            const workerInstance = (service as any).worker;
+            const workerInstance = (service as unknown as { worker: Worker | null }).worker;
 
             if (workerInstance && workerInstance.onerror) {
                 workerInstance.onerror({
                     message: 'Fatal exception in thread',
                     filename: 'worker.js',
                     lineno: 42,
-                } as ErrorEvent);
+                } as unknown as ErrorEvent);
             }
 
             // Ensure the promise is rejected immediately due to fail-fast
@@ -203,18 +214,22 @@ describe('GraphWorkerService', () => {
                 error: vi.fn(),
                 warn: vi.fn(),
             } as unknown as HealerLogger;
-            const service = new GraphWorkerService(loggerMock, plugin, mockNotifier as any);
+            const service = new GraphWorkerService(loggerMock, plugin, mockNotifier);
 
             mockPlatform.isMobile = true;
             await service.initialize();
 
             // Setup global.requestIdleCallback for jsdom if needed
             if (!global.requestIdleCallback) {
-                global.requestIdleCallback = (cb: any) => setTimeout(cb, 0) as any;
+                global.requestIdleCallback = (cb: IdleRequestCallback) =>
+                    setTimeout(() => cb({ didTimeout: false, timeRemaining: () => 0 }), 0) as unknown as number;
             }
 
             // Create 250 nodes
-            const nodes = Array.from({ length: 250 }, (_, i) => ({ key: `n${i}`, attributes: {} }));
+            const nodes = Array.from({ length: 250 }, (_, i) => ({
+                key: `n${i}`,
+                attributes: {},
+            }));
             // Edges:
             // 1. Valid (within first 200)
             // 2. Cross-boundary (source in 200, target out) -> should be filtered
@@ -234,7 +249,14 @@ describe('GraphWorkerService', () => {
 
             // Verify truncation and filtering via handleGraphWorkerMessage call
             expect(handleGraphWorkerMessage).toHaveBeenCalled();
-            const lastCall = (handleGraphWorkerMessage as any).mock.calls.at(-1)[0];
+            const lastCall = (handleGraphWorkerMessage as unknown as { mock: { calls: unknown[][] } }).mock.calls.at(
+                -1,
+            )?.[0] as {
+                payload: {
+                    nodes: { key: string }[];
+                    edges: { source: string; target: string; attributes: object }[];
+                };
+            };
 
             // Should be exactly 200 nodes
             expect(lastCall.payload.nodes.length).toBe(200);
@@ -242,7 +264,11 @@ describe('GraphWorkerService', () => {
 
             // Should be only 1 edge (n0 -> n1)
             expect(lastCall.payload.edges.length).toBe(1);
-            expect(lastCall.payload.edges[0]).toEqual({ source: 'n0', target: 'n1', attributes: {} });
+            expect(lastCall.payload.edges[0]).toEqual({
+                source: 'n0',
+                target: 'n1',
+                attributes: {},
+            });
 
             expect(result).toBeDefined();
         });

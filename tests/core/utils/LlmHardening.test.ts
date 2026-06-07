@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LlmService } from '../../../src/core/LlmService';
+import type { SemanticGraphHealerSettings } from '../../../src/types';
 import { formatRagPrompt, formatIncongruencePrompt } from '../../../src/core/HealerUtils';
 
 vi.mock('obsidian', () => ({
@@ -9,11 +10,11 @@ vi.mock('obsidian', () => ({
 }));
 
 import { requestUrl } from 'obsidian';
+import type { RequestUrlResponse, RequestUrlResponsePromise } from 'obsidian';
 
 describe('LLM Hardening', () => {
-    let mockGetKey: any;
-    let settings: any;
-    let plugin: any;
+    let mockGetKey: (key: string) => Promise<string>;
+    let settings: Record<string, unknown>;
 
     beforeEach(() => {
         settings = {
@@ -24,15 +25,6 @@ describe('LLM Hardening', () => {
             secondaryLlmModelName: 'claude-3-5',
             secondaryTimeout: 45,
             enableAiTribunal: true,
-        };
-
-        plugin = {
-            app: {
-                vault: {
-                    getAbstractFileByPath: vi.fn(),
-                },
-            },
-            saveSettings: vi.fn(),
         };
 
         mockGetKey = vi.fn().mockResolvedValue('test-key');
@@ -59,7 +51,7 @@ describe('LLM Hardening', () => {
 
     describe('LlmService: AI Tribunal Parsing (ULTRA-9)', () => {
         it('ignores text inside <tribunal_audit> tags', () => {
-            const service = new LlmService(settings, mockGetKey);
+            const service = new LlmService(settings as unknown as SemanticGraphHealerSettings, mockGetKey);
             const rawResponse = `
 WINNER: [[CorrectNote]] | SCORE: 90% | WHY: matches context
 RUNNERUP: [[Other]] | SCORE: 10% | WHY: weak link
@@ -76,7 +68,7 @@ Secondary Model Output: WINNER: [[WrongNote]] | SCORE: 95% | WHY: deceived by ha
         });
 
         it('handles fallback search correctly after stripping tags', () => {
-            const service = new LlmService(settings, mockGetKey);
+            const service = new LlmService(settings as unknown as SemanticGraphHealerSettings, mockGetKey);
             const rawResponse = `
 The winner is clear.
 WINNER: [[DeepNote]]
@@ -93,13 +85,17 @@ WINNER: [[AuditNote]]
 
     describe('LlmService: Modern API Integration (ULTRA-10)', () => {
         it('uses native timeout property in requestUrl', async () => {
-            const service = new LlmService(settings, mockGetKey);
-            (requestUrl as any).mockResolvedValue({
+            const service = new LlmService(settings as unknown as SemanticGraphHealerSettings, mockGetKey);
+            vi.mocked(requestUrl).mockResolvedValue({
                 status: 200,
                 json: { choices: [{ message: { content: 'WINNER: [[OK]]' } }] },
-            });
+            } as unknown as RequestUrlResponse);
 
-            await (service as any).callLlm('test-prompt', false);
+            await (
+                service as unknown as {
+                    callLlm: (p: string, b: boolean) => Promise<string>;
+                }
+            ).callLlm('test-prompt', false);
 
             expect(requestUrl).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -109,16 +105,28 @@ WINNER: [[AuditNote]]
         });
 
         it('triggers logical timeout fallback when network hangs (ULTRA-11)', async () => {
-            const service = new LlmService(settings, mockGetKey);
+            const service = new LlmService(settings as unknown as SemanticGraphHealerSettings, mockGetKey);
 
             // Mock a "hanging" request that never resolves
-            (requestUrl as any).mockReturnValue(new Promise(() => {}));
+            vi.mocked(requestUrl).mockReturnValue(new Promise(() => {}) as unknown as RequestUrlResponsePromise);
 
             // Force dynamic timeout and disable retries for the test
-            (service as any).settings.primaryTimeout = 0.1; // 100ms
-            (service as any).settings.llmMaxRetries = 0;
+            (
+                service as unknown as {
+                    settings: { primaryTimeout: number; llmMaxRetries: number };
+                }
+            ).settings.primaryTimeout = 0.1; // 100ms
+            (
+                service as unknown as {
+                    settings: { primaryTimeout: number; llmMaxRetries: number };
+                }
+            ).settings.llmMaxRetries = 0;
 
-            const result = await (service as any).callLlm('test-prompt', false);
+            const result = await (
+                service as unknown as {
+                    callLlm: (p: string, b: boolean) => Promise<string>;
+                }
+            ).callLlm('test-prompt', false);
 
             expect(result).toContain('TimeoutError: Logical timeout reached');
         });

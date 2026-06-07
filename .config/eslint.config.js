@@ -47,6 +47,9 @@ export default defineConfig([
                 __filename: 'readonly',
                 require: 'readonly',
                 module: 'readonly',
+                // Test/benchmark globals
+                global: 'readonly',
+                performance: 'readonly',
             },
             parserOptions: {
                 projectService: true,
@@ -81,7 +84,7 @@ export default defineConfig([
             '@typescript-eslint/no-misused-promises': 'warn',
             '@typescript-eslint/no-unnecessary-type-assertion': 'warn',
             '@typescript-eslint/require-await': 'warn',
-            '@typescript-eslint/no-explicit-any': 'warn',
+            '@typescript-eslint/no-explicit-any': 'error',
             '@typescript-eslint/no-unsafe-assignment': 'warn',
             '@typescript-eslint/no-unsafe-member-access': 'warn',
             '@typescript-eslint/no-unsafe-call': 'warn',
@@ -129,6 +132,8 @@ export default defineConfig([
     // 8. Ignore globals: *.mjs reviewer scripts (e.g. kilo_review.mjs) are intentionally
     //    excluded via `ignores` rather than the scripts/ override (which only covers .ts).
     //    They are Node.js stdio tools, not plugin code, so linting them adds no value.
+    //    tests/fixtures/** contains reviewer test artifacts (e.g. JulesTest.ts) with
+    //    intentional rule violations used to validate the Jules AI reviewer.
     {
         ignores: [
             '**/*.js',
@@ -137,12 +142,30 @@ export default defineConfig([
             'node_modules_bak/',
             '.kilo/',
             '.agent/',
-            '**/*.test.ts',
             '**/*.bak',
             '*-docs/**',
+            'tests/fixtures/**',
         ],
     },
 
-    // 8. Prettier in coda
+    // 9. Test file overrides (relax rules that conflict with test patterns)
+    {
+        files: ['tests/**/*.ts'],
+        rules: {
+            // vi.spyOn() pattern inherently detaches methods
+            '@typescript-eslint/unbound-method': 'off',
+            // Tests legitimately need Node.js builtins for infrastructure
+            'import/no-nodejs-modules': 'off',
+            // Test mocks legitimately cast to TFile
+            'obsidianmd/no-tfile-tfolder-cast': 'off',
+            // Benchmarks and infrastructure tests use console freely
+            // Benchmarks and infrastructure tests use console freely
+            'no-console': 'off',
+            // TypeScript handles undefined variables natively; no-undef causes false positives for NodeJS namespace
+            'no-undef': 'off',
+        },
+    },
+
+    // 10. Prettier in coda
     prettierConfig,
 ]);

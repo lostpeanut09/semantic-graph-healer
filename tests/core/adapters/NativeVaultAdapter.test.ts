@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { NativeVaultAdapter } from '../../../src/core/adapters/NativeVaultAdapter';
-import { App } from 'obsidian';
+import { App, TFile } from 'obsidian';
 
 describe('NativeVaultAdapter', () => {
     let app: App;
@@ -10,7 +10,7 @@ describe('NativeVaultAdapter', () => {
         app = {
             metadataCache: {
                 resolvedLinks: {},
-                getFirstLinkpathDest: vi.fn((link) => ({ path: link })),
+                getFirstLinkpathDest: vi.fn((link: string) => ({ path: link })),
             },
             vault: {
                 getAbstractFileByPath: vi.fn(),
@@ -24,7 +24,7 @@ describe('NativeVaultAdapter', () => {
     });
 
     it('should throw if getRichLinksForFile is called before initialization', async () => {
-        const mockFile = { path: 'test.md' } as any;
+        const mockFile = { path: 'test.md' } as unknown as TFile;
         await expect(adapter.getRichLinksForFile(mockFile)).rejects.toThrow('native-vault adapter: not initialized');
     });
 
@@ -36,12 +36,18 @@ describe('NativeVaultAdapter', () => {
 
     it('should normalize paths, filter self-links and non-markdown if configured', async () => {
         // Mock app.settings
-        (app as any).settings = { includeNonMarkdownHubs: false };
+        (app as unknown as { settings: { includeNonMarkdownHubs: boolean } }).settings = {
+            includeNonMarkdownHubs: false,
+        };
 
         const debugAdapter = new NativeVaultAdapter(app, true);
 
         // Mock metadataCache.resolvedLinks
-        (app.metadataCache as any).resolvedLinks = {
+        (
+            app.metadataCache as unknown as {
+                resolvedLinks: Record<string, Record<string, number>>;
+            }
+        ).resolvedLinks = {
             'source.md': {
                 'target.md': 1,
                 'source.md': 1, // Self-link

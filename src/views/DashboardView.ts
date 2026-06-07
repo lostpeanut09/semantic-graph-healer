@@ -2,7 +2,7 @@ import { ItemView, Setting } from 'obsidian';
 import type { WorkspaceLeaf } from 'obsidian';
 import { DASHBOARD_VIEW_TYPE } from '../types';
 import type { Suggestion } from '../types';
-import { HealerLogger } from '../core/HealerUtils';
+import { HealerLogger } from '../core/utils/HealerLogger';
 import type SemanticGraphHealer from '../main';
 import { mount, unmount } from 'svelte';
 import Dashboard from './dashboard/components/Dashboard.svelte';

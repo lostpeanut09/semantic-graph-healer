@@ -1,11 +1,43 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GraphEngine } from '../../src/core/GraphEngine';
+import type { GraphContext } from '../../src/core/services/PluginContext';
 import { TFile } from 'obsidian';
 import { DEFAULT_SETTINGS } from '../../src/types';
 
+interface MockContext {
+    app: {
+        vault: {
+            getMarkdownFiles: ReturnType<typeof vi.fn>;
+            getAbstractFileByPath: ReturnType<typeof vi.fn>;
+        };
+        metadataCache: {
+            resolvedLinks: Record<string, Record<string, number>>;
+            getFileCache: ReturnType<typeof vi.fn>;
+            getFirstLinkpathDest: ReturnType<typeof vi.fn>;
+            fileToLinktext: ReturnType<typeof vi.fn>;
+        };
+    };
+    settings: typeof DEFAULT_SETTINGS & { mocSaturationThreshold: number };
+    cache: {
+        topologicalScores: {
+            pageRank: Record<string, number>;
+            betweenness: Record<string, number>;
+            communities: Record<string, number>;
+            lastAnalysisTimestamp: number;
+            graphVersion: string;
+        };
+        save: ReturnType<typeof vi.fn>;
+    };
+    graphWorkerService: { runAnalysis: ReturnType<typeof vi.fn> };
+    performanceService: {
+        isSafetyModeActive: ReturnType<typeof vi.fn>;
+        getPerformanceMode: ReturnType<typeof vi.fn>;
+    };
+}
+
 describe('GraphEngine MOC Suggestions', () => {
     let engine: GraphEngine;
-    let mockContext: any;
+    let mockContext: MockContext;
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -58,7 +90,7 @@ describe('GraphEngine MOC Suggestions', () => {
             },
         };
 
-        engine = new GraphEngine(mockContext);
+        engine = new GraphEngine(mockContext as unknown as GraphContext);
         engine.buildGraph();
     });
 
@@ -76,9 +108,9 @@ describe('GraphEngine MOC Suggestions', () => {
 
         mockContext.app.vault.getAbstractFileByPath.mockImplementation((path: string) => {
             const f = new TFile();
-            (f as any).path = path;
-            (f as any).name = path;
-            (f as any).basename = path.replace('.md', '');
+            (f as unknown as { path: string; name: string; basename: string }).path = path;
+            (f as unknown as { path: string; name: string; basename: string }).name = path;
+            (f as unknown as { path: string; name: string; basename: string }).basename = path.replace('.md', '');
             return f;
         });
 
@@ -103,9 +135,9 @@ describe('GraphEngine MOC Suggestions', () => {
 
         mockContext.app.vault.getAbstractFileByPath.mockImplementation((path: string) => {
             const f = new TFile();
-            (f as any).path = path;
-            (f as any).name = path;
-            (f as any).basename = path.replace('.md', '');
+            (f as unknown as { path: string; name: string; basename: string }).path = path;
+            (f as unknown as { path: string; name: string; basename: string }).name = path;
+            (f as unknown as { path: string; name: string; basename: string }).basename = path.replace('.md', '');
             return f;
         });
 

@@ -3,18 +3,27 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { SmartConnectionsAdapter } from '../../../src/core/adapters/SmartConnectionsAdapter';
 import { TFile, type App } from 'obsidian';
-import { HealerLogger } from '../../../src/core/HealerUtils';
+import { HealerLogger } from '../../../src/core/utils/HealerLogger';
 
 vi.mock('../../../src/core/HealerUtils', async () => {
     const actual = await vi.importActual('../../../src/core/HealerUtils');
+    return {
+        ...actual,
+        isObsidianInternalApp: vi.fn(() => true),
+    };
+});
+
+vi.mock('../../../src/core/utils/HealerLogger', async () => {
+    const actual = await vi.importActual('../../../src/core/utils/HealerLogger');
     return {
         ...actual,
         HealerLogger: {
             warn: vi.fn(),
             error: vi.fn(),
             debug: vi.fn(),
+            info: vi.fn(),
+            setInstance: vi.fn(),
         },
-        isObsidianInternalApp: vi.fn(() => true),
     };
 });
 
@@ -38,14 +47,49 @@ vi.mock('obsidian', () => ({
     }),
 }));
 
-const makeTFile = (path: string, mtime = 1000): TFile => new (TFile as any)(path, mtime) as TFile;
+interface MockVault {
+    adapter: {
+        exists: ReturnType<typeof vi.fn>;
+        list: ReturnType<typeof vi.fn>;
+        read: ReturnType<typeof vi.fn>;
+        stat: ReturnType<typeof vi.fn>;
+    };
+    getAbstractFileByPath: ReturnType<typeof vi.fn>;
+    cachedRead: ReturnType<typeof vi.fn>;
+}
+
+interface MockMetadataCache {
+    getFirstLinkpathDest: ReturnType<typeof vi.fn>;
+}
+
+interface MockPlugins {
+    getPlugin: ReturnType<typeof vi.fn>;
+}
+
+interface MockSettings {
+    smartConnectionsAjsonSizeCap: number;
+    [key: string]: unknown;
+}
+
+interface MockAppShape {
+    vault: MockVault;
+    metadataCache: MockMetadataCache;
+    plugins: MockPlugins;
+    settings: MockSettings;
+}
+
+const makeTFile = (path: string, mtime = 1000): TFile => {
+    const TFileCtor = TFile as unknown as new (p?: string, m?: number) => TFile;
+    return new TFileCtor(path, mtime);
+};
 
 describe('SmartConnectionsAdapter Hardening', () => {
     let adapter: SmartConnectionsAdapter;
     let mockApp: App;
+    let mockAppMock: MockAppShape;
 
     beforeEach(() => {
-        mockApp = {
+        mockAppMock = {
             vault: {
                 adapter: {
                     exists: vi.fn().mockResolvedValue(false),
@@ -68,11 +112,12 @@ describe('SmartConnectionsAdapter Hardening', () => {
             plugins: {
                 getPlugin: vi.fn(() => null),
             },
-            // @ts-ignore
             settings: {
                 smartConnectionsAjsonSizeCap: 1024, // 1KB for testing
             },
-        } as unknown as App;
+        };
+
+        mockApp = mockAppMock as unknown as App;
 
         adapter = new SmartConnectionsAdapter(mockApp, true);
     });
@@ -83,11 +128,15 @@ describe('SmartConnectionsAdapter Hardening', () => {
     });
 
     it('honors smartConnectionsAjsonSizeCap from settings', async () => {
-        const mockVault = mockApp.vault as any;
+        const mockVault = mockAppMock.vault;
         mockVault.adapter.exists = vi.fn().mockResolvedValue(true);
         mockVault.adapter.stat = vi.fn().mockResolvedValue({ size: 2048 }); // 2KB > 1KB cap
 
-        const result = await (adapter as any).queryAjsonFallback('folder/note.md', 5);
+        const result = await (
+            adapter as unknown as {
+                queryAjsonFallback: (path: string, limit: number) => Promise<unknown[]>;
+            }
+        ).queryAjsonFallback('folder/note.md', 5);
 
         expect(mockVault.adapter.read).not.toHaveBeenCalled();
         expect(HealerLogger.warn).toHaveBeenCalledWith(expect.stringContaining('skipping oversized'));
@@ -95,7 +144,7 @@ describe('SmartConnectionsAdapter Hardening', () => {
     });
 
     it('implements early break in queryAjsonFallback when limit is reached', async () => {
-        const mockVault = mockApp.vault as any;
+        const mockVault = mockAppMock.vault;
         mockVault.adapter.exists = vi.fn().mockResolvedValue(true);
         mockVault.adapter.stat = vi.fn().mockResolvedValue({ size: 500 }); // within cap
 
@@ -110,7 +159,11 @@ describe('SmartConnectionsAdapter Hardening', () => {
         mockVault.adapter.read = vi.fn().mockResolvedValue(JSON.stringify(largeData));
 
         // Limit = 2
-        const result = await (adapter as any).queryAjsonFallback('folder/note.md', 2);
+        const result = await (
+            adapter as unknown as {
+                queryAjsonFallback: (path: string, limit: number) => Promise<unknown[]>;
+            }
+        ).queryAjsonFallback('folder/note.md', 2);
 
         expect(result.length).toBe(2);
         // We can't easily verify the "early break" of the loop itself without mocking the loop,
@@ -118,22 +171,26 @@ describe('SmartConnectionsAdapter Hardening', () => {
     });
 
     it('enforces 5000 max entries limit in queryAjsonFallback', async () => {
-        const mockVault = mockApp.vault as any;
+        const mockVault = mockAppMock.vault;
         mockVault.adapter.exists = vi.fn().mockResolvedValue(true);
         mockVault.adapter.stat = vi.fn().mockResolvedValue({ size: 100 * 1024 }); // 100KB
 
         // Temporarily increase cap for this test
-        (mockApp as any).settings.smartConnectionsAjsonSizeCap = 200 * 1024;
+        mockAppMock.settings.smartConnectionsAjsonSizeCap = 200 * 1024;
 
         // Generate 5005 entries
-        const items: Record<string, any> = {};
+        const items: Record<string, unknown> = {};
         for (let i = 0; i < 5005; i++) {
             items[`target${i}.md`] = { refs: ['folder/note.md'] };
         }
         mockVault.adapter.read = vi.fn().mockResolvedValue(JSON.stringify({ items }));
 
         // We use a high limit to ensure we hit the scanned limit first
-        await (adapter as any).queryAjsonFallback('folder/note.md', 6000);
+        await (
+            adapter as unknown as {
+                queryAjsonFallback: (path: string, limit: number) => Promise<unknown[]>;
+            }
+        ).queryAjsonFallback('folder/note.md', 6000);
 
         expect(HealerLogger.warn).toHaveBeenCalledWith(expect.stringContaining('hit max scan limit (5000)'));
     });

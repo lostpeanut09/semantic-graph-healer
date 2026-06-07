@@ -4,7 +4,8 @@ import type { LlmService } from '../LlmService';
 import type { EmbeddingService } from '../EmbeddingService';
 import type { AjsonStorage } from '../utils/AjsonStorage';
 import type { SemanticGraphHealerSettings } from '../../types';
-import { HealerLogger, cosineSimilarity } from '../HealerUtils';
+import { HealerLogger } from '../utils/HealerLogger';
+import { cosineSimilarity } from '../HealerUtils';
 import { join } from 'pathe';
 import type { Entity } from './EntityExtractor';
 

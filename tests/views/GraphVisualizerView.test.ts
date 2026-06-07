@@ -4,8 +4,8 @@ import { WorkspaceLeaf } from 'obsidian';
 import type SemanticGraphHealer from '../../src/main';
 
 describe('GraphVisualizerView Interaction & Cleanup', () => {
-    let mockPlugin: any;
-    let mockLeaf: any;
+    let mockPlugin: unknown;
+    let mockLeaf: unknown;
     let view: GraphVisualizerView;
 
     beforeEach(() => {
@@ -21,10 +21,7 @@ describe('GraphVisualizerView Interaction & Cleanup', () => {
         mockLeaf = {
             view: null,
         };
-        view = new GraphVisualizerView(
-            mockLeaf as unknown as WorkspaceLeaf,
-            mockPlugin as unknown as SemanticGraphHealer,
-        );
+        view = new GraphVisualizerView(mockLeaf as WorkspaceLeaf, mockPlugin as SemanticGraphHealer);
     });
 
     it('should have correct view type and display text', () => {

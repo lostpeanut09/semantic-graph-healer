@@ -14,12 +14,12 @@ describe('LadybugAdapter', () => {
             query: vi.fn().mockResolvedValue([]),
             sync: vi.fn().mockResolvedValue(undefined),
             initializationStatus: 'ready',
-        } as any;
+        } as unknown as LadybugService;
 
         metadataAdapter = {
             getLinksSafe: vi.fn().mockResolvedValue([]),
             queryPages: vi.fn().mockResolvedValue([]),
-        } as any;
+        } as unknown as UnifiedMetadataAdapter;
 
         ladybugAdapter = new LadybugAdapter(service, metadataAdapter);
     });
@@ -142,7 +142,7 @@ describe('LadybugAdapter', () => {
     describe('Graph Algorithms', () => {
         it('getPageRank calls runAlgo on service', async () => {
             const mockRank = { 'a.md': 0.1 };
-            (service as any).runAlgo = vi.fn().mockResolvedValue(mockRank);
+            (service as unknown as { runAlgo: ReturnType<typeof vi.fn> }).runAlgo = vi.fn().mockResolvedValue(mockRank);
 
             const result = await ladybugAdapter.getPageRank();
             expect(service.runAlgo).toHaveBeenCalledWith('pagerank');
@@ -151,7 +151,9 @@ describe('LadybugAdapter', () => {
 
         it('getLouvainCommunities calls runAlgo on service', async () => {
             const mockCommunities = { 'a.md': 1 };
-            (service as any).runAlgo = vi.fn().mockResolvedValue(mockCommunities);
+            (service as unknown as { runAlgo: ReturnType<typeof vi.fn> }).runAlgo = vi
+                .fn()
+                .mockResolvedValue(mockCommunities);
 
             const result = await ladybugAdapter.getLouvainCommunities();
             expect(service.runAlgo).toHaveBeenCalledWith('louvain');

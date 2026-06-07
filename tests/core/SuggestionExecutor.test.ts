@@ -1,7 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SuggestionExecutor } from '../../src/core/SuggestionExecutor';
 import { TFile } from 'obsidian';
-import type { HistoryItem } from '../../src/types';
+import type { HistoryItem, Suggestion } from '../../src/types';
+import type { ExecutionContext } from '../../src/core/services/PluginContext';
+
+type MockFn = ReturnType<typeof vi.fn>;
+type MockContext = {
+    app: {
+        vault: { getAbstractFileByPath: MockFn };
+        metadataCache: {
+            getFileCache: MockFn;
+            fileToLinktext: MockFn;
+            getFirstLinkpathDest: MockFn;
+        };
+        fileManager: { processFrontMatter: MockFn };
+        workspace: { openLinkText: MockFn };
+    };
+    cache: { suggestions: unknown[]; pushHistory: MockFn };
+    saveSettings: MockFn;
+    refreshDashboard: MockFn;
+    notifier: { show: MockFn };
+};
 
 // Mock Obsidian components
 vi.mock('obsidian', () => ({
@@ -15,7 +34,7 @@ vi.mock('obsidian', () => ({
 
 describe('SuggestionExecutor', () => {
     let executor: SuggestionExecutor;
-    let mockContext: any;
+    let mockContext: MockContext;
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -48,7 +67,7 @@ describe('SuggestionExecutor', () => {
             },
         };
 
-        executor = new SuggestionExecutor(mockContext);
+        executor = new SuggestionExecutor(mockContext as unknown as ExecutionContext);
     });
 
     describe('undo', () => {
@@ -82,9 +101,9 @@ describe('SuggestionExecutor', () => {
             mockContext.app.vault.getAbstractFileByPath.mockReturnValue(mockFile);
 
             mockContext.app.fileManager.processFrontMatter.mockImplementation(
-                async (file: TFile, cb: (fm: any) => void) => {
+                (file: TFile, cb: (fm: unknown) => void) => {
                     const fm = { up: '[[NewParent]]' };
-                    await cb(fm);
+                    cb(fm);
                     expect(fm.up).toBe('[[OldParent]]');
                 },
             );
@@ -130,11 +149,13 @@ describe('SuggestionExecutor', () => {
 
     describe('executeRelink', () => {
         it('should rollback if processFrontMatter fails', async () => {
-            const suggestion: any = {
+            const suggestion: Suggestion = {
                 id: '1',
                 source: 'Bridge',
-                type: 'bridge',
+                type: 'deterministic',
+                category: 'suggestion',
                 link: 'B.md',
+                timestamp: 0,
                 meta: {
                     sourcePath: 'A.md',
                     targetPath: 'B.md',
@@ -166,11 +187,11 @@ describe('SuggestionExecutor', () => {
 
             // Simulate failure on the second file (B.md)
             mockContext.app.fileManager.processFrontMatter.mockImplementation(
-                async (file: TFile, cb: (fm: any) => void) => {
+                (file: TFile, cb: (fm: unknown) => void) => {
                     if (file.path === 'B.md') {
                         throw new Error('Write Failed');
                     }
-                    await cb({});
+                    cb({});
                 },
             );
 

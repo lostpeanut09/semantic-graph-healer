@@ -2,7 +2,7 @@ import { TFile } from 'obsidian';
 import type { SemanticGraphHealerSettings } from '../../types';
 import type { LlmService } from '../LlmService';
 import type { AjsonStorage } from '../utils/AjsonStorage';
-import { HealerLogger } from '../HealerUtils';
+import { HealerLogger } from '../utils/HealerLogger';
 
 /**
  * Represents a semantic entity extracted from a note.

@@ -2,12 +2,13 @@ import { describe, test, expect } from 'vitest';
 import { GraphEngine } from '../../src/core/GraphEngine';
 import { DEFAULT_SETTINGS } from '../../src/types';
 import { App } from 'obsidian';
+import type { GraphContext } from '../../src/core/services/PluginContext';
 
 // --- Mocks ---
 class MockApp {
     plugins = { enabledPlugins: new Set() };
-    vault: any;
-    metadataCache: any;
+    vault: unknown;
+    metadataCache: unknown;
 }
 
 class MockTFile {
@@ -24,9 +25,9 @@ class MockTFile {
 function create10kMockContext() {
     const numNodes = 10000;
     const edgesPerNode = 2;
-    const files: any[] = [];
+    const files: MockTFile[] = [];
     const resolvedLinks: Record<string, Record<string, number>> = {};
-    const pathToFileMap = new Map<string, any>();
+    const pathToFileMap = new Map<string, MockTFile>();
 
     for (let i = 0; i < numNodes; i++) {
         const path = `Note-${i.toString().padStart(5, '0')}.md`;
@@ -60,7 +61,7 @@ function create10kMockContext() {
         resolvedLinks,
         getFileCache: () => ({}),
         getFirstLinkpathDest: (link: string) => pathToFileMap.get(link),
-        fileToLinktext: (file: any) => file.basename,
+        fileToLinktext: (file: { basename: string }) => file.basename,
         unresolvedLinks: {},
     };
 
@@ -94,7 +95,7 @@ function create10kMockContext() {
 describe('V1-STRESS-01: 10k Node Stress Test', () => {
     test('should build graph with 10,000 nodes in reasonable time', () => {
         const context = create10kMockContext();
-        const graphEngine = new GraphEngine(context as any);
+        const graphEngine = new GraphEngine(context as unknown as GraphContext);
 
         const start = performance.now();
         graphEngine.buildGraph();
@@ -115,7 +116,7 @@ describe('V1-STRESS-01: 10k Node Stress Test', () => {
         // Force Safety Mode
         context.performanceService.isSafetyModeActive = () => true;
 
-        const graphEngine = new GraphEngine(context as any);
+        const graphEngine = new GraphEngine(context as unknown as GraphContext);
 
         graphEngine.buildGraph();
         const graph = graphEngine.getGraph();

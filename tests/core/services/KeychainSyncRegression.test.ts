@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { KeychainService } from '../../../src/core/services/KeychainService';
 import { CryptoUtils } from '../../../src/core/utils/CryptoUtils';
+import type { KeychainContext } from '../../../src/core/services/PluginContext';
+import type { SemanticGraphHealerSettings } from '../../../src/types';
 
 // Mock HealerLogger
 vi.mock('../../../src/core/HealerUtils', async (importOriginal) => {
@@ -16,15 +18,27 @@ vi.mock('../../../src/core/HealerUtils', async (importOriginal) => {
 });
 
 describe('KeychainService Sync Regression', () => {
-    let mockContextA: any;
-    let mockAppA: any;
-    let mockSecretStorageA: any;
-    let settingsA: any;
+    let mockContextA: KeychainContext;
+    let mockAppA: {
+        appId: string;
+        secretStorage: {
+            getSecret: (k: string) => string | null;
+            setSecret: (k: string, v: string) => void;
+        };
+    };
+    let mockSecretStorageA: Map<string, string>;
+    let settingsA: SemanticGraphHealerSettings;
 
-    let mockContextB: any;
-    let mockAppB: any;
-    let mockSecretStorageB: any;
-    let settingsB: any;
+    let mockContextB: KeychainContext;
+    let mockAppB: {
+        appId: string;
+        secretStorage: {
+            getSecret: (k: string) => string | null;
+            setSecret: (k: string, v: string) => void;
+        };
+    };
+    let mockSecretStorageB: Map<string, string>;
+    let settingsB: SemanticGraphHealerSettings;
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -33,17 +47,17 @@ describe('KeychainService Sync Regression', () => {
         settingsA = {
             keychainMigrationComplete: false,
             keychainCorrupted: false,
-        };
+        } as unknown as SemanticGraphHealerSettings;
         mockSecretStorageA = new Map();
         mockAppA = {
             appId: 'device-A-app-id',
             secretStorage: {
-                getSecret: (k: string) => mockSecretStorageA.get(k),
+                getSecret: (k: string) => mockSecretStorageA.get(k) ?? null,
                 setSecret: (k: string, v: string) => mockSecretStorageA.set(k, v),
             },
         };
         mockContextA = {
-            app: mockAppA,
+            app: mockAppA as unknown as KeychainContext['app'],
             settings: settingsA,
             saveSettings: vi.fn().mockResolvedValue(undefined),
         };
@@ -54,12 +68,12 @@ describe('KeychainService Sync Regression', () => {
         mockAppB = {
             appId: 'device-B-app-id',
             secretStorage: {
-                getSecret: (k: string) => mockSecretStorageB.get(k),
+                getSecret: (k: string) => mockSecretStorageB.get(k) ?? null,
                 setSecret: (k: string, v: string) => mockSecretStorageB.set(k, v),
             },
         };
         mockContextB = {
-            app: mockAppB,
+            app: mockAppB as unknown as KeychainContext['app'],
             settings: settingsB,
             saveSettings: vi.fn().mockResolvedValue(undefined),
         };

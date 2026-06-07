@@ -4,12 +4,18 @@ import { DEFAULT_SETTINGS } from '../../../src/types';
 
 describe('GraphRagService Query', () => {
     let service: GraphRagService;
-    let mockGraphEngine: any;
-    let mockLlmService: any;
-    let mockEmbeddingService: any;
-    let mockStorage: any;
-    let mockAdapter: any;
-    let mockSettings: any;
+    let mockGraphEngine: { getTopologicalMetrics: ReturnType<typeof vi.fn> };
+    let mockLlmService: { callLlm: ReturnType<typeof vi.fn> };
+    let mockEmbeddingService: { getEmbedding: ReturnType<typeof vi.fn> };
+    let mockStorage: {
+        readAll: ReturnType<typeof vi.fn>;
+        upsert: ReturnType<typeof vi.fn>;
+    };
+    let mockAdapter: {
+        exists: ReturnType<typeof vi.fn>;
+        mkdir: ReturnType<typeof vi.fn>;
+    };
+    let mockSettings: typeof DEFAULT_SETTINGS;
 
     beforeEach(() => {
         mockSettings = { ...DEFAULT_SETTINGS, graphRagIndexDir: '.planning/index' };
@@ -30,7 +36,8 @@ describe('GraphRagService Query', () => {
             exists: vi.fn(),
             mkdir: vi.fn(),
         };
-        service = new GraphRagService(
+        const Ctor = GraphRagService as unknown as new (...args: unknown[]) => GraphRagService;
+        service = new Ctor(
             mockGraphEngine,
             mockLlmService,
             mockEmbeddingService,
@@ -46,7 +53,8 @@ describe('GraphRagService Query', () => {
 
         mockEmbeddingService.getEmbedding.mockResolvedValue(mockQueryVector);
 
-        mockStorage.readAll.mockImplementation((path: string) => {
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises
+        mockStorage.readAll.mockImplementation((path: string): Promise<unknown[]> => {
             if (path.includes('community_summaries')) {
                 return Promise.resolve([
                     {

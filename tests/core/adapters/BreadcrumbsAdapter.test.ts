@@ -86,7 +86,7 @@ describe('BreadcrumbsAdapter', () => {
     let adapter: BreadcrumbsAdapter;
     let mockApp: App;
 
-    const makeTFile = (path: string): TFile => new (TFile as any)(path) as TFile;
+    const makeTFile = (path: string): TFile => new (TFile as unknown as new (path: string) => TFile)(path);
 
     const createMockApi = (overrides: Partial<MockBreadcrumbsApi> = {}): MockBreadcrumbsApi => ({
         closedG: null,
@@ -370,8 +370,8 @@ describe('BreadcrumbsAdapter', () => {
         });
 
         // Set up global `window.BCAPI` mock
-        (globalThis as any).window = globalThis as any;
-        (globalThis as any).window.BCAPI = {
+        (globalThis as unknown as { window: Record<string, unknown> }).window = globalThis;
+        (globalThis as unknown as { window: Record<string, unknown> }).window.BCAPI = {
             get_neighbours: () => ({
                 edges: [
                     { target: 'folder/parent.md', attrs: { dir: 'up' } },
@@ -387,7 +387,7 @@ describe('BreadcrumbsAdapter', () => {
         expect(result!.next).toContain('folder/next.md');
 
         // Cleanup mock
-        delete (globalThis as any).window.BCAPI;
+        delete (globalThis as unknown as { window: Record<string, unknown> }).window.BCAPI;
     });
 
     it('ignores edges with invalid dir in V4', async () => {
@@ -395,8 +395,8 @@ describe('BreadcrumbsAdapter', () => {
             api: createMockApi(),
         });
 
-        (globalThis as any).window = globalThis as any;
-        (globalThis as any).window.BCAPI = {
+        (globalThis as unknown as { window: Record<string, unknown> }).window = globalThis;
+        (globalThis as unknown as { window: Record<string, unknown> }).window.BCAPI = {
             get_neighbours: () => ({
                 edges: [
                     { target: 'folder/parent.md', dir: 'up' }, // valid → parents
@@ -414,7 +414,7 @@ describe('BreadcrumbsAdapter', () => {
         expect(result!.children).toEqual([]);
         expect(result!.siblings).toEqual([]);
 
-        delete (globalThis as any).window.BCAPI;
+        delete (globalThis as unknown as { window: Record<string, unknown> }).window.BCAPI;
     });
 
     it('ignores bare string edges (no dir) in V4 — policy: fail-closed', async () => {
@@ -424,8 +424,8 @@ describe('BreadcrumbsAdapter', () => {
             api: createMockApi(),
         });
 
-        (globalThis as any).window = globalThis as any;
-        (globalThis as any).window.BCAPI = {
+        (globalThis as unknown as { window: Record<string, unknown> }).window = globalThis;
+        (globalThis as unknown as { window: Record<string, unknown> }).window.BCAPI = {
             get_neighbours: () => ['folder/parent.md', 'folder/child.md'],
         };
 
@@ -439,6 +439,6 @@ describe('BreadcrumbsAdapter', () => {
         expect(result!.next).toEqual([]);
         expect(result!.prev).toEqual([]);
 
-        delete (globalThis as any).window.BCAPI;
+        delete (globalThis as unknown as { window: Record<string, unknown> }).window.BCAPI;
     });
 });

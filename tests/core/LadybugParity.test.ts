@@ -1,11 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { LadybugAdapter } from '../../src/core/adapters/LadybugAdapter';
 import { DirectedGraph } from 'graphology';
+import type { LadybugService } from '../../src/core/services/LadybugService';
+import type { UnifiedMetadataAdapter } from '../../src/core/adapters/UnifiedMetadataAdapter';
 
 describe('Ladybug Parity (Cypher vs Graphology)', () => {
     let ladybugAdapter: LadybugAdapter;
-    let mockService: any;
-    let mockMetadataAdapter: any;
+    let mockService: LadybugService;
+    let mockMetadataAdapter: UnifiedMetadataAdapter;
 
     beforeEach(() => {
         mockService = {
@@ -13,11 +15,11 @@ describe('Ladybug Parity (Cypher vs Graphology)', () => {
             sync: vi.fn(),
             initialize: vi.fn(),
             runAlgo: vi.fn(),
-        };
+        } as unknown as LadybugService;
         mockMetadataAdapter = {
             getLinksSafe: vi.fn(),
             queryPages: vi.fn(),
-        };
+        } as unknown as UnifiedMetadataAdapter;
         ladybugAdapter = new LadybugAdapter(mockService, mockMetadataAdapter);
     });
 
@@ -45,9 +47,9 @@ describe('Ladybug Parity (Cypher vs Graphology)', () => {
         // Ladybug logic simulation (Cypher)
         // In this test, we verify that the Cypher query we SEND would return B.md
         // We mock the service to return what a real Cypher engine would return for this graph.
-        mockService.query.mockImplementation((cypher: string, params: any) => {
+        const mockQuery = mockService.query as ReturnType<typeof vi.fn>;
+        mockQuery.mockImplementation((cypher: string, params: Record<string, unknown>) => {
             if (cypher.includes('SIZE([ (n)-[]->() | n ]) = 0')) {
-                // Simplified Cypher simulator for this specific test case
                 if (params.threshold === 1) return [{ path: 'B.md', inDegree: 2 }];
             }
             return [];
@@ -67,14 +69,19 @@ describe('Ladybug Parity (Cypher vs Graphology)', () => {
         graph.addEdge('B.md', 'C.md', { type: 'up' });
 
         // Legacy logic simulation
-        const legacyBridges: any[] = [];
+        const legacyBridges: Array<{
+            source: string;
+            target: string;
+            via: string;
+            type: string;
+        }> = [];
         graph.forEachNode((a) => {
             graph.outEdges(a).forEach((edgeAB) => {
                 const b = graph.target(edgeAB);
-                const typeAB = graph.getEdgeAttribute(edgeAB, 'type');
+                const typeAB: string = graph.getEdgeAttribute(edgeAB, 'type') as string;
                 graph.outEdges(b).forEach((edgeBC) => {
                     const c = graph.target(edgeBC);
-                    const typeBC = graph.getEdgeAttribute(edgeBC, 'type');
+                    const typeBC: string = graph.getEdgeAttribute(edgeBC, 'type') as string;
                     if (typeAB === typeBC && a !== c && !graph.hasEdge(a, c)) {
                         legacyBridges.push({ source: a, target: c, via: b, type: typeAB });
                     }
@@ -85,7 +92,8 @@ describe('Ladybug Parity (Cypher vs Graphology)', () => {
         expect(legacyBridges[0].via).toBe('B.md');
 
         // Ladybug logic simulation
-        mockService.query.mockImplementation((cypher: string) => {
+        const mockQuery = mockService.query as ReturnType<typeof vi.fn>;
+        mockQuery.mockImplementation((cypher: string) => {
             if (cypher.includes('MATCH (a:Node)-[r1]->(b:Node)-[r2]->(c:Node)')) {
                 return [{ source: 'A.md', target: 'C.md', via: 'B.md', type: 'up' }];
             }
@@ -105,7 +113,8 @@ describe('Ladybug Parity (Cypher vs Graphology)', () => {
         graph.addEdge('B.md', 'A.md', { type: 'related' });
 
         // Ladybug logic simulation
-        mockService.query.mockImplementation((cypher: string) => {
+        const mockQuery = mockService.query as ReturnType<typeof vi.fn>;
+        mockQuery.mockImplementation((cypher: string) => {
             if (cypher.includes('MATCH p = (n:Node)-[*1..')) {
                 return [
                     {
@@ -125,7 +134,7 @@ describe('Ladybug Parity (Cypher vs Graphology)', () => {
 
     it('getPageRank should return results consistent with Graphology', async () => {
         const mockPageRank = { 'A.md': 0.5, 'B.md': 0.5 };
-        mockService.runAlgo.mockImplementation((algo: string) => {
+        (mockService.runAlgo as ReturnType<typeof vi.fn>).mockImplementation((algo: string) => {
             if (algo === 'pagerank') return mockPageRank;
             return {};
         });
@@ -136,7 +145,7 @@ describe('Ladybug Parity (Cypher vs Graphology)', () => {
 
     it('getLouvainCommunities should return results consistent with Graphology', async () => {
         const mockCommunities = { 'A.md': 0, 'B.md': 1 };
-        mockService.runAlgo.mockImplementation((algo: string) => {
+        (mockService.runAlgo as ReturnType<typeof vi.fn>).mockImplementation((algo: string) => {
             if (algo === 'louvain') return mockCommunities;
             return {};
         });

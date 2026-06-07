@@ -8,7 +8,7 @@ describe('PerformanceService', () => {
     const createMockApp = (numFiles: number) =>
         ({
             vault: {
-                getMarkdownFiles: () => new Array(numFiles).fill({}),
+                getMarkdownFiles: () => new Array(numFiles).fill({}) as { path: string }[],
             },
         }) as unknown as App;
 

@@ -44,14 +44,14 @@ vi.mock('obsidian', () => ({
 import { DatacoreAdapter } from '../../../src/core/adapters/DatacoreAdapter';
 import { TFile, type App, parseLinktext } from 'obsidian';
 
-type ListenerMap = Record<string, Function[]>;
+type ListenerMap = Record<string, ((...args: unknown[]) => void)[]>;
 
 function createListenerHub() {
     const listeners: ListenerMap = {};
 
     return {
         listeners,
-        on: vi.fn((name: string, cb: Function) => {
+        on: vi.fn((name: string, cb: (...args: unknown[]) => void) => {
             listeners[name] ??= [];
             listeners[name].push(cb);
             return { name, cb };
@@ -62,7 +62,7 @@ function createListenerHub() {
     };
 }
 
-const makeTFile = (path: string): TFile => new (TFile as any)(path) as TFile;
+const makeTFile = (path: string): TFile => new (TFile as unknown as new (path: string) => TFile)(path);
 
 function makeMarkdownPage(overrides: Record<string, unknown> = {}) {
     const base = {
@@ -265,7 +265,14 @@ describe('DatacoreAdapter', () => {
             return { successful: false, error: 'unexpected query' };
         });
 
-        const first = (adapter as any).getPageChildren('folder/note.md');
+        const first = (
+            adapter as unknown as {
+                getPageChildren: (path: string) => {
+                    tasks: unknown[];
+                    lists: unknown[];
+                };
+            }
+        ).getPageChildren('folder/note.md');
         expect(first.tasks).toEqual([]);
         expect(first.lists).toHaveLength(1);
 
@@ -285,7 +292,14 @@ describe('DatacoreAdapter', () => {
             return { successful: false, error: 'unexpected query' };
         });
 
-        const second = (adapter as any).getPageChildren('folder/note.md');
+        const second = (
+            adapter as unknown as {
+                getPageChildren: (path: string) => {
+                    tasks: unknown[];
+                    lists: unknown[];
+                };
+            }
+        ).getPageChildren('folder/note.md');
         expect(second.tasks).toHaveLength(1);
         expect(second.lists).toHaveLength(1);
 
@@ -307,8 +321,18 @@ describe('DatacoreAdapter', () => {
             return { successful: false, error: 'unexpected query' };
         });
 
-        (adapter as any).prefetchChildrenForPaths(['folder/note.md']);
-        expect((adapter as any).pageChildrenCache.has('folder/note.md')).toBe(false);
+        (
+            adapter as unknown as {
+                prefetchChildrenForPaths: (paths: string[]) => void;
+            }
+        ).prefetchChildrenForPaths(['folder/note.md']);
+        expect(
+            (
+                adapter as unknown as {
+                    pageChildrenCache: { has: (path: string) => boolean };
+                }
+            ).pageChildrenCache.has('folder/note.md'),
+        ).toBe(false);
 
         dcApi.tryQuery.mockImplementation((query: string) => {
             if (query.startsWith('@task and ')) {
@@ -326,8 +350,18 @@ describe('DatacoreAdapter', () => {
             return { successful: false, error: 'unexpected query' };
         });
 
-        (adapter as any).prefetchChildrenForPaths(['folder/note.md']);
-        expect((adapter as any).pageChildrenCache.has('folder/note.md')).toBe(true);
+        (
+            adapter as unknown as {
+                prefetchChildrenForPaths: (paths: string[]) => void;
+            }
+        ).prefetchChildrenForPaths(['folder/note.md']);
+        expect(
+            (
+                adapter as unknown as {
+                    pageChildrenCache: { has: (path: string) => boolean };
+                }
+            ).pageChildrenCache.has('folder/note.md'),
+        ).toBe(true);
     });
 
     it('maps file.frontmatter, file.aliases and file.starred correctly', () => {
@@ -365,7 +399,13 @@ describe('DatacoreAdapter', () => {
             return { successful: false, error: 'unexpected query' };
         });
 
-        const result = adapter.getPage('folder/note.md') as any;
+        const result = adapter.getPage('folder/note.md') as unknown as {
+            file: {
+                frontmatter: string;
+                aliases: string[];
+                starred: boolean;
+            };
+        };
 
         expect(result.file.frontmatter).toContain('rating | 5');
         expect(result.file.frontmatter).toContain('simple | x');
@@ -414,72 +454,85 @@ describe('DatacoreAdapter', () => {
             return { successful: false, error: 'unexpected query' };
         });
 
-        const result = adapter.getPage('folder/note.md') as any;
+        const result = adapter.getPage('folder/note.md') as unknown as {
+            file: {
+                tasks: Array<{
+                    line: number;
+                    completed: boolean;
+                    fullyCompleted: boolean;
+                    parent: number;
+                    checked: boolean;
+                    task: boolean;
+                }>;
+                lists: Array<{ line: number; checked: boolean; task: boolean }>;
+                day: unknown;
+            };
+        };
 
         expect(result.file.tasks).toHaveLength(2);
         expect(result.file.lists).toHaveLength(3);
 
-        const root = result.file.tasks.find((t: any) => t.line === 1);
-        const child = result.file.tasks.find((t: any) => t.line === 2);
-        const list = result.file.lists.find((t: any) => t.line === 3);
+        const root = result.file.tasks.find((t) => t.line === 1);
+        const child = result.file.tasks.find((t) => t.line === 2);
+        const list = result.file.lists.find((t) => t.line === 3);
 
-        expect(root.completed).toBe(true);
-        expect(root.fullyCompleted).toBe(false);
-        expect(child.parent).toBe(1);
+        expect(root!.completed).toBe(true);
+        expect(root!.fullyCompleted).toBe(false);
+        expect(child!.parent).toBe(1);
 
         // Lock in checkbox semantics: unchecked task [ ] still has checkbox present.
-        expect(root.checked).toBe(true); // [x] → checked
-        expect(child.checked).toBe(true); // [ ] (status=' ') → checked=true (checkbox present)
-        expect(list.checked).toBe(false); // plain list-item, no status → no checkbox
+        expect(root!.checked).toBe(true); // [x] → checked
+        expect(child!.checked).toBe(true); // [ ] (status=' ') → checked=true (checkbox present)
+        expect(list!.checked).toBe(false); // plain list-item, no status → no checkbox
 
-        expect(list.task).toBe(false);
+        expect(list!.task).toBe(false);
         expect(result.file.day).toBeDefined();
     });
 
     it('debounces invalidation on metadata and vault events', () => {
-        (adapter as any).backlinkIndex = new Map([['folder/note.md', new Set(['src.md'])]]);
-        (adapter as any).linkCache.set('folder/note.md', {
-            path: 'folder/note.md',
-        });
-        (adapter as any).pageChildrenCache.set('folder/note.md', {
-            tasks: [],
-            lists: [],
-        });
+        const a = adapter as unknown as {
+            backlinkIndex: Map<string, Set<string>>;
+            linkCache: Map<string, { path: string }>;
+            pageChildrenCache: Map<string, { tasks: unknown[]; lists: unknown[] }>;
+        };
+        a.backlinkIndex = new Map([['folder/note.md', new Set(['src.md'])]]);
+        a.linkCache.set('folder/note.md', { path: 'folder/note.md' });
+        a.pageChildrenCache.set('folder/note.md', { tasks: [], lists: [] });
 
         metadataHub.emit('resolve', makeTFile('folder/note.md'));
 
-        expect((adapter as any).backlinkIndex).not.toBeNull();
+        expect(a.backlinkIndex).not.toBeNull();
         vi.advanceTimersByTime(249);
-        expect((adapter as any).backlinkIndex).not.toBeNull();
+        expect(a.backlinkIndex).not.toBeNull();
 
         vi.advanceTimersByTime(1);
-        expect((adapter as any).backlinkIndex).toBeNull();
-        expect((adapter as any).linkCache.size).toBe(0);
-        expect((adapter as any).pageChildrenCache.size).toBe(0);
+        expect(a.backlinkIndex).toBeNull();
+        expect(a.linkCache.size).toBe(0);
+        expect(a.pageChildrenCache.size).toBe(0);
 
-        (adapter as any).backlinkIndex = new Map([['folder/note.md', new Set(['src.md'])]]);
+        a.backlinkIndex = new Map([['folder/note.md', new Set(['src.md'])]]);
         vaultHub.emit('rename', makeTFile('folder/note.md'), 'old/path.md');
         vi.advanceTimersByTime(250);
-        expect((adapter as any).backlinkIndex).toBeNull();
+        expect(a.backlinkIndex).toBeNull();
     });
 
     it('destroy unregisters listeners and clears caches', () => {
-        (adapter as any).backlinkIndex = new Map([['folder/note.md', new Set(['src.md'])]]);
-        (adapter as any).linkCache.set('folder/note.md', {
-            path: 'folder/note.md',
-        });
-        (adapter as any).pageChildrenCache.set('folder/note.md', {
-            tasks: [],
-            lists: [],
-        });
+        const a = adapter as unknown as {
+            backlinkIndex: Map<string, Set<string>>;
+            linkCache: Map<string, { path: string }>;
+            pageChildrenCache: Map<string, { tasks: unknown[]; lists: unknown[] }>;
+        };
+        a.backlinkIndex = new Map([['folder/note.md', new Set(['src.md'])]]);
+        a.linkCache.set('folder/note.md', { path: 'folder/note.md' });
+        a.pageChildrenCache.set('folder/note.md', { tasks: [], lists: [] });
 
         adapter.destroy();
 
         expect(metadataCache.offref).toHaveBeenCalledTimes(4);
         expect(vault.offref).toHaveBeenCalledTimes(2);
-        expect((adapter as any).backlinkIndex).toBeNull();
-        expect((adapter as any).linkCache.size).toBe(0);
-        expect((adapter as any).pageChildrenCache.size).toBe(0);
+        expect(a.backlinkIndex).toBeNull();
+        expect(a.linkCache.size).toBe(0);
+        expect(a.pageChildrenCache.size).toBe(0);
     });
 
     it('falls back to query() when tryQuery is unavailable', () => {

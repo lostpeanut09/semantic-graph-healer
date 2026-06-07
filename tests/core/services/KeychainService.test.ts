@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { KeychainService } from '../../../src/core/services/KeychainService';
 import { CryptoUtils } from '../../../src/core/utils/CryptoUtils';
-import { DEFAULT_SETTINGS } from '../../../src/types';
+import { DEFAULT_SETTINGS, type SemanticGraphHealerSettings } from '../../../src/types';
+import type { KeychainContext } from '../../../src/core/services/PluginContext';
 
 // Mock HealerLogger to avoid console output during tests
 vi.mock('../../../src/core/HealerUtils', async (importOriginal) => {
@@ -16,11 +17,26 @@ vi.mock('../../../src/core/HealerUtils', async (importOriginal) => {
     };
 });
 
+type MockSecretStorage = {
+    getSecret: ReturnType<typeof vi.fn>;
+    setSecret: ReturnType<typeof vi.fn>;
+    deleteSecret: ReturnType<typeof vi.fn>;
+};
+
+type MockApp = {
+    appId: string;
+    secretStorage: MockSecretStorage | null;
+};
+
+type MockContext = KeychainContext & {
+    settings: SemanticGraphHealerSettings & Record<string, unknown>;
+};
+
 describe('KeychainService', () => {
     let service: KeychainService;
-    let mockContext: any;
-    let mockApp: any;
-    let mockSecretStorage: any;
+    let mockContext: MockContext;
+    let mockApp: MockApp;
+    let mockSecretStorage: MockSecretStorage;
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -37,8 +53,9 @@ describe('KeychainService', () => {
         };
 
         mockContext = {
-            app: mockApp,
-            settings: JSON.parse(JSON.stringify(DEFAULT_SETTINGS)),
+            app: mockApp as unknown as KeychainContext['app'],
+            settings: JSON.parse(JSON.stringify(DEFAULT_SETTINGS)) as SemanticGraphHealerSettings &
+                Record<string, unknown>,
             saveSettings: vi.fn().mockResolvedValue(undefined),
             onCorruptionDetected: vi.fn(),
         };
@@ -161,7 +178,7 @@ describe('KeychainService', () => {
             // First initialize
             await service.initializeMasterKey();
             expect(mockSecretStorage.setSecret).toHaveBeenCalledWith('sghealer-masterkey', expect.any(String));
-            const firstKeyJWK = mockSecretStorage.setSecret.mock.calls[0][1];
+            const firstKeyJWK: unknown = mockSecretStorage.setSecret.mock.calls[0][1];
 
             await service.setApiKey('openai', 'some-key');
 
@@ -172,7 +189,7 @@ describe('KeychainService', () => {
             // Should delete old key and set a new one
             expect(mockSecretStorage.deleteSecret).toHaveBeenCalledWith('sghealer-masterkey');
             expect(mockSecretStorage.setSecret).toHaveBeenCalledWith('sghealer-masterkey', expect.any(String));
-            const newKeyJWK = mockSecretStorage.setSecret.mock.calls.find(
+            const newKeyJWK: unknown = mockSecretStorage.setSecret.mock.calls.find(
                 (c: [string, string]) => c[0] === 'sghealer-masterkey',
             )![1];
             expect(newKeyJWK).not.toBe(firstKeyJWK);

@@ -1,9 +1,17 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type MockedFunction } from 'vitest';
+import type { DataAdapter } from 'obsidian';
 import { AjsonStorage } from '../../../src/core/utils/AjsonStorage';
+
+interface MockDataAdapter {
+    exists: MockedFunction<DataAdapter['exists']>;
+    read: MockedFunction<DataAdapter['read']>;
+    write: MockedFunction<DataAdapter['write']>;
+    append: MockedFunction<DataAdapter['append']>;
+}
 
 describe('AjsonStorage', () => {
     let storage: AjsonStorage;
-    let mockAdapter: any;
+    let mockAdapter: MockDataAdapter;
 
     beforeEach(() => {
         mockAdapter = {
@@ -12,7 +20,7 @@ describe('AjsonStorage', () => {
             write: vi.fn(),
             append: vi.fn(),
         };
-        storage = new AjsonStorage(mockAdapter);
+        storage = new AjsonStorage(mockAdapter as unknown as DataAdapter);
     });
 
     it('should append a line to an existing file', async () => {

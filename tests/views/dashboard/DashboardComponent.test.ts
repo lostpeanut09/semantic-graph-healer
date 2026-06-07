@@ -3,8 +3,10 @@ import { mount, flushSync } from 'svelte';
 import Dashboard from '../../../src/views/dashboard/components/Dashboard.svelte';
 import { DashboardStore } from '../../../src/views/dashboard/DashboardStore.svelte';
 
+type DashboardPluginContext = ConstructorParameters<typeof DashboardStore>[0];
+
 describe('Dashboard Component', () => {
-    let mockPlugin: any;
+    let mockPlugin: unknown;
     let target: HTMLElement;
 
     beforeEach(() => {
@@ -61,7 +63,7 @@ describe('Dashboard Component', () => {
     });
 
     it('renders tabs and banner', () => {
-        const store = new DashboardStore(mockPlugin);
+        const store = new DashboardStore(mockPlugin as DashboardPluginContext);
         mount(Dashboard, {
             target,
             props: { store, plugin: mockPlugin },
@@ -72,8 +74,8 @@ describe('Dashboard Component', () => {
         expect(target.textContent).toContain('All issues');
     });
 
-    it('filters items when clicking tabs', async () => {
-        const store = new DashboardStore(mockPlugin);
+    it('filters items when clicking tabs', () => {
+        const store = new DashboardStore(mockPlugin as DashboardPluginContext);
         mount(Dashboard, {
             target,
             props: { store, plugin: mockPlugin },
@@ -94,8 +96,8 @@ describe('Dashboard Component', () => {
         expect(target.querySelectorAll('.healer-suggestion-card').length).toBe(1);
     });
 
-    it('shows empty state when no items match tab', async () => {
-        const store = new DashboardStore(mockPlugin);
+    it('shows empty state when no items match tab', () => {
+        const store = new DashboardStore(mockPlugin as DashboardPluginContext);
         mount(Dashboard, {
             target,
             props: { store, plugin: mockPlugin },

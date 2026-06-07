@@ -2,7 +2,8 @@ import type { GraphEngine } from '../GraphEngine';
 import type { AjsonStorage } from '../utils/AjsonStorage';
 import type { CommunitySummary } from './GraphRagService';
 import type { Suggestion, SemanticGraphHealerSettings } from '../../types';
-import { HealerLogger, cosineSimilarity, generateId } from '../HealerUtils';
+import { HealerLogger } from '../utils/HealerLogger';
+import { cosineSimilarity, generateId } from '../HealerUtils';
 import { join } from 'pathe';
 
 /**

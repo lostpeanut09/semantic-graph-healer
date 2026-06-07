@@ -143,7 +143,7 @@ describe('GraphAnalysisWorkerCore', () => {
     });
 
     describe('Advanced Analysis with Progress', () => {
-        it('should report progress for Similarity analysis', async () => {
+        it('should report progress for Similarity analysis', () => {
             const message: WorkerMessage = {
                 type: 'SIMILARITY',
                 payload: {
@@ -203,7 +203,14 @@ describe('GraphAnalysisWorkerCore', () => {
             const response = handleGraphWorkerMessage(message, mockReporter);
             expect(response.type).toBe('RESULT');
             if (response.type === 'RESULT') {
-                const data = response.payload.data as any;
+                const data = response.payload.data as unknown as {
+                    bridges: Array<{
+                        source: string;
+                        target: string;
+                        via: string;
+                        type: string;
+                    }>;
+                };
                 expect(data.bridges).toBeDefined();
                 expect(data.bridges).toHaveLength(1);
                 expect(data.bridges[0]).toMatchObject({
@@ -236,7 +243,14 @@ describe('GraphAnalysisWorkerCore', () => {
             const response = handleGraphWorkerMessage(message, mockReporter);
             expect(response.type).toBe('RESULT');
             if (response.type === 'RESULT') {
-                const data = response.payload.data as any;
+                const data = response.payload.data as unknown as {
+                    bridges: Array<{
+                        source: string;
+                        target: string;
+                        via: string;
+                        type: string;
+                    }>;
+                };
                 expect(data.bridges).toHaveLength(0);
             }
         });
@@ -262,7 +276,9 @@ describe('GraphAnalysisWorkerCore', () => {
             const response = handleGraphWorkerMessage(message, mockReporter);
             expect(response.type).toBe('RESULT');
             if (response.type === 'RESULT') {
-                const data = response.payload.data as any;
+                const data = response.payload.data as unknown as {
+                    cycles: Array<{ path: string[]; type: string }>;
+                };
                 expect(data.cycles).toBeDefined();
                 expect(data.cycles.length).toBeGreaterThan(0);
             }
@@ -291,9 +307,11 @@ describe('GraphAnalysisWorkerCore', () => {
             const response = handleGraphWorkerMessage(message, mockReporter);
             expect(response.type).toBe('RESULT');
             if (response.type === 'RESULT') {
-                const data = response.payload.data as any;
+                const data = response.payload.data as unknown as {
+                    blackHoles: Array<{ path: string; inDegree: number }>;
+                };
                 expect(data.blackHoles).toBeDefined();
-                expect(data.blackHoles.map((bh: any) => bh.path)).toContain('SINK');
+                expect(data.blackHoles.map((bh: { path: string; inDegree: number }) => bh.path)).toContain('SINK');
             }
         });
 

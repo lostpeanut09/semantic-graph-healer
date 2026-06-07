@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { LlmService } from '../../src/core/LlmService';
-import { requestUrl } from 'obsidian';
+import { requestUrl, type RequestUrlResponse } from 'obsidian';
 import { DEFAULT_SETTINGS } from '../../src/types';
 import type { SemanticGraphHealerSettings } from '../../src/types';
+import type { ApiKeyType } from '../../src/core/HealerUtils';
 
 vi.mock('obsidian', () => ({
     requestUrl: vi.fn(),
@@ -11,7 +12,7 @@ vi.mock('obsidian', () => ({
 describe('LlmService - AI Tribunal Logic', () => {
     let service: LlmService;
     let mockSettings: SemanticGraphHealerSettings;
-    let mockGetKey: ReturnType<typeof vi.fn>;
+    let mockGetKey: (type: ApiKeyType) => Promise<string>;
 
     beforeEach(() => {
         mockSettings = {
@@ -24,7 +25,7 @@ describe('LlmService - AI Tribunal Logic', () => {
             secondaryLlmEndpoint: 'https://api.anthropic.com/v1',
         };
         mockGetKey = vi.fn().mockResolvedValue('test-key');
-        service = new LlmService(mockSettings, mockGetKey as any);
+        service = new LlmService(mockSettings, mockGetKey);
         vi.clearAllMocks();
     });
 
@@ -34,7 +35,7 @@ describe('LlmService - AI Tribunal Logic', () => {
             json: {
                 choices: [{ message: { content: 'WINNER: A | SCORE: 85 | WHY: Good' } }],
             },
-        } as any);
+        } as unknown as RequestUrlResponse);
 
         const result = await service.callLlm('test prompt', true);
 
@@ -50,7 +51,7 @@ describe('LlmService - AI Tribunal Logic', () => {
             json: {
                 choices: [{ message: { content: 'WINNER: A | SCORE: 70 | WHY: Okay' } }],
             },
-        } as any);
+        } as unknown as RequestUrlResponse);
 
         // Secondary
         vi.mocked(requestUrl).mockResolvedValueOnce({
@@ -58,7 +59,7 @@ describe('LlmService - AI Tribunal Logic', () => {
             json: {
                 choices: [{ message: { content: 'WINNER: A | SCORE: 90 | WHY: Better' } }],
             },
-        } as any);
+        } as unknown as RequestUrlResponse);
 
         const result = await service.callLlm('test prompt', true);
 
@@ -74,7 +75,7 @@ describe('LlmService - AI Tribunal Logic', () => {
             json: {
                 choices: [{ message: { content: 'WINNER: A | SCORE: 70 | WHY: A is good' } }],
             },
-        } as any);
+        } as unknown as RequestUrlResponse);
 
         // Secondary
         vi.mocked(requestUrl).mockResolvedValueOnce({
@@ -82,7 +83,7 @@ describe('LlmService - AI Tribunal Logic', () => {
             json: {
                 choices: [{ message: { content: 'WINNER: B | SCORE: 80 | WHY: B is better' } }],
             },
-        } as any);
+        } as unknown as RequestUrlResponse);
 
         const result = await service.callLlm('test prompt', true);
 
@@ -106,7 +107,7 @@ describe('LlmService - AI Tribunal Logic', () => {
                 json: {
                     choices: [{ message: { content: 'YES' } }],
                 },
-            } as any);
+            } as unknown as RequestUrlResponse);
 
             const result = await service.validateTagInheritance('Child', 'tag', 'Parent');
             expect(result).toBe(true);
@@ -118,7 +119,7 @@ describe('LlmService - AI Tribunal Logic', () => {
                 json: {
                     choices: [{ message: { content: 'NO' } }],
                 },
-            } as any);
+            } as unknown as RequestUrlResponse);
 
             const result = await service.validateTagInheritance('Child', 'tag', 'Parent');
             expect(result).toBe(false);
@@ -130,7 +131,7 @@ describe('LlmService - AI Tribunal Logic', () => {
                 json: {
                     choices: [{ message: { content: 'YES' } }],
                 },
-            } as any);
+            } as unknown as RequestUrlResponse);
 
             await service.validateTagInheritance('Child', 'tag', 'Parent');
             const result = await service.validateTagInheritance('Child', 'tag', 'Parent');

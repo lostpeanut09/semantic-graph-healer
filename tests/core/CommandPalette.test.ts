@@ -1,14 +1,37 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import SemanticGraphHealer from '../../src/main';
 
+interface CommandDescriptor {
+    id: string;
+    name: string;
+    callback: () => Promise<void> | void;
+}
+
+interface MockPlugin {
+    addCommand: ReturnType<typeof vi.fn>;
+    api: {
+        executeBatch: ReturnType<typeof vi.fn>;
+        undoBatch: ReturnType<typeof vi.fn>;
+    };
+    cache: {
+        history: Array<{ id: string; batchId?: string }>;
+    };
+    logger: {
+        error: ReturnType<typeof vi.fn>;
+    };
+    activateDashboard: ReturnType<typeof vi.fn>;
+    activateGraphView: ReturnType<typeof vi.fn>;
+    notice: (msg: string) => void;
+}
+
 describe('CommandPalette', () => {
-    let mockPlugin: any;
-    let commands: Map<string, any>;
+    let mockPlugin: MockPlugin;
+    let commands: Map<string, CommandDescriptor>;
 
     beforeEach(() => {
         commands = new Map();
         mockPlugin = {
-            addCommand: vi.fn().mockImplementation((cmd) => {
+            addCommand: vi.fn().mockImplementation((cmd: CommandDescriptor) => {
                 commands.set(cmd.id, cmd);
             }),
             api: {
@@ -23,10 +46,15 @@ describe('CommandPalette', () => {
             },
             activateDashboard: vi.fn(),
             activateGraphView: vi.fn(),
+            notice: vi.fn(),
         };
 
         // Call the method from SemanticGraphHealer prototype bound to mockPlugin
-        const registerCommands = (SemanticGraphHealer.prototype as any).registerCommands;
+        const registerCommands = (
+            SemanticGraphHealer.prototype as unknown as {
+                registerCommands: (this: MockPlugin) => void;
+            }
+        ).registerCommands;
         registerCommands.call(mockPlugin);
     });
 

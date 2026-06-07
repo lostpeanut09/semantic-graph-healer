@@ -9,12 +9,25 @@ vi.mock('obsidian', () => ({
 
 describe('GraphRagService Indexing', () => {
     let service: GraphRagService;
-    let mockGraphEngine: any;
-    let mockLlmService: any;
-    let mockEmbeddingService: any;
-    let mockStorage: any;
-    let mockAdapter: any;
-    let mockSettings: any;
+    let mockGraphEngine: {
+        getCacheStatus: ReturnType<typeof vi.fn>;
+        getGraph: ReturnType<typeof vi.fn>;
+        getTopologicalMetrics: ReturnType<typeof vi.fn>;
+        context: {
+            cache: { topologicalScores: { communities: Record<string, number> } };
+        };
+    };
+    let mockLlmService: { callLlm: ReturnType<typeof vi.fn> };
+    let mockEmbeddingService: { getEmbedding: ReturnType<typeof vi.fn> };
+    let mockStorage: AjsonStorage;
+    let mockAdapter: {
+        exists: ReturnType<typeof vi.fn>;
+        append: ReturnType<typeof vi.fn>;
+        write: ReturnType<typeof vi.fn>;
+        read: ReturnType<typeof vi.fn>;
+        mkdir: ReturnType<typeof vi.fn>;
+    };
+    let mockSettings: Record<string, unknown>;
 
     beforeEach(() => {
         mockGraphEngine = {
@@ -58,18 +71,20 @@ describe('GraphRagService Indexing', () => {
             mkdir: vi.fn().mockResolvedValue(undefined),
         };
 
-        mockStorage = new AjsonStorage(mockAdapter);
+        const StorageCtor = AjsonStorage as unknown as new (...args: unknown[]) => AjsonStorage;
+        mockStorage = new StorageCtor(mockAdapter);
         mockSettings = {
             graphRagIndexDir: '.planning/index',
         };
 
-        service = new GraphRagService(
-            mockGraphEngine as any,
-            mockLlmService as any,
-            mockEmbeddingService as any,
+        const GRS = GraphRagService as unknown as new (...args: unknown[]) => GraphRagService;
+        service = new GRS(
+            mockGraphEngine,
+            mockLlmService,
+            mockEmbeddingService,
             mockStorage,
-            mockAdapter as any,
-            mockSettings as any,
+            mockAdapter,
+            mockSettings,
         );
     });
 

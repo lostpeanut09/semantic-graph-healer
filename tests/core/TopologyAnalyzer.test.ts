@@ -3,15 +3,18 @@ import { TopologyAnalyzer } from '../../src/core/TopologyAnalyzer';
 import { GraphEngine } from '../../src/core/GraphEngine';
 import { TFile } from 'obsidian';
 import { DEFAULT_SETTINGS } from '../../src/types';
+import type { AnalysisContext } from '../../src/core/services/PluginContext';
+import type { LlmService } from '../../src/core/LlmService';
+import type { IMetadataAdapter } from '../../src/core/adapters/IMetadataAdapter';
 
 // Properly mock the module
 vi.mock('../../src/core/GraphEngine');
 
 describe('TopologyAnalyzer', () => {
     let analyzer: TopologyAnalyzer;
-    let mockContext: any;
-    let mockLlm: any;
-    let mockEngine: any;
+    let mockContext: AnalysisContext;
+    let mockLlm: LlmService;
+    let mockEngine: IMetadataAdapter;
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -21,13 +24,19 @@ describe('TopologyAnalyzer', () => {
                 vault: {
                     getAbstractFileByPath: vi.fn().mockImplementation((path: string) => {
                         if (!path) return null;
-                        const f = new TFile();
-                        (f as any).path = path;
-                        (f as any).basename = path.replace('.md', '').split('/').pop();
-                        (f as any).name = path.split('/').pop();
-                        (f as any).extension = path.split('.').pop();
+                        const f = new TFile() as unknown as {
+                            path: string;
+                            basename: string;
+                            name: string;
+                            extension: string;
+                            parent: { path: string };
+                        };
+                        f.path = path;
+                        f.basename = path.replace('.md', '').split('/').pop() ?? '';
+                        f.name = path.split('/').pop() ?? '';
+                        f.extension = path.split('.').pop() ?? '';
                         const folderPath = path.includes('/') ? path.split('/').slice(0, -1).join('/') : '/';
-                        (f as any).parent = { path: folderPath };
+                        f.parent = { path: folderPath };
                         return f;
                     }),
                 },
@@ -43,12 +52,12 @@ describe('TopologyAnalyzer', () => {
                 pushHistory: vi.fn(),
             },
             graphWorkerService: {},
-        };
+        } as unknown as AnalysisContext;
 
-        mockLlm = {};
+        mockLlm = {} as LlmService;
         mockEngine = {
             getPages: vi.fn().mockReturnValue([]),
-        };
+        } as unknown as IMetadataAdapter;
 
         analyzer = new TopologyAnalyzer(mockContext, mockLlm, mockEngine);
     });

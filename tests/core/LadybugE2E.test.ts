@@ -2,54 +2,66 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { LadybugService } from '../../src/core/services/LadybugService';
 import { LadybugAdapter } from '../../src/core/adapters/LadybugAdapter';
 import { UnifiedMetadataAdapter } from '../../src/core/adapters/UnifiedMetadataAdapter';
+import type { App } from 'obsidian';
+import type { ExtendedManifest } from '../../src/types';
+
+type MockNode = { path: string };
+type MockLink = { from: string; to: string };
+type MockMsg = {
+    type: string;
+    query?: string;
+    algoName?: string;
+    batch?: Array<{ type: string; data: unknown[] }>;
+};
 
 // Enhanced Mock Worker that simulates the internal state of the worker
 class MockWorker {
-    onmessage: ((ev: MessageEvent) => any) | null = null;
-    handlers: Set<(ev: MessageEvent) => any> = new Set();
-    nodes: any[] = [];
-    links: any[] = [];
+    onmessage: ((ev: MessageEvent) => unknown) | null = null;
+    handlers: Set<(ev: MessageEvent) => unknown> = new Set();
+    nodes: MockNode[] = [];
+    links: MockLink[] = [];
 
-    addEventListener(type: string, handler: (ev: MessageEvent) => any) {
+    addEventListener(_type: string, handler: (ev: MessageEvent) => unknown) {
         this.handlers.add(handler);
     }
 
-    removeEventListener(type: string, handler: (ev: MessageEvent) => any) {
+    removeEventListener(_type: string, handler: (ev: MessageEvent) => unknown) {
         this.handlers.delete(handler);
     }
 
-    postMessage(msg: any) {
+    postMessage(msg: unknown) {
+        const m = msg as MockMsg;
         // Simulate asynchronous worker response
         setTimeout(() => {
-            if (msg.type === 'init') {
+            if (m.type === 'init') {
                 this.dispatchEvent({ type: 'init-progress', progress: 50 });
                 setTimeout(() => this.dispatchEvent({ type: 'ready', mode: 'st-wasm' }), 10);
-            } else if (msg.type === 'sync') {
-                msg.batch.forEach((item: any) => {
-                    if (item.type === 'node') this.nodes.push(...item.data);
-                    if (item.type === 'link') this.links.push(...item.data);
+            } else if (m.type === 'sync') {
+                m.batch?.forEach((item) => {
+                    if (item.type === 'node') this.nodes.push(...(item.data as MockNode[]));
+                    if (item.type === 'link') this.links.push(...(item.data as MockLink[]));
                 });
                 this.dispatchEvent({ type: 'sync-complete' });
-            } else if (msg.type === 'query') {
+            } else if (m.type === 'query') {
                 // Simple Cypher simulator for E2E verification
-                let rows: any[] = [];
-                if (msg.query.includes('SIZE([ (n)-[]->() | n ]) = 0')) {
+                let rows: unknown[] = [];
+                if (m.query?.includes('SIZE([ (n)-[]->() | n ]) = 0')) {
                     // Find Black Holes (nodes with no out-links)
                     const nodePathsWithOutLinks = new Set(this.links.map((l) => l.from));
                     rows = this.nodes.filter((n) => !nodePathsWithOutLinks.has(n.path)).map((n) => ({ path: n.path }));
-                } else if (msg.query.includes('MATCH (a:Node)-[r1]->(b:Node)-[r2]->(c:Node)')) {
+                } else if (m.query?.includes('MATCH (a:Node)-[r1]->(b:Node)-[r2]->(c:Node)')) {
                     // Find Bridges
                     rows = [{ path: 'bridge.md' }];
                 }
                 this.dispatchEvent({ type: 'query-result', rows });
-            } else if (msg.type === 'algo') {
-                const result = msg.algoName === 'pagerank' ? { 'a.md': 0.1 } : { 'a.md': 0 };
+            } else if (m.type === 'algo') {
+                const result = m.algoName === 'pagerank' ? { 'a.md': 0.1 } : { 'a.md': 0 };
                 this.dispatchEvent({ type: 'algo-result', result });
             }
         }, 10);
     }
 
-    dispatchEvent(data: any) {
+    dispatchEvent(data: unknown) {
         const ev = { data } as MessageEvent;
         this.onmessage?.(ev);
         this.handlers.forEach((h) => h(ev));
@@ -58,7 +70,7 @@ class MockWorker {
     terminate() {}
 }
 
-global.Worker = MockWorker as any;
+global.Worker = MockWorker as unknown as typeof global.Worker;
 
 describe('Ladybug E2E Flow', () => {
     let service: LadybugService;
@@ -72,8 +84,8 @@ describe('Ladybug E2E Flow', () => {
                     read: vi.fn().mockResolvedValue('// mock worker content'),
                 },
             },
-        } as any;
-        const mockManifest = { dir: 'plugin-dir' } as any;
+        } as unknown as App;
+        const mockManifest = { dir: 'plugin-dir' } as unknown as ExtendedManifest;
 
         service = new LadybugService(mockApp, mockManifest);
         metadataAdapter = {
@@ -91,7 +103,7 @@ describe('Ladybug E2E Flow', () => {
                     { file: { path: 'node1.md', name: 'Node 1', size: 100 } },
                     { file: { path: 'node2.md', name: 'Node 2', size: 200 } },
                 ]),
-        } as any;
+        } as unknown as UnifiedMetadataAdapter;
         ladybugAdapter = new LadybugAdapter(service, metadataAdapter);
     });
 

@@ -10,14 +10,7 @@ import type {
     ExtendedApp,
     ExtendedManifest,
 } from './types';
-import {
-    formatRagPrompt,
-    generateId,
-    sleep,
-    isThenable,
-    isObsidianInternalApp,
-    HealerLogger as LegacyLogger,
-} from './core/HealerUtils';
+import { formatRagPrompt, generateId, sleep, isThenable, isObsidianInternalApp } from './core/HealerUtils';
 import { HealerLogger as InstanceLogger } from './core/utils/HealerLogger';
 import { KeychainService } from './core/services/KeychainService';
 import { GraphWorkerService } from './core/services/GraphWorkerService';
@@ -84,7 +77,7 @@ export default class SemanticGraphHealer extends Plugin {
 
         // 1. Initialize Infrastructure & Services
         this.logger = new InstanceLogger('SemanticGraphHealer', this, this.settings);
-        LegacyLogger.setInstance(this.logger);
+        InstanceLogger.setInstance(this.logger);
         this.logger.info('Semantic Graph Healer Phase 18 loading...');
 
         this.keychainService = new KeychainService({
@@ -526,10 +519,7 @@ export default class SemanticGraphHealer extends Plugin {
             },
             async (params) => {
                 try {
-                    const silent =
-                        params.silent !== undefined
-                            ? params.silent === 'true' || params.silent === (true as unknown)
-                            : true;
+                    const silent = params.silent !== undefined ? String(params.silent) === 'true' : true;
                     const suggestions = await this.api.runAnalysis({ silent });
                     return JSON.stringify(suggestions);
                 } catch (e) {
@@ -1298,14 +1288,14 @@ export default class SemanticGraphHealer extends Plugin {
                 this.settings = result.data as unknown as SemanticGraphHealerSettings;
             } else {
                 const errorMessage = JSON.stringify(result.error.issues, null, 2);
-                LegacyLogger.warn(
+                InstanceLogger.warn(
                     'Settings validation failed. Some keys may be corrupted. Using safe fallbacks.',
                     errorMessage,
                 );
                 this.settings = baseSettings;
             }
         } catch (e) {
-            LegacyLogger.error('Failed to load Zod schema for validation', e);
+            InstanceLogger.error('Failed to load Zod schema for validation', e);
             this.settings = baseSettings;
         }
 

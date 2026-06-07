@@ -366,6 +366,13 @@ export interface SemanticGraphHealerSettings {
     logLevel: 'debug' | 'info' | 'warn' | 'error';
     enableFileLogging: boolean;
     logFilePath: string;
+    // Logger dedup & rate-limit (Phase 25 — ERR-03)
+    /** Logger dedup window in milliseconds (Phase 25 — ERR-03) */
+    logDedupWindowMs: number;
+    /** Max logs per module per window (Phase 25 — ERR-03) */
+    logPerModuleCap: number;
+    /** Max logs globally per window (Phase 25 — ERR-03) */
+    logGlobalCap: number;
     enableHighMemoryMode: boolean;
     enableDeepTopology: boolean;
     allowMultipleParents: boolean;
@@ -576,6 +583,9 @@ export const DEFAULT_SETTINGS: SemanticGraphHealerSettings = {
     logLevel: 'info',
     enableFileLogging: false,
     logFilePath: 'SemanticGraphHealer/logs',
+    logDedupWindowMs: 5000,
+    logPerModuleCap: 10,
+    logGlobalCap: 100,
     enableHighMemoryMode: false,
     enableDeepTopology: false,
     allowMultipleParents: false,

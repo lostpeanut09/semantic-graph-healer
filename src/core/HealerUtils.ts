@@ -1,99 +1,9 @@
 import { App, TFile, parseLinktext } from 'obsidian';
-import { maskSecrets, sanitizeForLog, redactObject } from './utils/RedactUtils';
+import { maskSecrets } from './utils/RedactUtils';
+import { HealerLogger } from './utils/HealerLogger';
 import type { ObsidianInternalApp } from '../types';
 
 export type ApiKeyType = 'openai' | 'anthropic' | 'deepseek' | 'infranodus' | 'custom';
-
-/**
- * HealerLogger: Centralized logging for SOTA compliance.
- * Redesigned for Phase 1 as a bridge to the instance-based logger.
- */
-interface HealerLoggerInstance {
-    /** Logs informational messages. */
-    info(message: string, ...args: unknown[]): void;
-    /** Logs warning messages. */
-    warn(message: string, ...args: unknown[]): void;
-    /** Logs error messages. */
-    error(message: string, ...args: unknown[]): void;
-    /** Logs debug messages. */
-    debug(message: string, ...args: unknown[]): void;
-}
-
-/**
- * HealerLogger: Centralized logging bridge for the plugin.
- */
-export class HealerLogger {
-    private static instance: HealerLoggerInstance | null = null;
-
-    /**
-     * Sets the global logger instance.
-     * @param instance - The logger instance to use.
-     */
-    public static setInstance(instance: HealerLoggerInstance) {
-        HealerLogger.instance = instance;
-    }
-
-    private static fallbackLog(level: string, message: string, ...args: unknown[]) {
-        const sanitizedMsg = sanitizeForLog(message);
-        const redactedArgs = args.map((arg) => redactObject(arg));
-        const prefix = `[SemanticHealer][${level}]`;
-        if (level === 'ERROR') console.error(prefix, sanitizedMsg, ...redactedArgs);
-        else if (level === 'WARN') console.warn(prefix, sanitizedMsg, ...redactedArgs);
-        else console.debug(prefix, sanitizedMsg, ...redactedArgs);
-    }
-
-    /**
-     * Logs an info message.
-     * @param message - The message to log.
-     * @param args - Additional arguments.
-     */
-    public static info(message: string, ...args: unknown[]) {
-        if (HealerLogger.instance) {
-            HealerLogger.instance.info(message, ...args);
-        } else {
-            this.fallbackLog('INFO', message, ...args);
-        }
-    }
-
-    /**
-     * Logs a warning message.
-     * @param message - The message to log.
-     * @param args - Additional arguments.
-     */
-    public static warn(message: string, ...args: unknown[]) {
-        if (HealerLogger.instance) {
-            HealerLogger.instance.warn(message, ...args);
-        } else {
-            this.fallbackLog('WARN', message, ...args);
-        }
-    }
-
-    /**
-     * Logs an error message.
-     * @param message - The message to log.
-     * @param args - Additional arguments.
-     */
-    public static error(message: string, ...args: unknown[]) {
-        if (HealerLogger.instance) {
-            HealerLogger.instance.error(message, ...args);
-        } else {
-            this.fallbackLog('ERROR', message, ...args);
-        }
-    }
-
-    /**
-     * Logs a debug message.
-     * @param message - The message to log.
-     * @param args - Additional arguments.
-     */
-    public static debug(message: string, ...args: unknown[]) {
-        if (HealerLogger.instance) {
-            HealerLogger.instance.debug(message, ...args);
-        } else {
-            this.fallbackLog('DEBUG', message, ...args);
-        }
-    }
-}
 
 /**
  * Detects LLM provider from endpoint URL.
@@ -123,18 +33,39 @@ export function isObsidianInternalApp(app: App): app is App & ObsidianInternalAp
 }
 
 /**
+ * Monotonic counter for the non-cryptographic UUID fallback path.
+ * @internal
+ */
+let uuidFallbackCounter = 0;
+
+/**
  * UUID Fallback for non-secure contexts (MDN Compliance).
- * @returns A randomly generated v4 UUID string.
+ * Uses crypto.randomUUID() when available, otherwise a counter+timestamp
+ * scheme that is unique within a single process but NOT cryptographically
+ * random. Intentionally avoids Math.random() per the Sentinel rule.
+ * @returns A v4-shaped UUID string.
  */
 function uuidFallbackV4(): string {
     const c = globalThis.crypto;
+    // NOTE: generateId() already checks randomUUID before calling us.
+    // This branch is only reachable when uuidFallbackV4 is invoked directly.
+    if (c?.randomUUID) {
+        return c.randomUUID();
+    }
     if (!c?.getRandomValues) {
         HealerLogger.warn(
-            'Secure Crypto.getRandomValues not available. Using non-cryptographic Math.random fallback for ID generation.',
+            'Secure Crypto.randomUUID/getRandomValues not available. Using counter-based fallback for ID generation.',
         );
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (ch) => {
-            const r = (Math.random() * 16) | 0;
-            const v = ch === 'x' ? r : (r & 0x3) | 0x8;
+        // Sentinel-compliant fallback: timestamp + monotonic counter (no Math.random).
+        uuidFallbackCounter = (uuidFallbackCounter + 1) & 0xffffffff;
+        const ts = Date.now().toString(36);
+        const cHex = uuidFallbackCounter.toString(16).padStart(8, '0');
+        // Shape as a v4-shaped UUID (version 4 nibble + variant bits).
+        return `xxxxxxxx-xxxx-4xxx-yxxx-${cHex}`.replace(/[xy]/g, (ch, idx) => {
+            const v =
+                ch === 'x'
+                    ? parseInt(ts[(idx + uuidFallbackCounter) % ts.length] ?? '0', 36)
+                    : (uuidFallbackCounter >> (idx % 4)) & 0x3;
             return v.toString(16);
         });
     }
@@ -142,7 +73,13 @@ function uuidFallbackV4(): string {
     c.getRandomValues(bytes);
     bytes[6] = (bytes[6] & 0x0f) | 0x40; // v4
     bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 10
-    const hex = [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
+    // Manual hex conversion (avoids [...bytes] spread per Bolt rule).
+    const HEX = '0123456789abcdef';
+    let hex = '';
+    for (let i = 0; i < bytes.length; i++) {
+        const b = bytes[i];
+        hex += HEX[b >> 4] + HEX[b & 0x0f];
+    }
     return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
@@ -296,7 +233,7 @@ export function extractLinkpaths(page: Record<string, unknown>, keys: string[]):
             extractLinkpathsFromValue(value).forEach((lp) => seen.add(lp));
         }
     });
-    return [...seen];
+    return Array.from(seen);
 }
 
 /**
@@ -326,7 +263,7 @@ export function resolveLinkpathsToPaths(
         if (cache) cache.set(key, resolved);
         if (resolved) seen.add(resolved);
     }
-    return [...seen];
+    return Array.from(seen);
 }
 
 /**
@@ -543,5 +480,9 @@ export function safeString(val: unknown): string {
     if (typeof val === 'object' && 'path' in (val as Record<string, unknown>)) {
         return (val as { path: string }).path;
     }
-    return JSON.stringify(val);
+    try {
+        return JSON.stringify(val);
+    } catch {
+        return '[Unserializable]';
+    }
 }

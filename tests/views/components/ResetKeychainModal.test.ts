@@ -1,21 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ResetKeychainModal } from '../../../src/views/components/ResetKeychainModal';
-import { Modal, Setting, Notice } from 'obsidian';
+import { Notice } from 'obsidian';
+import type { KeychainService } from '../../../src/core/services/KeychainService';
+import type { ExtendedApp } from '../../../src/types';
 
 describe('ResetKeychainModal', () => {
     let modal: ResetKeychainModal;
-    let mockApp: any;
-    let mockKeychainService: any;
+    let mockApp: ExtendedApp;
+    let mockKeychainService: KeychainService;
 
     beforeEach(() => {
         vi.clearAllMocks();
 
-        mockApp = {};
+        mockApp = {} as unknown as ExtendedApp;
         mockKeychainService = {
             resetKeychain: vi.fn().mockResolvedValue(undefined),
-        };
+        } as unknown as KeychainService;
 
-        modal = new ResetKeychainModal(mockApp as any, mockKeychainService as any);
+        modal = new ResetKeychainModal(mockApp, mockKeychainService);
     });
 
     it('should render correctly on open', () => {
@@ -42,14 +44,16 @@ describe('ResetKeychainModal', () => {
 
         const closeSpy = vi.spyOn(modal, 'close');
 
-        await (resetButton as HTMLButtonElement).click();
+        (resetButton as HTMLButtonElement).click();
 
-        expect(mockKeychainService.resetKeychain).toHaveBeenCalled();
-        expect((Notice as any).recordCall).toHaveBeenCalledWith(
-            expect.stringContaining('Keychain has been reset'),
-            undefined,
-        );
-        expect(closeSpy).toHaveBeenCalled();
+        await vi.waitFor(() => {
+            expect(mockKeychainService.resetKeychain).toHaveBeenCalled();
+            expect((Notice as unknown as { recordCall: ReturnType<typeof vi.fn> }).recordCall).toHaveBeenCalledWith(
+                expect.stringContaining('Keychain has been reset'),
+                undefined,
+            );
+            expect(closeSpy).toHaveBeenCalled();
+        });
     });
 
     it('should close when cancel button is clicked', () => {

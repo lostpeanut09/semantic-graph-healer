@@ -1,6 +1,6 @@
 import { TFile } from 'obsidian';
 import type { Suggestion, RelatedNote } from '../types';
-import { HealerLogger } from './HealerUtils';
+import { HealerLogger } from './utils/HealerLogger';
 import type { GraphContext } from './services/PluginContext';
 import { SmartConnectionsAdapter } from './adapters/SmartConnectionsAdapter';
 

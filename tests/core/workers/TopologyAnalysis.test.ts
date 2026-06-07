@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { DirectedGraph } from 'graphology';
-import { handleGraphWorkerMessage } from '../../../src/core/workers/graph-analysis-core';
+import { handleGraphWorkerMessage, type WorkerMessage } from '../../../src/core/workers/graph-analysis-core';
 import { TopologyAnalyzer } from '../../../src/core/TopologyAnalyzer';
 import { GraphEngine } from '../../../src/core/GraphEngine';
+import type { LlmService } from '../../../src/core/LlmService';
+import type { IMetadataAdapter } from '../../../src/core/adapters/IMetadataAdapter';
 import { TFile } from 'obsidian';
 import { DEFAULT_SETTINGS } from '../../../src/types';
+import type { AnalysisContext } from '../../../src/core/services/PluginContext';
 
 // Mock GraphEngine
 vi.mock('../../../src/core/GraphEngine');
@@ -21,7 +23,7 @@ describe('Topology Diagnostics & Analysis', () => {
                 edges.push({ source: `N${i}`, target: 'SINK', attributes: {} });
             }
 
-            const message: any = {
+            const message: WorkerMessage = {
                 type: 'TOPOLOGY_DIAGNOSTICS',
                 payload: { nodes, edges, requestId: 'test-7' },
                 options: {}, // Use default blackHoleThreshold (7)
@@ -30,8 +32,10 @@ describe('Topology Diagnostics & Analysis', () => {
             const response = handleGraphWorkerMessage(message, mockReporter);
             expect(response.type).toBe('RESULT');
             if (response.type === 'RESULT') {
-                const data = response.payload.data as any;
-                expect(data.blackHoles.find((bh: any) => bh.path === 'SINK')).toBeUndefined();
+                const data = response.payload.data as unknown as {
+                    blackHoles: Array<{ path: string; inDegree: number }>;
+                };
+                expect(data.blackHoles.find((bh) => bh.path === 'SINK')).toBeUndefined();
             }
         });
 
@@ -43,7 +47,7 @@ describe('Topology Diagnostics & Analysis', () => {
                 edges.push({ source: `N${i}`, target: 'SINK', attributes: {} });
             }
 
-            const message: any = {
+            const message: WorkerMessage = {
                 type: 'TOPOLOGY_DIAGNOSTICS',
                 payload: { nodes, edges, requestId: 'test-8' },
                 options: {}, // Use default blackHoleThreshold (7)
@@ -52,39 +56,47 @@ describe('Topology Diagnostics & Analysis', () => {
             const response = handleGraphWorkerMessage(message, mockReporter);
             expect(response.type).toBe('RESULT');
             if (response.type === 'RESULT') {
-                const data = response.payload.data as any;
-                expect(data.blackHoles.find((bh: any) => bh.path === 'SINK')).toBeDefined();
-                expect(data.blackHoles.find((bh: any) => bh.path === 'SINK').inDegree).toBe(7);
+                const data = response.payload.data as unknown as {
+                    blackHoles: Array<{ path: string; inDegree: number }>;
+                };
+                expect(data.blackHoles.find((bh) => bh.path === 'SINK')).toBeDefined();
+                expect(data.blackHoles.find((bh) => bh.path === 'SINK')?.inDegree).toBe(7);
             }
         });
     });
 
     describe('TOPOL-01: Bridge Scrutiny Transformation', () => {
         let analyzer: TopologyAnalyzer;
-        let mockContext: any;
-        let mockLlm: any;
-        let mockEngine: any;
+        let mockContext: AnalysisContext;
+        let mockLlm: LlmService;
+        let mockEngine: IMetadataAdapter;
 
         beforeEach(() => {
-            mockContext = {
-                app: {
-                    vault: {
-                        getAbstractFileByPath: vi.fn().mockImplementation((path: string) => {
-                            const f = new TFile();
-                            (f as any).path = path;
-                            (f as any).basename = path.replace('.md', '');
-                            return f;
-                        }),
-                    },
-                    metadataCache: {
-                        fileToLinktext: vi.fn().mockImplementation((file: TFile) => file.basename),
-                    },
+            const app = {
+                vault: {
+                    getAbstractFileByPath: vi.fn().mockImplementation((path: string) => {
+                        const f = new TFile();
+                        f.path = path;
+                        f.basename = path.replace('.md', '');
+                        return f;
+                    }),
                 },
-                settings: { ...DEFAULT_SETTINGS },
-                graphWorkerService: {},
+                metadataCache: {
+                    fileToLinktext: vi.fn().mockImplementation((file: TFile) => file.basename),
+                },
             };
-            mockLlm = {};
-            mockEngine = { getPages: vi.fn().mockReturnValue([]) };
+            mockContext = {
+                app: app as unknown as AnalysisContext['app'],
+                settings: { ...DEFAULT_SETTINGS },
+                graphWorkerService: {} as AnalysisContext['graphWorkerService'],
+                cache: {} as AnalysisContext['cache'],
+                performanceService: {} as AnalysisContext['performanceService'],
+                notifier: {} as AnalysisContext['notifier'],
+            };
+            mockLlm = {} as unknown as LlmService;
+            mockEngine = {
+                getPages: vi.fn().mockReturnValue([]),
+            } as unknown as IMetadataAdapter;
             analyzer = new TopologyAnalyzer(mockContext, mockLlm, mockEngine);
         });
 
@@ -119,31 +131,37 @@ describe('Topology Diagnostics & Analysis', () => {
 
     describe('TOPOL-04: Ouroboros Boundary Scoping', () => {
         let analyzer: TopologyAnalyzer;
-        let mockContext: any;
-        let mockLlm: any;
-        let mockEngine: any;
+        let mockContext: AnalysisContext;
+        let mockLlm: LlmService;
+        let mockEngine: IMetadataAdapter;
 
         beforeEach(() => {
-            mockContext = {
-                app: {
-                    vault: {
-                        getAbstractFileByPath: vi.fn().mockImplementation((path: string) => {
-                            const f = new TFile();
-                            (f as any).path = path;
-                            const folderPath = path.includes('/') ? path.split('/').slice(0, -1).join('/') : '/';
-                            (f as any).parent = { path: folderPath };
-                            return f;
-                        }),
-                    },
-                    metadataCache: {
-                        fileToLinktext: vi.fn().mockImplementation((file: TFile) => file.basename),
-                    },
+            const app = {
+                vault: {
+                    getAbstractFileByPath: vi.fn().mockImplementation((path: string) => {
+                        const f = new TFile();
+                        f.path = path;
+                        const folderPath = path.includes('/') ? path.split('/').slice(0, -1).join('/') : '/';
+                        f.parent = { path: folderPath } as TFile['parent'];
+                        return f;
+                    }),
                 },
-                settings: { ...DEFAULT_SETTINGS },
-                graphWorkerService: {},
+                metadataCache: {
+                    fileToLinktext: vi.fn().mockImplementation((file: TFile) => file.basename),
+                },
             };
-            mockLlm = {};
-            mockEngine = { getPages: vi.fn().mockReturnValue([]) };
+            mockContext = {
+                app: app as unknown as AnalysisContext['app'],
+                settings: { ...DEFAULT_SETTINGS },
+                graphWorkerService: {} as AnalysisContext['graphWorkerService'],
+                cache: {} as AnalysisContext['cache'],
+                performanceService: {} as AnalysisContext['performanceService'],
+                notifier: {} as AnalysisContext['notifier'],
+            };
+            mockLlm = {} as unknown as LlmService;
+            mockEngine = {
+                getPages: vi.fn().mockReturnValue([]),
+            } as unknown as IMetadataAdapter;
             analyzer = new TopologyAnalyzer(mockContext, mockLlm, mockEngine);
         });
 

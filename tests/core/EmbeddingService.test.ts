@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { EmbeddingService } from '../../src/core/EmbeddingService';
-import { requestUrl } from 'obsidian';
+import { requestUrl, type RequestUrlResponse } from 'obsidian';
 import { DEFAULT_SETTINGS } from '../../src/types';
+import type { SemanticGraphHealerSettings } from '../../src/types';
 
 vi.mock('obsidian', () => ({
     requestUrl: vi.fn(),
@@ -9,7 +10,7 @@ vi.mock('obsidian', () => ({
 
 describe('EmbeddingService', () => {
     let service: EmbeddingService;
-    let mockSettings: any;
+    let mockSettings: SemanticGraphHealerSettings;
 
     beforeEach(() => {
         mockSettings = {
@@ -30,15 +31,15 @@ describe('EmbeddingService', () => {
             json: {
                 embedding: mockVector,
             },
-        } as any);
+        } as unknown as RequestUrlResponse);
 
-        const result = await service.getEmbedding('test text');
+        const result: unknown = await service.getEmbedding('test text');
 
         expect(requestUrl).toHaveBeenCalledWith(
             expect.objectContaining({
                 url: 'http://localhost:11434/api/embeddings',
                 method: 'POST',
-                body: expect.stringContaining('"prompt":"test text"'),
+                body: expect.stringContaining('"prompt":"test text"') as unknown as string,
             }),
         );
         expect(result).toEqual(mockVector);
@@ -54,15 +55,15 @@ describe('EmbeddingService', () => {
             json: {
                 data: [{ embedding: mockVector }],
             },
-        } as any);
+        } as unknown as RequestUrlResponse);
 
-        const result = await service.getEmbedding('test text');
+        const result: unknown = await service.getEmbedding('test text');
 
         expect(requestUrl).toHaveBeenCalledWith(
             expect.objectContaining({
                 url: 'http://localhost:8080/v1/embeddings',
                 method: 'POST',
-                body: expect.stringContaining('"input":"test text"'),
+                body: expect.stringContaining('"input":"test text"') as unknown as string,
             }),
         );
         expect(result).toEqual(mockVector);
@@ -70,11 +71,11 @@ describe('EmbeddingService', () => {
 
     it('should retry on failure', async () => {
         vi.mocked(requestUrl)
-            .mockResolvedValueOnce({ status: 500 } as any)
+            .mockResolvedValueOnce({ status: 500 } as unknown as RequestUrlResponse)
             .mockResolvedValueOnce({
                 status: 200,
                 json: { embedding: new Array(768).fill(0.3) },
-            } as any);
+            } as unknown as RequestUrlResponse);
 
         const result = await service.getEmbedding('retry test');
 
@@ -83,7 +84,9 @@ describe('EmbeddingService', () => {
     });
 
     it('should throw error after max retries', async () => {
-        vi.mocked(requestUrl).mockResolvedValue({ status: 500 } as any);
+        vi.mocked(requestUrl).mockResolvedValue({
+            status: 500,
+        } as unknown as RequestUrlResponse);
 
         await expect(service.getEmbedding('fail test')).rejects.toThrow();
         expect(requestUrl).toHaveBeenCalledTimes(3); // Initial + 2 retries

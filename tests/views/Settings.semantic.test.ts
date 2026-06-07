@@ -1,11 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderEmbeddingSettings } from '../../src/views/sections/EmbeddingSettings';
+import type { SectionContext } from '../../src/views/SectionContext';
 import { Setting } from 'obsidian';
 
 // Extend HTMLElement for JSDOM in this test
 if (typeof HTMLElement !== 'undefined' && !HTMLElement.prototype.createDiv) {
-    // @ts-ignore
-    HTMLElement.prototype.createDiv = function (this: HTMLElement, options?: { cls?: string; text?: string }) {
+    (
+        HTMLElement.prototype as unknown as {
+            createDiv: (options?: { cls?: string; text?: string }) => HTMLDivElement;
+        }
+    ).createDiv = function (this: HTMLElement, options?: { cls?: string; text?: string }) {
         const div = document.createElement('div');
         if (options?.cls) div.className = options.cls;
         if (options?.text) div.textContent = options.text;
@@ -16,12 +20,12 @@ if (typeof HTMLElement !== 'undefined' && !HTMLElement.prototype.createDiv) {
 
 // Mock Obsidian
 vi.mock('obsidian', () => {
-    const MockSetting = vi.fn().mockImplementation(function (this: any) {
+    const MockSetting = vi.fn().mockImplementation(function (this: Record<string, unknown>) {
         this.settingEl = { addClass: vi.fn() };
         this.setName = vi.fn().mockReturnThis();
         this.setDesc = vi.fn().mockReturnThis();
         this.setHeading = vi.fn().mockReturnThis();
-        this.addDropdown = vi.fn().mockImplementation((cb) => {
+        this.addDropdown = vi.fn().mockImplementation((cb: (dropdown: Record<string, unknown>) => void) => {
             if (cb)
                 cb({
                     addOption: vi.fn().mockReturnThis(),
@@ -30,7 +34,7 @@ vi.mock('obsidian', () => {
                 });
             return this;
         });
-        this.addText = vi.fn().mockImplementation((cb) => {
+        this.addText = vi.fn().mockImplementation((cb: (text: Record<string, unknown>) => void) => {
             if (cb)
                 cb({
                     setPlaceholder: vi.fn().mockReturnThis(),
@@ -39,7 +43,7 @@ vi.mock('obsidian', () => {
                 });
             return this;
         });
-        this.addButton = vi.fn().mockImplementation((cb) => {
+        this.addButton = vi.fn().mockImplementation((cb: (button: Record<string, unknown>) => void) => {
             if (cb)
                 cb({
                     setButtonText: vi.fn().mockReturnThis(),
@@ -58,11 +62,11 @@ vi.mock('obsidian', () => {
 
 describe('EmbeddingSettings', () => {
     let containerEl: HTMLElement;
-    let mockCtx: any;
+    let mockCtx: SectionContext;
 
     beforeEach(() => {
         containerEl = document.createElement('div');
-        mockCtx = {
+        const ctx = {
             plugin: {
                 settings: {
                     embeddingProvider: 'ollama',
@@ -80,6 +84,7 @@ describe('EmbeddingSettings', () => {
             },
             refresh: vi.fn(),
         };
+        mockCtx = ctx as unknown as SectionContext;
         vi.clearAllMocks();
     });
 
@@ -92,19 +97,19 @@ describe('EmbeddingSettings', () => {
     });
 
     it('displays different status colors based on model health', () => {
-        mockCtx.plugin.embedding.modelStatus = 'MISALIGNED';
+        (mockCtx.plugin as unknown as { embedding: { modelStatus: string } }).embedding.modelStatus = 'MISALIGNED';
         renderEmbeddingSettings(containerEl, mockCtx);
         const statusEl = containerEl.querySelector('.healer-model-status') as HTMLElement;
         expect(statusEl.style.color).toBe('var(--text-warning)');
 
         containerEl.innerHTML = '';
-        mockCtx.plugin.embedding.modelStatus = 'OFFLINE';
+        (mockCtx.plugin as unknown as { embedding: { modelStatus: string } }).embedding.modelStatus = 'OFFLINE';
         renderEmbeddingSettings(containerEl, mockCtx);
         const statusEl2 = containerEl.querySelector('.healer-model-status') as HTMLElement;
         expect(statusEl2.style.color).toBe('var(--text-error)');
     });
 
-    it('creates buttons for verification and indexing', async () => {
+    it('creates buttons for verification and indexing', () => {
         renderEmbeddingSettings(containerEl, mockCtx);
         expect(Setting).toHaveBeenCalled();
     });

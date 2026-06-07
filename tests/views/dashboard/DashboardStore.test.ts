@@ -1,29 +1,69 @@
 import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 import { DashboardStore } from '../../../src/views/dashboard/DashboardStore.svelte';
 import type { Suggestion, HistoryItem } from '../../../src/types';
-import { REASONING_VIEW_TYPE } from '../../../src/views/DashboardView';
 import { ConfirmationModal } from '../../../src/views/components/ConfirmationModal';
 
 // Mock ConfirmationModal
 vi.mock('../../../src/views/components/ConfirmationModal', () => ({
-    ConfirmationModal: vi.fn().mockImplementation(function (app, suggestion, onConfirm) {
+    ConfirmationModal: vi.fn().mockImplementation(function (app: unknown, suggestion: unknown, onConfirm: () => void) {
         return {
-            open: vi.fn().mockImplementation(() => onConfirm()),
+            open: vi.fn().mockImplementation(() => {
+                onConfirm();
+            }),
             close: vi.fn(),
         };
     }),
 }));
 
+type MockFn = ReturnType<typeof vi.fn>;
+type PluginContext = ConstructorParameters<typeof DashboardStore>[0];
+
+interface MockWorkspace {
+    on: MockFn;
+    getLeavesOfType?: MockFn;
+    getRightLeaf?: MockFn;
+}
+
+interface MockPlugin {
+    app: {
+        workspace: MockWorkspace;
+    };
+    settings: Record<string, unknown>;
+    cache: {
+        suggestions: Suggestion[];
+        history: HistoryItem[];
+        save: MockFn;
+    };
+    executor: {
+        execute: MockFn;
+        executeRelink?: MockFn;
+        undo?: MockFn;
+        resolveChoice?: MockFn;
+    };
+    reasoner?: {
+        analyze: MockFn;
+    };
+    topology?: {
+        getContextForAIValidation: MockFn;
+    };
+    llm?: {
+        validateBranching: MockFn;
+        validateTagInheritance: MockFn;
+    };
+    saveSettings: MockFn;
+    registerEvent: MockFn;
+}
+
 describe('DashboardStore', () => {
-    let mockPlugin: any;
-    let mockWorkspace: any;
-    let eventCallback: Function | null;
+    let mockPlugin: MockPlugin;
+    let mockWorkspace: MockWorkspace;
+    let eventCallback: ((...args: unknown[]) => unknown) | null;
 
     beforeEach(() => {
         eventCallback = null;
 
         mockWorkspace = {
-            on: vi.fn((event: string, cb: Function) => {
+            on: vi.fn((event: string, cb: (...args: unknown[]) => unknown) => {
                 if (event === 'semantic-graph:updated') {
                     eventCallback = cb;
                 }
@@ -35,6 +75,7 @@ describe('DashboardStore', () => {
             app: {
                 workspace: mockWorkspace,
             },
+            settings: { proximityIgnoreList: [] },
             registerEvent: vi.fn(),
             cache: {
                 suggestions: [] as Suggestion[],
@@ -50,6 +91,8 @@ describe('DashboardStore', () => {
             saveSettings: vi.fn(),
         };
     });
+
+    const asPluginContext = (m: MockPlugin): PluginContext => m as unknown as PluginContext;
 
     it('initializes with suggestions and history from cache', () => {
         const mockSuggestions: Suggestion[] = [
@@ -72,7 +115,7 @@ describe('DashboardStore', () => {
         ];
         mockPlugin.cache.suggestions = mockSuggestions;
 
-        const store = new DashboardStore(mockPlugin);
+        const store = new DashboardStore(asPluginContext(mockPlugin));
 
         expect(store.suggestions.length).toBe(2);
         expect(store.structuralGaps.length).toBe(1);
@@ -116,7 +159,7 @@ describe('DashboardStore', () => {
         ];
         mockPlugin.cache.suggestions = mockSuggestions;
 
-        const store = new DashboardStore(mockPlugin);
+        const store = new DashboardStore(asPluginContext(mockPlugin));
 
         expect(store.structuralGaps.map((s) => s.id)).toEqual(['bridge_gap_1']);
         expect(store.logicLoops.map((s) => s.id)).toEqual(['cycle_1']);
@@ -125,7 +168,7 @@ describe('DashboardStore', () => {
     });
 
     it('updates reactivity when refresh is called', () => {
-        const store = new DashboardStore(mockPlugin);
+        const store = new DashboardStore(asPluginContext(mockPlugin));
         expect(store.suggestions.length).toBe(0);
 
         mockPlugin.cache.suggestions = [
@@ -146,7 +189,7 @@ describe('DashboardStore', () => {
     });
 
     it('automatically refreshes when event is triggered', () => {
-        const store = new DashboardStore(mockPlugin);
+        const store = new DashboardStore(asPluginContext(mockPlugin));
         expect(store.suggestions.length).toBe(0);
 
         mockPlugin.cache.suggestions = [
@@ -177,15 +220,18 @@ describe('DashboardStore', () => {
             // Mock Obsidian DOM extensions for jsdom
             if (!DocumentFragment.prototype.appendText) {
                 DocumentFragment.prototype.appendText = function (text: string) {
-                    this.appendChild(document.createTextNode(text));
+                    (this as DocumentFragment).appendChild(document.createTextNode(text));
                 };
             }
             if (!DocumentFragment.prototype.createEl) {
-                DocumentFragment.prototype.createEl = function (tag: string, options?: any) {
+                DocumentFragment.prototype.createEl = function (
+                    tag: string,
+                    options?: { text?: string; cls?: string },
+                ) {
                     const el = document.createElement(tag);
                     if (options?.text) el.textContent = options.text;
                     if (options?.cls) el.className = options.cls;
-                    this.appendChild(el);
+                    (this as DocumentFragment).appendChild(el);
                     return el;
                 };
             }
@@ -216,7 +262,7 @@ describe('DashboardStore', () => {
             mockPlugin.settings = { proximityIgnoreList: [] };
 
             // Mock Notice for Obsidian
-            (global as any).Notice = vi.fn().mockImplementation(() => {
+            (global as unknown as { Notice: MockFn }).Notice = vi.fn().mockImplementation(() => {
                 return {
                     noticeEl: {
                         appendChild: vi.fn(),
@@ -225,14 +271,14 @@ describe('DashboardStore', () => {
                 };
             });
 
-            store = new DashboardStore(mockPlugin);
+            store = new DashboardStore(asPluginContext(mockPlugin));
         });
 
         it('fixAll processes all items sequentially and yields', async () => {
             const yieldSpy = vi.spyOn(global, 'setTimeout');
             const items = Array.from({ length: 6 }, (_, i) => ({
                 id: `id_${i}`,
-                type: 'ai' as any,
+                type: 'ai' as const,
                 category: 'suggestion' as const,
                 link: `link_${i}`,
                 source: '',
@@ -312,13 +358,13 @@ describe('DashboardStore', () => {
                 },
             ];
 
-            store = new DashboardStore(mockPlugin);
+            store = new DashboardStore(asPluginContext(mockPlugin));
         });
 
         it('analyze calls reasoner and updates state', async () => {
             const suggestion = mockPlugin.cache.suggestions[0];
             const mockReasoningResult = { verdict: 'STABLE' };
-            mockPlugin.reasoner.analyze.mockResolvedValue(mockReasoningResult);
+            mockPlugin.reasoner!.analyze.mockResolvedValue(mockReasoningResult);
 
             // Mock showReasoning requirements
             mockPlugin.app.workspace.getLeavesOfType = vi.fn().mockReturnValue([]);
@@ -329,7 +375,7 @@ describe('DashboardStore', () => {
 
             await store.analyze(suggestion);
 
-            expect(mockPlugin.reasoner.analyze).toHaveBeenCalledWith(suggestion);
+            expect(mockPlugin.reasoner!.analyze).toHaveBeenCalledWith(suggestion);
             expect(store.suggestions[0].reasoning).toEqual(mockReasoningResult);
             expect(mockPlugin.cache.save).toHaveBeenCalled();
             expect(mockPlugin.saveSettings).toHaveBeenCalled();
@@ -343,13 +389,13 @@ describe('DashboardStore', () => {
                 existingRelations: 'relations',
             };
 
-            mockPlugin.topology.getContextForAIValidation.mockResolvedValue(mockContext);
-            mockPlugin.llm.validateBranching.mockResolvedValue(true);
+            mockPlugin.topology!.getContextForAIValidation.mockResolvedValue(mockContext);
+            mockPlugin.llm!.validateBranching.mockResolvedValue(true);
 
             await store.verifyAI(suggestion);
 
-            expect(mockPlugin.topology.getContextForAIValidation).toHaveBeenCalledWith('A', ['B', 'C']);
-            expect(mockPlugin.llm.validateBranching).toHaveBeenCalled();
+            expect(mockPlugin.topology!.getContextForAIValidation).toHaveBeenCalledWith('A', ['B', 'C']);
+            expect(mockPlugin.llm!.validateBranching).toHaveBeenCalled();
             expect(store.suggestions[0].verificationResult).toBe('Valid');
         });
 
@@ -361,29 +407,29 @@ describe('DashboardStore', () => {
                 existingRelations: '',
             };
 
-            mockPlugin.topology.getContextForAIValidation.mockResolvedValue(mockContext);
-            mockPlugin.llm.validateTagInheritance.mockResolvedValue(false);
+            mockPlugin.topology!.getContextForAIValidation.mockResolvedValue(mockContext);
+            mockPlugin.llm!.validateTagInheritance.mockResolvedValue(false);
 
             await store.verifyAI(suggestion);
 
-            expect(mockPlugin.topology.getContextForAIValidation).toHaveBeenCalledWith('D', ['E']);
-            expect(mockPlugin.llm.validateTagInheritance).toHaveBeenCalled();
+            expect(mockPlugin.topology!.getContextForAIValidation).toHaveBeenCalledWith('D', ['E']);
+            expect(mockPlugin.llm!.validateTagInheritance).toHaveBeenCalled();
             expect(store.suggestions[1].verificationResult).toBe('Contradiction');
         });
 
         it('resolveChoice calls executor.resolveChoice', async () => {
             const suggestion = mockPlugin.cache.suggestions[0];
-            mockPlugin.executor.resolveChoice.mockResolvedValue(true);
+            mockPlugin.executor.resolveChoice!.mockResolvedValue(true);
 
             await store.resolveChoice(suggestion, 'winner', ['loser']);
 
-            expect(mockPlugin.executor.resolveChoice).toHaveBeenCalledWith(suggestion, 'winner', ['loser']);
+            expect(mockPlugin.executor.resolveChoice!).toHaveBeenCalledWith(suggestion, 'winner', ['loser']);
             expect(store.fixedItems.has(suggestion.id)).toBe(true);
         });
 
         it('executeComplex triggers ConfirmationModal and calls executor.executeRelink', async () => {
             const suggestion = mockPlugin.cache.suggestions[0];
-            mockPlugin.executor.executeRelink.mockResolvedValue(true);
+            mockPlugin.executor.executeRelink!.mockResolvedValue(true);
 
             await store.executeComplex(suggestion);
 
@@ -393,7 +439,7 @@ describe('DashboardStore', () => {
             });
 
             expect(ConfirmationModal).toHaveBeenCalled();
-            expect(mockPlugin.executor.executeRelink).toHaveBeenCalledWith(suggestion);
+            expect(mockPlugin.executor.executeRelink!).toHaveBeenCalledWith(suggestion);
             expect(store.fixedItems.has(suggestion.id)).toBe(true);
         });
 
@@ -405,7 +451,7 @@ describe('DashboardStore', () => {
                 type: 'fix',
                 mementoData: [],
             };
-            mockPlugin.executor.undo.mockResolvedValue(true);
+            mockPlugin.executor.undo!.mockResolvedValue(true);
 
             await store.undoAction(historyItem);
 

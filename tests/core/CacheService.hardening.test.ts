@@ -4,10 +4,10 @@ import { CacheService } from '../../src/core/CacheService';
 
 // Mocks
 vi.mock('obsidian', async () => {
-    const actual = await vi.importActual<any>('obsidian');
+    const actual = await vi.importActual<typeof import('obsidian')>('obsidian');
     return {
         ...actual,
-        normalizePath: vi.fn((p) => p.replace(/\/+/g, '/')),
+        normalizePath: vi.fn((p: string): string => p.replace(/\/+/g, '/')),
     };
 });
 
@@ -19,10 +19,25 @@ vi.mock('../../src/core/HealerUtils', () => ({
     },
 }));
 
+type MockAdapter = {
+    exists: ReturnType<typeof vi.fn>;
+    read: ReturnType<typeof vi.fn>;
+    write: ReturnType<typeof vi.fn>;
+    remove: ReturnType<typeof vi.fn>;
+    rename: ReturnType<typeof vi.fn>;
+};
+
+type MockPlugin = {
+    manifest: { dir: string; id: string };
+    app: {
+        vault: { adapter: MockAdapter };
+    };
+};
+
 describe('CacheService Hardening', () => {
-    let plugin: any;
+    let plugin: MockPlugin;
     let service: CacheService;
-    let adapter: any;
+    let adapter: MockAdapter;
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -41,20 +56,22 @@ describe('CacheService Hardening', () => {
             },
         };
         adapter = plugin.app.vault.adapter;
-        service = new CacheService(plugin as any);
+        service = new CacheService(plugin as unknown as Plugin);
     });
 
     describe('Constructor', () => {
         it('uses normalizePath and handles missing dir', () => {
             expect(normalizePath).toHaveBeenCalled();
             // Default path in mock is /mock/dir/healer-cache.json
-            expect((service as any)._cacheFilePath).toContain('healer-cache.json');
+            expect((service as unknown as { _cacheFilePath: string })._cacheFilePath).toContain('healer-cache.json');
         });
 
         it('falls back to plugin id if dir is missing', () => {
-            plugin.manifest.dir = undefined;
-            const newService = new CacheService(plugin);
-            expect((newService as any)._cacheFilePath).toContain('test-plugin/healer-cache.json');
+            plugin.manifest.dir = undefined as unknown as string;
+            const newService = new CacheService(plugin as unknown as Plugin);
+            expect((newService as unknown as { _cacheFilePath: string })._cacheFilePath).toContain(
+                'test-plugin/healer-cache.json',
+            );
         });
     });
 
@@ -93,6 +110,7 @@ describe('CacheService Hardening', () => {
             let maxConcurrentWrites = 0;
 
             adapter.exists.mockResolvedValue(true);
+            // eslint-disable-next-line @typescript-eslint/no-misused-promises
             adapter.write.mockImplementation(async () => {
                 activeWrites++;
                 maxConcurrentWrites = Math.max(maxConcurrentWrites, activeWrites);

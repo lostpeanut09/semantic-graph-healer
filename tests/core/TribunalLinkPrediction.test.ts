@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { LlmService } from '../../src/core/LlmService';
 import { LinkPredictionEngine } from '../../src/core/LinkPredictionEngine';
-import { SmartConnectionsAdapter } from '../../src/core/adapters/SmartConnectionsAdapter';
 import { requestUrl, TFile } from 'obsidian';
+import type { RequestUrlResponse } from 'obsidian';
 import { DEFAULT_SETTINGS } from '../../src/types';
 import type { SemanticGraphHealerSettings } from '../../src/types';
+import type { ApiKeyType } from '../../src/core/HealerUtils';
+import type { GraphContext } from '../../src/core/services/PluginContext';
 
 vi.mock('obsidian', () => ({
     requestUrl: vi.fn(),
@@ -46,7 +48,7 @@ describe('AI Tribunal & HTR Edge Cases Validation', () => {
                 secondaryLlmEndpoint: 'https://api.anthropic.com/v1',
             };
             mockGetKey = vi.fn().mockResolvedValue('test-key');
-            service = new LlmService(mockSettings, mockGetKey as any);
+            service = new LlmService(mockSettings, mockGetKey as unknown as (type: ApiKeyType) => Promise<string>);
             vi.clearAllMocks();
         });
 
@@ -63,7 +65,7 @@ describe('AI Tribunal & HTR Edge Cases Validation', () => {
                         },
                     ],
                 },
-            } as any);
+            } as unknown as RequestUrlResponse);
 
             // Secondary fails
             vi.mocked(requestUrl).mockRejectedValueOnce(new Error('API Error'));
@@ -82,13 +84,13 @@ describe('AI Tribunal & HTR Edge Cases Validation', () => {
             vi.mocked(requestUrl).mockResolvedValueOnce({
                 status: 200,
                 json: { choices: [{ message: { content: 'Garbage output' } }] },
-            } as any);
+            } as unknown as RequestUrlResponse);
 
             // Secondary also malformed
             vi.mocked(requestUrl).mockResolvedValueOnce({
                 status: 200,
                 json: { choices: [{ message: { content: 'More garbage' } }] },
-            } as any);
+            } as unknown as RequestUrlResponse);
 
             const result = await service.callLlm('test prompt', true);
 
@@ -108,7 +110,7 @@ describe('AI Tribunal & HTR Edge Cases Validation', () => {
                         },
                     ],
                 },
-            } as any);
+            } as unknown as RequestUrlResponse);
 
             const result = await service.callLlm('test prompt', true);
 
@@ -120,7 +122,26 @@ describe('AI Tribunal & HTR Edge Cases Validation', () => {
 
     describe('LinkPredictionEngine - HTR Normalization & Weights', () => {
         let engine: LinkPredictionEngine;
-        let mockContext: any;
+        let mockContext: {
+            app: {
+                vault: {
+                    getMarkdownFiles: ReturnType<typeof vi.fn>;
+                    getAbstractFileByPath: ReturnType<typeof vi.fn>;
+                };
+            };
+            settings: {
+                linkPredictionWeights: {
+                    jaccard: number;
+                    adamicAdar: number;
+                    resourceAllocation: number;
+                };
+                enableSmartConnections: boolean;
+                htrStructuralWeight: number;
+            };
+            graphWorkerService: {
+                runAnalysis: ReturnType<typeof vi.fn>;
+            };
+        };
 
         beforeEach(() => {
             mockContext = {
@@ -143,7 +164,7 @@ describe('AI Tribunal & HTR Edge Cases Validation', () => {
                     runAnalysis: vi.fn(),
                 },
             };
-            engine = new LinkPredictionEngine(mockContext);
+            engine = new LinkPredictionEngine(mockContext as unknown as GraphContext);
             mockIsAvailable.mockReturnValue(true);
             mockGetRelatedNotes.mockResolvedValue([]);
         });
@@ -159,7 +180,11 @@ describe('AI Tribunal & HTR Edge Cases Validation', () => {
             mockGetRelatedNotes.mockResolvedValue([{ path: 'B', score: 0.1 }]); // Semantic very different
 
             mockContext.app.vault.getAbstractFileByPath.mockImplementation((path: string) => {
-                const f = new TFile() as any;
+                const f = new TFile() as unknown as {
+                    path: string;
+                    basename: string;
+                    stat: { mtime: number };
+                };
                 f.path = path;
                 f.basename = path;
                 return f;
@@ -180,7 +205,11 @@ describe('AI Tribunal & HTR Edge Cases Validation', () => {
             mockGetRelatedNotes.mockResolvedValue([{ path: 'B', score: 0.2 }]); // Semantic low
 
             mockContext.app.vault.getAbstractFileByPath.mockImplementation((path: string) => {
-                const f = new TFile() as any;
+                const f = new TFile() as unknown as {
+                    path: string;
+                    basename: string;
+                    stat: { mtime: number };
+                };
                 f.path = path;
                 f.basename = path;
                 return f;
@@ -200,7 +229,11 @@ describe('AI Tribunal & HTR Edge Cases Validation', () => {
             mockContext.graphWorkerService.runAnalysis.mockResolvedValue([{ source: 'A', target: 'B', score: 0.75 }]);
 
             mockContext.app.vault.getAbstractFileByPath.mockImplementation((path: string) => {
-                const f = new TFile() as any;
+                const f = new TFile() as unknown as {
+                    path: string;
+                    basename: string;
+                    stat: { mtime: number };
+                };
                 f.path = path;
                 f.basename = path;
                 return f;
@@ -221,7 +254,11 @@ describe('AI Tribunal & HTR Edge Cases Validation', () => {
             mockContext.settings.htrStructuralWeight = 0.5;
 
             mockContext.app.vault.getAbstractFileByPath.mockImplementation((path: string) => {
-                const f = new TFile() as any;
+                const f = new TFile() as unknown as {
+                    path: string;
+                    basename: string;
+                    stat: { mtime: number };
+                };
                 f.path = path;
                 f.basename = path;
                 return f;

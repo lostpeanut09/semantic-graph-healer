@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { handleGraphWorkerMessage } from '../../../src/core/workers/graph-analysis-core';
 import type { WorkerMessage } from '../../../src/core/workers/graph-analysis-core';
 

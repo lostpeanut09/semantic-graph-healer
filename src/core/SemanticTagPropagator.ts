@@ -1,6 +1,7 @@
 import { App, TFile } from 'obsidian';
 import type { SemanticGraphHealerSettings, Suggestion } from '../types';
-import { HealerLogger, generateId, resolveLinkpathsToPaths, extractLinkpaths } from './HealerUtils';
+import { HealerLogger } from './utils/HealerLogger';
+import { generateId, resolveLinkpathsToPaths, extractLinkpaths } from './HealerUtils';
 import type { VaultQueryEngine } from './DataAdapter';
 import { LlmService } from './LlmService';
 

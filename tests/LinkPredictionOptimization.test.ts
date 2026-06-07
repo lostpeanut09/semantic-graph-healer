@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { LinkPredictionEngine } from '../src/core/LinkPredictionEngine';
-import { SmartConnectionsAdapter } from '../src/core/adapters/SmartConnectionsAdapter';
+import type { GraphContext } from '../src/core/services/PluginContext';
 import { TFile } from 'obsidian';
 
 vi.mock('obsidian', () => ({
@@ -27,7 +27,7 @@ vi.mock('../src/core/adapters/SmartConnectionsAdapter', () => {
 
 describe('LinkPredictionEngine Performance and Normalization', () => {
     let engine: LinkPredictionEngine;
-    let mockContext: any;
+    let mockContext: unknown;
 
     beforeEach(() => {
         mockContext = {
@@ -35,7 +35,10 @@ describe('LinkPredictionEngine Performance and Normalization', () => {
                 vault: {
                     getMarkdownFiles: vi.fn().mockReturnValue([]),
                     getAbstractFileByPath: vi.fn().mockImplementation((path: string) => {
-                        const f = new TFile() as any;
+                        const f = new TFile() as unknown as {
+                            path: string;
+                            basename: string;
+                        };
                         f.path = path;
                         f.basename = path;
                         return f;
@@ -54,7 +57,7 @@ describe('LinkPredictionEngine Performance and Normalization', () => {
                 runAnalysis: vi.fn(),
             },
         };
-        engine = new LinkPredictionEngine(mockContext);
+        engine = new LinkPredictionEngine(mockContext as GraphContext);
         mockIsAvailable.mockReturnValue(true);
         mockGetRelatedNotes.mockResolvedValue([]);
         vi.clearAllMocks();
@@ -63,7 +66,11 @@ describe('LinkPredictionEngine Performance and Normalization', () => {
     it('should NOT call getRelatedNotes redundantly for the same source', async () => {
         const mockNodes = [{ key: 'SourceA', attributes: {} }];
         // Two suggestions for the same source
-        mockContext.graphWorkerService.runAnalysis.mockResolvedValue([
+        (
+            mockContext as {
+                graphWorkerService: { runAnalysis: ReturnType<typeof vi.fn> };
+            }
+        ).graphWorkerService.runAnalysis.mockResolvedValue([
             { source: 'SourceA', target: 'Target1', score: 0.8 },
             { source: 'SourceA', target: 'Target2', score: 0.7 },
         ]);
@@ -82,7 +89,11 @@ describe('LinkPredictionEngine Performance and Normalization', () => {
 
     it('should handle scores slightly above 1 correctly', async () => {
         const mockNodes = [{ key: 'SourceA', attributes: {} }];
-        mockContext.graphWorkerService.runAnalysis.mockResolvedValue([
+        (
+            mockContext as {
+                graphWorkerService: { runAnalysis: ReturnType<typeof vi.fn> };
+            }
+        ).graphWorkerService.runAnalysis.mockResolvedValue([
             { source: 'SourceA', target: 'Target1', score: 1.0001 }, // Slightly above 1
         ]);
 

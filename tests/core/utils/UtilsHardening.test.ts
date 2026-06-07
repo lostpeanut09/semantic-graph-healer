@@ -3,17 +3,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { HealerLogger } from '../../../src/core/utils/HealerLogger';
 import { CryptoUtils } from '../../../src/core/utils/CryptoUtils';
 import { TFile, TFolder } from 'obsidian';
+import type { Plugin } from 'obsidian';
+import type { SemanticGraphHealerSettings } from '../../../src/types';
 
 vi.mock('obsidian', () => ({
     TFile: class MockTFile {
         path: string = '';
-        stat: any = { size: 0 };
+        stat: unknown = { size: 0 };
     },
     TFolder: class MockTFolder {
         path: string = '';
     },
     Plugin: class MockPlugin {
-        app: any;
+        app: unknown;
         constructor() {
             this.app = {};
         }
@@ -23,8 +25,8 @@ vi.mock('obsidian', () => ({
 
 describe('Utils Hardening', () => {
     describe('HealerLogger (Ultra-Hardening Audit)', () => {
-        let plugin: any;
-        let settings: any;
+        let plugin: Plugin;
+        let settings: SemanticGraphHealerSettings;
 
         beforeEach(() => {
             settings = {
@@ -32,7 +34,7 @@ describe('Utils Hardening', () => {
                 enableFileLogging: true,
                 logFilePath: 'logs',
                 logBufferSize: 1000,
-            };
+            } as unknown as SemanticGraphHealerSettings;
 
             plugin = {
                 app: {
@@ -54,14 +56,14 @@ describe('Utils Hardening', () => {
                     },
                 },
                 saveSettings: vi.fn(),
-            };
+            } as unknown as Plugin;
         });
 
         it('ULTRA-1: masks Bearer and JWT in raw strings', () => {
-            const logger = new HealerLogger('Test', plugin as any, settings);
+            const logger = new HealerLogger('Test', plugin, settings);
+            const hl = logger as unknown as { formatLogLine: (entry: Record<string, unknown>) => string };
 
-            // @ts-ignore
-            const output = (logger as any).formatLogLine({
+            const output: string = hl.formatLogLine({
                 timestamp: '2026-04-17',
                 level: 'info',
                 module: 'Test',
@@ -76,10 +78,10 @@ describe('Utils Hardening', () => {
         });
 
         it('ULTRA-2: neutralizes control characters (TAB, NULL, etc.)', () => {
-            const logger = new HealerLogger('Test', plugin as any, settings);
+            const logger = new HealerLogger('Test', plugin, settings);
+            const hl = logger as unknown as { formatLogLine: (entry: Record<string, unknown>) => string };
 
-            // @ts-ignore
-            const output = (logger as any).formatLogLine({
+            const output: string = hl.formatLogLine({
                 timestamp: '2026-04-17',
                 level: 'info',
                 module: 'Test',
@@ -91,14 +93,14 @@ describe('Utils Hardening', () => {
         });
 
         it('ULTRA-3: handles log folder path collision gracefully', async () => {
-            const logger = new HealerLogger('Test', plugin as any, settings);
+            const logger = new HealerLogger('Test', plugin, settings);
 
             // Returning a mock TFile instead of a TFolder for the folder path
             const mockFile = new TFile();
-            plugin.app.vault.getAbstractFileByPath.mockReturnValue(mockFile);
+            (plugin.app.vault.getAbstractFileByPath as unknown as ReturnType<typeof vi.fn>).mockReturnValue(mockFile);
 
-            // @ts-ignore - trigger writeToFile
-            await (logger as any).writeToFile({
+            const lw = logger as unknown as { writeToFile: (entry: Record<string, unknown>) => Promise<void> };
+            await lw.writeToFile({
                 timestamp: '2026-04-17',
                 level: 'info',
                 module: 'Test',
@@ -110,19 +112,23 @@ describe('Utils Hardening', () => {
         });
 
         it('ULTRA-4: respects max log size and performs rotation', async () => {
-            const logger = new HealerLogger('Test', plugin as any, settings);
+            const logger = new HealerLogger('Test', plugin, settings);
             const mockFile = new TFile();
             mockFile.path = 'logs/healer-today.log';
             mockFile.stat.size = 5 * 1024 * 1024; // 5MB > 2MB Cap
 
             const mockFolder = new TFolder();
-            plugin.app.vault.getAbstractFileByPath.mockReturnValueOnce(mockFolder); // folder call
-            plugin.app.vault.getAbstractFileByPath.mockReturnValueOnce(mockFile); // file call
+            (plugin.app.vault.getAbstractFileByPath as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+                mockFolder,
+            ); // folder call
+            (plugin.app.vault.getAbstractFileByPath as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+                mockFile,
+            ); // file call
 
-            plugin.app.vault.create.mockResolvedValue(new TFile()); // New file after rotate
+            (plugin.app.vault.create as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(new TFile()); // New file after rotate
 
-            // @ts-ignore
-            await (logger as any).writeToFile({
+            const lw = logger as unknown as { writeToFile: (entry: Record<string, unknown>) => Promise<void> };
+            await lw.writeToFile({
                 timestamp: '2026-04-17',
                 level: 'info',
                 module: 'Test',
@@ -134,18 +140,22 @@ describe('Utils Hardening', () => {
         });
 
         it('ULTRA-5: prioritizes append over process for O(1) performance', async () => {
-            const logger = new HealerLogger('Test', plugin as any, settings);
+            const logger = new HealerLogger('Test', plugin, settings);
             const mockFile = new TFile();
             mockFile.path = 'logs/healer-today.log';
 
-            plugin.app.vault.getAbstractFileByPath.mockReturnValueOnce(new TFolder());
-            plugin.app.vault.getAbstractFileByPath.mockReturnValueOnce(mockFile);
+            (plugin.app.vault.getAbstractFileByPath as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+                new TFolder(),
+            );
+            (plugin.app.vault.getAbstractFileByPath as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+                mockFile,
+            );
 
             // Mock Vault.append exists (Native API)
             plugin.app.vault.append = vi.fn();
 
-            // @ts-ignore
-            await (logger as any).writeToFile({
+            const lw = logger as unknown as { writeToFile: (entry: Record<string, unknown>) => Promise<void> };
+            await lw.writeToFile({
                 timestamp: '2026-04-17',
                 level: 'info',
                 module: 'Test',
@@ -162,7 +172,7 @@ describe('Utils Hardening', () => {
                 enableFileLogging: false,
                 logBufferSize: 3,
             };
-            const logger = new HealerLogger('Test', plugin as any, smallSettings);
+            const logger = new HealerLogger('Test', plugin, smallSettings);
             logger.info('m1');
             logger.info('m2');
             logger.info('m3');
@@ -179,7 +189,7 @@ describe('Utils Hardening', () => {
         });
 
         it('ULTRA-7: clearBuffer leaves buffer empty', () => {
-            const logger = new HealerLogger('Test', plugin as any, {
+            const logger = new HealerLogger('Test', plugin, {
                 ...settings,
                 enableFileLogging: false, // avoids async I/O in this sync test
                 logBufferSize: 1000,

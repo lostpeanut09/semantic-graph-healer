@@ -1,7 +1,7 @@
 import { TFile } from 'obsidian';
 import type { SemanticGraphHealerSettings, Suggestion, DataviewPage, ExtendedApp } from '../types';
+import { HealerLogger } from './utils/HealerLogger';
 import {
-    HealerLogger,
     extractLinkpaths,
     extractResolvedPaths,
     pathToWikilink,

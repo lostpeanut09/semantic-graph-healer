@@ -1,23 +1,47 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import SemanticGraphHealer from '../../src/main';
 
+type MockPlugin = {
+    registerCliHandler: ReturnType<typeof vi.fn>;
+    api: {
+        runAnalysis: ReturnType<typeof vi.fn>;
+        getSuggestions: ReturnType<typeof vi.fn>;
+        executeBatch: ReturnType<typeof vi.fn>;
+        undoBatch: ReturnType<typeof vi.fn>;
+    };
+    logger: {
+        info: ReturnType<typeof vi.fn>;
+        error: ReturnType<typeof vi.fn>;
+        debug: ReturnType<typeof vi.fn>;
+    };
+};
+
 describe('CliTerminalSimulation', () => {
-    let mockPlugin: any;
+    let mockPlugin: MockPlugin;
     let cliHandlers: Map<
         string,
         {
             description: string;
-            flags: any;
-            callback: (params: any) => Promise<string | void> | string | void;
+            flags: unknown;
+            callback: (params: unknown) => Promise<string | void> | string | void;
         }
     >;
 
     beforeEach(() => {
         cliHandlers = new Map();
         mockPlugin = {
-            registerCliHandler: vi.fn().mockImplementation((name, description, flags, callback) => {
-                cliHandlers.set(name, { description, flags, callback });
-            }),
+            registerCliHandler: vi
+                .fn()
+                .mockImplementation(
+                    (
+                        name: string,
+                        description: string,
+                        flags: unknown,
+                        callback: (params: unknown) => Promise<string | void> | string | void,
+                    ) => {
+                        cliHandlers.set(name, { description, flags, callback });
+                    },
+                ),
             api: {
                 runAnalysis: vi.fn(),
                 getSuggestions: vi.fn(),
@@ -32,7 +56,11 @@ describe('CliTerminalSimulation', () => {
         };
 
         // Call the method from SemanticGraphHealer prototype bound to mockPlugin
-        const registerCliHandlers = (SemanticGraphHealer.prototype as any).registerCliHandlers;
+        const registerCliHandlers = (
+            SemanticGraphHealer.prototype as unknown as {
+                registerCliHandlers: () => void;
+            }
+        ).registerCliHandlers;
         registerCliHandlers.call(mockPlugin);
     });
 
@@ -57,7 +85,7 @@ describe('CliTerminalSimulation', () => {
         });
 
         it('should parse silent parameter correctly when set to false', async () => {
-            const mockSuggestions = [] as any[];
+            const mockSuggestions = [] as unknown[];
             mockPlugin.api.runAnalysis.mockResolvedValue(mockSuggestions);
 
             const handler = cliHandlers.get('healer:scan')!;
@@ -74,7 +102,7 @@ describe('CliTerminalSimulation', () => {
             const handler = cliHandlers.get('healer:scan')!;
             const result = await handler.callback({ silent: true });
 
-            const parsed = JSON.parse(result as string);
+            const parsed = JSON.parse(result as string) as { status: string; message: string };
             expect(parsed.status).toBe('error');
             expect(parsed.message).toBe('Vault read error');
         });
@@ -103,7 +131,10 @@ describe('CliTerminalSimulation', () => {
             const handler = cliHandlers.get('healer:export-suggestions')!;
             const result = await handler.callback(null);
 
-            const parsed = JSON.parse(result as string);
+            const parsed: { status: string; message: string } = JSON.parse(result as string) as {
+                status: string;
+                message: string;
+            };
             expect(parsed.status).toBe('error');
             expect(parsed.message).toBe('Database is locked');
         });
@@ -155,7 +186,10 @@ describe('CliTerminalSimulation', () => {
             const handler = cliHandlers.get('healer:apply-batch')!;
             const result = await handler.callback({ confidence: 0.8 });
 
-            const parsed = JSON.parse(result as string);
+            const parsed: { status: string; message: string } = JSON.parse(result as string) as {
+                status: string;
+                message: string;
+            };
             expect(parsed.status).toBe('error');
             expect(parsed.message).toBe('Batch execution aborted due to concurrent lock');
         });
@@ -181,7 +215,10 @@ describe('CliTerminalSimulation', () => {
             const handler = cliHandlers.get('healer:undo-batch')!;
             const result = await handler.callback(null);
 
-            const parsed = JSON.parse(result as string);
+            const parsed: { status: string; message: string } = JSON.parse(result as string) as {
+                status: string;
+                message: string;
+            };
             expect(parsed.status).toBe('error');
             expect(parsed.message).toBe('Missing required flag: batchId');
         });
@@ -192,9 +229,14 @@ describe('CliTerminalSimulation', () => {
             const handler = cliHandlers.get('healer:undo-batch')!;
             const result = await handler.callback({ batchId: 'batch-abc' });
 
-            const parsed = JSON.parse(result as string);
+            const parsed: { status: string; message: string } = JSON.parse(result as string) as {
+                status: string;
+                message: string;
+            };
             expect(parsed.status).toBe('error');
-            expect(parsed.message).toBe('History item no longer exists in vault');
+            expect((JSON.parse(result as string) as { message: string }).message).toBe(
+                'History item no longer exists in vault',
+            );
         });
     });
 });

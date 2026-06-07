@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SuggestionExecutor } from '../../src/core/SuggestionExecutor';
 import { TFile } from 'obsidian';
+import type { ExecutionContext } from '../../src/core/services/PluginContext';
+import type { Suggestion } from '../../src/types';
 
 vi.mock('obsidian', () => ({
     TFile: class {
@@ -13,7 +15,7 @@ vi.mock('obsidian', () => ({
 
 describe('SuggestionExecutor Race Condition Test', () => {
     let executor: SuggestionExecutor;
-    let mockContext: any;
+    let mockContext: ExecutionContext;
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -23,10 +25,12 @@ describe('SuggestionExecutor Race Condition Test', () => {
                     getAbstractFileByPath: vi.fn(),
                 },
                 fileManager: {
-                    processFrontMatter: vi.fn().mockImplementation(async (file, cb) => {
-                        await new Promise((resolve) => setTimeout(resolve, 50)); // Artificial delay
-                        await cb({});
-                    }),
+                    processFrontMatter: vi
+                        .fn()
+                        .mockImplementation(async (file, cb: (fm: Record<string, unknown>) => void) => {
+                            await new Promise((resolve) => setTimeout(resolve, 50));
+                            cb({});
+                        }),
                 },
             },
             cache: { suggestions: [], pushHistory: vi.fn() },
@@ -35,12 +39,12 @@ describe('SuggestionExecutor Race Condition Test', () => {
             notifier: {
                 show: vi.fn(),
             },
-        };
+        } as unknown as ExecutionContext;
         executor = new SuggestionExecutor(mockContext);
     });
 
     it('should handle concurrent executions of the same link operation without corruption', async () => {
-        const suggestion: any = {
+        const suggestion: Suggestion = {
             id: '1',
             source: 'Bridge',
             type: 'bridge',
@@ -51,12 +55,12 @@ describe('SuggestionExecutor Race Condition Test', () => {
                 winner: 'C.md',
                 property: 'next',
             },
-        };
+        } as unknown as Suggestion;
 
         const fileA = new TFile();
         fileA.path = 'A.md';
-        mockContext.app.vault.getAbstractFileByPath.mockReturnValue(fileA);
-        mockContext.app.metadataCache = {
+        (mockContext.app.vault.getAbstractFileByPath as ReturnType<typeof vi.fn>).mockReturnValue(fileA);
+        (mockContext.app as unknown as { metadataCache: unknown }).metadataCache = {
             getFileCache: vi.fn().mockReturnValue({ frontmatter: {} }),
             getFirstLinkpathDest: vi.fn().mockReturnValue(fileA),
             fileToLinktext: vi.fn().mockReturnValue('A.md'),
@@ -69,6 +73,8 @@ describe('SuggestionExecutor Race Condition Test', () => {
         expect(results[0]).toBe(true);
         expect(results[1]).toBe(true);
         expect(mockContext.app.fileManager.processFrontMatter).toHaveBeenCalled();
-        expect(mockContext.app.fileManager.processFrontMatter.mock.calls.length).toBeGreaterThanOrEqual(2);
+        expect(
+            (mockContext.app.fileManager.processFrontMatter as ReturnType<typeof vi.fn>).mock.calls.length,
+        ).toBeGreaterThanOrEqual(2);
     });
 });

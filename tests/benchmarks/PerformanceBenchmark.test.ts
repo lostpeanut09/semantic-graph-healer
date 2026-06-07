@@ -2,14 +2,18 @@ import { describe, test } from 'vitest';
 import { GraphEngine } from '../../src/core/GraphEngine';
 import { TopologyAnalyzer } from '../../src/core/TopologyAnalyzer';
 import { DEFAULT_SETTINGS } from '../../src/types';
-import { App } from 'obsidian';
+import { App, TFile } from 'obsidian';
 import * as fs from 'fs';
+import type { GraphContext } from '../../src/core/services/PluginContext';
+import type { AnalysisContext } from '../../src/core/services/PluginContext';
+import type { LlmService } from '../../src/core/LlmService';
+import type { IMetadataAdapter } from '../../src/core/adapters/IMetadataAdapter';
 
 // --- Mocks ---
 class MockApp {
     plugins = { enabledPlugins: new Set() };
-    vault: any;
-    metadataCache: any;
+    vault: unknown;
+    metadataCache: unknown;
 }
 
 class MockTFile {
@@ -24,9 +28,9 @@ class MockTFile {
 }
 
 function createLargeMockContext(numNodes: number, edgesPerNode: number) {
-    const files: any[] = [];
+    const files: MockTFile[] = [];
     const resolvedLinks: Record<string, Record<string, number>> = {};
-    const pathToFileMap = new Map<string, any>();
+    const pathToFileMap = new Map<string, MockTFile>();
 
     for (let i = 0; i < numNodes; i++) {
         const path = `Note-${i.toString().padStart(5, '0')}.md`;
@@ -60,7 +64,7 @@ function createLargeMockContext(numNodes: number, edgesPerNode: number) {
         resolvedLinks,
         getFileCache: () => ({}),
         getFirstLinkpathDest: (link: string) => pathToFileMap.get(link),
-        fileToLinktext: (file: any) => file.basename,
+        fileToLinktext: (file: { basename: string }) => file.basename,
         unresolvedLinks: {},
     };
 
@@ -100,10 +104,10 @@ function getNumFilesArg(fallback: number): number {
 }
 
 describe('Performance Benchmarks (Manual)', () => {
-    test('measure buildGraph latency', async () => {
+    test('measure buildGraph latency', () => {
         const LARGE_VAULT_SIZE = getNumFilesArg(1000);
         const context = createLargeMockContext(LARGE_VAULT_SIZE, 3);
-        const graphEngine = new GraphEngine(context as any);
+        const graphEngine = new GraphEngine(context as unknown as GraphContext);
 
         const start = performance.now();
         const iterations = 100;
@@ -119,12 +123,17 @@ describe('Performance Benchmarks (Manual)', () => {
         const VAULT_SIZE = getNumFilesArg(500);
         const context = createLargeMockContext(VAULT_SIZE, 2);
         const topologyAnalyzer = new TopologyAnalyzer(
-            context as any,
-            {} as any,
+            context as unknown as AnalysisContext,
+            {} as LlmService,
             {
                 getPages: () =>
-                    (context.app.vault.getMarkdownFiles() as any[]).map((f) => ({
-                        file: f,
+                    (
+                        context.app.vault.getMarkdownFiles() as Array<{
+                            path: string;
+                            basename: string;
+                        }>
+                    ).map((f) => ({
+                        file: f as unknown as TFile,
                         up: [],
                         down: [],
                         next: [],
@@ -141,7 +150,7 @@ describe('Performance Benchmarks (Manual)', () => {
                     same: [],
                     related: [],
                 }),
-            } as any,
+            } as unknown as IMetadataAdapter,
         );
 
         const start = performance.now();

@@ -1,8 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { AjsonStorage } from '../../src/core/utils/AjsonStorage';
 import { LlmService } from '../../src/core/LlmService';
 import { handleGraphWorkerMessage } from '../../src/core/workers/graph-analysis-core';
 import { requestUrl } from 'obsidian';
+import type { RequestUrlResponse } from 'obsidian';
+import type { DataAdapter } from 'obsidian';
 import { DEFAULT_SETTINGS } from '../../src/types';
 
 vi.mock('obsidian', () => ({
@@ -18,7 +20,7 @@ describe('Performance & Resource Audit Benchmarks', () => {
                 write: vi.fn(),
                 append: vi.fn(),
             };
-            const storage = new AjsonStorage(mockAdapter as any);
+            const storage = new AjsonStorage(mockAdapter as unknown as DataAdapter);
 
             // Generate 5000 lines of entity data
             const lines = [];
@@ -57,14 +59,14 @@ describe('Performance & Resource Audit Benchmarks', () => {
                 llmEndpoint: 'https://api.openai.com/v1',
                 llmModelName: 'test-model',
             };
-            const service = new LlmService(mockSettings, async () => 'test-key');
+            const service = new LlmService(mockSettings, () => Promise.resolve('test-key'));
 
             vi.mocked(requestUrl).mockResolvedValue({
                 status: 200,
                 json: {
                     choices: [{ message: { content: 'WINNER: A | SCORE: 90 | WHY: Match' } }],
                 },
-            } as any);
+            } as unknown as RequestUrlResponse);
 
             let bypassCount = 0;
             let callCount = 0;
