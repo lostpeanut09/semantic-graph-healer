@@ -65,7 +65,7 @@ describe('LadybugBenchmark', () => {
             // Simulate processing time if needed, or just run real if available
             // For now, let's assume we want to measure the real thing if possible.
             // But real WASM might be slow to init in CI.
-            return await originalSync.call(service, batch) as Promise<void>;
+            return (await originalSync.call(service, batch)) as Promise<void>;
         };
 
         const startSync = performance.now();

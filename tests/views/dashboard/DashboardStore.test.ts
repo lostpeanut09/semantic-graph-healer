@@ -7,7 +7,9 @@ import { ConfirmationModal } from '../../../src/views/components/ConfirmationMod
 vi.mock('../../../src/views/components/ConfirmationModal', () => ({
     ConfirmationModal: vi.fn().mockImplementation(function (app: unknown, suggestion: unknown, onConfirm: () => void) {
         return {
-            open: vi.fn().mockImplementation(() => { onConfirm(); }),
+            open: vi.fn().mockImplementation(() => {
+                onConfirm();
+            }),
             close: vi.fn(),
         };
     }),

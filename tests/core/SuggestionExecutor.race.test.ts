@@ -25,10 +25,12 @@ describe('SuggestionExecutor Race Condition Test', () => {
                     getAbstractFileByPath: vi.fn(),
                 },
                 fileManager: {
-                    processFrontMatter: vi.fn().mockImplementation(async (file, cb: (fm: Record<string, unknown>) => void) => {
-                        await new Promise((resolve) => setTimeout(resolve, 50));
-                        cb({});
-                    }),
+                    processFrontMatter: vi
+                        .fn()
+                        .mockImplementation(async (file, cb: (fm: Record<string, unknown>) => void) => {
+                            await new Promise((resolve) => setTimeout(resolve, 50));
+                            cb({});
+                        }),
                 },
             },
             cache: { suggestions: [], pushHistory: vi.fn() },

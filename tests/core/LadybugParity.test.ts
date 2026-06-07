@@ -48,14 +48,12 @@ describe('Ladybug Parity (Cypher vs Graphology)', () => {
         // In this test, we verify that the Cypher query we SEND would return B.md
         // We mock the service to return what a real Cypher engine would return for this graph.
         const mockQuery = mockService.query as ReturnType<typeof vi.fn>;
-        mockQuery.mockImplementation(
-            (cypher: string, params: Record<string, unknown>) => {
-                if (cypher.includes('SIZE([ (n)-[]->() | n ]) = 0')) {
-                    if (params.threshold === 1) return [{ path: 'B.md', inDegree: 2 }];
-                }
-                return [];
-            },
-        );
+        mockQuery.mockImplementation((cypher: string, params: Record<string, unknown>) => {
+            if (cypher.includes('SIZE([ (n)-[]->() | n ]) = 0')) {
+                if (params.threshold === 1) return [{ path: 'B.md', inDegree: 2 }];
+            }
+            return [];
+        });
 
         const results = await ladybugAdapter.findBlackHoles(threshold);
         expect(results.map((r) => r.path)).toEqual(legacyResults);

@@ -1,9 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import {
-    coerceToMillis,
-    normalizeStrictDateString,
-    parseDateStrict,
-} from '../../../src/core/utils/DateCoercer';
+import { coerceToMillis, normalizeStrictDateString, parseDateStrict } from '../../../src/core/utils/DateCoercer';
 
 describe('DateCoercer', () => {
     describe('coerceToMillis', () => {

@@ -478,9 +478,11 @@ describe('SmartConnectionsAdapter', () => {
             mockVault.adapter.stat = vi.fn().mockResolvedValue({ size: 100 });
             mockVault.adapter.read = vi.fn((path: string): Promise<string> => {
                 if (path.endsWith('.json')) {
-                    return Promise.resolve(JSON.stringify({
-                        items: { 'folder/other.md': { refs: ['folder/note.md'] } },
-                    }));
+                    return Promise.resolve(
+                        JSON.stringify({
+                            items: { 'folder/other.md': { refs: ['folder/note.md'] } },
+                        }),
+                    );
                 }
                 if (path.endsWith('.ajson')) {
                     return Promise.resolve('not valid json {{{{{');

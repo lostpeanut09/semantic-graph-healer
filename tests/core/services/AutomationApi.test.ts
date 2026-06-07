@@ -53,8 +53,9 @@ describe('AutomationApi', () => {
 
         // First call should be setting the SilentNotifier
         const setNotifierMock = mockContext.executor.setNotifier as unknown as ReturnType<typeof vi.fn>;
-        const silentNotifier: { show: (msg: string, type: string) => void } = setNotifierMock.mock
-            .calls[0][0] as { show: (msg: string, type: string) => void };
+        const silentNotifier: { show: (msg: string, type: string) => void } = setNotifierMock.mock.calls[0][0] as {
+            show: (msg: string, type: string) => void;
+        };
         expect(silentNotifier).toBeDefined();
 
         // Verify it logs via HealerLogger instead of throwing/using UI

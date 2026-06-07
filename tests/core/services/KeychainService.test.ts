@@ -54,7 +54,8 @@ describe('KeychainService', () => {
 
         mockContext = {
             app: mockApp as unknown as KeychainContext['app'],
-            settings: JSON.parse(JSON.stringify(DEFAULT_SETTINGS)) as SemanticGraphHealerSettings & Record<string, unknown>,
+            settings: JSON.parse(JSON.stringify(DEFAULT_SETTINGS)) as SemanticGraphHealerSettings &
+                Record<string, unknown>,
             saveSettings: vi.fn().mockResolvedValue(undefined),
             onCorruptionDetected: vi.fn(),
         };

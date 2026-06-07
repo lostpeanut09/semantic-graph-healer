@@ -40,7 +40,6 @@ describe('Version Consistency Check', () => {
             shell: true,
         });
 
-
         return {
             status: result.status || 0,
             // Capture both stderr and stdout to check for the success message even if npm pollutes stderr with warnings.
@@ -58,7 +57,9 @@ describe('Version Consistency Check', () => {
     }, 15000);
 
     it('should fail if manifest.json.version is modified', () => {
-        const manifest: { version: string; minAppVersion?: string } = JSON.parse(fs.readFileSync(path.join(tempDir, 'manifest.json'), 'utf-8')) as { version: string; minAppVersion?: string };
+        const manifest: { version: string; minAppVersion?: string } = JSON.parse(
+            fs.readFileSync(path.join(tempDir, 'manifest.json'), 'utf-8'),
+        ) as { version: string; minAppVersion?: string };
         manifest.version = '1.0.1';
         fs.writeFileSync(path.join(tempDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
 
@@ -68,7 +69,9 @@ describe('Version Consistency Check', () => {
     }, 15000);
 
     it('should fail if package-lock.json.version is modified', () => {
-        const lock: { version: string } = JSON.parse(fs.readFileSync(path.join(tempDir, 'package-lock.json'), 'utf-8')) as { version: string };
+        const lock: { version: string } = JSON.parse(
+            fs.readFileSync(path.join(tempDir, 'package-lock.json'), 'utf-8'),
+        ) as { version: string };
         lock.version = '1.0.1';
         fs.writeFileSync(path.join(tempDir, 'package-lock.json'), JSON.stringify(lock, null, 2));
 
@@ -78,16 +81,22 @@ describe('Version Consistency Check', () => {
     }, 15000);
 
     it('should fail if package.json.version is missing from versions.json', () => {
-        const pkg: { version: string } = JSON.parse(fs.readFileSync(path.join(tempDir, 'package.json'), 'utf-8')) as { version: string };
+        const pkg: { version: string } = JSON.parse(fs.readFileSync(path.join(tempDir, 'package.json'), 'utf-8')) as {
+            version: string;
+        };
         pkg.version = '1.0.1';
         fs.writeFileSync(path.join(tempDir, 'package.json'), JSON.stringify(pkg, null, 2));
 
         // Update others to isolate the missing versions.json entry error
-        const manifest: { version: string; minAppVersion?: string } = JSON.parse(fs.readFileSync(path.join(tempDir, 'manifest.json'), 'utf-8')) as { version: string; minAppVersion?: string };
+        const manifest: { version: string; minAppVersion?: string } = JSON.parse(
+            fs.readFileSync(path.join(tempDir, 'manifest.json'), 'utf-8'),
+        ) as { version: string; minAppVersion?: string };
         manifest.version = '1.0.1';
         fs.writeFileSync(path.join(tempDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
 
-        const lock: { version: string } = JSON.parse(fs.readFileSync(path.join(tempDir, 'package-lock.json'), 'utf-8')) as { version: string };
+        const lock: { version: string } = JSON.parse(
+            fs.readFileSync(path.join(tempDir, 'package-lock.json'), 'utf-8'),
+        ) as { version: string };
         lock.version = '1.0.1';
         fs.writeFileSync(path.join(tempDir, 'package-lock.json'), JSON.stringify(lock, null, 2));
 
@@ -97,7 +106,9 @@ describe('Version Consistency Check', () => {
     }, 15000);
 
     it('should fail if manifest.json.minAppVersion mismatches versions.json', () => {
-        const manifest: { version: string; minAppVersion?: string } = JSON.parse(fs.readFileSync(path.join(tempDir, 'manifest.json'), 'utf-8')) as { version: string; minAppVersion?: string };
+        const manifest: { version: string; minAppVersion?: string } = JSON.parse(
+            fs.readFileSync(path.join(tempDir, 'manifest.json'), 'utf-8'),
+        ) as { version: string; minAppVersion?: string };
         manifest.minAppVersion = '0.16.0';
         fs.writeFileSync(path.join(tempDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
 
@@ -109,7 +120,9 @@ describe('Version Consistency Check', () => {
     }, 15000);
 
     it('should fail if package-lock.json packages[""].version is modified', () => {
-        const lock: { version: string; packages?: Record<string, { version: string }> } = JSON.parse(fs.readFileSync(path.join(tempDir, 'package-lock.json'), 'utf-8')) as { version: string; packages?: Record<string, { version: string }> };
+        const lock: { version: string; packages?: Record<string, { version: string }> } = JSON.parse(
+            fs.readFileSync(path.join(tempDir, 'package-lock.json'), 'utf-8'),
+        ) as { version: string; packages?: Record<string, { version: string }> };
         lock.packages = { '': { version: '0.9.0' } };
         fs.writeFileSync(path.join(tempDir, 'package-lock.json'), JSON.stringify(lock, null, 2));
 

@@ -21,10 +21,7 @@ describe('GraphVisualizerView Interaction & Cleanup', () => {
         mockLeaf = {
             view: null,
         };
-        view = new GraphVisualizerView(
-            mockLeaf as WorkspaceLeaf,
-            mockPlugin as SemanticGraphHealer,
-        );
+        view = new GraphVisualizerView(mockLeaf as WorkspaceLeaf, mockPlugin as SemanticGraphHealer);
     });
 
     it('should have correct view type and display text', () => {
