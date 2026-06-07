@@ -7,7 +7,7 @@ vi.mock('obsidian', async () => {
     const actual = await vi.importActual<typeof import('obsidian')>('obsidian');
     return {
         ...actual,
-        normalizePath: vi.fn((p) => p.replace(/\/+/g, '/')),
+        normalizePath: vi.fn((p: string): string => p.replace(/\/+/g, '/')),
     };
 });
 
@@ -110,6 +110,7 @@ describe('CacheService Hardening', () => {
             let maxConcurrentWrites = 0;
 
             adapter.exists.mockResolvedValue(true);
+            // eslint-disable-next-line @typescript-eslint/no-misused-promises
             adapter.write.mockImplementation(async () => {
                 activeWrites++;
                 maxConcurrentWrites = Math.max(maxConcurrentWrites, activeWrites);

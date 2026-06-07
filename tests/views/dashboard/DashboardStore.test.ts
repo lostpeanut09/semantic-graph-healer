@@ -1,14 +1,13 @@
 import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 import { DashboardStore } from '../../../src/views/dashboard/DashboardStore.svelte';
 import type { Suggestion, HistoryItem } from '../../../src/types';
-import { REASONING_VIEW_TYPE } from '../../../src/views/DashboardView';
 import { ConfirmationModal } from '../../../src/views/components/ConfirmationModal';
 
 // Mock ConfirmationModal
 vi.mock('../../../src/views/components/ConfirmationModal', () => ({
-    ConfirmationModal: vi.fn().mockImplementation(function (app, suggestion, onConfirm) {
+    ConfirmationModal: vi.fn().mockImplementation(function (app: unknown, suggestion: unknown, onConfirm: () => void) {
         return {
-            open: vi.fn().mockImplementation(() => onConfirm()),
+            open: vi.fn().mockImplementation(() => { onConfirm(); }),
             close: vi.fn(),
         };
     }),
@@ -56,13 +55,13 @@ interface MockPlugin {
 describe('DashboardStore', () => {
     let mockPlugin: MockPlugin;
     let mockWorkspace: MockWorkspace;
-    let eventCallback: Function | null;
+    let eventCallback: ((...args: unknown[]) => unknown) | null;
 
     beforeEach(() => {
         eventCallback = null;
 
         mockWorkspace = {
-            on: vi.fn((event: string, cb: Function) => {
+            on: vi.fn((event: string, cb: (...args: unknown[]) => unknown) => {
                 if (event === 'semantic-graph:updated') {
                     eventCallback = cb;
                 }
@@ -219,7 +218,7 @@ describe('DashboardStore', () => {
             // Mock Obsidian DOM extensions for jsdom
             if (!DocumentFragment.prototype.appendText) {
                 DocumentFragment.prototype.appendText = function (text: string) {
-                    this.appendChild(document.createTextNode(text));
+                    (this as DocumentFragment).appendChild(document.createTextNode(text));
                 };
             }
             if (!DocumentFragment.prototype.createEl) {
@@ -230,7 +229,7 @@ describe('DashboardStore', () => {
                     const el = document.createElement(tag);
                     if (options?.text) el.textContent = options.text;
                     if (options?.cls) el.className = options.cls;
-                    this.appendChild(el);
+                    (this as DocumentFragment).appendChild(el);
                     return el;
                 };
             }

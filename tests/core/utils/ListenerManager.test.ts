@@ -3,11 +3,11 @@ import { ListenerManager } from '../../../src/core/utils/ListenerManager';
 import { App } from 'obsidian';
 
 function createListenerHub() {
-    const listeners: Record<string, Function[]> = {};
+    const listeners: Record<string, ((...args: unknown[]) => void)[]> = {};
 
     return {
         listeners,
-        on: vi.fn((name: string, cb: Function) => {
+        on: vi.fn((name: string, cb: (...args: unknown[]) => void) => {
             listeners[name] ??= [];
             listeners[name].push(cb);
             return { name, cb };

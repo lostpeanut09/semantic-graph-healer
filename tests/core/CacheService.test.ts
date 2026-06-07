@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CacheService } from '../../src/core/CacheService';
-import { Plugin, normalizePath, TFile } from 'obsidian';
+import { Plugin } from 'obsidian';
 
 vi.mock('obsidian', () => ({
-    normalizePath: vi.fn((p) => p),
+    normalizePath: vi.fn((p: string): string => p),
     TFile: class {},
 }));
 

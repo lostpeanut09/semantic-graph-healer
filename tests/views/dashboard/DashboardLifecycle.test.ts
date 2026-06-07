@@ -35,8 +35,8 @@ describe('DashboardView Lifecycle', () => {
 
     it('mounts the Svelte component onOpen', async () => {
         const view = new DashboardView(
-            mockLeaf as unknown as WorkspaceLeaf,
-            mockPlugin as unknown as SemanticGraphHealer,
+            mockLeaf as WorkspaceLeaf,
+            mockPlugin as SemanticGraphHealer,
         );
 
         await view.onOpen();
@@ -47,8 +47,8 @@ describe('DashboardView Lifecycle', () => {
 
     it('unmounts the Svelte component onClose', async () => {
         const view = new DashboardView(
-            mockLeaf as unknown as WorkspaceLeaf,
-            mockPlugin as unknown as SemanticGraphHealer,
+            mockLeaf as WorkspaceLeaf,
+            mockPlugin as SemanticGraphHealer,
         );
         await view.onOpen();
 
@@ -61,8 +61,8 @@ describe('DashboardView Lifecycle', () => {
 
     it('refresh calls store.refresh', async () => {
         const view = new DashboardView(
-            mockLeaf as unknown as WorkspaceLeaf,
-            mockPlugin as unknown as SemanticGraphHealer,
+            mockLeaf as WorkspaceLeaf,
+            mockPlugin as SemanticGraphHealer,
         );
         const refreshSpy = vi.spyOn(view.store, 'refresh');
 

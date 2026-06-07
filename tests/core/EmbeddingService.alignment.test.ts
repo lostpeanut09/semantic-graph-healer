@@ -31,9 +31,9 @@ describe('EmbeddingService Alignment', () => {
             mockReturnValue: (val: unknown) => void;
             mockResolvedValue: (val: unknown) => void;
         };
-        mockReq.mockImplementation((async (options: { body: string }) => {
-            const body = JSON.parse(options.body);
-            const prompt = body.prompt;
+        mockReq.mockImplementation((options: { body: string }) => {
+            const body = JSON.parse(options.body) as { prompt: string };
+            const prompt: string = body.prompt;
 
             let vector = new Array(768).fill(0);
             if (
@@ -67,16 +67,16 @@ describe('EmbeddingService Alignment', () => {
                 vector[4] = 1;
             } else if (prompt === 'hot') {
                 vector[4] = 0.2;
-                vector[5] = 0.8; // Low similarity for hot/cold
+                vector[5] = 0.8;
             }
 
             return {
                 status: 200,
                 json: { embedding: vector },
-                text: async () => JSON.stringify({ embedding: vector }),
-                arrayBuffer: async () => new ArrayBuffer(0),
+                text: () => Promise.resolve(JSON.stringify({ embedding: vector })),
+                arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
             };
-        }) as unknown as unknown);
+        });
 
         const result = await service.checkModelAlignment();
 
@@ -92,16 +92,16 @@ describe('EmbeddingService Alignment', () => {
             mockReturnValue: (val: unknown) => void;
             mockResolvedValue: (val: unknown) => void;
         };
-        mockReq.mockImplementation((async () => {
+        mockReq.mockImplementation(() => {
             toggle = !toggle;
             const vector = new Array(768).fill(toggle ? 1 : 0);
             return {
                 status: 200,
                 json: { embedding: vector },
-                text: async () => JSON.stringify({ embedding: vector }),
-                arrayBuffer: async () => new ArrayBuffer(0),
+                text: () => Promise.resolve(JSON.stringify({ embedding: vector })),
+                arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
             };
-        }) as unknown as unknown);
+        });
 
         const result = await service.checkModelAlignment();
 

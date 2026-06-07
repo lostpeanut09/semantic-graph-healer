@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ResetKeychainModal } from '../../../src/views/components/ResetKeychainModal';
-import { Modal, Setting, Notice } from 'obsidian';
+import { Notice } from 'obsidian';
 import type { KeychainService } from '../../../src/core/services/KeychainService';
 import type { ExtendedApp } from '../../../src/types';
 
@@ -29,7 +29,7 @@ describe('ResetKeychainModal', () => {
         expect(content.innerHTML).toContain('Reset and re-enter API keys');
     });
 
-    it('should call resetKeychain and show notice when reset button is clicked', async () => {
+    it('should call resetKeychain and show notice when reset button is clicked', () => {
         modal.onOpen();
 
         const resetButton = Array.from(modal.contentEl.querySelectorAll('button')).find(
@@ -44,7 +44,7 @@ describe('ResetKeychainModal', () => {
 
         const closeSpy = vi.spyOn(modal, 'close');
 
-        await (resetButton as HTMLButtonElement).click();
+        (resetButton as HTMLButtonElement).click();
 
         expect(mockKeychainService.resetKeychain).toHaveBeenCalled();
         expect((Notice as unknown as { recordCall: ReturnType<typeof vi.fn> }).recordCall).toHaveBeenCalledWith(

@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { DirectedGraph } from 'graphology';
 import { handleGraphWorkerMessage, type WorkerMessage } from '../../../src/core/workers/graph-analysis-core';
 import { TopologyAnalyzer } from '../../../src/core/TopologyAnalyzer';
 import { GraphEngine } from '../../../src/core/GraphEngine';

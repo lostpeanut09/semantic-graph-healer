@@ -33,13 +33,13 @@ describe('EmbeddingService', () => {
             },
         } as unknown as RequestUrlResponse);
 
-        const result = await service.getEmbedding('test text');
+        const result: unknown = await service.getEmbedding('test text');
 
         expect(requestUrl).toHaveBeenCalledWith(
             expect.objectContaining({
                 url: 'http://localhost:11434/api/embeddings',
                 method: 'POST',
-                body: expect.stringContaining('"prompt":"test text"'),
+                body: expect.stringContaining('"prompt":"test text"') as unknown as string,
             }),
         );
         expect(result).toEqual(mockVector);
@@ -57,13 +57,13 @@ describe('EmbeddingService', () => {
             },
         } as unknown as RequestUrlResponse);
 
-        const result = await service.getEmbedding('test text');
+        const result: unknown = await service.getEmbedding('test text');
 
         expect(requestUrl).toHaveBeenCalledWith(
             expect.objectContaining({
                 url: 'http://localhost:8080/v1/embeddings',
                 method: 'POST',
-                body: expect.stringContaining('"input":"test text"'),
+                body: expect.stringContaining('"input":"test text"') as unknown as string,
             }),
         );
         expect(result).toEqual(mockVector);

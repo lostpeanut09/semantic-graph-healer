@@ -36,7 +36,7 @@ vi.mock('../../../src/core/adapters/DatacoreAdapter', () => {
             destroy = vi.fn();
             invalidateBacklinkIndex = vi.fn();
             isAvailable = vi.fn(() => true);
-            getLinksSafe = vi.fn(async () => []);
+            getLinksSafe = vi.fn(() => Promise.resolve([]));
         },
     };
 });
@@ -48,7 +48,7 @@ vi.mock('../../../src/core/adapters/BreadcrumbsAdapter', () => {
             invalidate = vi.fn();
             destroy = vi.fn();
             isAvailable = vi.fn(() => true);
-            getLinksSafe = vi.fn(async () => []);
+            getLinksSafe = vi.fn(() => Promise.resolve([]));
         },
     };
 });
@@ -60,7 +60,7 @@ vi.mock('../../../src/core/adapters/SmartConnectionsAdapter', () => {
             invalidate = vi.fn();
             destroy = vi.fn();
             isAvailable = vi.fn(() => true);
-            getLinksSafe = vi.fn(async () => []);
+            getLinksSafe = vi.fn(() => Promise.resolve([]));
         },
     };
 });
@@ -71,7 +71,7 @@ vi.mock('../../../src/core/adapters/NativeVaultAdapter', () => {
             invalidate = vi.fn();
             destroy = vi.fn();
             isAvailable = vi.fn(() => true);
-            getLinksSafe = vi.fn(async () => []);
+            getLinksSafe = vi.fn(() => Promise.resolve([]));
         },
     };
 });
@@ -143,7 +143,7 @@ describe('UnifiedMetadataAdapter Hardening', () => {
     beforeEach(() => {
         mockApp = {
             vault: {
-                getAbstractFileByPath: vi.fn().mockImplementation((p) => ({ path: p })),
+                getAbstractFileByPath: vi.fn().mockImplementation((p: string) => ({ path: p })),
                 on: vi.fn(() => ({})), // return event ref for offref
                 off: vi.fn(),
                 offref: vi.fn(), // for StructuralCache.destroy
@@ -178,7 +178,7 @@ describe('UnifiedMetadataAdapter Hardening', () => {
             expect(resolvedCall).toBeDefined();
 
             const resolvedCallIndex = mockApp.metadataCache.on.mock.calls.indexOf(resolvedCall as unknown[]);
-            const eventRef = mockApp.metadataCache.on.mock.results[resolvedCallIndex].value;
+            const eventRef: unknown = mockApp.metadataCache.on.mock.results[resolvedCallIndex].value;
 
             adapter.destroy();
 
@@ -566,9 +566,9 @@ describe('UnifiedMetadataAdapter Hardening', () => {
             adapter.invalidate('Test.md/');
 
             // All adapters should receive the SAME normalized key (whatever normalizeVaultPath produces)
-            const callsDatacore = datacore.invalidate.mock.calls[0][0];
-            const callsBc = bc.invalidate.mock.calls[0][0];
-            const callsSc = sc.invalidate.mock.calls[0][0];
+            const callsDatacore: unknown = datacore.invalidate.mock.calls[0][0];
+            const callsBc: unknown = bc.invalidate.mock.calls[0][0];
+            const callsSc: unknown = sc.invalidate.mock.calls[0][0];
 
             expect(callsDatacore).toBe(callsBc);
             expect(callsBc).toBe(callsSc);

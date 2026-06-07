@@ -101,9 +101,9 @@ describe('SuggestionExecutor', () => {
             mockContext.app.vault.getAbstractFileByPath.mockReturnValue(mockFile);
 
             mockContext.app.fileManager.processFrontMatter.mockImplementation(
-                async (file: TFile, cb: (fm: unknown) => void) => {
+                (file: TFile, cb: (fm: unknown) => void) => {
                     const fm = { up: '[[NewParent]]' };
-                    await cb(fm);
+                    cb(fm);
                     expect(fm.up).toBe('[[OldParent]]');
                 },
             );
@@ -187,11 +187,11 @@ describe('SuggestionExecutor', () => {
 
             // Simulate failure on the second file (B.md)
             mockContext.app.fileManager.processFrontMatter.mockImplementation(
-                async (file: TFile, cb: (fm: unknown) => void) => {
+                (file: TFile, cb: (fm: unknown) => void) => {
                     if (file.path === 'B.md') {
                         throw new Error('Write Failed');
                     }
-                    await cb({});
+                    cb({});
                 },
             );
 

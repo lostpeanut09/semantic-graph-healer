@@ -25,11 +25,11 @@ class TestAdapter extends BaseAdapter {
         return this.available;
     }
 
-    public async getLinks() {
+    public getLinks(): Promise<never[]> {
         this.ensureInitialized();
         this.getLinksCalls++;
         if (this.throwOnGetLinks) throw new Error('boom-links');
-        return [];
+        return Promise.resolve([]);
     }
 
     public invalidate(): void {}

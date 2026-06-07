@@ -37,7 +37,7 @@ describe('StructuralCache (HARDEN-02: LRU & Negative Caching)', () => {
         expect(cache.get('d')).toBe('4');
     });
 
-    it('should expire items after TTL', async () => {
+    it('should expire items after TTL', () => {
         vi.useFakeTimers();
 
         cache.set('a', '1');
@@ -74,7 +74,7 @@ describe('StructuralCache (HARDEN-02: LRU & Negative Caching)', () => {
         expect(nullCache.get('never-seen')).toBeUndefined();
     });
 
-    it('should refresh TTL on access (LRU behavior)', async () => {
+    it('should refresh TTL on access (LRU behavior)', () => {
         vi.useFakeTimers();
 
         cache.set('a', '1');

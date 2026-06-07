@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { JulesTest } from '../fixtures/JulesTest';
 
 describe('Jules AI Reviewer Infrastructure Verification', () => {
     const workflowPath = path.resolve(process.cwd(), '.github/workflows/jules-review.yml');

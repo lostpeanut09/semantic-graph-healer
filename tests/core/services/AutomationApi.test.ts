@@ -52,8 +52,9 @@ describe('AutomationApi', () => {
         expect(mockContext.executor.setNotifier).toHaveBeenCalledTimes(2);
 
         // First call should be setting the SilentNotifier
-        const silentNotifier = (mockContext.executor.setNotifier as unknown as ReturnType<typeof vi.fn>).mock
-            .calls[0][0];
+        const setNotifierMock = mockContext.executor.setNotifier as unknown as ReturnType<typeof vi.fn>;
+        const silentNotifier: { show: (msg: string, type: string) => void } = setNotifierMock.mock
+            .calls[0][0] as { show: (msg: string, type: string) => void };
         expect(silentNotifier).toBeDefined();
 
         // Verify it logs via HealerLogger instead of throwing/using UI
@@ -61,9 +62,8 @@ describe('AutomationApi', () => {
         expect(loggerInfoSpy).toHaveBeenCalledWith(expect.stringContaining('[SilentNotifier] Test message'));
 
         // Should restore the original notifier
-        expect((mockContext.executor.setNotifier as unknown as ReturnType<typeof vi.fn>).mock.calls[1][0]).toBe(
-            mockNotifier,
-        );
+        const setNotifierMock2 = mockContext.executor.setNotifier as unknown as ReturnType<typeof vi.fn>;
+        expect(setNotifierMock2.mock.calls[1][0]).toBe(mockNotifier);
 
         expect(mockContext.analyzeGraph).toHaveBeenCalledWith(true);
     });

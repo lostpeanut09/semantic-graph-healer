@@ -22,8 +22,8 @@ describe('GraphVisualizerView Interaction & Cleanup', () => {
             view: null,
         };
         view = new GraphVisualizerView(
-            mockLeaf as unknown as WorkspaceLeaf,
-            mockPlugin as unknown as SemanticGraphHealer,
+            mockLeaf as WorkspaceLeaf,
+            mockPlugin as SemanticGraphHealer,
         );
     });
 

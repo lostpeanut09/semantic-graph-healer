@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { LlmService } from '../../src/core/LlmService';
 import { LinkPredictionEngine } from '../../src/core/LinkPredictionEngine';
-import { SmartConnectionsAdapter } from '../../src/core/adapters/SmartConnectionsAdapter';
 import { requestUrl, TFile } from 'obsidian';
 import type { RequestUrlResponse } from 'obsidian';
 import { DEFAULT_SETTINGS } from '../../src/types';

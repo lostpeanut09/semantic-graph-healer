@@ -25,9 +25,9 @@ describe('SuggestionExecutor Race Condition Test', () => {
                     getAbstractFileByPath: vi.fn(),
                 },
                 fileManager: {
-                    processFrontMatter: vi.fn().mockImplementation(async (file, cb) => {
-                        await new Promise((resolve) => setTimeout(resolve, 50)); // Artificial delay
-                        await cb({});
+                    processFrontMatter: vi.fn().mockImplementation(async (file, cb: (fm: Record<string, unknown>) => void) => {
+                        await new Promise((resolve) => setTimeout(resolve, 50));
+                        cb({});
                     }),
                 },
             },

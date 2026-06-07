@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { AjsonStorage } from '../../src/core/utils/AjsonStorage';
 import { LlmService } from '../../src/core/LlmService';
 import { handleGraphWorkerMessage } from '../../src/core/workers/graph-analysis-core';
@@ -59,7 +59,7 @@ describe('Performance & Resource Audit Benchmarks', () => {
                 llmEndpoint: 'https://api.openai.com/v1',
                 llmModelName: 'test-model',
             };
-            const service = new LlmService(mockSettings, async () => 'test-key');
+            const service = new LlmService(mockSettings, () => Promise.resolve('test-key'));
 
             vi.mocked(requestUrl).mockResolvedValue({
                 status: 200,

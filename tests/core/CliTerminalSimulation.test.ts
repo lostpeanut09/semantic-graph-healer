@@ -102,7 +102,7 @@ describe('CliTerminalSimulation', () => {
             const handler = cliHandlers.get('healer:scan')!;
             const result = await handler.callback({ silent: true });
 
-            const parsed = JSON.parse(result as string);
+            const parsed = JSON.parse(result as string) as { status: string; message: string };
             expect(parsed.status).toBe('error');
             expect(parsed.message).toBe('Vault read error');
         });
@@ -131,7 +131,7 @@ describe('CliTerminalSimulation', () => {
             const handler = cliHandlers.get('healer:export-suggestions')!;
             const result = await handler.callback(null);
 
-            const parsed = JSON.parse(result as string);
+            const parsed: { status: string; message: string } = JSON.parse(result as string) as { status: string; message: string };
             expect(parsed.status).toBe('error');
             expect(parsed.message).toBe('Database is locked');
         });
@@ -183,7 +183,7 @@ describe('CliTerminalSimulation', () => {
             const handler = cliHandlers.get('healer:apply-batch')!;
             const result = await handler.callback({ confidence: 0.8 });
 
-            const parsed = JSON.parse(result as string);
+            const parsed: { status: string; message: string } = JSON.parse(result as string) as { status: string; message: string };
             expect(parsed.status).toBe('error');
             expect(parsed.message).toBe('Batch execution aborted due to concurrent lock');
         });
@@ -209,7 +209,7 @@ describe('CliTerminalSimulation', () => {
             const handler = cliHandlers.get('healer:undo-batch')!;
             const result = await handler.callback(null);
 
-            const parsed = JSON.parse(result as string);
+            const parsed: { status: string; message: string } = JSON.parse(result as string) as { status: string; message: string };
             expect(parsed.status).toBe('error');
             expect(parsed.message).toBe('Missing required flag: batchId');
         });
@@ -220,9 +220,9 @@ describe('CliTerminalSimulation', () => {
             const handler = cliHandlers.get('healer:undo-batch')!;
             const result = await handler.callback({ batchId: 'batch-abc' });
 
-            const parsed = JSON.parse(result as string);
+            const parsed: { status: string; message: string } = JSON.parse(result as string) as { status: string; message: string };
             expect(parsed.status).toBe('error');
-            expect(parsed.message).toBe('History item no longer exists in vault');
+            expect((JSON.parse(result as string) as { message: string }).message).toBe('History item no longer exists in vault');
         });
     });
 });

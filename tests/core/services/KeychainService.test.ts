@@ -54,7 +54,7 @@ describe('KeychainService', () => {
 
         mockContext = {
             app: mockApp as unknown as KeychainContext['app'],
-            settings: JSON.parse(JSON.stringify(DEFAULT_SETTINGS)),
+            settings: JSON.parse(JSON.stringify(DEFAULT_SETTINGS)) as SemanticGraphHealerSettings & Record<string, unknown>,
             saveSettings: vi.fn().mockResolvedValue(undefined),
             onCorruptionDetected: vi.fn(),
         };
@@ -177,7 +177,7 @@ describe('KeychainService', () => {
             // First initialize
             await service.initializeMasterKey();
             expect(mockSecretStorage.setSecret).toHaveBeenCalledWith('sghealer-masterkey', expect.any(String));
-            const firstKeyJWK = mockSecretStorage.setSecret.mock.calls[0][1];
+            const firstKeyJWK: unknown = mockSecretStorage.setSecret.mock.calls[0][1];
 
             await service.setApiKey('openai', 'some-key');
 
@@ -188,7 +188,7 @@ describe('KeychainService', () => {
             // Should delete old key and set a new one
             expect(mockSecretStorage.deleteSecret).toHaveBeenCalledWith('sghealer-masterkey');
             expect(mockSecretStorage.setSecret).toHaveBeenCalledWith('sghealer-masterkey', expect.any(String));
-            const newKeyJWK = mockSecretStorage.setSecret.mock.calls.find(
+            const newKeyJWK: unknown = mockSecretStorage.setSecret.mock.calls.find(
                 (c: [string, string]) => c[0] === 'sghealer-masterkey',
             )![1];
             expect(newKeyJWK).not.toBe(firstKeyJWK);

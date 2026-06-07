@@ -1,11 +1,11 @@
-import { describe, expect, it, beforeAll, afterAll } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { readFileSync, existsSync, writeFileSync, unlinkSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { rmSync } from 'node:fs';
 
-const tsconfig = JSON.parse(readFileSync('./tsconfig.json', 'utf-8'));
+const tsconfig = JSON.parse(readFileSync('./tsconfig.json', 'utf-8')) as { compilerOptions: Record<string, unknown> };
 const esbuildConfig = readFileSync('./.config/esbuild.config.mjs', 'utf-8');
-const packageJson = JSON.parse(readFileSync('./package.json', 'utf-8'));
+const packageJson = JSON.parse(readFileSync('./package.json', 'utf-8')) as { scripts: Record<string, string> };
 
 describe('tsconfig.json Phase 20 Fix', () => {
     describe('D-01: moduleResolution', () => {
@@ -20,8 +20,6 @@ describe('tsconfig.json Phase 20 Fix', () => {
         });
 
         it('must NOT emit .js files when tsc runs on src files', () => {
-            const beforeMain = existsSync('src/main.ts.js');
-            const beforeWorker = existsSync('src/core/workers/graph-analysis-worker.ts.js');
             // tsc --noEmit should not emit files
             // We verify the config setting is correct (noEmit: true)
             expect(tsconfig.compilerOptions.noEmit).toBe(true);
@@ -117,7 +115,7 @@ describe('Phase 20: Build Integration Requirements', () => {
                 });
                 // If we get here without exception, type checking passed
             } catch (error: unknown) {
-                const err = error as unknown as {
+                const err = error as {
                     stderr?: string;
                     stdout?: string;
                     message: string;

@@ -15,7 +15,6 @@ import type { RequestUrlResponse, RequestUrlResponsePromise } from 'obsidian';
 describe('LLM Hardening', () => {
     let mockGetKey: (key: string) => Promise<string>;
     let settings: Record<string, unknown>;
-    let plugin: Record<string, unknown>;
 
     beforeEach(() => {
         settings = {
@@ -26,15 +25,6 @@ describe('LLM Hardening', () => {
             secondaryLlmModelName: 'claude-3-5',
             secondaryTimeout: 45,
             enableAiTribunal: true,
-        };
-
-        plugin = {
-            app: {
-                vault: {
-                    getAbstractFileByPath: vi.fn(),
-                },
-            },
-            saveSettings: vi.fn(),
         };
 
         mockGetKey = vi.fn().mockResolvedValue('test-key');

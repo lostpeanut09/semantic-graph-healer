@@ -86,7 +86,7 @@ describe('BreadcrumbsAdapter', () => {
     let adapter: BreadcrumbsAdapter;
     let mockApp: App;
 
-    const makeTFile = (path: string): TFile => new (TFile as unknown as new (path: string) => TFile)(path) as TFile;
+    const makeTFile = (path: string): TFile => new (TFile as unknown as new (path: string) => TFile)(path);
 
     const createMockApi = (overrides: Partial<MockBreadcrumbsApi> = {}): MockBreadcrumbsApi => ({
         closedG: null,
@@ -370,10 +370,7 @@ describe('BreadcrumbsAdapter', () => {
         });
 
         // Set up global `window.BCAPI` mock
-        (globalThis as unknown as { window: Record<string, unknown> }).window = globalThis as unknown as Record<
-            string,
-            unknown
-        >;
+        (globalThis as unknown as { window: Record<string, unknown> }).window = globalThis;
         (globalThis as unknown as { window: Record<string, unknown> }).window.BCAPI = {
             get_neighbours: () => ({
                 edges: [
@@ -398,10 +395,7 @@ describe('BreadcrumbsAdapter', () => {
             api: createMockApi(),
         });
 
-        (globalThis as unknown as { window: Record<string, unknown> }).window = globalThis as unknown as Record<
-            string,
-            unknown
-        >;
+        (globalThis as unknown as { window: Record<string, unknown> }).window = globalThis;
         (globalThis as unknown as { window: Record<string, unknown> }).window.BCAPI = {
             get_neighbours: () => ({
                 edges: [
@@ -430,10 +424,7 @@ describe('BreadcrumbsAdapter', () => {
             api: createMockApi(),
         });
 
-        (globalThis as unknown as { window: Record<string, unknown> }).window = globalThis as unknown as Record<
-            string,
-            unknown
-        >;
+        (globalThis as unknown as { window: Record<string, unknown> }).window = globalThis;
         (globalThis as unknown as { window: Record<string, unknown> }).window.BCAPI = {
             get_neighbours: () => ['folder/parent.md', 'folder/child.md'],
         };

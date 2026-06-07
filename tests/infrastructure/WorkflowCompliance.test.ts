@@ -41,7 +41,7 @@ describe('Workflow Compliance Infrastructure Verification', () => {
             const hallucinatedMatch = content.match(/@v[5-9]/);
             expect(
                 hallucinatedMatch,
-                `Workflow ${workflow} contains hallucinated version: ${hallucinatedMatch}`,
+                `Workflow ${workflow} contains hallucinated version: ${String(hallucinatedMatch)}`,
             ).toBeNull();
         }
     });

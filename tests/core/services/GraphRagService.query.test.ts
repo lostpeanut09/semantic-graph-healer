@@ -53,7 +53,8 @@ describe('GraphRagService Query', () => {
 
         mockEmbeddingService.getEmbedding.mockResolvedValue(mockQueryVector);
 
-        mockStorage.readAll.mockImplementation((path: string) => {
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises
+        mockStorage.readAll.mockImplementation((path: string): Promise<unknown[]> => {
             if (path.includes('community_summaries')) {
                 return Promise.resolve([
                     {

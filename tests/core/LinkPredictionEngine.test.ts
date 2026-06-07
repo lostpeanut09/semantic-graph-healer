@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { LinkPredictionEngine } from '../../src/core/LinkPredictionEngine';
-import { SmartConnectionsAdapter } from '../../src/core/adapters/SmartConnectionsAdapter';
 import { TFile } from 'obsidian';
 import type { GraphContext } from '../../src/core/services/PluginContext';
 

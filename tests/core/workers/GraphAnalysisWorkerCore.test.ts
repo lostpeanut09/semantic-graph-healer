@@ -143,7 +143,7 @@ describe('GraphAnalysisWorkerCore', () => {
     });
 
     describe('Advanced Analysis with Progress', () => {
-        it('should report progress for Similarity analysis', async () => {
+        it('should report progress for Similarity analysis', () => {
             const message: WorkerMessage = {
                 type: 'SIMILARITY',
                 payload: {

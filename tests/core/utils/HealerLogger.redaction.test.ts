@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { HealerLogger } from '../../../src/core/utils/HealerLogger';
-import { SECRET_KEYS } from '../../../src/core/utils/RedactUtils';
 import type { Plugin } from 'obsidian';
 import type { SemanticGraphHealerSettings } from '../../../src/types';
 

@@ -111,7 +111,7 @@ describe('LadybugService', () => {
 
     it('reports init-progress messages', async () => {
         service = new LadybugService(mockApp, mockManifest);
-        service.initialize();
+        void service.initialize();
 
         // Wait a tick for async worker creation
         await new Promise((resolve) => setTimeout(resolve, 0));

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { App } from 'obsidian';
 import type { ExtendedManifest } from '../../src/types';
 import { LadybugService } from '../../src/core/services/LadybugService';
@@ -27,7 +27,7 @@ describe('LadybugBenchmark', () => {
     let metadataAdapter: MockUnifiedMetadataAdapter;
     let ladybugAdapter: LadybugAdapter;
 
-    beforeEach(async () => {
+    beforeEach(() => {
         const mockApp = {
             vault: {
                 adapter: {
@@ -62,11 +62,10 @@ describe('LadybugBenchmark', () => {
         // Mock the service methods to measure time if we can't run real WASM
         const originalSync = service.sync;
         service.sync = async (batch) => {
-            const start = performance.now();
             // Simulate processing time if needed, or just run real if available
             // For now, let's assume we want to measure the real thing if possible.
             // But real WASM might be slow to init in CI.
-            return originalSync.call(service, batch);
+            return await originalSync.call(service, batch) as Promise<void>;
         };
 
         const startSync = performance.now();
@@ -94,9 +93,9 @@ describe('LadybugBenchmark', () => {
                         500,
                     );
                 }
-            }) as unknown as ReturnType<typeof vi.fn>,
+            }),
             onmessage: null,
-            addEventListener: function (type: string, handler: unknown) {
+            addEventListener: function (this: MockWorkerShape, type: string, handler: unknown) {
                 if (type === 'message') this.onmessage = handler as ((ev: MessageEvent) => void) | null;
             },
             removeEventListener: vi.fn(),
@@ -124,7 +123,7 @@ describe('LadybugBenchmark', () => {
                     50,
                 );
             }
-        }) as unknown as ReturnType<typeof vi.fn>;
+        });
         const result = await ladybugAdapter.query('MATCH (n:Node) RETURN count(n) AS count');
         const endQuery = performance.now();
 

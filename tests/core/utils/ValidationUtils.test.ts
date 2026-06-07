@@ -195,6 +195,7 @@ describe('withErrorBoundary', () => {
     });
 
     it('test_withErrorBoundary_async_resolve: returns Promise<Ok> when async fn resolves', async () => {
+        // eslint-disable-next-line @typescript-eslint/require-await
         const r = await withErrorBoundary(async () => 42, {
             module: 'X',
             recoverable: false,

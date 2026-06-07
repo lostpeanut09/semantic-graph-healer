@@ -1,8 +1,7 @@
 // @vitest-environment jsdom
 
-import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, afterEach, expect, it, vi } from 'vitest';
 import type { App } from 'obsidian';
-import type { HealerLogger as HealerLoggerType } from '../../../src/core/utils/HealerLogger';
 import type { SemanticGraphHealerSettings } from '../../../src/types';
 
 // Mocks

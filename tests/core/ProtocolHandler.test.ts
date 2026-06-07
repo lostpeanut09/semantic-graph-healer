@@ -18,9 +18,11 @@ describe('ProtocolHandler', () => {
     beforeEach(() => {
         protocolHandlers = new Map();
         mockPlugin = {
-            registerObsidianProtocolHandler: vi.fn().mockImplementation((name, callback) => {
-                protocolHandlers.set(name, callback);
-            }),
+            registerObsidianProtocolHandler: vi.fn().mockImplementation(
+                (name: string, callback: (params: unknown) => Promise<void> | void) => {
+                    protocolHandlers.set(name, callback);
+                },
+            ),
             api: {
                 executeBatch: vi.fn(),
                 undoBatch: vi.fn(),

@@ -109,7 +109,7 @@ describe('EmbeddingSettings', () => {
         expect(statusEl2.style.color).toBe('var(--text-error)');
     });
 
-    it('creates buttons for verification and indexing', async () => {
+    it('creates buttons for verification and indexing', () => {
         renderEmbeddingSettings(containerEl, mockCtx);
         expect(Setting).toHaveBeenCalled();
     });

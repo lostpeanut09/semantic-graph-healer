@@ -1,8 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
     coerceToMillis,
-    coerceToStartOfDay,
-    coerceToDateTime,
     normalizeStrictDateString,
     parseDateStrict,
 } from '../../../src/core/utils/DateCoercer';

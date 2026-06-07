@@ -61,9 +61,9 @@ describe('Utils Hardening', () => {
 
         it('ULTRA-1: masks Bearer and JWT in raw strings', () => {
             const logger = new HealerLogger('Test', plugin, settings);
+            const hl = logger as unknown as { formatLogLine: (entry: Record<string, unknown>) => string };
 
-            // @ts-ignore
-            const output = (logger as unknown).formatLogLine({
+            const output: string = hl.formatLogLine({
                 timestamp: '2026-04-17',
                 level: 'info',
                 module: 'Test',
@@ -79,9 +79,9 @@ describe('Utils Hardening', () => {
 
         it('ULTRA-2: neutralizes control characters (TAB, NULL, etc.)', () => {
             const logger = new HealerLogger('Test', plugin, settings);
+            const hl = logger as unknown as { formatLogLine: (entry: Record<string, unknown>) => string };
 
-            // @ts-ignore
-            const output = (logger as unknown).formatLogLine({
+            const output: string = hl.formatLogLine({
                 timestamp: '2026-04-17',
                 level: 'info',
                 module: 'Test',
@@ -99,8 +99,8 @@ describe('Utils Hardening', () => {
             const mockFile = new TFile();
             (plugin.app.vault.getAbstractFileByPath as unknown as ReturnType<typeof vi.fn>).mockReturnValue(mockFile);
 
-            // @ts-ignore - trigger writeToFile
-            await (logger as unknown).writeToFile({
+            const lw = logger as unknown as { writeToFile: (entry: Record<string, unknown>) => Promise<void> };
+            await lw.writeToFile({
                 timestamp: '2026-04-17',
                 level: 'info',
                 module: 'Test',
@@ -127,8 +127,8 @@ describe('Utils Hardening', () => {
 
             (plugin.app.vault.create as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(new TFile()); // New file after rotate
 
-            // @ts-ignore
-            await (logger as unknown).writeToFile({
+            const lw = logger as unknown as { writeToFile: (entry: Record<string, unknown>) => Promise<void> };
+            await lw.writeToFile({
                 timestamp: '2026-04-17',
                 level: 'info',
                 module: 'Test',
@@ -154,8 +154,8 @@ describe('Utils Hardening', () => {
             // Mock Vault.append exists (Native API)
             plugin.app.vault.append = vi.fn();
 
-            // @ts-ignore
-            await (logger as unknown).writeToFile({
+            const lw = logger as unknown as { writeToFile: (entry: Record<string, unknown>) => Promise<void> };
+            await lw.writeToFile({
                 timestamp: '2026-04-17',
                 level: 'info',
                 module: 'Test',

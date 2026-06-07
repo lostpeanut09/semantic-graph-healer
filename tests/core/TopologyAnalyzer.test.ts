@@ -37,7 +37,7 @@ describe('TopologyAnalyzer', () => {
                         f.extension = path.split('.').pop() ?? '';
                         const folderPath = path.includes('/') ? path.split('/').slice(0, -1).join('/') : '/';
                         f.parent = { path: folderPath };
-                        return f as unknown as TFile;
+                        return f;
                     }),
                 },
                 metadataCache: {

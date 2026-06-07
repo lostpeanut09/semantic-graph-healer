@@ -24,7 +24,7 @@ describe('LlmService - AI Tribunal Logic', () => {
             llmEndpoint: 'https://api.openai.com/v1',
             secondaryLlmEndpoint: 'https://api.anthropic.com/v1',
         };
-        mockGetKey = vi.fn().mockResolvedValue('test-key') as unknown as (type: ApiKeyType) => Promise<string>;
+        mockGetKey = vi.fn().mockResolvedValue('test-key');
         service = new LlmService(mockSettings, mockGetKey);
         vi.clearAllMocks();
     });

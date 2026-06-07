@@ -10,7 +10,7 @@ describe('NativeVaultAdapter', () => {
         app = {
             metadataCache: {
                 resolvedLinks: {},
-                getFirstLinkpathDest: vi.fn((link) => ({ path: link })),
+                getFirstLinkpathDest: vi.fn((link: string) => ({ path: link })),
             },
             vault: {
                 getAbstractFileByPath: vi.fn(),

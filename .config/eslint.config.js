@@ -47,6 +47,9 @@ export default defineConfig([
                 __filename: 'readonly',
                 require: 'readonly',
                 module: 'readonly',
+                // Test/benchmark globals
+                global: 'readonly',
+                performance: 'readonly',
             },
             parserOptions: {
                 projectService: true,
@@ -145,6 +148,24 @@ export default defineConfig([
         ],
     },
 
-    // 9. Prettier in coda
+    // 9. Test file overrides (relax rules that conflict with test patterns)
+    {
+        files: ['tests/**/*.ts'],
+        rules: {
+            // vi.spyOn() pattern inherently detaches methods
+            '@typescript-eslint/unbound-method': 'off',
+            // Tests legitimately need Node.js builtins for infrastructure
+            'import/no-nodejs-modules': 'off',
+            // Test mocks legitimately cast to TFile
+            'obsidianmd/no-tfile-tfolder-cast': 'off',
+            // Benchmarks and infrastructure tests use console freely
+            // Benchmarks and infrastructure tests use console freely
+            'no-console': 'off',
+            // TypeScript handles undefined variables natively; no-undef causes false positives for NodeJS namespace
+            'no-undef': 'off',
+        },
+    },
+
+    // 10. Prettier in coda
     prettierConfig,
 ]);

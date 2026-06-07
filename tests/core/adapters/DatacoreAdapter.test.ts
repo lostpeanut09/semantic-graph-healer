@@ -44,14 +44,14 @@ vi.mock('obsidian', () => ({
 import { DatacoreAdapter } from '../../../src/core/adapters/DatacoreAdapter';
 import { TFile, type App, parseLinktext } from 'obsidian';
 
-type ListenerMap = Record<string, Function[]>;
+type ListenerMap = Record<string, ((...args: unknown[]) => void)[]>;
 
 function createListenerHub() {
     const listeners: ListenerMap = {};
 
     return {
         listeners,
-        on: vi.fn((name: string, cb: Function) => {
+        on: vi.fn((name: string, cb: (...args: unknown[]) => void) => {
             listeners[name] ??= [];
             listeners[name].push(cb);
             return { name, cb };

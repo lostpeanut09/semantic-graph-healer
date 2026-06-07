@@ -21,7 +21,7 @@ describe('AutomationApi Audit', () => {
             settings: {
                 lastScanTimestamp: Date.now(),
             },
-            analyzeGraph: vi.fn().mockResolvedValue(undefined as unknown as boolean),
+            analyzeGraph: vi.fn().mockResolvedValue(undefined),
         };
     });
 

@@ -104,7 +104,7 @@ function getNumFilesArg(fallback: number): number {
 }
 
 describe('Performance Benchmarks (Manual)', () => {
-    test('measure buildGraph latency', async () => {
+    test('measure buildGraph latency', () => {
         const LARGE_VAULT_SIZE = getNumFilesArg(1000);
         const context = createLargeMockContext(LARGE_VAULT_SIZE, 3);
         const graphEngine = new GraphEngine(context as unknown as GraphContext);

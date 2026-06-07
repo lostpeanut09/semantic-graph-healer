@@ -36,7 +36,7 @@ describe('GraphRagView', () => {
         expect(host.querySelector('input')).toBeTruthy();
         expect(host.querySelector('button')?.textContent).toContain('Search');
 
-        unmount(instance);
+        void unmount(instance);
     });
 
     it('executes query and displays answer', async () => {
@@ -64,7 +64,7 @@ describe('GraphRagView', () => {
         input.dispatchEvent(new Event('input'));
 
         const button = host.querySelector('button')!;
-        await button.click();
+        button.click();
 
         // Wait for async search
         await vi.waitFor(() => {
@@ -73,6 +73,6 @@ describe('GraphRagView', () => {
             expect(host.querySelector('.healer-comm-pill')?.textContent).toContain('Cluster 1');
         });
 
-        unmount(instance);
+        void unmount(instance);
     });
 });

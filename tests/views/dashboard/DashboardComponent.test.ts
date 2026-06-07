@@ -63,7 +63,7 @@ describe('Dashboard Component', () => {
     });
 
     it('renders tabs and banner', () => {
-        const store = new DashboardStore(mockPlugin as unknown as DashboardPluginContext);
+        const store = new DashboardStore(mockPlugin as DashboardPluginContext);
         mount(Dashboard, {
             target,
             props: { store, plugin: mockPlugin },
@@ -74,8 +74,8 @@ describe('Dashboard Component', () => {
         expect(target.textContent).toContain('All issues');
     });
 
-    it('filters items when clicking tabs', async () => {
-        const store = new DashboardStore(mockPlugin as unknown as DashboardPluginContext);
+    it('filters items when clicking tabs', () => {
+        const store = new DashboardStore(mockPlugin as DashboardPluginContext);
         mount(Dashboard, {
             target,
             props: { store, plugin: mockPlugin },
@@ -96,8 +96,8 @@ describe('Dashboard Component', () => {
         expect(target.querySelectorAll('.healer-suggestion-card').length).toBe(1);
     });
 
-    it('shows empty state when no items match tab', async () => {
-        const store = new DashboardStore(mockPlugin as unknown as DashboardPluginContext);
+    it('shows empty state when no items match tab', () => {
+        const store = new DashboardStore(mockPlugin as DashboardPluginContext);
         mount(Dashboard, {
             target,
             props: { store, plugin: mockPlugin },

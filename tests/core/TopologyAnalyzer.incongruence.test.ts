@@ -29,7 +29,7 @@ describe('TopologyAnalyzer Semantic Incongruence Diagnostic', () => {
                         };
                         f.path = path;
                         f.basename = path.replace('.md', '').split('/').pop() ?? '';
-                        return f as unknown as TFile;
+                        return f;
                     }),
                 },
                 metadataCache: {

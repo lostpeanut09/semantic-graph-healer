@@ -83,9 +83,7 @@ describe('HealerLogger Flush (IN-05)', () => {
     it('flush() tolerates a rejected writeToFile (allSettled semantics)', async () => {
         (logger as unknown as { writeToFile: () => Promise<void> }).writeToFile = vi
             .fn()
-            .mockImplementation(async () => {
-                throw new Error('disk full');
-            });
+            .mockImplementation((): Promise<void> => Promise.reject(new Error('disk full')));
 
         logger.warn('rejection probe');
         expect(logger.pendingWriteCount).toBe(1);
