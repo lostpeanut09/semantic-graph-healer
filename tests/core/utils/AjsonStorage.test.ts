@@ -1,87 +1,121 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AjsonStorage } from '../../../src/core/utils/AjsonStorage';
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeEach,
+  type MockedFunction,
+} from "vitest";
+import type { DataAdapter } from "obsidian";
+import { AjsonStorage } from "../../../src/core/utils/AjsonStorage";
 
-describe('AjsonStorage', () => {
-    let storage: AjsonStorage;
-    let mockAdapter: any;
+interface MockDataAdapter {
+  exists: MockedFunction<DataAdapter["exists"]>;
+  read: MockedFunction<DataAdapter["read"]>;
+  write: MockedFunction<DataAdapter["write"]>;
+  append: MockedFunction<DataAdapter["append"]>;
+}
 
-    beforeEach(() => {
-        mockAdapter = {
-            exists: vi.fn(),
-            read: vi.fn(),
-            write: vi.fn(),
-            append: vi.fn(),
-        };
-        storage = new AjsonStorage(mockAdapter);
-    });
+describe("AjsonStorage", () => {
+  let storage: AjsonStorage;
+  let mockAdapter: MockDataAdapter;
 
-    it('should append a line to an existing file', async () => {
-        mockAdapter.exists.mockResolvedValue(true);
-        const data = { id: 1, name: 'test' };
+  beforeEach(() => {
+    mockAdapter = {
+      exists: vi.fn(),
+      read: vi.fn(),
+      write: vi.fn(),
+      append: vi.fn(),
+    };
+    storage = new AjsonStorage(mockAdapter as unknown as DataAdapter);
+  });
 
-        await storage.appendLine('test.ajson', data);
+  it("should append a line to an existing file", async () => {
+    mockAdapter.exists.mockResolvedValue(true);
+    const data = { id: 1, name: "test" };
 
-        expect(mockAdapter.append).toHaveBeenCalledWith('test.ajson', JSON.stringify(data) + '\n');
-    });
+    await storage.appendLine("test.ajson", data);
 
-    it('should create a file and write the first line if it does not exist', async () => {
-        mockAdapter.exists.mockResolvedValue(false);
-        const data = { id: 1, name: 'test' };
+    expect(mockAdapter.append).toHaveBeenCalledWith(
+      "test.ajson",
+      JSON.stringify(data) + "\n",
+    );
+  });
 
-        await storage.appendLine('test.ajson', data);
+  it("should create a file and write the first line if it does not exist", async () => {
+    mockAdapter.exists.mockResolvedValue(false);
+    const data = { id: 1, name: "test" };
 
-        expect(mockAdapter.write).toHaveBeenCalledWith('test.ajson', JSON.stringify(data) + '\n');
-    });
+    await storage.appendLine("test.ajson", data);
 
-    it('should read all lines from a file', async () => {
-        mockAdapter.exists.mockResolvedValue(true);
-        const content = JSON.stringify({ id: 1 }) + '\n' + JSON.stringify({ id: 2 }) + '\n';
-        mockAdapter.read.mockResolvedValue(content);
+    expect(mockAdapter.write).toHaveBeenCalledWith(
+      "test.ajson",
+      JSON.stringify(data) + "\n",
+    );
+  });
 
-        const result = await storage.readAll('test.ajson');
+  it("should read all lines from a file", async () => {
+    mockAdapter.exists.mockResolvedValue(true);
+    const content =
+      JSON.stringify({ id: 1 }) + "\n" + JSON.stringify({ id: 2 }) + "\n";
+    mockAdapter.read.mockResolvedValue(content);
 
-        expect(result).toHaveLength(2);
-        expect(result[0]).toEqual({ id: 1 });
-        expect(result[1]).toEqual({ id: 2 });
-    });
+    const result = await storage.readAll("test.ajson");
 
-    it('should return empty array if file does not exist', async () => {
-        mockAdapter.exists.mockResolvedValue(false);
-        const result = await storage.readAll('missing.ajson');
-        expect(result).toEqual([]);
-    });
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual({ id: 1 });
+    expect(result[1]).toEqual({ id: 2 });
+  });
 
-    it('should upsert an item in the file', async () => {
-        mockAdapter.exists.mockResolvedValue(true);
-        const content = JSON.stringify({ id: 1, val: 'old' }) + '\n' + JSON.stringify({ id: 2, val: 'two' }) + '\n';
-        mockAdapter.read.mockResolvedValue(content);
+  it("should return empty array if file does not exist", async () => {
+    mockAdapter.exists.mockResolvedValue(false);
+    const result = await storage.readAll("missing.ajson");
+    expect(result).toEqual([]);
+  });
 
-        await storage.upsert('test.ajson', 'id', { id: 1, val: 'new' });
+  it("should upsert an item in the file", async () => {
+    mockAdapter.exists.mockResolvedValue(true);
+    const content =
+      JSON.stringify({ id: 1, val: "old" }) +
+      "\n" +
+      JSON.stringify({ id: 2, val: "two" }) +
+      "\n";
+    mockAdapter.read.mockResolvedValue(content);
 
-        const expected = JSON.stringify({ id: 1, val: 'new' }) + '\n' + JSON.stringify({ id: 2, val: 'two' }) + '\n';
-        expect(mockAdapter.write).toHaveBeenCalledWith('test.ajson', expected);
-    });
+    await storage.upsert("test.ajson", "id", { id: 1, val: "new" });
 
-    it('should append on upsert if key not found', async () => {
-        mockAdapter.exists.mockResolvedValue(true);
-        const content = JSON.stringify({ id: 1, val: 'one' }) + '\n';
-        mockAdapter.read.mockResolvedValue(content);
+    const expected =
+      JSON.stringify({ id: 1, val: "new" }) +
+      "\n" +
+      JSON.stringify({ id: 2, val: "two" }) +
+      "\n";
+    expect(mockAdapter.write).toHaveBeenCalledWith("test.ajson", expected);
+  });
 
-        await storage.upsert('test.ajson', 'id', { id: 2, val: 'two' });
+  it("should append on upsert if key not found", async () => {
+    mockAdapter.exists.mockResolvedValue(true);
+    const content = JSON.stringify({ id: 1, val: "one" }) + "\n";
+    mockAdapter.read.mockResolvedValue(content);
 
-        const expected = JSON.stringify({ id: 1, val: 'one' }) + '\n' + JSON.stringify({ id: 2, val: 'two' }) + '\n';
-        expect(mockAdapter.write).toHaveBeenCalledWith('test.ajson', expected);
-    });
+    await storage.upsert("test.ajson", "id", { id: 2, val: "two" });
 
-    it('should handle malformed lines gracefully in readAll', async () => {
-        mockAdapter.exists.mockResolvedValue(true);
-        const content = '{"id": 1}\n{invalid}\n{"id": 3}\n';
-        mockAdapter.read.mockResolvedValue(content);
+    const expected =
+      JSON.stringify({ id: 1, val: "one" }) +
+      "\n" +
+      JSON.stringify({ id: 2, val: "two" }) +
+      "\n";
+    expect(mockAdapter.write).toHaveBeenCalledWith("test.ajson", expected);
+  });
 
-        const result = await storage.readAll('malformed.ajson');
+  it("should handle malformed lines gracefully in readAll", async () => {
+    mockAdapter.exists.mockResolvedValue(true);
+    const content = '{"id": 1}\n{invalid}\n{"id": 3}\n';
+    mockAdapter.read.mockResolvedValue(content);
 
-        expect(result).toHaveLength(2);
-        expect(result[0]).toEqual({ id: 1 });
-        expect(result[1]).toEqual({ id: 3 });
-    });
+    const result = await storage.readAll("malformed.ajson");
+
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual({ id: 1 });
+    expect(result[1]).toEqual({ id: 3 });
+  });
 });
