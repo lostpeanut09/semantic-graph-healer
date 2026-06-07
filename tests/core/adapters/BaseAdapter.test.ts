@@ -25,7 +25,8 @@ class TestAdapter extends BaseAdapter {
         return this.available;
     }
 
-    public getLinks(): Promise<never[]> {
+    // eslint-disable-next-line @typescript-eslint/require-await -- async needed to wrap ensureInitialized() throw as rejected promise
+    public async getLinks(): Promise<never[]> {
         this.ensureInitialized();
         this.getLinksCalls++;
         if (this.throwOnGetLinks) throw new Error('boom-links');
