@@ -29,7 +29,7 @@ describe('ResetKeychainModal', () => {
         expect(content.innerHTML).toContain('Reset and re-enter API keys');
     });
 
-    it('should call resetKeychain and show notice when reset button is clicked', () => {
+    it('should call resetKeychain and show notice when reset button is clicked', async () => {
         modal.onOpen();
 
         const resetButton = Array.from(modal.contentEl.querySelectorAll('button')).find(
@@ -46,12 +46,14 @@ describe('ResetKeychainModal', () => {
 
         (resetButton as HTMLButtonElement).click();
 
-        expect(mockKeychainService.resetKeychain).toHaveBeenCalled();
-        expect((Notice as unknown as { recordCall: ReturnType<typeof vi.fn> }).recordCall).toHaveBeenCalledWith(
-            expect.stringContaining('Keychain has been reset'),
-            undefined,
-        );
-        expect(closeSpy).toHaveBeenCalled();
+        await vi.waitFor(() => {
+            expect(mockKeychainService.resetKeychain).toHaveBeenCalled();
+            expect((Notice as unknown as { recordCall: ReturnType<typeof vi.fn> }).recordCall).toHaveBeenCalledWith(
+                expect.stringContaining('Keychain has been reset'),
+                undefined,
+            );
+            expect(closeSpy).toHaveBeenCalled();
+        });
     });
 
     it('should close when cancel button is clicked', () => {
