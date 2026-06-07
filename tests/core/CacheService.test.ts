@@ -1,102 +1,110 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { CacheService } from '../../src/core/CacheService';
-import { Plugin, normalizePath, TFile } from 'obsidian';
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { CacheService } from "../../src/core/CacheService";
+import { Plugin, normalizePath, TFile } from "obsidian";
 
-vi.mock('obsidian', () => ({
-    normalizePath: vi.fn((p) => p),
-    TFile: class {},
+vi.mock("obsidian", () => ({
+  normalizePath: vi.fn((p) => p),
+  TFile: class {},
 }));
 
-describe('CacheService', () => {
-    let service: CacheService;
-    let mockPlugin: any;
-    let mockAdapter: any;
+interface MockAdapter {
+  exists: ReturnType<typeof vi.fn>;
+  read: ReturnType<typeof vi.fn>;
+  write: ReturnType<typeof vi.fn>;
+  rename: ReturnType<typeof vi.fn>;
+  remove: ReturnType<typeof vi.fn>;
+}
 
-    beforeEach(() => {
-        mockAdapter = {
-            exists: vi.fn(),
-            read: vi.fn(),
-            write: vi.fn(),
-            rename: vi.fn(),
-            remove: vi.fn(),
-        };
+describe("CacheService", () => {
+  let service: CacheService;
+  let mockPlugin: unknown;
+  let mockAdapter: MockAdapter;
 
-        mockPlugin = {
-            manifest: { id: 'test-plugin', dir: 'test-dir' },
-            app: {
-                vault: {
-                    adapter: mockAdapter,
-                },
-            },
-        };
+  beforeEach(() => {
+    mockAdapter = {
+      exists: vi.fn(),
+      read: vi.fn(),
+      write: vi.fn(),
+      rename: vi.fn(),
+      remove: vi.fn(),
+    };
 
-        service = new CacheService(mockPlugin as Plugin);
-        vi.clearAllMocks();
-    });
+    mockPlugin = {
+      manifest: { id: "test-plugin", dir: "test-dir" },
+      app: {
+        vault: {
+          adapter: mockAdapter,
+        },
+      },
+    };
 
-    it('should load cache from disk', async () => {
-        const mockCache = {
-            pendingSuggestions: [{ id: '1', type: 'ai' }],
-            history: [],
-            topologicalScores: { pageRank: {} },
-            vectorEmbeddings: { 'note.md': { vector: [0.1], hash: 'abc' } },
-        };
-        mockAdapter.exists.mockResolvedValue(true);
-        mockAdapter.read.mockResolvedValue(JSON.stringify(mockCache));
+    service = new CacheService(mockPlugin as Plugin);
+    vi.clearAllMocks();
+  });
 
-        await service.load();
+  it("should load cache from disk", async () => {
+    const mockCache = {
+      pendingSuggestions: [{ id: "1", type: "ai" }],
+      history: [],
+      topologicalScores: { pageRank: {} },
+      vectorEmbeddings: { "note.md": { vector: [0.1], hash: "abc" } },
+    };
+    mockAdapter.exists.mockResolvedValue(true);
+    mockAdapter.read.mockResolvedValue(JSON.stringify(mockCache));
 
-        expect(service.suggestions).toHaveLength(1);
-        expect(service.getStoredEmbedding('note.md', 'abc')).toEqual([0.1]);
-    });
+    await service.load();
 
-    it('should return null if hash mismatch', async () => {
-        const mockCache = {
-            vectorEmbeddings: { 'note.md': { vector: [0.1], hash: 'abc' } },
-        };
-        mockAdapter.exists.mockResolvedValue(true);
-        mockAdapter.read.mockResolvedValue(JSON.stringify(mockCache));
+    expect(service.suggestions).toHaveLength(1);
+    expect(service.getStoredEmbedding("note.md", "abc")).toEqual([0.1]);
+  });
 
-        await service.load();
+  it("should return null if hash mismatch", async () => {
+    const mockCache = {
+      vectorEmbeddings: { "note.md": { vector: [0.1], hash: "abc" } },
+    };
+    mockAdapter.exists.mockResolvedValue(true);
+    mockAdapter.read.mockResolvedValue(JSON.stringify(mockCache));
 
-        expect(service.getStoredEmbedding('note.md', 'wrong')).toBeNull();
-    });
+    await service.load();
 
-    it('should store embedding and trigger save', async () => {
-        vi.useFakeTimers();
-        mockAdapter.exists.mockResolvedValue(false);
-        await service.load();
+    expect(service.getStoredEmbedding("note.md", "wrong")).toBeNull();
+  });
 
-        service.storeEmbedding('new.md', [0.2], 'def');
+  it("should store embedding and trigger save", async () => {
+    vi.useFakeTimers();
+    mockAdapter.exists.mockResolvedValue(false);
+    await service.load();
 
-        expect(service.getStoredEmbedding('new.md', 'def')).toEqual([0.2]);
+    service.storeEmbedding("new.md", [0.2], "def");
 
-        // Fast-forward debounce
-        vi.runAllTimers();
-        // Allow promise chain to resolve
-        await Promise.resolve();
-        await Promise.resolve();
-        await Promise.resolve();
+    expect(service.getStoredEmbedding("new.md", "def")).toEqual([0.2]);
 
-        expect(mockAdapter.write).toHaveBeenCalledWith(
-            expect.stringContaining('healer-cache.json.tmp'),
-            expect.stringContaining('"vector": [\n        0.2\n      ]'),
-        );
-        vi.useRealTimers();
-    });
+    // Fast-forward debounce
+    vi.runAllTimers();
+    // Allow promise chain to resolve
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
 
-    it('should handle corrupted JSON gracefully and start fresh', async () => {
-        mockAdapter.exists.mockResolvedValue(true);
-        mockAdapter.read.mockResolvedValue('invalid json');
-        mockAdapter.rename.mockResolvedValue(undefined);
+    expect(mockAdapter.write).toHaveBeenCalledWith(
+      expect.stringContaining("healer-cache.json.tmp"),
+      expect.stringContaining('"vector": [\n        0.2\n      ]'),
+    );
+    vi.useRealTimers();
+  });
 
-        // It doesn't throw because the outer catch swallows it after renaming
-        await service.load();
+  it("should handle corrupted JSON gracefully and start fresh", async () => {
+    mockAdapter.exists.mockResolvedValue(true);
+    mockAdapter.read.mockResolvedValue("invalid json");
+    mockAdapter.rename.mockResolvedValue(undefined);
 
-        expect(mockAdapter.rename).toHaveBeenCalledWith(
-            expect.stringContaining('healer-cache.json'),
-            expect.stringContaining('healer-cache.json.corrupt'),
-        );
-        expect(service.suggestions).toHaveLength(0); // Started fresh
-    });
+    // It doesn't throw because the outer catch swallows it after renaming
+    await service.load();
+
+    expect(mockAdapter.rename).toHaveBeenCalledWith(
+      expect.stringContaining("healer-cache.json"),
+      expect.stringContaining("healer-cache.json.corrupt"),
+    );
+    expect(service.suggestions).toHaveLength(0); // Started fresh
+  });
 });

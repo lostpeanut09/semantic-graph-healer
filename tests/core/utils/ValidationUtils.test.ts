@@ -40,7 +40,7 @@ describe('parseJsonSafe', () => {
         expect(r!.isErr()).toBe(true);
         const err = extractErr(r!);
         expect(err).toBeInstanceOf(ValidationError);
-        const ve = err as ValidationError;
+        const ve = err;
         expect(ve.code).toBe('JSON_PARSE_ERROR');
         expect(ve.module).toBe('ValidationUtils');
         expect(ve.recoverable).toBe(true);
@@ -62,7 +62,7 @@ describe('parseJsonSafe', () => {
         const schema = z.object({ a: z.number() });
         const r = parseJsonSafe<{ a: number }>('{"a":"x"}', schema);
         expect(r.isErr()).toBe(true);
-        const err = extractErr(r) as ValidationError;
+        const err = extractErr(r);
         expect(err).toBeInstanceOf(ValidationError);
         expect(err.code).toBe('SCHEMA_VALIDATION_ERROR');
         expect(err.context).toBeDefined();
@@ -77,7 +77,7 @@ describe('parseJsonSafe', () => {
             r = parseJsonSafe(garbage);
         }).not.toThrow();
         expect(r!.isErr()).toBe(true);
-        const err = extractErr(r!) as ValidationError;
+        const err = extractErr(r!);
         expect(err.code).toBe('JSON_PARSE_ERROR');
     });
 });
@@ -99,7 +99,7 @@ describe('validateInput', () => {
     it('test_validateInput_invalid: returns Err ValidationError when data is invalid and no fallback', () => {
         const r = validateInput(schema, { a: 'x' });
         expect(r.isErr()).toBe(true);
-        const err = extractErr(r) as ValidationError;
+        const err = extractErr(r);
         expect(err).toBeInstanceOf(ValidationError);
         expect(err.code).toBe('SCHEMA_VALIDATION_ERROR');
         expect(Array.isArray(err.context!.zodIssues)).toBe(true);
