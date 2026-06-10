@@ -64,6 +64,7 @@ export function renderEmbeddingSettings(containerEl: HTMLElement, ctx: SectionCo
             btn.setButtonText('Verify model').onClick(async () => {
                 btn.setDisabled(true);
                 btn.setButtonText('Verifying');
+                btn.buttonEl.setAttribute('aria-busy', 'true');
                 try {
                     const ok = await plugin.embedding.checkModelAlignment();
                     if (ok) {
@@ -74,6 +75,7 @@ export function renderEmbeddingSettings(containerEl: HTMLElement, ctx: SectionCo
                 } catch {
                     new Notice('Verification failed');
                 } finally {
+                    btn.buttonEl.removeAttribute('aria-busy');
                     btn.setDisabled(false);
                     btn.setButtonText('Verify model');
                     refresh();
@@ -101,6 +103,7 @@ export function renderEmbeddingSettings(containerEl: HTMLElement, ctx: SectionCo
             btn.setButtonText('Rebuild').onClick(async () => {
                 btn.setDisabled(true);
                 btn.setButtonText('Indexing');
+                btn.buttonEl.setAttribute('aria-busy', 'true');
                 new Notice('Starting background indexing');
                 try {
                     await plugin.graphRag.indexCommunities();
@@ -108,6 +111,7 @@ export function renderEmbeddingSettings(containerEl: HTMLElement, ctx: SectionCo
                 } catch {
                     new Notice('Indexing failed');
                 } finally {
+                    btn.buttonEl.removeAttribute('aria-busy');
                     btn.setDisabled(false);
                     btn.setButtonText('Rebuild');
                 }

@@ -105,7 +105,7 @@
       disabled={isFixed || isExecuting}
       onclick={handleExecute}
     >
-      {isExecuting ? 'Executing...' : 'Execute'}
+      {isExecuting ? 'Executing' : 'Execute'}
     </button>
     <button
       class="healer-btn-reason"
@@ -114,17 +114,17 @@
       disabled={isFixed || suggestion.isVerifying || isReasoningLocal}
       onclick={handleReasoning}
     >
-      {isReasoningLocal ? 'Analyzing...' : (suggestion.reasoning ? 'Re-reason' : 'Reasoning')}
+      {isReasoningLocal ? 'Analyzing' : (suggestion.reasoning ? 'Re-reason' : 'Reasoning')}
     </button>
 {#if onVerifyAI && (suggestion.type === 'ai' || suggestion.id.startsWith('branch_') || suggestion.id.startsWith('tag_'))}
       <button
         class="healer-btn-verify"
-        aria-label="{suggestion.isVerifying ? 'Verifying...' : 'AI verify'} fix for {suggestion.link}"
+        aria-label="{suggestion.isVerifying ? 'Verifying' : 'AI verify'} fix for {suggestion.link}"
         aria-busy={suggestion.isVerifying || false}
         disabled={isFixed || suggestion.isVerifying}
         onclick={() => onVerifyAI(suggestion)}
       >
-        {suggestion.isVerifying ? 'Verifying...' : 'AI verify'}
+        {suggestion.isVerifying ? 'Verifying' : 'AI verify'}
       </button>
     {/if}
     <button class="healer-btn-ignore" aria-label="Ignore suggestion for {suggestion.link}" disabled={isFixed} onclick={() => onIgnore(suggestion)}>Ignore</button>
