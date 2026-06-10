@@ -54,7 +54,7 @@
       aria-busy={loading}
       onclick={handleSearch}
     >
-      {loading ? 'Searching...' : 'Search'}
+      {loading ? 'Searching' : 'Search'}
     </button>
   </div>
 

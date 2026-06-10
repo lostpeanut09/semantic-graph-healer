@@ -21,20 +21,25 @@ export function renderSyncIntegrationSettings(containerEl: HTMLElement, ctx: Sec
                 .setButtonText('Sync data now')
                 .setCta()
                 .onClick(async () => {
-                    btn.setButtonText('Scanning...');
+                    btn.setButtonText('Scanning');
                     btn.setDisabled(true);
-                    const success = await plugin.syncExternalSettings();
-                    if (success) {
-                        new Notice('Topologies successfully imported from external plugins!');
-                        refresh();
-                        // ✅ NEW: Trigger analysis with new hierarchies
-                        new Notice('Running graph analysis with new hierarchy...');
-                        await plugin.analyzeGraph();
-                    } else {
-                        new Notice('No compatible settings found in breadcrumbs or excalibrain.');
+                    btn.buttonEl.setAttribute('aria-busy', 'true');
+                    try {
+                        const success = await plugin.syncExternalSettings();
+                        if (success) {
+                            new Notice('Topologies successfully imported from external plugins!');
+                            refresh();
+                            // ✅ NEW: Trigger analysis with new hierarchies
+                            new Notice('Running graph analysis with new hierarchy...');
+                            await plugin.analyzeGraph();
+                        } else {
+                            new Notice('No compatible settings found in breadcrumbs or excalibrain.');
+                        }
+                    } finally {
+                        btn.buttonEl.removeAttribute('aria-busy');
+                        btn.setButtonText('Sync data now');
+                        btn.setDisabled(false);
                     }
-                    btn.setButtonText('Sync data now');
-                    btn.setDisabled(false);
                 }),
         );
 }
