@@ -23,6 +23,7 @@ export function renderSyncIntegrationSettings(containerEl: HTMLElement, ctx: Sec
                 .onClick(async () => {
                     btn.setButtonText('Scanning...');
                     btn.setDisabled(true);
+                    btn.buttonEl.setAttribute('aria-busy', 'true');
                     const success = await plugin.syncExternalSettings();
                     if (success) {
                         new Notice('Topologies successfully imported from external plugins!');
@@ -33,6 +34,7 @@ export function renderSyncIntegrationSettings(containerEl: HTMLElement, ctx: Sec
                     } else {
                         new Notice('No compatible settings found in breadcrumbs or excalibrain.');
                     }
+                    btn.buttonEl.removeAttribute('aria-busy');
                     btn.setButtonText('Sync data now');
                     btn.setDisabled(false);
                 }),

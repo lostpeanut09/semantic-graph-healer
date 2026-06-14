@@ -49,6 +49,7 @@ export function renderInfranodusSettings(containerEl: HTMLElement, ctx: SectionC
         .addButton((btn) =>
             btn.setButtonText('Fetch gaps').onClick(async () => {
                 btn.setButtonText('Querying service...');
+                btn.buttonEl.setAttribute('aria-busy', 'true');
                 const count = await plugin.fetchInfraNodusGaps();
                 if (count > 0) {
                     new Notice(`System identified ${count} structural gaps! Review actions.`);
@@ -57,6 +58,7 @@ export function renderInfranodusSettings(containerEl: HTMLElement, ctx: SectionC
                 } else {
                     new Notice('Service error. Check token.');
                 }
+                btn.buttonEl.removeAttribute('aria-busy');
                 btn.setButtonText('Fetch gaps');
             }),
         );

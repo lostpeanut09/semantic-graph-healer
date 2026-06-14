@@ -66,6 +66,7 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
             plugin: this.plugin,
             app: this.app as ExtendedApp,
             setCssProps: (el, props) => this.setCssProps(el, props),
+            // eslint-disable-next-line @typescript-eslint/no-deprecated
             refresh: () => this.display(),
             runModelDetection: (button, isPrimary) => this.runModelDetection(button, isPrimary),
         };
@@ -106,6 +107,7 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
         try {
             button.setButtonText('Scanning...');
             button.setDisabled(true);
+            button.buttonEl.setAttribute('aria-busy', 'true');
             new Notice(`Testing ${isPrimary ? 'primary' : 'secondary'} connection...`);
 
             const models = await this.plugin.llm.runModelDetection(endpoint, apiKey);
@@ -126,12 +128,14 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
                     ? `Success: Detected ${models.length} models.`
                     : 'No server models detected. Falling back to SOTA cloud presets.',
             );
+            // eslint-disable-next-line @typescript-eslint/no-deprecated
             this.display();
         } catch (e) {
             this.plugin.logger.error('Model detection failed', e);
             new Notice('Detection failed. Check endpoint or firewall.');
         } finally {
             button.setDisabled(false);
+            button.buttonEl.removeAttribute('aria-busy');
             button.setButtonText(isPrimary ? 'Scan primary' : 'Scan secondary');
         }
     }
