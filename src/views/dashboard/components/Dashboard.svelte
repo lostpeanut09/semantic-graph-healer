@@ -70,7 +70,7 @@
 </script>
 
 <div class="healer-dashboard-container">
-  <img src={bannerPath} alt="Banner" class="healer-dashboard-banner" style="width: 100%; height: auto; border-radius: 4px; margin-bottom: 1em;" />
+  <img src={bannerPath} alt="Semantic Graph Healer Dashboard Banner" class="healer-dashboard-banner" style="width: 100%; height: auto; border-radius: 4px; margin-bottom: 1em;" />
 
   <div class="healer-dashboard-header-row" style="margin-bottom: 1em;">
     <div class="setting-item">
