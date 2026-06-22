@@ -4,5 +4,6 @@
 **Action:** Always ensure that conditional text in interactive elements is mirrored exactly in its `aria-label`, and use `aria-busy` to communicate active loading states to screen readers.
 
 ## 2024-06-22 - Avoid Ellipses in aria-label
+
 **Learning:** Including ellipses ('...') in `aria-label` attributes, even if they match visible text, causes screen readers to read them aloud ('dot dot dot') or insert unnatural pauses, disrupting the user experience.
 **Action:** Omit punctuation like ellipses from `aria-label` attributes and rely on `aria-busy` to convey loading states instead.
