@@ -100,7 +100,7 @@
   <div class="healer-btn-container" style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
     <button
       class="healer-btn-execute"
-      aria-label="{isExecuting ? 'Executing' : 'Execute'} fix for {suggestion.link}"
+      aria-label="{isExecuting ? 'Executing...' : 'Execute'} fix for {suggestion.link}"
       aria-busy={isExecuting}
       disabled={isFixed || isExecuting}
       onclick={handleExecute}
@@ -109,7 +109,7 @@
     </button>
     <button
       class="healer-btn-reason"
-      aria-label="{isReasoningLocal ? 'Analyzing' : (suggestion.reasoning ? 'Re-reason' : 'Reasoning')} for {suggestion.link}"
+      aria-label="{isReasoningLocal ? 'Analyzing...' : (suggestion.reasoning ? 'Re-reason' : 'Reasoning')} for {suggestion.link}"
       aria-busy={isReasoningLocal}
       disabled={isFixed || suggestion.isVerifying || isReasoningLocal}
       onclick={handleReasoning}
