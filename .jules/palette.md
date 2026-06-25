@@ -4,5 +4,6 @@
 **Action:** Always ensure that conditional text in interactive elements is mirrored exactly in its `aria-label`, and use `aria-busy` to communicate active loading states to screen readers.
 
 ## 2024-06-25 - Omitting Ellipses in Dynamic aria-labels
+
 **Learning:** While the text root of dynamic loading states should match visible text (as noted previously), punctuation like ellipses ('...') must be explicitly omitted from the `aria-label`. If included, screen readers may read it aloud as 'dot dot dot' or insert unnatural pauses, diminishing the user experience.
 **Action:** When synchronizing visible loading text (e.g., 'Verifying...') with an `aria-label`, strip the ellipses from the accessible name (e.g., 'Verifying fix for [link]') to ensure smooth and natural screen reader announcements.
