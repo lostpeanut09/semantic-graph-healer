@@ -7,6 +7,3 @@
 
 **Learning:** For advanced semantic search features like GraphRAG, starting with a completely blank result pane causes "blank page syndrome", making users unsure if the tool is ready or broken.
 **Action:** Always implement a guidance-driven empty state (e.g., using `.healer-empty-state` container pattern with dashed border, descriptive text, and an icon) before any interaction occurs to orient the user.
-## 2024-06-26 - Guidance-driven empty state in GraphRAG
-**Learning:** For advanced semantic search features like GraphRAG, starting with a completely blank result pane causes "blank page syndrome", making users unsure if the tool is ready or broken.
-**Action:** Always implement a guidance-driven empty state (e.g., using `.healer-empty-state` container pattern with dashed border, descriptive text, and an icon) before any interaction occurs to orient the user.
