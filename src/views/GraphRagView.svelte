@@ -14,7 +14,7 @@
 
   async function handleSearch() {
     if (!query.trim()) return;
-    
+
     loading = true;
     answer = '';
     communities = [];
@@ -39,18 +39,18 @@
 
 <div class="healer-graphrag-container" style="padding: 1em; display: flex; flex-direction: column; gap: 1em;">
   <div class="healer-search-bar" style="display: flex; gap: 8px;">
-    <input 
-      type="text" 
-      bind:value={query} 
-      placeholder="Ask a global question about your vault..." 
+    <input
+      type="text"
+      bind:value={query}
+      placeholder="Ask a global question about your vault..."
       aria-label="Search query"
       disabled={loading}
       style="flex-grow: 1;"
       onkeydown={(e) => e.key === 'Enter' && handleSearch()}
     />
-    <button 
-      class="mod-cta" 
-      disabled={loading} 
+    <button
+      class="mod-cta"
+      disabled={loading}
       aria-busy={loading}
       onclick={handleSearch}
     >
@@ -91,6 +91,14 @@
           </div>
         {/each}
       </div>
+    </div>
+  {/if}
+
+  {#if !loading && !answer && communities.length === 0}
+    <div class="healer-empty-state" style="border: 2px dashed var(--background-modifier-border); border-radius: 8px; padding: 2em; text-align: center; color: var(--text-muted); margin-top: 1em;">
+      <div style="font-size: 2em; margin-bottom: 0.5em;" aria-hidden="true">🔍</div>
+      <h3 style="margin-top: 0; color: var(--text-normal); font-size: 1.2em;">GraphRAG Ready</h3>
+      <p style="margin-bottom: 0; font-size: 0.95em;">Ask a global question about your vault to synthesize insights from your knowledge graph.</p>
     </div>
   {/if}
 </div>
