@@ -14,6 +14,7 @@ export function safeJsonParse(json: string): unknown {
         if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
             return undefined;
         }
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         return value;
     });
 }
