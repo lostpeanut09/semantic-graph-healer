@@ -1,9 +1,11 @@
 import type { ZodType } from 'zod';
 import { HealerError, ValidationError } from '../errors/HealerError';
 import { Result } from '../errors/Result';
+import { safeJsonParse } from './SecurityUtils';
+
 
 /**
- * Safe JSON.parse wrapper that optionally narrows the parsed value via a
+ * Safe safeJsonParse wrapper that optionally narrows the parsed value via a
  * Zod schema. Per design decision D-11, omitting a schema returns
  * `Result<unknown>` so callers must explicitly opt into typed parsing
  * — this prevents unverified generic-type assumptions.
@@ -20,7 +22,7 @@ import { Result } from '../errors/Result';
 export function parseJsonSafe<T = unknown>(json: string, schema?: ZodType<T>): Result<T> {
     let parsed: unknown;
     try {
-        parsed = JSON.parse(json) as unknown;
+        parsed = safeJsonParse(json);
     } catch (e: unknown) {
         const message = e instanceof Error ? e.message : String(e);
         const cause = e instanceof Error ? e : undefined;
