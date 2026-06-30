@@ -3,6 +3,8 @@ import { basename } from 'pathe';
 import type { DataviewPage, Suggestion } from '../types';
 import { HealerLogger } from './utils/HealerLogger';
 import { isObsidianInternalApp, pathToWikilink, generateId } from './HealerUtils';
+import { safeJsonParse } from './utils/SecurityUtils';
+
 
 interface ObsidianPluginRegistry {
     getPlugin(id: string): unknown;
@@ -159,7 +161,7 @@ export class SmartConnectionsAdapter {
 
         try {
             const cfgRaw = await adapter.read(envCfgPath);
-            const cfg = JSON.parse(cfgRaw) as {
+            const cfg = safeJsonParse(cfgRaw) as {
                 smart_sources?: { single_file_data_path?: string };
             };
 

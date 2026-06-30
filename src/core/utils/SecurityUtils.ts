@@ -9,6 +9,7 @@
  * @param json - The raw JSON string to parse.
  * @returns The parsed object, typed as unknown.
  */
+// @public
 export function safeJsonParse(json: string): unknown {
     return JSON.parse(json, (key, value) => {
         if (key === '__proto__' || key === 'constructor' || key === 'prototype') {

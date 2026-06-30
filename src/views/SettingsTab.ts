@@ -128,7 +128,7 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
                     : 'No server models detected. Falling back to SOTA cloud presets.',
             );
             // eslint-disable-next-line @typescript-eslint/no-deprecated
-            this.display();
+                this.display();
         } catch (e) {
             this.plugin.logger.error('Model detection failed', e);
             new Notice('Detection failed. Check endpoint or firewall.');

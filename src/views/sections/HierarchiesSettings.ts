@@ -1,5 +1,7 @@
 import { Setting } from 'obsidian';
 import type { SectionContext } from '../SectionContext';
+import { safeJsonParse } from '../../core/utils/SecurityUtils';
+
 
 export function renderHierarchiesSettings(containerEl: HTMLElement, ctx: SectionContext) {
     const { plugin } = ctx;
@@ -131,7 +133,7 @@ export function renderHierarchiesSettings(containerEl: HTMLElement, ctx: Section
                 rulesDebounce = window.setTimeout(() => {
                     void (async () => {
                         try {
-                            const parsed = JSON.parse(v) as {
+                            const parsed = safeJsonParse(v) as {
                                 pattern: string;
                                 property: string;
                                 maxCount: number;

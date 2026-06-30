@@ -5,6 +5,8 @@ import type { ISmartConnectionsPort } from '../ports/ISmartConnectionsPort';
 import type { RelatedNote, ExtendedApp } from '../../types';
 import { HealerLogger } from '../utils/HealerLogger';
 import { isObsidianInternalApp, pathToWikilink, normalizeVaultPath } from '../HealerUtils';
+import { safeJsonParse } from '../utils/SecurityUtils';
+
 
 interface LegacyScApi {
     search?: (query: string, opts?: { limit?: number }) => Promise<SearchResult[]> | SearchResult[];
@@ -363,7 +365,7 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
                 // TOLERANT PARSING: if .ajson is not valid JSON, don't abort entire fallback
                 let data: Record<string, unknown>;
                 try {
-                    data = JSON.parse(content) as Record<string, unknown>;
+                    data = safeJsonParse(content) as Record<string, unknown>;
                 } catch (parseErr) {
                     this.logDebug(
                         `SmartConnectionsAdapter: ${singleFileFallback} is not valid JSON, skipping JSON parse path`,
