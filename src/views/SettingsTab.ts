@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-deprecated */
 import { App, PluginSettingTab, Notice } from 'obsidian';
 import type { ButtonComponent } from 'obsidian';
 import type SemanticGraphHealer from '../main';
