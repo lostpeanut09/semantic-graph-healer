@@ -1,3 +1,4 @@
+import { safeJsonParse } from './SecurityUtils';
 import type { DataAdapter } from 'obsidian';
 
 /**
@@ -54,7 +55,7 @@ export class AjsonStorage {
             const trimmed = line.trim();
             if (trimmed) {
                 try {
-                    result.push(JSON.parse(trimmed) as T);
+                    result.push(safeJsonParse(trimmed) as T);
                 } catch {
                     // Skip malformed lines
                 }

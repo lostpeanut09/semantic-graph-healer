@@ -1,3 +1,4 @@
+import { safeJsonParse } from './utils/SecurityUtils';
 import { requestUrl } from 'obsidian';
 import type { RequestUrlParam } from 'obsidian';
 import type { SemanticGraphHealerSettings, ReasoningResult } from '../types';
@@ -689,7 +690,7 @@ Only return the JSON. No markdown or meta-talk.
                         else if (response[j] === ']') depth--;
                         if (depth === 0) {
                             try {
-                                const parsed = JSON.parse(response.slice(startIdx, j + 1)) as Array<{
+                                const parsed = safeJsonParse(response.slice(startIdx, j + 1)) as Array<{
                                     id: string;
                                     valid: boolean;
                                     reason: string;

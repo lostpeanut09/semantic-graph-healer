@@ -1,0 +1,9 @@
+export function safeJsonParse(json: string): unknown {
+    return JSON.parse(json, (key, value) => {
+        if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+            return undefined;
+        }
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+        return value;
+    });
+}

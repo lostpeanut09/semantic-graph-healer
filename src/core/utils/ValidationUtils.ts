@@ -1,3 +1,4 @@
+import { safeJsonParse } from './SecurityUtils';
 import type { ZodType } from 'zod';
 import { HealerError, ValidationError } from '../errors/HealerError';
 import { Result } from '../errors/Result';
@@ -20,7 +21,7 @@ import { Result } from '../errors/Result';
 export function parseJsonSafe<T = unknown>(json: string, schema?: ZodType<T>): Result<T> {
     let parsed: unknown;
     try {
-        parsed = JSON.parse(json) as unknown;
+        parsed = safeJsonParse(json);
     } catch (e: unknown) {
         const message = e instanceof Error ? e.message : String(e);
         const cause = e instanceof Error ? e : undefined;

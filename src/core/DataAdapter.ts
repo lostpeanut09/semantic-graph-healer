@@ -1,3 +1,4 @@
+import { safeJsonParse } from './utils/SecurityUtils';
 import { App, TFile } from 'obsidian';
 import { basename } from 'pathe';
 import type { DataviewPage, Suggestion } from '../types';
@@ -159,7 +160,7 @@ export class SmartConnectionsAdapter {
 
         try {
             const cfgRaw = await adapter.read(envCfgPath);
-            const cfg = JSON.parse(cfgRaw) as {
+            const cfg = safeJsonParse(cfgRaw) as {
                 smart_sources?: { single_file_data_path?: string };
             };
 
