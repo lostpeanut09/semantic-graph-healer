@@ -1,3 +1,4 @@
+import { safeJsonParse } from "../utils/SecurityUtils";
 import { App, TFile } from 'obsidian';
 import { BaseAdapter } from './BaseAdapter';
 import type { SemanticLinkEdge } from './types';
@@ -363,7 +364,7 @@ export class SmartConnectionsAdapter extends BaseAdapter implements ISmartConnec
                 // TOLERANT PARSING: if .ajson is not valid JSON, don't abort entire fallback
                 let data: Record<string, unknown>;
                 try {
-                    data = JSON.parse(content) as Record<string, unknown>;
+                    data = safeJsonParse(content) as Record<string, unknown>;
                 } catch (parseErr) {
                     this.logDebug(
                         `SmartConnectionsAdapter: ${singleFileFallback} is not valid JSON, skipping JSON parse path`,

@@ -1,3 +1,4 @@
+import { safeJsonParse } from "../../core/utils/SecurityUtils";
 import { Setting, ButtonComponent, Modal, Notice } from 'obsidian';
 import type { SectionContext } from '../SectionContext';
 import { DEFAULT_SETTINGS } from '../../types';
@@ -47,7 +48,7 @@ export function renderAdvancedMaintenanceSettings(containerEl: HTMLElement, ctx:
                     if (!file) return;
                     const content = await file.text();
                     try {
-                        const imported = JSON.parse(content) as Record<string, unknown>;
+                        const imported = safeJsonParse(content) as Record<string, unknown>;
                         const { SettingsSchema } = await import('../../types.schema');
                         const result = SettingsSchema.safeParse(imported);
                         if (result.success) {

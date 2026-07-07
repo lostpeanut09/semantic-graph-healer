@@ -1,3 +1,4 @@
+import { safeJsonParse } from "./core/utils/SecurityUtils";
 import './styles.css';
 import { Plugin, Notice, WorkspaceLeaf, requestUrl, TFile } from 'obsidian';
 import { DASHBOARD_VIEW_TYPE, DEFAULT_SETTINGS } from './types';
@@ -1338,7 +1339,7 @@ export default class SemanticGraphHealer extends Plugin {
             if (await this.app.vault.adapter.exists(bcPath)) {
                 try {
                     const bcFileContent = await this.app.vault.adapter.read(bcPath);
-                    const bcData = JSON.parse(bcFileContent) as {
+                    const bcData = safeJsonParse(bcFileContent) as {
                         hierarchies?: {
                             up?: string[];
                             down?: string[];
@@ -1387,7 +1388,7 @@ export default class SemanticGraphHealer extends Plugin {
             if (await this.app.vault.adapter.exists(ebPath)) {
                 try {
                     const ebFileContent = await this.app.vault.adapter.read(ebPath);
-                    const ebData = JSON.parse(ebFileContent) as {
+                    const ebData = safeJsonParse(ebFileContent) as {
                         ontology?: {
                             parent?: string[];
                             child?: string[];

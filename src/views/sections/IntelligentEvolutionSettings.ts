@@ -1,3 +1,4 @@
+import { safeJsonParse } from "../../core/utils/SecurityUtils";
 import { Setting } from 'obsidian';
 import type { SectionContext } from '../SectionContext';
 
@@ -87,7 +88,7 @@ export function renderIntelligentEvolutionSettings(containerEl: HTMLElement, ctx
             aestheticDebounce = window.setTimeout(() => {
                 void (async () => {
                     try {
-                        JSON.parse(value);
+                        safeJsonParse(value);
                         plugin.settings.aestheticPresetRules = value;
                         await plugin.saveSettings();
                         text.inputEl.removeClass('healer-border-error');

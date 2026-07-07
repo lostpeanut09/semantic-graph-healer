@@ -1,3 +1,4 @@
+import { safeJsonParse } from "../utils/SecurityUtils";
 import { TFile } from 'obsidian';
 import type { SemanticGraphHealerSettings } from '../../types';
 import type { LlmService } from '../LlmService';
@@ -90,7 +91,7 @@ Only return the JSON. No markdown or meta-talk.
                 return;
             }
 
-            const parsed = JSON.parse(jsonMatch[0]) as {
+            const parsed = safeJsonParse(jsonMatch[0]) as {
                 entities: Omit<Entity, 'notePath'>[];
                 relationships: Omit<Relationship, 'notePath'>[];
             };
