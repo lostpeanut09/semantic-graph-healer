@@ -1,4 +1,4 @@
-import { safeJsonParse } from "../../core/utils/SecurityUtils";
+import { safeJsonParse } from '../../core/utils/SecurityUtils';
 import { Setting, ButtonComponent, Modal, Notice } from 'obsidian';
 import type { SectionContext } from '../SectionContext';
 import { DEFAULT_SETTINGS } from '../../types';

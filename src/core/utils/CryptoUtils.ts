@@ -1,4 +1,4 @@
-import { safeJsonParse } from "./SecurityUtils";
+import { safeJsonParse } from './SecurityUtils';
 import { HealerLogger } from './HealerLogger';
 
 /**

@@ -1,4 +1,4 @@
-import { safeJsonParse } from "../utils/SecurityUtils";
+import { safeJsonParse } from '../utils/SecurityUtils';
 import { TFile } from 'obsidian';
 import type { SemanticGraphHealerSettings } from '../../types';
 import type { LlmService } from '../LlmService';

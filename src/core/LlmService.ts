@@ -1,4 +1,4 @@
-import { safeJsonParse } from "./utils/SecurityUtils";
+import { safeJsonParse } from './utils/SecurityUtils';
 import { requestUrl } from 'obsidian';
 import type { RequestUrlParam } from 'obsidian';
 import type { SemanticGraphHealerSettings, ReasoningResult } from '../types';

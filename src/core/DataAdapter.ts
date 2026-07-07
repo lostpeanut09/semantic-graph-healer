@@ -1,4 +1,4 @@
-import { safeJsonParse } from "./utils/SecurityUtils";
+import { safeJsonParse } from './utils/SecurityUtils';
 import { App, TFile } from 'obsidian';
 import { basename } from 'pathe';
 import type { DataviewPage, Suggestion } from '../types';

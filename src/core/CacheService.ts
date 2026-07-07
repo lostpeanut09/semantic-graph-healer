@@ -1,4 +1,4 @@
-import { safeJsonParse } from "./utils/SecurityUtils";
+import { safeJsonParse } from './utils/SecurityUtils';
 import { Plugin, normalizePath } from 'obsidian';
 import type { Suggestion, HistoryItem, TopologicalMetrics } from '../types';
 import { HealerLogger } from './utils/HealerLogger';

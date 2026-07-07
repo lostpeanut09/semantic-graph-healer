@@ -1,4 +1,4 @@
-import { safeJsonParse } from "./core/utils/SecurityUtils";
+import { safeJsonParse } from './core/utils/SecurityUtils';
 import './styles.css';
 import { Plugin, Notice, WorkspaceLeaf, requestUrl, TFile } from 'obsidian';
 import { DASHBOARD_VIEW_TYPE, DEFAULT_SETTINGS } from './types';

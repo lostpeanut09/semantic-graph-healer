@@ -1,4 +1,4 @@
-import { safeJsonParse } from "../../core/utils/SecurityUtils";
+import { safeJsonParse } from '../../core/utils/SecurityUtils';
 import { Setting } from 'obsidian';
 import type { SectionContext } from '../SectionContext';
 

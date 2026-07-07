@@ -1,4 +1,4 @@
-import { safeJsonParse } from "../utils/SecurityUtils";
+import { safeJsonParse } from '../utils/SecurityUtils';
 import { App, TFile } from 'obsidian';
 import { BaseAdapter } from './BaseAdapter';
 import type { SemanticLinkEdge } from './types';

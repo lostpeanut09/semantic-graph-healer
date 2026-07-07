@@ -1,4 +1,4 @@
-import { safeJsonParse } from "./SecurityUtils";
+import { safeJsonParse } from './SecurityUtils';
 import type { ZodType } from 'zod';
 import { HealerError, ValidationError } from '../errors/HealerError';
 import { Result } from '../errors/Result';
