@@ -46,7 +46,6 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
         }
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-deprecated
     display(): void {
         const { containerEl } = this;
         containerEl.empty();
