@@ -14,7 +14,7 @@
 
   async function handleSearch() {
     if (!query.trim()) return;
-    
+
     loading = true;
     answer = '';
     communities = [];
@@ -39,24 +39,34 @@
 
 <div class="healer-graphrag-container" style="padding: 1em; display: flex; flex-direction: column; gap: 1em;">
   <div class="healer-search-bar" style="display: flex; gap: 8px;">
-    <input 
-      type="text" 
-      bind:value={query} 
-      placeholder="Ask a global question about your vault..." 
+    <input
+      type="text"
+      bind:value={query}
+      placeholder="Ask a global question about your vault..."
       aria-label="Search query"
       disabled={loading}
       style="flex-grow: 1;"
       onkeydown={(e) => e.key === 'Enter' && handleSearch()}
     />
-    <button 
-      class="mod-cta" 
-      disabled={loading} 
+    <button
+      class="mod-cta"
+      disabled={loading}
       aria-busy={loading}
       onclick={handleSearch}
     >
       {loading ? 'Searching...' : 'Search'}
     </button>
   </div>
+
+  {#if !loading && !answer}
+    <div class="healer-empty-state" style="text-align: center; padding: 3em 1em; border: 2px dashed var(--background-modifier-border); border-radius: 8px; margin-top: 1em;">
+      <span aria-hidden="true" style="font-size: 2em; opacity: 0.5;">🧠</span>
+      <h3 style="margin: 0.5em 0; color: var(--text-normal);">Ask GraphRAG</h3>
+      <p style="color: var(--text-muted); font-size: 0.9em; margin: 0 auto; max-width: 400px;">
+        Type a question above to generate an AI response based on the semantic communities in your vault.
+      </p>
+    </div>
+  {/if}
 
   {#if loading}
     <div style="text-align: center; padding: 2em;">
