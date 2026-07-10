@@ -14,7 +14,7 @@
 
   async function handleSearch() {
     if (!query.trim()) return;
-    
+
     loading = true;
     answer = '';
     communities = [];
@@ -39,18 +39,18 @@
 
 <div class="healer-graphrag-container" style="padding: 1em; display: flex; flex-direction: column; gap: 1em;">
   <div class="healer-search-bar" style="display: flex; gap: 8px;">
-    <input 
-      type="text" 
-      bind:value={query} 
-      placeholder="Ask a global question about your vault..." 
+    <input
+      type="text"
+      bind:value={query}
+      placeholder="Ask a global question about your vault..."
       aria-label="Search query"
       disabled={loading}
       style="flex-grow: 1;"
       onkeydown={(e) => e.key === 'Enter' && handleSearch()}
     />
-    <button 
-      class="mod-cta" 
-      disabled={loading} 
+    <button
+      class="mod-cta"
+      disabled={loading}
       aria-busy={loading}
       onclick={handleSearch}
     >
