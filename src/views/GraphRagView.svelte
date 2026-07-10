@@ -58,13 +58,6 @@
     </button>
   </div>
 
-  {#if !loading && !answer && communities.length === 0}
-    <div class="healer-empty-state" style="padding: 2em; text-align: center; border: 2px dashed var(--background-modifier-border); border-radius: 8px; color: var(--text-muted); margin-top: 1em;">
-      <span aria-hidden="true" style="font-size: 2em; margin-bottom: 0.5em; display: block;">🧠</span>
-      <p style="margin: 0;">Ask a question to synthesize insights from your knowledge graph.</p>
-    </div>
-  {/if}
-
   {#if loading}
     <div style="text-align: center; padding: 2em;">
       <div class="healer-spinner"></div>
