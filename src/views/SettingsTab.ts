@@ -46,7 +46,6 @@ export class SemanticHealerSettingTab extends PluginSettingTab {
         }
     }
 
-
     display(): void {
         const { containerEl } = this;
         containerEl.empty();
