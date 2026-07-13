@@ -14,7 +14,7 @@
 
   async function handleSearch() {
     if (!query.trim()) return;
-    
+
     loading = true;
     answer = '';
     communities = [];
@@ -39,24 +39,35 @@
 
 <div class="healer-graphrag-container" style="padding: 1em; display: flex; flex-direction: column; gap: 1em;">
   <div class="healer-search-bar" style="display: flex; gap: 8px;">
-    <input 
-      type="text" 
-      bind:value={query} 
-      placeholder="Ask a global question about your vault..." 
+    <input
+      type="text"
+      bind:value={query}
+      placeholder="Ask a global question about your vault..."
       aria-label="Search query"
       disabled={loading}
       style="flex-grow: 1;"
       onkeydown={(e) => e.key === 'Enter' && handleSearch()}
     />
-    <button 
-      class="mod-cta" 
-      disabled={loading} 
+    <button
+      class="mod-cta"
+      disabled={loading}
       aria-busy={loading}
       onclick={handleSearch}
     >
       {loading ? 'Searching...' : 'Search'}
     </button>
   </div>
+
+  {#if !loading && !answer && communities.length === 0}
+    <div class="healer-empty-state" style="text-align: center; padding: 3em; border: 2px dashed var(--background-modifier-border); border-radius: 8px; color: var(--text-muted); margin-top: 1em;">
+      <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 1em; opacity: 0.5;">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+      <p style="margin: 0; font-size: 1.1em;">Ask a question to explore insights from your knowledge graph.</p>
+      <p style="margin-top: 0.5em; font-size: 0.9em;">For example: "What are the main themes of my notes?"</p>
+    </div>
+  {/if}
 
   {#if loading}
     <div style="text-align: center; padding: 2em;">
