@@ -1116,10 +1116,10 @@ export class DatacoreAdapter extends BaseAdapter implements IDataviewPort {
         const iApp = this.app as App & {
             internalPlugins?: { getEnabledPluginById?: (id: string) => unknown };
         };
-        const getter = iApp.internalPlugins?.getEnabledPluginById;
+        const getter = iApp.internalPlugins?.getEnabledPluginById?.bind(iApp.internalPlugins);
         if (typeof getter !== 'function') return false;
         try {
-            const bookmarksInst = unwrapInternalPluginInstance(getter.call(iApp.internalPlugins, 'bookmarks'));
+            const bookmarksInst = unwrapInternalPluginInstance(getter('bookmarks'));
             if (isRecord(bookmarksInst) && Array.isArray(bookmarksInst['items'])) {
                 return isPathBookmarked(bookmarksInst['items'], path);
             }
@@ -1133,10 +1133,10 @@ export class DatacoreAdapter extends BaseAdapter implements IDataviewPort {
         const iApp = this.app as App & {
             internalPlugins?: { getEnabledPluginById?: (id: string) => unknown };
         };
-        const getter = iApp.internalPlugins?.getEnabledPluginById;
+        const getter = iApp.internalPlugins?.getEnabledPluginById?.bind(iApp.internalPlugins);
         if (typeof getter !== 'function') return false;
         try {
-            const starredInst = unwrapInternalPluginInstance(getter.call(iApp.internalPlugins, 'starred'));
+            const starredInst = unwrapInternalPluginInstance(getter('starred'));
             if (isRecord(starredInst)) {
                 const items = starredInst['items'];
                 if (isRecord(items) && items[path]) return true;
