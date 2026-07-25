@@ -519,3 +519,11 @@
 .is-hidden {
     display: none !important;
 }
+
+.healer-empty-state {
+    border: 1px dashed var(--background-modifier-border);
+    padding: 2em;
+    text-align: center;
+    border-radius: 8px;
+    color: var(--text-muted);
+}

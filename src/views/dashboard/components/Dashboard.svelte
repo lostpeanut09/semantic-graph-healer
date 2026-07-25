@@ -123,7 +123,10 @@
   </div>
   <div class="healer-history-list">
     {#if store.history.length === 0}
-      <p class="log-muted" style="color: var(--text-muted);">No actions performed yet.</p>
+      <div class="healer-empty-state">
+        <span aria-hidden="true" style="font-size: 2em; margin-bottom: 0.5em; display: block;">🕒</span>
+        <p style="margin: 0;">No actions performed yet. Execute suggestions to build your history.</p>
+      </div>
     {:else}
       {#each store.history.slice(-5).reverse() as item}
         <div class="healer-history-row" style="display: flex; gap: 8px; font-size: 0.9em; margin-bottom: 4px; align-items: center;">
