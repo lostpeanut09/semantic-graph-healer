@@ -1116,7 +1116,7 @@ export class DatacoreAdapter extends BaseAdapter implements IDataviewPort {
         const iApp = this.app as App & {
             internalPlugins?: { getEnabledPluginById?: (id: string) => unknown };
         };
-        const getter = iApp.internalPlugins?.getEnabledPluginById;
+        const getter = iApp.internalPlugins?.getEnabledPluginById?.bind(iApp.internalPlugins);
         if (typeof getter !== 'function') return false;
         try {
             const bookmarksInst = unwrapInternalPluginInstance(getter.call(iApp.internalPlugins, 'bookmarks'));
@@ -1133,7 +1133,7 @@ export class DatacoreAdapter extends BaseAdapter implements IDataviewPort {
         const iApp = this.app as App & {
             internalPlugins?: { getEnabledPluginById?: (id: string) => unknown };
         };
-        const getter = iApp.internalPlugins?.getEnabledPluginById;
+        const getter = iApp.internalPlugins?.getEnabledPluginById?.bind(iApp.internalPlugins);
         if (typeof getter !== 'function') return false;
         try {
             const starredInst = unwrapInternalPluginInstance(getter.call(iApp.internalPlugins, 'starred'));
