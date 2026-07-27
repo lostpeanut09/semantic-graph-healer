@@ -4,5 +4,6 @@
 **Action:** Always ensure that conditional text in interactive elements is mirrored exactly in its `aria-label`, and use `aria-busy` to communicate active loading states to screen readers.
 
 ## 2024-07-27 - Guidance-Driven Empty States for Advanced Features
+
 **Learning:** Advanced features like GraphRAG can suffer from "blank page syndrome" where users are unsure how to interact when first landing on the view, especially if there's no initial data or loading state.
 **Action:** Implement guidance-driven empty states (e.g., `healer-empty-state` pattern with dashed borders, brief instructions, and an `aria-hidden="true"` icon) before any interaction occurs to guide the user.
