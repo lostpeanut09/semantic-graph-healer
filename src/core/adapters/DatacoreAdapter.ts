@@ -1114,8 +1114,9 @@ export class DatacoreAdapter extends BaseAdapter implements IDataviewPort {
 
     private isFileBookmarked(path: string): boolean {
         const iApp = this.app as App & {
-            internalPlugins?: { getEnabledPluginById?: (id: string) => unknown };
+            internalPlugins?: { getEnabledPluginById?: (this: unknown, id: string) => unknown };
         };
+        // eslint-disable-next-line @typescript-eslint/unbound-method
         const getter = iApp.internalPlugins?.getEnabledPluginById;
         if (typeof getter !== 'function') return false;
         try {
@@ -1131,8 +1132,9 @@ export class DatacoreAdapter extends BaseAdapter implements IDataviewPort {
 
     private isFileStarredLegacy(path: string): boolean {
         const iApp = this.app as App & {
-            internalPlugins?: { getEnabledPluginById?: (id: string) => unknown };
+            internalPlugins?: { getEnabledPluginById?: (this: unknown, id: string) => unknown };
         };
+        // eslint-disable-next-line @typescript-eslint/unbound-method
         const getter = iApp.internalPlugins?.getEnabledPluginById;
         if (typeof getter !== 'function') return false;
         try {
