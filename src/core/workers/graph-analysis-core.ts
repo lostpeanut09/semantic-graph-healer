@@ -375,32 +375,32 @@ function runSimilarityAnalysis(graph: DirectedGraph, options: unknown, requestId
 
         candidates.forEach((target) => {
             const targetNeighbors = neighborsMap.get(target)!;
-            const shared = new Set<string>();
+            // ⚡ Bolt: Memory optimization. Instead of allocating a new Set for every pair
+            // to compute intersections, we compute sharedSize, adamicAdar, and ra on the fly.
+            // This turns a multi-pass allocation loop into a single zero-allocation pass,
+            // significantly reducing garbage collection overhead in O(V^2) loops.
+            let sharedSize = 0;
+            let adamicAdar = 0;
+            let ra = 0;
             const [smaller, larger] =
                 sourceNeighbors.size < targetNeighbors.size
                     ? [sourceNeighbors, targetNeighbors]
                     : [targetNeighbors, sourceNeighbors];
-            smaller.forEach((x) => {
-                if (larger.has(x)) shared.add(x);
+            smaller.forEach((z) => {
+                if (larger.has(z)) {
+                    sharedSize++;
+                    const deg = neighborsMap.get(z)?.size || 0;
+                    if (deg > 1) adamicAdar += 1 / Math.log(deg);
+                    if (deg > 0) ra += 1 / deg;
+                }
             });
-            if (shared.size < 2) return;
+            if (sharedSize < 2) return;
 
-            const unionSize = sourceNeighbors.size + targetNeighbors.size - shared.size;
-            const jaccard = shared.size / unionSize;
+            const unionSize = sourceNeighbors.size + targetNeighbors.size - sharedSize;
+            const jaccard = sharedSize / unionSize;
 
-            let adamicAdar = 0;
-            shared.forEach((z) => {
-                const deg = neighborsMap.get(z)?.size || 0;
-                if (deg > 1) adamicAdar += 1 / Math.log(deg);
-            });
-            const maxAA = shared.size * (1 / Math.log(2));
+            const maxAA = sharedSize * (1 / Math.log(2));
             const normalizedAA = maxAA > 0 ? Math.min(adamicAdar / maxAA, 1) : 0;
-
-            let ra = 0;
-            shared.forEach((z) => {
-                const deg = neighborsMap.get(z)?.size || 0;
-                if (deg > 0) ra += 1 / deg;
-            });
             const normalizedRA = Math.min(ra, 1);
 
             let temporalMultiplier = 1;
