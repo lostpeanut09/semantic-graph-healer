@@ -14,7 +14,7 @@
 
   async function handleSearch() {
     if (!query.trim()) return;
-    
+
     loading = true;
     answer = '';
     communities = [];
@@ -39,24 +39,37 @@
 
 <div class="healer-graphrag-container" style="padding: 1em; display: flex; flex-direction: column; gap: 1em;">
   <div class="healer-search-bar" style="display: flex; gap: 8px;">
-    <input 
-      type="text" 
-      bind:value={query} 
-      placeholder="Ask a global question about your vault..." 
+    <input
+      type="text"
+      bind:value={query}
+      placeholder="Ask a global question about your vault..."
       aria-label="Search query"
       disabled={loading}
       style="flex-grow: 1;"
       onkeydown={(e) => e.key === 'Enter' && handleSearch()}
     />
-    <button 
-      class="mod-cta" 
-      disabled={loading} 
+    <button
+      class="mod-cta"
+      disabled={loading}
       aria-busy={loading}
       onclick={handleSearch}
     >
       {loading ? 'Searching...' : 'Search'}
     </button>
   </div>
+
+  {#if !loading && !answer && communities.length === 0}
+    <div class="healer-empty-state" style="border: 2px dashed var(--background-modifier-border); border-radius: 8px; padding: 2.5em 1em; text-align: center; color: var(--text-muted); margin-top: 1em;">
+      <span aria-hidden="true" style="font-size: 2em; display: block; margin-bottom: 0.5em; opacity: 0.7;">🕸️</span>
+      <h3 style="margin: 0 0 0.5em 0; color: var(--text-normal);">GraphRAG is ready</h3>
+      <p style="margin: 0; font-size: 0.95em;">Try asking questions like:</p>
+      <ul style="list-style: none; padding: 0; margin: 1em 0 0 0; font-size: 0.9em; display: flex; flex-direction: column; gap: 8px;">
+        <li>"What are the main themes in my vault?"</li>
+        <li>"How do my notes on React connect to my notes on architecture?"</li>
+        <li>"Summarize the recent changes in my daily notes."</li>
+      </ul>
+    </div>
+  {/if}
 
   {#if loading}
     <div style="text-align: center; padding: 2em;">
