@@ -4,5 +4,6 @@
 **Action:** Always ensure that conditional text in interactive elements is mirrored exactly in its `aria-label`, and use `aria-busy` to communicate active loading states to screen readers.
 
 ## 2024-08-02 - GraphRAG Empty State
+
 **Learning:** To prevent 'blank page syndrome' in advanced features like GraphRAG, implement guidance-driven empty states using the 'healer-empty-state' container pattern (e.g., dashed border, brief description, and an icon) before any interaction occurs.
 **Action:** Add empty state containers with clear guidance and 'aria-hidden' decorative icons for initial states.
