@@ -1,3 +1,4 @@
+import { safeJsonParse } from './SecurityUtils';
 import { HealerLogger } from './HealerLogger';
 
 /**
@@ -66,7 +67,7 @@ export class CryptoUtils {
      * @returns A promise resolving to the imported CryptoKey.
      */
     public static async importKey(jwk: string): Promise<CryptoKey> {
-        const jwkObj = JSON.parse(jwk) as JsonWebKey;
+        const jwkObj = safeJsonParse(jwk) as JsonWebKey;
         return await crypto.subtle.importKey('jwk', jwkObj, { name: this.ALGORITHM, length: this.KEY_LENGTH }, true, [
             'encrypt',
             'decrypt',

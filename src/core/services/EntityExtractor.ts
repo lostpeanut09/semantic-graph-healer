@@ -3,6 +3,7 @@ import type { SemanticGraphHealerSettings } from '../../types';
 import type { LlmService } from '../LlmService';
 import type { AjsonStorage } from '../utils/AjsonStorage';
 import { HealerLogger } from '../utils/HealerLogger';
+import { safeJsonParse } from '../../core/utils/SecurityUtils';
 
 /**
  * Represents a semantic entity extracted from a note.
@@ -90,7 +91,7 @@ Only return the JSON. No markdown or meta-talk.
                 return;
             }
 
-            const parsed = JSON.parse(jsonMatch[0]) as {
+            const parsed = safeJsonParse(jsonMatch[0]) as {
                 entities: Omit<Entity, 'notePath'>[];
                 relationships: Omit<Relationship, 'notePath'>[];
             };
