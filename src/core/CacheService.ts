@@ -1,6 +1,7 @@
 import { Plugin, normalizePath } from 'obsidian';
 import type { Suggestion, HistoryItem, TopologicalMetrics } from '../types';
 import { HealerLogger } from './utils/HealerLogger';
+import { safeJsonParse } from './utils/SecurityUtils';
 
 /**
  * CacheService: Manages volatile plugin state (suggestions, history) in a
@@ -122,7 +123,7 @@ export class CacheService {
             if (exists) {
                 const raw = await adapter.read(this._cacheFilePath);
                 try {
-                    const parsed = JSON.parse(raw) as Partial<HealerCache>;
+                    const parsed = safeJsonParse(raw) as Partial<HealerCache>;
                     this._cache = {
                         pendingSuggestions: Array.isArray(parsed.pendingSuggestions) ? parsed.pendingSuggestions : [],
                         history: Array.isArray(parsed.history) ? parsed.history : [],
