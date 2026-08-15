@@ -1,12 +1,12 @@
 <script lang="ts">
   import type { Suggestion } from '../../../types';
 
-  let { 
-    suggestion, 
-    isFixed = false, 
-    onExecute, 
-    onIgnore, 
-    onReasoning, 
+  let {
+    suggestion,
+    isFixed = false,
+    onExecute,
+    onIgnore,
+    onReasoning,
     onVerifyAI,
     onShowReasoning,
     onResolveChoice
@@ -73,13 +73,13 @@
         <div style="margin-top: 4px; color: var(--text-muted); font-style: italic; display: flex; justify-content: space-between; align-items: center;">
           <span>Recommended: {suggestion.reasoning.winner}</span>
           {#if onResolveChoice && suggestion.meta?.competingValues}
-            <button 
-              class="healer-btn-apply" 
+            <button
+              class="healer-btn-apply"
               aria-label="Apply recommended fix for {suggestion.link}"
               style="padding: 2px 8px; font-size: 0.85em; cursor: pointer; background-color: var(--interactive-accent); color: var(--text-on-accent); border: none; border-radius: 4px;"
               onclick={() => onResolveChoice!(
-                suggestion, 
-                suggestion.reasoning!.winner!, 
+                suggestion,
+                suggestion.reasoning!.winner!,
                 suggestion.meta!.competingValues!.filter((v: string) => v !== suggestion.reasoning!.winner)
               )}
             >
@@ -119,7 +119,7 @@
 {#if onVerifyAI && (suggestion.type === 'ai' || suggestion.id.startsWith('branch_') || suggestion.id.startsWith('tag_'))}
       <button
         class="healer-btn-verify"
-        aria-label="{suggestion.isVerifying ? 'Verifying...' : 'AI verify'} fix for {suggestion.link}"
+        aria-label="{suggestion.isVerifying ? 'Verifying' : 'AI verify'} fix for {suggestion.link}"
         aria-busy={suggestion.isVerifying || false}
         disabled={isFixed || suggestion.isVerifying}
         onclick={() => onVerifyAI(suggestion)}
@@ -130,4 +130,3 @@
     <button class="healer-btn-ignore" aria-label="Ignore suggestion for {suggestion.link}" disabled={isFixed} onclick={() => onIgnore(suggestion)}>Ignore</button>
   </div>
 </div>
-
