@@ -157,7 +157,8 @@ export class KeychainService {
         if (!jwk) {
             const storedValue = this.context.settings.sghealerMasterKeyJWK || null;
             if (storedValue) {
-                // SOTA 2026: The master key in data.json is encrypted with the legacy key + salt (Sync Layer)
+                // SECURITY FIX: We still decrypt existing synced keys for backwards compatibility,
+                // but we will no longer save new ones using the hardcoded key.
                 jwk = await CryptoUtils.decrypt(storedValue, this.LEGACY_MASTER_KEY, salt);
 
                 // Compatibility fallback: handle legacy plaintext JWK in settings
@@ -199,16 +200,16 @@ export class KeychainService {
                 }
             }
 
-            // B. Save to Sync-Resilient Storage (Encrypted with Legacy Key for cross-device recovery)
+            // B. Removed insecure Sync-Resilient Storage
+            // SECURITY FIX: Master key is no longer synced to prevent hardcoded secret vulnerability.
             try {
-                const encryptedForSync = await CryptoUtils.encrypt(jwk, this.LEGACY_MASTER_KEY, salt);
-                if (this.context.settings.sghealerMasterKeyJWK !== encryptedForSync) {
-                    this.context.settings.sghealerMasterKeyJWK = encryptedForSync;
+                if (this.context.settings.sghealerMasterKeyJWK) {
+                    this.context.settings.sghealerMasterKeyJWK = undefined;
                     await this.context.saveSettings();
-                    HealerLogger.info('Master key persisted/mirrored to sync-resilient storage.');
+                    HealerLogger.info('Cleared insecure sync-resilient master key.');
                 }
             } catch (e) {
-                HealerLogger.error('Failed to encrypt master key for sync.', e);
+                HealerLogger.error('Failed to clear insecure master key.', e);
             }
         }
     }

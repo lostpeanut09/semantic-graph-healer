@@ -64,39 +64,36 @@ describe('KeychainService', () => {
     });
 
     describe('initializeMasterKey', () => {
-        it('should generate and save a new master key to SecretStorage AND to data.json (encrypted) for sync', async () => {
+        it('should generate and save a new master key ONLY to SecretStorage', async () => {
             mockSecretStorage.getSecret.mockResolvedValue(null);
 
             await service.initializeMasterKey();
 
             expect(mockSecretStorage.setSecret).toHaveBeenCalledWith('sghealer-masterkey', expect.any(String));
-            // New behavior: mirrored to data.json for sync resilience
-            expect(mockContext.settings.sghealerMasterKeyJWK).toBeDefined();
-            expect(mockContext.settings.sghealerMasterKeyJWK).not.toContain('"kty":"oct"');
-            expect(mockContext.saveSettings).toHaveBeenCalled();
+            // Security fix: no longer mirrored to data.json
+            expect(mockContext.settings.sghealerMasterKeyJWK).toBeUndefined();
         });
 
-        it('should save to data.json only if SecretStorage is NOT available', async () => {
+        it('should NOT save to data.json even if SecretStorage is NOT available', async () => {
             mockApp.secretStorage = null; // Disable secret storage
             const serviceNoSS = new KeychainService(mockContext);
 
             await serviceNoSS.initializeMasterKey();
 
-            expect(mockContext.settings.sghealerMasterKeyJWK).toBeDefined();
-            expect(mockContext.saveSettings).toHaveBeenCalled();
+            expect(mockContext.settings.sghealerMasterKeyJWK).toBeUndefined();
         });
 
-        it('should mirror master key from SecretStorage to data.json if missing in settings', async () => {
+        it('should clear master key from data.json if present in settings', async () => {
             const key = await CryptoUtils.generateKey();
             const jwk = await CryptoUtils.exportKey(key);
             mockSecretStorage.getSecret.mockResolvedValue(jwk);
-            mockContext.settings.sghealerMasterKeyJWK = undefined;
+            mockContext.settings.sghealerMasterKeyJWK = 'some-insecure-value';
 
             await service.initializeMasterKey();
 
             expect(mockSecretStorage.setSecret).toHaveBeenCalledWith('sghealer-masterkey', jwk);
-            // Should now be mirrored to settings (encrypted)
-            expect(mockContext.settings.sghealerMasterKeyJWK).toBeDefined();
+            // Should now be cleared from settings
+            expect(mockContext.settings.sghealerMasterKeyJWK).toBeUndefined();
             expect(mockContext.saveSettings).toHaveBeenCalled();
         });
 
