@@ -14,7 +14,7 @@
 
   async function handleSearch() {
     if (!query.trim()) return;
-    
+
     loading = true;
     answer = '';
     communities = [];
@@ -39,18 +39,18 @@
 
 <div class="healer-graphrag-container" style="padding: 1em; display: flex; flex-direction: column; gap: 1em;">
   <div class="healer-search-bar" style="display: flex; gap: 8px;">
-    <input 
-      type="text" 
-      bind:value={query} 
-      placeholder="Ask a global question about your vault..." 
+    <input
+      type="text"
+      bind:value={query}
+      placeholder="Ask a global question about your vault..."
       aria-label="Search query"
       disabled={loading}
       style="flex-grow: 1;"
       onkeydown={(e) => e.key === 'Enter' && handleSearch()}
     />
-    <button 
-      class="mod-cta" 
-      disabled={loading} 
+    <button
+      class="mod-cta"
+      disabled={loading}
       aria-busy={loading}
       onclick={handleSearch}
     >
@@ -71,6 +71,13 @@
       <div class="healer-rag-answer" style="line-height: 1.6; white-space: pre-wrap;">
         {answer}
       </div>
+    </div>
+  {/if}
+
+  {#if !loading && !answer && communities.length === 0}
+    <div class="healer-card healer-empty-state" style="border-style: dashed; background: transparent; text-align: center; padding: 2em; color: var(--text-muted);">
+      <span aria-hidden="true" style="font-size: 2em; display: block; margin-bottom: 0.5em;">🔍</span>
+      <p style="margin: 0;">Search your knowledge graph to discover hidden connections and insights.</p>
     </div>
   {/if}
 
