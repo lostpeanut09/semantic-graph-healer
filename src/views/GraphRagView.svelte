@@ -14,7 +14,7 @@
 
   async function handleSearch() {
     if (!query.trim()) return;
-    
+
     loading = true;
     answer = '';
     communities = [];
@@ -39,18 +39,18 @@
 
 <div class="healer-graphrag-container" style="padding: 1em; display: flex; flex-direction: column; gap: 1em;">
   <div class="healer-search-bar" style="display: flex; gap: 8px;">
-    <input 
-      type="text" 
-      bind:value={query} 
-      placeholder="Ask a global question about your vault..." 
+    <input
+      type="text"
+      bind:value={query}
+      placeholder="Ask a global question about your vault..."
       aria-label="Search query"
       disabled={loading}
       style="flex-grow: 1;"
       onkeydown={(e) => e.key === 'Enter' && handleSearch()}
     />
-    <button 
-      class="mod-cta" 
-      disabled={loading} 
+    <button
+      class="mod-cta"
+      disabled={loading}
       aria-busy={loading}
       onclick={handleSearch}
     >
@@ -62,6 +62,16 @@
     <div style="text-align: center; padding: 2em;">
       <div class="healer-spinner"></div>
       <p style="color: var(--text-muted); margin-top: 1em;">Synthesizing answer from knowledge graph clusters...</p>
+    </div>
+  {/if}
+
+  {#if !loading && !answer && communities.length === 0}
+    <div class="healer-empty-state healer-card" style="padding: 2em; text-align: center; border-style: dashed; border-color: var(--background-modifier-border); margin-top: 2em;">
+      <span aria-hidden="true" style="font-size: 2em; opacity: 0.5;">🧠</span>
+      <h3 style="margin-top: 0.5em; color: var(--text-normal);">Explore your Vault's Topology</h3>
+      <p style="color: var(--text-muted); font-size: 0.9em; max-width: 400px; margin: 0.5em auto 0;">
+        Ask questions about themes, clusters, or bridging concepts across your entire knowledge graph.
+      </p>
     </div>
   {/if}
 
