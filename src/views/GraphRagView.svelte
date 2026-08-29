@@ -58,6 +58,13 @@
     </button>
   </div>
 
+  {#if !loading && !answer && communities.length === 0}
+    <div class="healer-card healer-empty-state" style="padding: 2em; text-align: center; border-style: dashed; color: var(--text-muted); border-width: 2px;">
+      <span aria-hidden="true" style="font-size: 2em; display: block; margin-bottom: 0.5em;">🔍</span>
+      <p style="margin: 0;">Search your vault to explore semantic clusters and hidden connections.</p>
+    </div>
+  {/if}
+
   {#if loading}
     <div style="text-align: center; padding: 2em;">
       <div class="healer-spinner"></div>
