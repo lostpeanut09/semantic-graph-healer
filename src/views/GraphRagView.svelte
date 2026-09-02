@@ -74,6 +74,13 @@
     </div>
   {/if}
 
+  {#if !loading && !answer && communities.length === 0}
+    <div class="healer-card healer-empty-state" style="border-style: dashed;">
+      <span aria-hidden="true">🔍</span>
+      <p>Enter a query above to start exploring your vault with GraphRAG.</p>
+    </div>
+  {/if}
+
   {#if communities.length > 0}
     <div class="healer-rag-context" style="margin-top: 1em;">
       <h4 style="color: var(--text-muted); font-size: 0.9em; text-transform: uppercase; letter-spacing: 0.05em;">Community Context</h4>
