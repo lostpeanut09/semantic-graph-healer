@@ -110,8 +110,13 @@
         />
       {/each}
     {:else}
-      <div class="healer-card" style="padding: 1em; text-align: center; color: var(--text-muted);">
-        <p>No issues found for this category.</p>
+      <div class="healer-card healer-empty-state" style="padding: 2em; text-align: center; color: var(--text-muted); border-style: dashed; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="opacity: 0.5;">
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="m9 12 2 2 4-4"></path>
+        </svg>
+        <p style="margin: 0;">No issues found for this category.</p>
+        <p style="font-size: 0.85em; opacity: 0.8; margin: 0;">Your graph looks healthy here.</p>
       </div>
     {/if}
   </div>
