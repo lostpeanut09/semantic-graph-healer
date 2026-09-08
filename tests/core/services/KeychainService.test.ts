@@ -64,29 +64,25 @@ describe('KeychainService', () => {
     });
 
     describe('initializeMasterKey', () => {
-        it('should generate and save a new master key to SecretStorage AND to data.json (encrypted) for sync', async () => {
+        it('should generate and save a new master key to SecretStorage and NOT to data.json', async () => {
             mockSecretStorage.getSecret.mockResolvedValue(null);
 
             await service.initializeMasterKey();
 
             expect(mockSecretStorage.setSecret).toHaveBeenCalledWith('sghealer-masterkey', expect.any(String));
-            // New behavior: mirrored to data.json for sync resilience
-            expect(mockContext.settings.sghealerMasterKeyJWK).toBeDefined();
-            expect(mockContext.settings.sghealerMasterKeyJWK).not.toContain('"kty":"oct"');
-            expect(mockContext.saveSettings).toHaveBeenCalled();
+            expect(mockContext.settings.sghealerMasterKeyJWK).toBeUndefined();
         });
 
-        it('should save to data.json only if SecretStorage is NOT available', async () => {
+        it('should NOT save to data.json even if SecretStorage is NOT available', async () => {
             mockApp.secretStorage = null; // Disable secret storage
             const serviceNoSS = new KeychainService(mockContext);
 
             await serviceNoSS.initializeMasterKey();
 
-            expect(mockContext.settings.sghealerMasterKeyJWK).toBeDefined();
-            expect(mockContext.saveSettings).toHaveBeenCalled();
+            expect(mockContext.settings.sghealerMasterKeyJWK).toBeUndefined();
         });
 
-        it('should mirror master key from SecretStorage to data.json if missing in settings', async () => {
+        it('should NOT mirror master key from SecretStorage to data.json if missing in settings', async () => {
             const key = await CryptoUtils.generateKey();
             const jwk = await CryptoUtils.exportKey(key);
             mockSecretStorage.getSecret.mockResolvedValue(jwk);
@@ -95,9 +91,7 @@ describe('KeychainService', () => {
             await service.initializeMasterKey();
 
             expect(mockSecretStorage.setSecret).toHaveBeenCalledWith('sghealer-masterkey', jwk);
-            // Should now be mirrored to settings (encrypted)
-            expect(mockContext.settings.sghealerMasterKeyJWK).toBeDefined();
-            expect(mockContext.saveSettings).toHaveBeenCalled();
+            expect(mockContext.settings.sghealerMasterKeyJWK).toBeUndefined();
         });
 
         it('should flag corruption if JWK import fails', async () => {
@@ -107,34 +101,6 @@ describe('KeychainService', () => {
 
             expect(mockContext.settings.keychainCorrupted).toBe(true);
             expect(mockContext.saveSettings).toHaveBeenCalled();
-        });
-    });
-
-    describe('migrateLegacyKeys', () => {
-        it('should migrate keys from legacy hardcoded key to dynamic key', async () => {
-            const plaintext = 'sk-legacy-key';
-            const legacyMaster = 'semantic-healer-sota-2026';
-            const salt = 'test-app-id';
-            const encrypted = await CryptoUtils.encrypt(plaintext, legacyMaster, salt);
-
-            // Setup legacy encrypted key in settings
-            mockContext.settings.openaiLlmApiKeyEncrypted = encrypted;
-            mockContext.settings.keychainMigrationComplete = false;
-
-            // Ensure master key is initialized
-            await service.initializeMasterKey();
-
-            const migrated = await service.migrateLegacyKeys();
-
-            expect(migrated).toBe(true);
-            expect(mockContext.settings.keychainMigrationComplete).toBe(true);
-
-            // Verify it was re-encrypted with the new key (which we don't know, so we check if it's different)
-            expect(mockContext.settings.openaiLlmApiKeyEncrypted).not.toBe(encrypted);
-
-            // Verify we can decrypt it with getApiKey
-            const retrieved = await service.getApiKey('openai');
-            expect(retrieved).toBe(plaintext);
         });
     });
 

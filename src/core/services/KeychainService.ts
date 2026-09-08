@@ -45,8 +45,6 @@ export class KeychainService {
     private isSecureStorageAvailable: boolean = false;
     /** The dynamic master key used for the second layer of encryption. */
     private dynamicMasterKey: CryptoKey | null = null;
-    /** Hardcoded key used for decrypting legacy keys during migration. */
-    private readonly LEGACY_MASTER_KEY = 'semantic-healer-sota-2026';
 
     /**
      * Creates a new instance of KeychainService.
@@ -141,7 +139,6 @@ export class KeychainService {
     async initializeMasterKey(): Promise<void> {
         const keyName = 'sghealer-masterkey';
         let jwk: string | null = null;
-        const salt = this.getStableSalt();
 
         // 1. Try to load from SecretStorage (Primary: Local-First security)
         if (this.isSecureStorageAvailable && this.storage) {
@@ -157,15 +154,10 @@ export class KeychainService {
         if (!jwk) {
             const storedValue = this.context.settings.sghealerMasterKeyJWK || null;
             if (storedValue) {
-                // SOTA 2026: The master key in data.json is encrypted with the legacy key + salt (Sync Layer)
-                jwk = await CryptoUtils.decrypt(storedValue, this.LEGACY_MASTER_KEY, salt);
-
                 // Compatibility fallback: handle legacy plaintext JWK in settings
-                if (!jwk && storedValue.includes('"kty":"oct"')) {
+                if (storedValue.includes('"kty":"oct"')) {
                     jwk = storedValue;
                     HealerLogger.info('Master key found in data.json (Legacy Plaintext).');
-                } else if (jwk) {
-                    HealerLogger.info('Master key recovered from data.json (Encrypted Sync Layer).');
                 }
             }
         }
@@ -198,18 +190,6 @@ export class KeychainService {
                     HealerLogger.error('Failed to save master key to SecretStorage.', e);
                 }
             }
-
-            // B. Save to Sync-Resilient Storage (Encrypted with Legacy Key for cross-device recovery)
-            try {
-                const encryptedForSync = await CryptoUtils.encrypt(jwk, this.LEGACY_MASTER_KEY, salt);
-                if (this.context.settings.sghealerMasterKeyJWK !== encryptedForSync) {
-                    this.context.settings.sghealerMasterKeyJWK = encryptedForSync;
-                    await this.context.saveSettings();
-                    HealerLogger.info('Master key persisted/mirrored to sync-resilient storage.');
-                }
-            } catch (e) {
-                HealerLogger.error('Failed to encrypt master key for sync.', e);
-            }
         }
     }
 
@@ -218,60 +198,9 @@ export class KeychainService {
      * D-03
      */
     async migrateLegacyKeys(): Promise<boolean> {
-        if (this.context.settings.keychainMigrationComplete) return false;
-        if (!this.dynamicMasterKey) await this.initializeMasterKey();
-
-        HealerLogger.info('Starting keychain migration to dynamic encryption...');
-        const types: ApiKeyType[] = ['openai', 'anthropic', 'deepseek', 'infranodus', 'custom'];
-        const salt = this.getStableSalt();
-        let migratedAny = false;
-        let failedAny = false;
-
-        for (const type of types) {
-            const storageKey = `semantic-graph-healer-${type}-key`;
-            let plaintext: string | null = null;
-            let foundLegacy = false;
-
-            // 1. Try to get from storage (Double-Locked)
-            if (this.isSecureStorageAvailable && this.storage) {
-                const encVal = await this.storage.get(storageKey);
-                if (encVal && encVal.startsWith('enc:')) {
-                    foundLegacy = true;
-                    plaintext = await CryptoUtils.decrypt(encVal.substring(4), this.LEGACY_MASTER_KEY, salt);
-                }
-            }
-
-            // 2. Try to get from settings (Encrypted)
-            if (!plaintext) {
-                const settingsKey = `${type}LlmApiKeyEncrypted` as keyof typeof this.context.settings;
-                const encVal = this.context.settings[settingsKey];
-                if (encVal && typeof encVal === 'string') {
-                    foundLegacy = true;
-                    plaintext = await CryptoUtils.decrypt(encVal, this.LEGACY_MASTER_KEY, salt);
-                }
-            }
-
-            if (plaintext) {
-                // Re-encrypt with new dynamic key
-                await this.setApiKey(type, plaintext);
-                migratedAny = true;
-                HealerLogger.info(`Migrated ${type} key to dynamic encryption.`);
-            } else if (foundLegacy) {
-                failedAny = true;
-                HealerLogger.error(
-                    `Failed to decrypt legacy ${type} key during migration. Salt or master key mismatch.`,
-                );
-            }
-        }
-
-        if (!failedAny) {
-            this.context.settings.keychainMigrationComplete = true;
-            await this.context.saveSettings();
-            HealerLogger.info('Keychain migration complete.');
-        } else {
-            HealerLogger.warn('Keychain migration partially failed. Will retry on next boot.');
-        }
-        return migratedAny;
+        this.context.settings.keychainMigrationComplete = true;
+        await this.context.saveSettings();
+        return false;
     }
 
     /**
