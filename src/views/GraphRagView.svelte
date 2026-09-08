@@ -58,6 +58,14 @@
     </button>
   </div>
 
+  {#if !loading && !answer && communities.length === 0}
+    <div class="healer-card healer-empty-state" style="padding: 2em; text-align: center; color: var(--text-muted); border-style: dashed; border-width: 1px; border-color: var(--background-modifier-border); border-radius: 8px;">
+      <div aria-hidden="true" style="font-size: 2em; margin-bottom: 0.5em; color: var(--text-faint);">🧭</div>
+      <h3 style="margin-top: 0; color: var(--text-normal);">Explore your Graph</h3>
+      <p>Ask a question above to synthesize insights across your entire knowledge graph.</p>
+    </div>
+  {/if}
+
   {#if loading}
     <div style="text-align: center; padding: 2em;">
       <div class="healer-spinner"></div>
