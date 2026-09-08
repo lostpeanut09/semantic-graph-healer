@@ -110,5 +110,4 @@ describe('KeychainService Sync Regression', () => {
         expect(retrievedB).toBeNull();
         expect(settingsB.keychainCorrupted).toBe(true);
     });
-
 });
