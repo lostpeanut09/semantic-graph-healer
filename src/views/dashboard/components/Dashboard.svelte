@@ -110,8 +110,10 @@
         />
       {/each}
     {:else}
-      <div class="healer-card" style="padding: 1em; text-align: center; color: var(--text-muted);">
-        <p>No issues found for this category.</p>
+      <div class="healer-card healer-empty-state" style="padding: 2em 1em; text-align: center; color: var(--text-muted); border-style: dashed; border-width: 2px;">
+        <div aria-hidden="true" style="font-size: 2em; margin-bottom: 0.5em; opacity: 0.5;">✨</div>
+        <p style="margin: 0; font-weight: 500;">No issues found for this category.</p>
+        <p style="margin-top: 0.5em; font-size: 0.9em; opacity: 0.8;">Your semantic graph is looking healthy!</p>
       </div>
     {/if}
   </div>
