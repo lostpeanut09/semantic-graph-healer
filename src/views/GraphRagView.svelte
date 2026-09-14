@@ -63,6 +63,11 @@
       <div class="healer-spinner"></div>
       <p style="color: var(--text-muted); margin-top: 1em;">Synthesizing answer from knowledge graph clusters...</p>
     </div>
+  {:else if !answer && communities.length === 0}
+    <div class="healer-card healer-empty-state" style="padding: 2em; text-align: center; border-style: dashed; border-color: var(--background-modifier-border); color: var(--text-muted); margin-top: 1em; border-radius: 8px;">
+      <span aria-hidden="true" style="font-size: 2em; margin-bottom: 0.5em; display: block;">🔍</span>
+      <p style="margin: 0;">Enter a query above to explore your vault's knowledge graph.</p>
+    </div>
   {/if}
 
   {#if answer}
