@@ -110,7 +110,9 @@
         />
       {/each}
     {:else}
-      <div class="healer-card" style="padding: 1em; text-align: center; color: var(--text-muted);">
+      <div class="healer-card healer-empty-state" style="padding: 2em; text-align: center; color: var(--text-muted); border-style: dashed; border-width: 2px; border-color: var(--background-modifier-border);">
+        <div aria-hidden="true" style="font-size: 2em; margin-bottom: 0.5em;">🎉</div>
+        <h3 style="margin-top: 0; color: var(--text-normal);">All clear!</h3>
         <p>No issues found for this category.</p>
       </div>
     {/if}
