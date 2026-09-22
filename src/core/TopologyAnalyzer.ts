@@ -433,8 +433,11 @@ export class TopologyAnalyzer {
 
         // Build a set of all mentioned paths (targets)
         const allTargets = new Set<string>();
-        for (const targets of Object.values(resolvedLinks)) {
-            for (const targetPath of Object.keys(targets)) {
+        // ⚡ Bolt Optimization: Replace nested Object.values/keys with for...in loops
+        // Avoids O(N) array allocations for massive resolvedLinks objects (e.g. 10k+ nodes)
+        for (const sourcePath in resolvedLinks) {
+            const targets = resolvedLinks[sourcePath];
+            for (const targetPath in targets) {
                 allTargets.add(targetPath);
             }
         }

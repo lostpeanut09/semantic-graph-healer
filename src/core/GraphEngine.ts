@@ -158,7 +158,9 @@ export class GraphEngine {
 
         // 2. Add Typed and Weighted Edges (with guardrails)
         let edgeCount = 0;
-        for (const [sourcePath, targets] of Object.entries(resolvedLinks)) {
+        // ⚡ Bolt Optimization: Avoid O(N) array allocation with Object.entries over massive objects
+        for (const sourcePath in resolvedLinks) {
+            const targets = resolvedLinks[sourcePath];
             if (!this.graph.hasNode(sourcePath)) continue;
             if (useGuardrails && edgeCount >= maxEdges) break;
 
@@ -179,7 +181,9 @@ export class GraphEngine {
                 }
             }
 
-            for (const [targetPath, rawCount] of Object.entries(targets)) {
+            // ⚡ Bolt Optimization: Avoid O(N) array allocation with Object.entries
+            for (const targetPath in targets) {
+                const rawCount = targets[targetPath];
                 if (useGuardrails && edgeCount >= maxEdges) break;
                 if (!this.graph.hasNode(targetPath)) continue;
                 if (sourcePath === targetPath) continue;
