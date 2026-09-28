@@ -110,6 +110,6 @@ describe('Dashboard Component', () => {
         blackHoleTab.click();
         flushSync();
 
-        expect(target.textContent).toContain('No issues found for this category.');
+        expect(target.textContent).toContain('No issues found');
     });
 });

@@ -110,8 +110,10 @@
         />
       {/each}
     {:else}
-      <div class="healer-card" style="padding: 1em; text-align: center; color: var(--text-muted);">
-        <p>No issues found for this category.</p>
+      <div class="healer-card healer-empty-state" style="padding: 2em; text-align: center; color: var(--text-muted); border-style: dashed; border-width: 2px;">
+        <div aria-hidden="true" style="font-size: 2em; margin-bottom: 0.5em;">✨</div>
+        <p style="margin: 0; font-weight: bold; color: var(--text-normal);">No issues found</p>
+        <p style="margin: 0.5em 0 0 0; font-size: 0.9em;">Your graph is looking healthy!</p>
       </div>
     {/if}
   </div>
