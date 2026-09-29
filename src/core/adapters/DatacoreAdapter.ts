@@ -1116,6 +1116,7 @@ export class DatacoreAdapter extends BaseAdapter implements IDataviewPort {
         const iApp = this.app as App & {
             internalPlugins?: { getEnabledPluginById?: (id: string) => unknown };
         };
+        // eslint-disable-next-line @typescript-eslint/unbound-method
         const getter = iApp.internalPlugins?.getEnabledPluginById;
         if (typeof getter !== 'function') return false;
         try {
@@ -1133,6 +1134,7 @@ export class DatacoreAdapter extends BaseAdapter implements IDataviewPort {
         const iApp = this.app as App & {
             internalPlugins?: { getEnabledPluginById?: (id: string) => unknown };
         };
+        // eslint-disable-next-line @typescript-eslint/unbound-method
         const getter = iApp.internalPlugins?.getEnabledPluginById;
         if (typeof getter !== 'function') return false;
         try {
