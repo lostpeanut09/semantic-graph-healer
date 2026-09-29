@@ -34,11 +34,12 @@ export class NativeVaultAdapter extends BaseAdapter {
         };
         const includeNonMarkdown = appWithSettings.settings?.includeNonMarkdownHubs ?? false;
 
-        this.logDebug(`getLinks: resolvedLinks count: ${Object.keys(resolvedLinks).length}`);
-        for (const [rawSource, targets] of Object.entries(resolvedLinks)) {
+        // Skip massive Object.keys() allocation for logging
+        for (const rawSource in resolvedLinks) {
+            const targets = resolvedLinks[rawSource];
             const sourcePath = normalizeVaultPath(this.app, rawSource);
-            this.logDebug(`getLinks: sourcePath: ${sourcePath}, targets: ${Object.keys(targets).length}`);
-            for (const rawTarget of Object.keys(targets)) {
+            // Skipping the length logging directly since we use for..in now
+            for (const rawTarget in targets) {
                 // If count > 1, we might want to extract individual positions,
                 // but resolvedLinks is an aggregate. For precision, we'd need getFileCache.
                 // For now, we return the aggregate edge.

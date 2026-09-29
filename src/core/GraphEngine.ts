@@ -158,7 +158,8 @@ export class GraphEngine {
 
         // 2. Add Typed and Weighted Edges (with guardrails)
         let edgeCount = 0;
-        for (const [sourcePath, targets] of Object.entries(resolvedLinks)) {
+        for (const sourcePath in resolvedLinks) {
+            const targets = resolvedLinks[sourcePath];
             if (!this.graph.hasNode(sourcePath)) continue;
             if (useGuardrails && edgeCount >= maxEdges) break;
 
@@ -179,13 +180,15 @@ export class GraphEngine {
                 }
             }
 
-            for (const [targetPath, rawCount] of Object.entries(targets)) {
+            for (const targetPath in targets) {
+                const rawCount = targets[targetPath];
                 if (useGuardrails && edgeCount >= maxEdges) break;
                 if (!this.graph.hasNode(targetPath)) continue;
                 if (sourcePath === targetPath) continue;
 
                 let edgeType = 'related'; // default
-                for (const [key, paths] of Object.entries(frontmatterLinks)) {
+                for (const key in frontmatterLinks) {
+                    const paths = frontmatterLinks[key];
                     if (paths.includes(targetPath)) {
                         for (const h of this.settings.hierarchies) {
                             if (h.up?.includes(key)) edgeType = 'up';
