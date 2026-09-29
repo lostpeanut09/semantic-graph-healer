@@ -433,8 +433,9 @@ export class TopologyAnalyzer {
 
         // Build a set of all mentioned paths (targets)
         const allTargets = new Set<string>();
-        for (const targets of Object.values(resolvedLinks)) {
-            for (const targetPath of Object.keys(targets)) {
+        for (const sourcePath in resolvedLinks) {
+            const targets = resolvedLinks[sourcePath];
+            for (const targetPath in targets) {
                 allTargets.add(targetPath);
             }
         }
