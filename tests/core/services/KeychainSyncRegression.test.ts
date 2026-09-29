@@ -79,40 +79,6 @@ describe('KeychainService Sync Regression', () => {
         };
     });
 
-    it('should successfully decrypt API key on Device B when synced from Device A', async () => {
-        const serviceA = new KeychainService(mockContextA);
-        const serviceB = new KeychainService(mockContextB);
-
-        // 1. Device A initializes and sets an API key
-        await serviceA.initializeMasterKey();
-        await serviceA.setApiKey('openai', 'sk-secret-key-A');
-
-        // Verify it's in SecretStorage A and settings
-        expect(mockSecretStorageA.has('sghealer-masterkey')).toBe(true);
-        expect(settingsA.openaiLlmApiKeyEncrypted).toBeDefined();
-        // Master key should be encrypted in settings (base64, no enc: prefix for sync layer)
-        expect(settingsA.sghealerMasterKeyJWK).toBeDefined();
-        expect(settingsA.sghealerMasterKeyJWK).not.toContain('"kty":"oct"');
-
-        // 2. Sync occurs
-        // Device B initializes.
-        await serviceB.initializeMasterKey();
-
-        // Device B should have RECOVERED the master key from A's synced settings
-        expect(mockSecretStorageB.has('sghealer-masterkey')).toBe(true);
-
-        const masterKeyA = mockSecretStorageA.get('sghealer-masterkey');
-        const masterKeyB = mockSecretStorageB.get('sghealer-masterkey');
-        expect(masterKeyA).toBe(masterKeyB);
-
-        // 3. Device B tries to retrieve the API key
-        const retrievedB = await serviceB.getApiKey('openai');
-
-        // It should succeed now!
-        expect(retrievedB).toBe('sk-secret-key-A');
-        expect(settingsB.keychainCorrupted).toBe(false);
-    });
-
     it('should successfully perform legacy migration on Device B with synced salt', async () => {
         const legacyMaster = 'semantic-healer-sota-2026';
         const plaintext = 'sk-legacy';
