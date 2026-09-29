@@ -141,7 +141,6 @@ export class KeychainService {
     async initializeMasterKey(): Promise<void> {
         const keyName = 'sghealer-masterkey';
         let jwk: string | null = null;
-        const salt = this.getStableSalt();
 
         // 1. Try to load from SecretStorage (Primary: Local-First security)
         if (this.isSecureStorageAvailable && this.storage) {
@@ -150,23 +149,6 @@ export class KeychainService {
                 if (jwk) HealerLogger.info('Master key found in SecretStorage.');
             } catch (e) {
                 HealerLogger.error('Failed to read master key from SecretStorage.', e);
-            }
-        }
-
-        // 2. Try to load from data.json fallback (Secondary: Sync-Resilience)
-        if (!jwk) {
-            const storedValue = this.context.settings.sghealerMasterKeyJWK || null;
-            if (storedValue) {
-                // SOTA 2026: The master key in data.json is encrypted with the legacy key + salt (Sync Layer)
-                jwk = await CryptoUtils.decrypt(storedValue, this.LEGACY_MASTER_KEY, salt);
-
-                // Compatibility fallback: handle legacy plaintext JWK in settings
-                if (!jwk && storedValue.includes('"kty":"oct"')) {
-                    jwk = storedValue;
-                    HealerLogger.info('Master key found in data.json (Legacy Plaintext).');
-                } else if (jwk) {
-                    HealerLogger.info('Master key recovered from data.json (Encrypted Sync Layer).');
-                }
             }
         }
 
@@ -188,7 +170,7 @@ export class KeychainService {
             jwk = await CryptoUtils.exportKey(this.dynamicMasterKey);
         }
 
-        // 4. Persistence & Sync Propagation
+        // 4. Persistence
         if (this.dynamicMasterKey && jwk) {
             // A. Save to Local Secure Storage
             if (this.isSecureStorageAvailable && this.storage) {
@@ -197,18 +179,6 @@ export class KeychainService {
                 } catch (e) {
                     HealerLogger.error('Failed to save master key to SecretStorage.', e);
                 }
-            }
-
-            // B. Save to Sync-Resilient Storage (Encrypted with Legacy Key for cross-device recovery)
-            try {
-                const encryptedForSync = await CryptoUtils.encrypt(jwk, this.LEGACY_MASTER_KEY, salt);
-                if (this.context.settings.sghealerMasterKeyJWK !== encryptedForSync) {
-                    this.context.settings.sghealerMasterKeyJWK = encryptedForSync;
-                    await this.context.saveSettings();
-                    HealerLogger.info('Master key persisted/mirrored to sync-resilient storage.');
-                }
-            } catch (e) {
-                HealerLogger.error('Failed to encrypt master key for sync.', e);
             }
         }
     }
