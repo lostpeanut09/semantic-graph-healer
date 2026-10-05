@@ -51,6 +51,7 @@
     <button 
       class="mod-cta" 
       disabled={loading} 
+      aria-label={loading ? 'Searching...' : 'Search'}
       aria-busy={loading}
       onclick={handleSearch}
     >
@@ -62,6 +63,13 @@
     <div style="text-align: center; padding: 2em;">
       <div class="healer-spinner"></div>
       <p style="color: var(--text-muted); margin-top: 1em;">Synthesizing answer from knowledge graph clusters...</p>
+    </div>
+  {/if}
+
+  {#if !loading && !answer && communities.length === 0}
+    <div class="healer-card healer-empty-state" style="padding: 2em; text-align: center; border-style: dashed; color: var(--text-muted); margin-top: 1em;">
+      <div aria-hidden="true" style="font-size: 2em; margin-bottom: 0.5em;">🔍</div>
+      <p>Enter a query above to explore your knowledge graph.</p>
     </div>
   {/if}
 
