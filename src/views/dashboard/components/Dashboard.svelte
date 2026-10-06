@@ -110,8 +110,9 @@
         />
       {/each}
     {:else}
-      <div class="healer-card" style="padding: 1em; text-align: center; color: var(--text-muted);">
-        <p>No issues found for this category.</p>
+      <div class="healer-card healer-empty-state" style="padding: 2em; text-align: center; color: var(--text-muted); border-style: dashed; border-width: 2px;">
+        <span aria-hidden="true" style="font-size: 2em; display: block; margin-bottom: 0.5em;">🎉</span>
+        <p style="margin: 0;">You're all caught up! No issues found for this category.</p>
       </div>
     {/if}
   </div>
@@ -123,7 +124,10 @@
   </div>
   <div class="healer-history-list">
     {#if store.history.length === 0}
-      <p class="log-muted" style="color: var(--text-muted);">No actions performed yet.</p>
+      <div class="healer-card healer-empty-state" style="padding: 1.5em; text-align: center; color: var(--text-muted); border-style: dashed; border-width: 2px;">
+        <span aria-hidden="true" style="font-size: 1.5em; display: block; margin-bottom: 0.5em;">🕰️</span>
+        <p style="margin: 0; font-size: 0.9em;">Your history is clean. No actions performed yet.</p>
+      </div>
     {:else}
       {#each store.history.slice(-5).reverse() as item}
         <div class="healer-history-row" style="display: flex; gap: 8px; font-size: 0.9em; margin-bottom: 4px; align-items: center;">
