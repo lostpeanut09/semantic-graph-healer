@@ -432,9 +432,11 @@ export class TopologyAnalyzer {
         const resolvedLinks = this.context.app.metadataCache.resolvedLinks;
 
         // Build a set of all mentioned paths (targets)
+        // ⚡ Bolt: Avoid Object.values/keys for large object iteration to save O(N) memory allocations
         const allTargets = new Set<string>();
-        for (const targets of Object.values(resolvedLinks)) {
-            for (const targetPath of Object.keys(targets)) {
+        for (const source in resolvedLinks) {
+            const targets = resolvedLinks[source];
+            for (const targetPath in targets) {
                 allTargets.add(targetPath);
             }
         }
@@ -446,7 +448,15 @@ export class TopologyAnalyzer {
 
             // Check if it has outgoing links
             const outgoing = resolvedLinks[path];
-            if (outgoing && Object.keys(outgoing).length > 0) return;
+            let hasOutgoing = false;
+            if (outgoing) {
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                for (const _ in outgoing) {
+                    hasOutgoing = true;
+                    break;
+                }
+            }
+            if (hasOutgoing) return;
 
             suggestions.push({
                 id: `orphan:${path}`,
@@ -500,7 +510,13 @@ export class TopologyAnalyzer {
         pages.forEach((page) => {
             const path = page.file.path;
             const links = this.context.app.metadataCache.resolvedLinks[path] || {};
-            const linkCount = Object.keys(links).length;
+
+            // ⚡ Bolt: Use for...in counter instead of Object.keys().length to avoid massive array allocation overhead
+            let linkCount = 0;
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            for (const _ in links) {
+                linkCount++;
+            }
 
             if (linkCount > threshold) {
                 // If it's not already tagged as MOC, suggest it
