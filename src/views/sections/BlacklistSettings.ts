@@ -29,8 +29,9 @@ export function renderBlacklistSettings(containerEl: HTMLElement, ctx: SectionCo
         );
 
     plugin.settings.proximityIgnoreList.slice(-10).forEach((link: string) => {
-        const s = new Setting(containerEl).setName(link).addButton((btn) =>
-            btn
+        const s = new Setting(containerEl).setName(link).addButton((btn) => {
+            btn.buttonEl.setAttribute('aria-label', `Remove ${link} from ignore list`);
+            return btn
                 .setIcon('cross')
                 .setTooltip('Remove from ignore list')
                 .onClick(async () => {
@@ -39,8 +40,8 @@ export function renderBlacklistSettings(containerEl: HTMLElement, ctx: SectionCo
                     );
                     await plugin.saveSettings();
                     refresh();
-                }),
-        );
+                });
+        });
         s.settingEl.addClass('healer-setting-compact');
         s.infoEl.addClass('healer-setting-info-small');
     });
