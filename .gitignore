@@ -1,0 +1,10 @@
+.planning/
+node_modules/
+dist/
+main.js
+worker.js
+ladybug-worker.js
+*.log
+.DS_Store
+.entroly/
+.opencode-trace/
