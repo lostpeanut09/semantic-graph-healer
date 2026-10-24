@@ -4,7 +4,7 @@
 
 **Semantic Graph Healer**
 
-From-scratch rewrite of **Semantic Graph Healer**, an Obsidian plugin that diagnoses and repairs structural problems in large knowledge graphs (orphans, semantic conflicts, asymmetric links, missing chain links, hierarchy cycles, sink notes) and suggests — and applies — fixes. Desktop-first; source-available over GPL-3.0; published on GitHub and the Obsidian community directory. The author's own vault (`E:\Scuola 2`) is the primary test environment.
+From-scratch rewrite of **Semantic Graph Healer**, an Obsidian plugin that diagnoses and repairs structural problems in large knowledge graphs (orphans, semantic conflicts, asymmetric links, missing chain links, hierarchy cycles, sink notes) and suggests — and applies — fixes. Desktop-first; open source over GPL-3.0; published on GitHub and the Obsidian community directory. All development and verification happens in the dedicated `test-vault/`; the author's personal vault (`E:\Scuola 2`) is never a dev/test target.
 
 **Core Value:** Every run leaves the vault measurably better structured — trustworthy detection and safe repair of topology damage — without the user having to become a graph expert.
 <!-- GSD:project-end -->
@@ -200,7 +200,7 @@ From-scratch rewrite of **Semantic Graph Healer**, an Obsidian plugin that diagn
 - https://github.com/chhoumann/obsidian-test-kit — stub-alias pattern, peer vitest >=1.0.0, v0.1.0 — accessed 2026-10-23.
 - https://github.com/aidenlx/zotlit `apps/obsidian/__mocks__/obsidian.ts` — resolve.alias mock for a types-only obsidian package — accessed 2026-10-23.
 - https://vite.dev/guide/rolldown.html + rolldown.rs — Vite 8 (2026-03-12) moved to Rolldown+Oxc; tsdown is the Rolldown library bundler (context for "why not switch the plugin bundler") — accessed 2026-10-23.
-- No official Obsidian cap on plugin bundle size exists — the 250 KB main.js budget is the *project's* carried-over target, not a platform limit (fallback: measure startup delta on `E:\Scuola 2`, keep the CI gate as the enforcement).
+- No official Obsidian cap on plugin bundle size exists — the 250 KB main.js budget is the *project's* carried-over target, not a platform limit (fallback: measure startup delta on the dedicated `test-vault/`, keep the CI gate as the enforcement).
 - The community "obsidian-release" GitHub Action was not verified today (fallback: hand-rolled version-bump + `gh release create` with three assets).
 - `docs.obsidian.md` pages are JS-rendered and could not be fetched directly with three different fetch paths (ctx fetch, crawlberg browser, webfetch); the settings content above was recovered through search-highlight extraction of the same official URLs — treat wording as verified, but the in-page navigation/anchors as LOW confidence.
 - `@ladybugdb/wasm-core`'s exact WASM loading API for esbuild `file`-loader output is ARCHITECTURE's question — the STACK-level constraint (no built-in wasm loader, emit + instantiate) is verified.
