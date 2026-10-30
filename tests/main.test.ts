@@ -10,7 +10,14 @@ import SemanticGraphHealerPlugin from '../src/main';
 describe('SemanticGraphHealerPlugin', () => {
 	const makePlugin = () => {
 		const app = new App();
-		const manifest = { id: 'semantic-graph-healer', version: '1.0.0' };
+		const manifest = {
+		id: 'semantic-graph-healer',
+		name: 'Semantic Graph Healer',
+		version: '1.0.0',
+		minAppVersion: '1.13.0',
+		description: 'Diagnoses and repairs structural problems in large Obsidian knowledge graphs',
+		author: 'lostpeanut09',
+	};
 		return new SemanticGraphHealerPlugin(app, manifest);
 	};
 
