@@ -17,7 +17,7 @@
   "keywords": [],
   "license": "GPL-3.0-or-later",
   "devDependencies": {
-    "@eslint/js": "^9.39.5",
+    "@eslint/js": "^10.0.1",
     "@types/node": "^26.6.5",
     "@vitest/coverage-v8": "^5.0.5",
     "@vitest/web-worker": "^5.0.5",
