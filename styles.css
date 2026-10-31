@@ -1,0 +1,19 @@
+/* Semantic Graph Healer - main plugin styles */
+.sgl-container {
+	padding: 1em;
+}
+.sgl-node {
+	cursor: pointer;
+}
+.sgl-node:hover {
+	opacity: 0.8;
+}
+.sgl-status-ok {
+	color: var(--text-success);
+}
+.sgl-status-warn {
+	color: var(--text-warning);
+}
+.sgl-status-error {
+	color: var(--text-error);
+}

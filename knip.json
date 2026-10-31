@@ -1,0 +1,27 @@
+{
+	"$schema": "https://tomnr.github.io/knip/docs/schema.json",
+	"entry": ["src/main.ts"],
+	"project": ["src/**/*.ts"],
+	"ignoreDependencies": [
+		"^@types/*",
+		"@codemirror/*",
+		"@ladybugdb/wasm-core",
+		"@sveltejs/vite-plugin-svelte",
+		"3d-force-graph",
+		"three",
+		"graphology",
+		"graphology-metrics",
+		"obsidian-test-mocks",
+		"obsidian-typings",
+		"pathe",
+		"p-queue",
+		"jiti",
+		"@vitest/web-worker",
+		"lint-staged",
+		"prettier",
+		"globals",
+		"svelte",
+		"zod"
+	],
+	"ignore": ["main.js", "dist", "test-vault", ".planning"]
+}
