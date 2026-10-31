@@ -2,6 +2,8 @@
 
 ## Project
 
+WARNING: This is the AGENTS.MD for this project. however, first, read the GLOBAL AGENTS.MD first to understand the infrastructure on this machine: "C:\Users\utente\.config\opencode\AGENTS.md"
+
 **Semantic Graph Healer**
 
 From-scratch rewrite of **Semantic Graph Healer**, an Obsidian plugin that diagnoses and repairs structural problems in large knowledge graphs (orphans, semantic conflicts, asymmetric links, missing chain links, hierarchy cycles, sink notes) and suggests — and applies — fixes. Desktop-first; open source over GPL-3.0; published on GitHub and the Obsidian community directory. All development and verification happens in the dedicated `test-vault/`; the author's personal vault (`E:\Scuola 2`) is never a dev/test target.

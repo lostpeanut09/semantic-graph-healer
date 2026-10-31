@@ -1,0 +1,13 @@
+{
+  "id": "semantic-graph-healer",
+  "name": "Semantic Graph Healer",
+  "version": "1.0.0",
+  "minAppVersion": "1.13.0",
+  "description": "Diagnoses and repairs structural problems in large Obsidian knowledge graphs",
+  "author": {
+    "name": "lostpeanut09"
+  },
+  "authorUrl": "https://github.com/lostpeanut09",
+  "fundingUrl": "https://github.com/sponsors/lostpeanut09",
+  "isDesktopOnly": true
+}
