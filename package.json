@@ -22,7 +22,7 @@
     "@vitest/coverage-v8": "^5.0.5",
     "@vitest/web-worker": "^5.0.5",
     "@codemirror/state": "6.7.6",
-    "@codemirror/view": "6.43.13",
+    "@codemirror/view": "6.43.15",
     "@ladybugdb/wasm-core": "0.21.2",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "3d-force-graph": "^1.80.1",
